@@ -1,4 +1,12 @@
 import Login from "@/app/components/Login";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "Unauthorised Page",
+  },
+  description: "Please Login To Access LaundryEase.",
+};
 
 export default function Unauthorized() {
   return (
