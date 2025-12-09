@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "LaundryEase",
-  description: "Created As Group College Project By Ashfakh M",
+  description:
+    "Created As Group College Project By Ashfakh ArifaRehna AmnaFathima And AmalPaul",
 };
 
 export default function RootLayout({
