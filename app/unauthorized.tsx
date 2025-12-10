@@ -1,4 +1,4 @@
-import Login from "@/app/components/Login";
+import Signin from "@/app/components/Sign-in";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export default function Unauthorized() {
     <main>
       <h1>401 - Unauthorized</h1>
       <p>Please log in to access this page.</p>
-      <Login />
+      <Signin />
     </main>
   );
 }
