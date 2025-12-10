@@ -1,7 +1,9 @@
 const Home = () => {
   return (
     <div>
-      <h1>Welcome To LaundryEase</h1>
+      <h1 className="text-6xl font-semibold text-center mx-auto;">
+        Welcome To LaundryEase
+      </h1>
     </div>
   );
 };

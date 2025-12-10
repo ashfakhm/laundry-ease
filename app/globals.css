@@ -19,9 +19,6 @@
     --foreground: #ededed;
   }
 }
-h1 {
-  @apply text-6xl font-semibold text-center mx-auto;
-}
 h1,
 h2,
 h3,
