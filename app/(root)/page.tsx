@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
 const Home = () => {
   return (
@@ -7,18 +8,12 @@ const Home = () => {
         <h1 className="text-6xl font-semibold mx-auto">
           Welcome To LaundryEase
         </h1>
-        <Link
-          href="/sign-in"
-          className="inline-flex items-center justify-center rounded-full border px-6 py-3 font-semibold"
-        >
-          Sign In
-        </Link>
-        <Link
-          href="/sign-up"
-          className="inline-flex items-center justify-center rounded-full border px-6 py-3 font-semibold"
-        >
-          Sign Up
-        </Link>
+        <div className="inline-flex items-center justify-center rounded-full border px-6 py-3 font-semibold">
+          <SignInButton mode="modal" />
+        </div>
+        <div className="inline-flex items-center justify-center rounded-full border px-6 py-3 font-semibold">
+          <SignUpButton mode="modal" />
+        </div>
       </div>
     </main>
   );
