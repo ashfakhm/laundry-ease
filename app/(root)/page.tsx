@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
 
 const Home = () => {
   return (
