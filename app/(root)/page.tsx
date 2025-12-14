@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { SignInButton, SignUpButton, SignOutButton } from "@clerk/nextjs";
 
 const Home = () => {
   return (
@@ -13,6 +13,9 @@ const Home = () => {
         </div>
         <div className="inline-flex items-center justify-center rounded-full border px-6 py-3 font-semibold">
           <SignUpButton mode="modal" />
+        </div>
+        <div className="inline-flex items-center justify-center rounded-full border px-6 py-3 font-semibold">
+          <SignOutButton />
         </div>
       </div>
     </main>
