@@ -50,10 +50,8 @@ export async function POST(req: NextRequest) {
       });
     }
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Invalid data" },
-      { status: 400 }
-    );
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Invalid data";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

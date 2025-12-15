@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: { strategy: "jwt" },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn() {
       // Allow OAuth to create a session even if no DB user exists yet
       // App access is gated by middleware until role completion
       return true;
@@ -51,7 +51,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).role = (token as any).role ?? null;
+        session.user.role = (token.role as string | null) ?? null;
       }
       return session;
     },

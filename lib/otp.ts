@@ -35,7 +35,6 @@ export async function requestOtp(
 
   // In dev, we just log the code. Integrate email/SMS provider in prod.
   if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
     console.log(`[OTP] ${type} to ${target}: ${code}`);
   }
 
@@ -45,9 +44,19 @@ export async function requestOtp(
   };
 }
 
+type OtpRecord = {
+  target: string;
+  type: OtpType;
+  codeHash: string;
+  createdAt: Date;
+  expiresAt: Date;
+  attempts: number;
+  verified: boolean;
+};
+
 export async function verifyOtp(target: string, type: OtpType, code: string) {
   const db = await getDb();
-  const col = db.collection<any>("otp_codes");
+  const col = db.collection<OtpRecord>("otp_codes");
   const doc = await col.findOne(
     { target, type, verified: false },
     { sort: { createdAt: -1 } }
@@ -72,7 +81,7 @@ export async function isOtpVerifiedRecently(
   minutes = 30
 ) {
   const db = await getDb();
-  const col = db.collection<any>("otp_codes");
+  const col = db.collection<OtpRecord>("otp_codes");
   const since = new Date(Date.now() - minutes * 60_000);
   const doc = await col.findOne(
     { target, type, verified: true, createdAt: { $gte: since } },
