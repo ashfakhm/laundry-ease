@@ -1,4 +1,4 @@
-import { SignInButton } from "@clerk/nextjs";
+import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -13,7 +13,9 @@ export default function Unauthorized() {
     <main>
       <h1>401 - Unauthorized</h1>
       <p>Please log in to access this page.</p>
-      <SignInButton />
+      <Link href="/signin" className="text-primary hover:underline">
+        Sign In
+      </Link>
     </main>
   );
 }
