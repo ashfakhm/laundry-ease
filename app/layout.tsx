@@ -18,16 +18,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body className="min-h-screen w-full">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <main className="max-w-7xl mx-auto w-full px-4 md:px-6 lg:px-8">
-            {children}
-          </main>
+          {children}
         </ThemeProvider>
       </body>
     </html>

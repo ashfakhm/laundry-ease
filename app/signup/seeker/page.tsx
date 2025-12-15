@@ -64,6 +64,8 @@ export default function SeekerSignupPage() {
   }
   async function verifyEmail() {
     setError(null);
+    if (!form.email) return setError("Please enter your email first");
+    if (!emailCode) return setError("Please enter the verification code");
     const { ok, data } = await postJSON("/api/otp/verify", {
       target: form.email,
       type: "email",
@@ -74,6 +76,8 @@ export default function SeekerSignupPage() {
   }
   async function verifyPhone() {
     setError(null);
+    if (!form.phone) return setError("Please enter your phone number first");
+    if (!phoneCode) return setError("Please enter the verification code");
     const { ok, data } = await postJSON("/api/otp/verify", {
       target: form.phone,
       type: "phone",
@@ -102,175 +106,328 @@ export default function SeekerSignupPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={submit} className="w-full max-w-2xl space-y-4">
-        <h1 className="text-2xl font-semibold">Sign up (Seeker)</h1>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="Full name"
-            value={form.name}
-            onChange={(e) => set("name", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="Username"
-            value={form.username}
-            onChange={(e) => set("username", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => set("email", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            type="password"
-            placeholder="Password (min 8)"
-            value={form.password}
-            onChange={(e) => set("password", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="Phone"
-            value={form.phone}
-            onChange={(e) => set("phone", e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="Address line"
-            value={form.address.line1}
-            onChange={(e) => setAddr("line1", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="City"
-            value={form.address.city}
-            onChange={(e) => setAddr("city", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="State"
-            value={form.address.state}
-            onChange={(e) => setAddr("state", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="Country"
-            value={form.address.country}
-            onChange={(e) => setAddr("country", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="Postal Code"
-            value={form.address.postalCode}
-            onChange={(e) => setAddr("postalCode", e.target.value)}
-            required
-          />
-          <input
-            className="px-3 py-2 rounded border"
-            placeholder="Nearby landmark (optional)"
-            value={form.address.landmark}
-            onChange={(e) => setAddr("landmark", e.target.value)}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <p className="font-medium">Email verification</p>
-            <div className="flex gap-2 mt-2">
-              <button
-                type="button"
-                className="px-3 py-2 rounded border"
-                onClick={sendEmailOtp}
-                disabled={!form.email}
+    <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-900 via-slate-900 to-zinc-900">
+      <form onSubmit={submit} className="w-full max-w-4xl">
+        <div className="bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-10 space-y-8 border border-gray-700">
+          <div className="text-center space-y-3">
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-xl">
+              <svg
+                className="w-10 h-10 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                Send OTP
-              </button>
-              <input
-                className="px-3 py-2 rounded border flex-1"
-                placeholder="Enter code"
-                value={emailCode}
-                onChange={(e) => setEmailCode(e.target.value)}
-              />
-              <button
-                type="button"
-                className="px-3 py-2 rounded border"
-                onClick={verifyEmail}
-                disabled={emailVerified}
-              >
-                Verify
-              </button>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
             </div>
-            {emailOtpSent && process.env.NODE_ENV !== "production" && (
-              <p className="text-xs text-muted-foreground">
-                Dev code: {emailOtpSent}
-              </p>
-            )}
-            {emailVerified && (
-              <p className="text-xs text-green-600">Email verified</p>
-            )}
+            <h1 className="text-4xl font-bold text-white">
+              Create Seeker Account
+            </h1>
+            <p className="text-gray-400 text-lg">
+              Join to find laundry services near you
+            </p>
           </div>
-          <div>
-            <p className="font-medium">Phone verification</p>
-            <div className="flex gap-2 mt-2">
-              <button
-                type="button"
-                className="px-3 py-2 rounded border"
-                onClick={sendPhoneOtp}
-                disabled={!form.phone}
-              >
-                Send OTP
-              </button>
-              <input
-                className="px-3 py-2 rounded border flex-1"
-                placeholder="Enter code"
-                value={phoneCode}
-                onChange={(e) => setPhoneCode(e.target.value)}
-              />
-              <button
-                type="button"
-                className="px-3 py-2 rounded border"
-                onClick={verifyPhone}
-                disabled={phoneVerified}
-              >
-                Verify
-              </button>
-            </div>
-            {phoneOtpSent && process.env.NODE_ENV !== "production" && (
-              <p className="text-xs text-muted-foreground">
-                Dev code: {phoneOtpSent}
-              </p>
-            )}
-            {phoneVerified && (
-              <p className="text-xs text-green-600">Phone verified</p>
-            )}
-          </div>
-        </div>
 
-        <button
-          disabled={loading || !emailVerified || !phoneVerified}
-          className="w-full px-4 py-2 rounded bg-primary text-primary-foreground disabled:opacity-60"
-        >
-          {loading ? "Creating account..." : "Create account"}
-        </button>
+          {error && (
+            <div className="p-4 rounded-lg bg-red-900/50 border border-red-700">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Full Name
+                </label>
+                <input
+                  className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  placeholder="John Doe"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Username
+                </label>
+                <input
+                  className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  placeholder="johndoe"
+                  value={form.username}
+                  onChange={(e) => set("username", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Email
+                </label>
+                <input
+                  className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Password
+                </label>
+                <input
+                  className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  type="password"
+                  placeholder="Minimum 8 characters"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                  placeholder="+1234567890"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-gray-900">Address</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Street Address
+                  </label>
+                  <input
+                    className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    placeholder="123 Main St"
+                    value={form.address.line1}
+                    onChange={(e) => setAddr("line1", e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    City
+                  </label>
+                  <input
+                    className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    placeholder="New York"
+                    value={form.address.city}
+                    onChange={(e) => setAddr("city", e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    State
+                  </label>
+                  <input
+                    className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    placeholder="NY"
+                    value={form.address.state}
+                    onChange={(e) => setAddr("state", e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Country
+                  </label>
+                  <input
+                    className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    placeholder="USA"
+                    value={form.address.country}
+                    onChange={(e) => setAddr("country", e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Postal Code
+                  </label>
+                  <input
+                    className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    placeholder="10001"
+                    value={form.address.postalCode}
+                    onChange={(e) => setAddr("postalCode", e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Nearby Landmark (Optional)
+                  </label>
+                  <input
+                    className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+                    placeholder="Near Central Park"
+                    value={form.address.landmark}
+                    onChange={(e) => setAddr("landmark", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 border border-gray-600 rounded-xl p-6 bg-gray-700/50">
+              <h3 className="font-semibold text-lg text-white">Verification</h3>
+
+              <div className="space-y-4">
+                {/* Email OTP */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-300">
+                      Email Verification
+                    </label>
+                    {emailVerified && (
+                      <div className="flex items-center gap-1.5 text-green-400">
+                        <svg
+                          className="w-5 h-5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-sm font-medium">Verified</span>
+                      </div>
+                    )}
+                  </div>
+                  {!emailVerified && (
+                    <div className="flex gap-2">
+                      {!emailOtpSent ? (
+                        <button
+                          type="button"
+                          className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
+                          onClick={sendEmailOtp}
+                          disabled={!form.email}
+                        >
+                          Send OTP
+                        </button>
+                      ) : (
+                        <>
+                          <input
+                            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                            placeholder="Enter 6-digit code"
+                            value={emailCode}
+                            onChange={(e) => setEmailCode(e.target.value)}
+                            maxLength={6}
+                          />
+                          <button
+                            type="button"
+                            className="px-4 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-all"
+                            onClick={verifyEmail}
+                          >
+                            Verify
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {emailOtpSent &&
+                    !emailVerified &&
+                    process.env.NODE_ENV !== "production" && (
+                      <p className="text-xs text-gray-400">
+                        Dev code:{" "}
+                        <span className="font-mono font-bold text-green-400">
+                          {emailOtpSent}
+                        </span>
+                      </p>
+                    )}
+                </div>
+
+                {/* Phone OTP */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-300">
+                      Phone Verification
+                    </label>
+                    {phoneVerified && (
+                      <div className="flex items-center gap-1.5 text-green-400">
+                        <svg
+                          className="w-5 h-5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-sm font-medium">Verified</span>
+                      </div>
+                    )}
+                  </div>
+                  {!phoneVerified && (
+                    <div className="flex gap-2">
+                      {!phoneOtpSent ? (
+                        <button
+                          type="button"
+                          className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
+                          onClick={sendPhoneOtp}
+                          disabled={!form.phone}
+                        >
+                          Send OTP
+                        </button>
+                      ) : (
+                        <>
+                          <input
+                            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                            placeholder="Enter 6-digit code"
+                            value={phoneCode}
+                            onChange={(e) => setPhoneCode(e.target.value)}
+                            maxLength={6}
+                          />
+                          <button
+                            type="button"
+                            className="px-4 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-all"
+                            onClick={verifyPhone}
+                          >
+                            Verify
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {phoneOtpSent &&
+                    !phoneVerified &&
+                    process.env.NODE_ENV !== "production" && (
+                      <p className="text-xs text-gray-400">
+                        Dev code:{" "}
+                        <span className="font-mono font-bold text-green-400">
+                          {phoneOtpSent}
+                        </span>
+                      </p>
+                    )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            disabled={loading || !emailVerified || !phoneVerified}
+            className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-2xl transform hover:-translate-y-0.5"
+          >
+            {loading ? "Creating account..." : "Create account"}
+          </button>
+        </div>
       </form>
     </main>
   );

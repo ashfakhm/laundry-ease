@@ -1,4 +1,7 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth from "next-auth";
+// @ts-expect-error - next-auth exports have type resolution issues
+import type { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { getUserByEmail } from "@/lib/db";
@@ -41,7 +44,7 @@ export const authOptions: NextAuthOptions = {
       // App access is gated by middleware until role completion
       return true;
     },
-    async jwt({ token }) {
+    async jwt({ token }: { token: JWT }) {
       // Populate token.role from DB if available
       if (token?.email) {
         const dbUser = await getUserByEmail(token.email as string);
@@ -49,7 +52,7 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: any; token: JWT }) {
       if (session.user) {
         session.user.role = (token.role as string | null) ?? null;
       }
@@ -58,5 +61,6 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
+// @ts-expect-error - NextAuth default export has call signature at runtime
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

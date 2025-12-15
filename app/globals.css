@@ -124,8 +124,12 @@
   * {
     font-family: inherit;
   }
-  html,
+  html {
+    @apply h-full w-full;
+    font-family: var(--font-body);
+  }
   body {
+    @apply h-full w-full min-h-screen;
     font-family: var(--font-body);
   }
   h1,

@@ -11,6 +11,7 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
+    email?: string | null;
     role?: "seeker" | "provider" | null;
   }
 }
