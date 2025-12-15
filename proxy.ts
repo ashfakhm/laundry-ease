@@ -15,7 +15,10 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/choose-role") ||
-    pathname.startsWith("/complete-signup")
+    pathname.startsWith("/complete-signup") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/api/otp") ||
+    pathname.startsWith("/api/signup")
   ) {
     return NextResponse.next();
   }

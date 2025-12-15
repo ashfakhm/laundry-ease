@@ -18,6 +18,12 @@ const Home = () => {
             Get Started
           </Link>
           <Link
+            href="/signup/seeker"
+            className="inline-flex items-center justify-center rounded-full border px-6 py-3 font-semibold hover:bg-accent transition-colors"
+          >
+            Sign up as Seeker
+          </Link>
+          <Link
             href="/auth"
             className="inline-flex items-center justify-center rounded-full border px-6 py-3 font-semibold hover:bg-accent transition-colors"
           >
