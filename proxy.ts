@@ -32,20 +32,14 @@ const isPublicRoute = createRouteMatcher([
   /^\/api\/signup/,
 ]);
 
-const isAdminRoute = createRouteMatcher([
-  "/admin",
-  "/dashboard/admin",
-]);
+const isAdminRoute = createRouteMatcher(["/admin", "/dashboard/admin"]);
 
 const isProviderRoute = createRouteMatcher([
   "/provider",
   "/dashboard/provider",
 ]);
 
-const isSeekerRoute = createRouteMatcher([
-  "/seeker",
-  "/dashboard/seeker",
-]);
+const isSeekerRoute = createRouteMatcher(["/seeker", "/dashboard/seeker"]);
 
 /* ================= MIDDLEWARE ================= */
 

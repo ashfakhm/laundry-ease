@@ -26,4 +26,4 @@ export async function getDb() {
   return conn.db(dbName);
 }
 
-export type Role = "seeker" | "provider";
+export type Role = "seeker" | "provider" | "admin";
