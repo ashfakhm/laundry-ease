@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 // @ts-expect-error - next-auth exports have type resolution issues
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
@@ -52,9 +52,10 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    async session({ session, token }: { session: any; token: JWT }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user) {
-        session.user.role = (token.role as string | null) ?? null;
+        session.user.role =
+          (token.role as "seeker" | "provider" | "admin" | null) ?? null;
       }
       return session;
     },
