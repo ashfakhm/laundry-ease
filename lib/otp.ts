@@ -1,5 +1,7 @@
 import { getDb } from "./mongodb";
 import bcrypt from "bcrypt";
+import nodemailer from "nodemailer";
+import twilio from "twilio";
 
 type OtpType = "email" | "phone";
 
@@ -8,11 +10,27 @@ function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+const emailTransporter = nodemailer.createTransport({
+  service: "Gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  debug: true, // Enable debug mode
+  logger: true, // Log information
+});
+
+const smsClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
 export async function requestOtp(
   target: string,
   type: OtpType,
   ttlMinutes = 10
 ) {
+  console.log(`[OTP] Request initiated for ${type} to ${target}`);
   const { db } = await getDb();
   const code = generateCode();
   const hash = await bcrypt.hash(code, 10);
@@ -20,9 +38,6 @@ export async function requestOtp(
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
 
   const col = db.collection("otp_codes");
-  // NOTE: A TTL index on `expiresAt` should be created in the database
-  // db.collection("otp_codes").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
   await col.insertOne({
     target,
     type,
@@ -33,11 +48,31 @@ export async function requestOtp(
     verified: false,
   });
 
-  // In dev, we just log the code. Integrate email/SMS provider in prod.
-  if (process.env.NODE_ENV !== "production") {
-    console.log(`[OTP] ${type} to ${target}: ${code}`);
+  try {
+    if (type === "email") {
+      console.log(`[OTP] Sending email to ${target}`);
+      await emailTransporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: target,
+        subject: "Your OTP Code",
+        text: `Your OTP code is ${code}. It will expire in ${ttlMinutes} minutes.`,
+      });
+      console.log(`[OTP] Email sent successfully to ${target}`);
+    } else if (type === "phone") {
+      console.log(`[OTP] Sending SMS to ${target}`);
+      await smsClient.messages.create({
+        body: `Your OTP code is ${code}. It will expire in ${ttlMinutes} minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: target,
+      });
+      console.log(`[OTP] SMS sent successfully to ${target}`);
+    }
+  } catch (error) {
+    console.error(`[OTP] Failed to send OTP to ${target}:`, error);
+    return { ok: false, error: "Failed to send OTP" };
   }
 
+  console.log(`[OTP] Request completed for ${type} to ${target}`);
   return {
     ok: true,
   };
@@ -79,12 +114,25 @@ export async function isOtpVerifiedRecently(
   type: OtpType,
   minutes = 30
 ) {
+  console.log(
+    `[OTP] Verifying if ${type} for ${target} was verified in the last ${minutes} minutes.`
+  );
   const { db } = await getDb();
   const col = db.collection<OtpRecord>("otp_codes");
   const since = new Date(Date.now() - minutes * 60_000);
-  const doc = await col.findOne(
-    { target, type, verified: true, createdAt: { $gte: since } },
-    { sort: { createdAt: -1 } }
-  );
-  return Boolean(doc);
+
+  const doc = await col.findOne({
+    target,
+    type,
+    verified: true,
+    createdAt: { $gte: since },
+  });
+
+  if (doc) {
+    console.log(`[OTP] Verified OTP found for ${type} to ${target}.`);
+  } else {
+    console.log(`[OTP] No verified OTP found for ${type} to ${target}.`);
+  }
+
+  return !!doc;
 }

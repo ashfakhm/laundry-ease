@@ -15,6 +15,11 @@ export async function POST(req: NextRequest) {
   }
 
   const { target, type } = parsed.data;
-  await requestOtp(target, type);
-  return NextResponse.json({ ok: true });
+  const result = await requestOtp(target, type);
+
+  if (!result.ok) {
+    return NextResponse.json(result, { status: 500 });
+  }
+
+  return NextResponse.json(result);
 }
