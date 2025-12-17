@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getDb } from "@/lib/mongodb";
-import bcrypt from "bcrypt";
+import { emailExists, createProvider } from "@/lib/db";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 
 const schema = z.object({
@@ -46,66 +45,24 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { db, client } = await getDb();
-  const session = client.startSession();
-
-  try {
-    session.startTransaction();
-
-    const users = db.collection("users");
-
-    const existing = await users.findOne({ email }, { session });
-    if (existing) {
-      await session.abortTransaction();
-      return NextResponse.json(
-        { error: "Email already in use" },
-        { status: 409 }
-      );
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const now = new Date();
-
-    const userRes = await users.insertOne(
-      {
-        email,
-        role: "provider",
-        name,
-        phone,
-        emailVerified: true,
-        phoneVerified: true,
-        passwordHash,
-        createdAt: now,
-      },
-      { session }
-    );
-
-    // Create provider profile
-    const providers = db.collection("providers");
-    await providers.insertOne(
-      {
-        userId: userRes.insertedId,
-        businessName,
-        bio,
-        description,
-        pricingRates,
-        tags,
-        location,
-        createdAt: now,
-      },
-      { session }
-    );
-
-    await session.commitTransaction();
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    await session.abortTransaction();
-    console.error("Provider signup failed:", error);
+  // Check if email already exists in any collection
+  const exists = await emailExists(email);
+  if (exists) {
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: "Email already in use" },
+      { status: 409 }
     );
-  } finally {
-    await session.endSession();
   }
+
+  // Create provider in providers collection with business details
+  await createProvider({
+    email,
+    name,
+    phone,
+    password,
+    services: tags, // tags as services
+    location,
+  });
+
+  return NextResponse.json({ ok: true });
 }

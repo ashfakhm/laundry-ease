@@ -23,10 +23,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials");
         }
         const { email, password } = credentials;
+
+        // Check seekers → providers → admins collections in order
         const user = await getUserByEmail(email);
 
-        if (!user || !user.passwordHash) {
+        if (!user) {
           throw new Error("NO_ACCOUNT");
+        }
+
+        if (!user.passwordHash) {
+          throw new Error("NO_PASSWORD_SET");
         }
 
         const isValid = await bcrypt.compare(password, user.passwordHash);
@@ -50,9 +56,20 @@ export const authOptions: NextAuthOptions = {
   ],
   session: { strategy: "jwt" },
   callbacks: {
-    async signIn() {
-      // Allow OAuth to create a session even if no DB user exists yet
-      // App access is gated by middleware until role completion
+    async signIn({ user, account }) {
+      // For Google OAuth, check if user exists in database
+      if (account?.provider === "google") {
+        const dbUser = await getUserByEmail(user.email);
+        if (!dbUser) {
+          // User doesn't exist in any collection
+          throw new Error("NO_ACCOUNT_PLEASE_SIGNUP");
+        }
+        // Update user object with role from database
+        user.role = dbUser.role;
+        return true;
+      }
+
+      // Allow credentials provider (already validated in authorize)
       return true;
     },
     async jwt({ token, user }) {

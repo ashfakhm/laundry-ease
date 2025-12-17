@@ -1,4 +1,3 @@
-// @ts-expect-error - next-auth exports have type resolution issues
 import { getToken } from "next-auth/jwt";
 import type { JWT } from "next-auth/jwt";
 import { NextResponse } from "next/server";

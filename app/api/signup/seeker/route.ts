@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getDb } from "@/lib/mongodb";
-import bcrypt from "bcrypt";
+import { emailExists, createSeeker } from "@/lib/db";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 
 const schema = z.object({
@@ -37,30 +36,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { db } = await getDb();
-  const users = db.collection("users");
-
-  const existing = await users.findOne({ email });
-  if (existing) {
+  // Check if email already exists in any collection
+  const exists = await emailExists(email);
+  if (exists) {
     return NextResponse.json(
       { error: "Email already in use" },
       { status: 409 }
     );
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  const now = new Date();
-
-  await users.insertOne({
+  // Create seeker in seekers collection
+  await createSeeker({
     email,
-    role: "seeker",
     name,
     phone,
-    emailVerified: true,
-    phoneVerified: true,
-    address,
-    passwordHash,
-    createdAt: now,
+    password,
   });
 
   return NextResponse.json({ ok: true });
