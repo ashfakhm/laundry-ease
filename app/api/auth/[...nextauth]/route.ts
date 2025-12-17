@@ -61,8 +61,8 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "google") {
         const dbUser = await getUserByEmail(user.email);
         if (!dbUser) {
-          // User doesn't exist in any collection
-          throw new Error("NO_ACCOUNT_PLEASE_SIGNUP");
+          // Redirect to choose role page
+          return "/choose-role";
         }
         // Update user object with role from database
         user.role = dbUser.role;
@@ -85,6 +85,9 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+  },
+  pages: {
+    error: "/choose-role", // Redirect to choose role page on error
   },
 };
 
