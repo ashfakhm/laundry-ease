@@ -15,6 +15,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { target, type } = parsed.data;
-  const res = await requestOtp(target, type);
-  return NextResponse.json({ ok: true, devCode: res.devCode });
+  await requestOtp(target, type);
+  return NextResponse.json({ ok: true });
 }

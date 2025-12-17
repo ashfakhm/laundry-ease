@@ -13,15 +13,15 @@ export async function requestOtp(
   type: OtpType,
   ttlMinutes = 10
 ) {
-  const db = await getDb();
+  const { db } = await getDb();
   const code = generateCode();
   const hash = await bcrypt.hash(code, 10);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
 
   const col = db.collection("otp_codes");
-  // Ensure TTL index exists (expires after expiresAt)
-  await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  // NOTE: A TTL index on `expiresAt` should be created in the database
+  // db.collection("otp_codes").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
   await col.insertOne({
     target,
@@ -40,7 +40,6 @@ export async function requestOtp(
 
   return {
     ok: true,
-    devCode: process.env.NODE_ENV !== "production" ? code : undefined,
   };
 }
 
@@ -55,7 +54,7 @@ type OtpRecord = {
 };
 
 export async function verifyOtp(target: string, type: OtpType, code: string) {
-  const db = await getDb();
+  const { db } = await getDb();
   const col = db.collection<OtpRecord>("otp_codes");
   const doc = await col.findOne(
     { target, type, verified: false },
@@ -80,7 +79,7 @@ export async function isOtpVerifiedRecently(
   type: OtpType,
   minutes = 30
 ) {
-  const db = await getDb();
+  const { db } = await getDb();
   const col = db.collection<OtpRecord>("otp_codes");
   const since = new Date(Date.now() - minutes * 60_000);
   const doc = await col.findOne(

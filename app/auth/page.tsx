@@ -1,12 +1,15 @@
 "use client";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import React from "react";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<React.ReactNode | null>(null);
+  const router = useRouter();
 
   async function onCredentials(e: React.FormEvent) {
     e.preventDefault();
@@ -15,10 +18,26 @@ export default function AuthPage() {
     const res = await signIn("credentials", {
       email,
       password,
-      redirect: true,
-      callbackUrl: "/",
+      redirect: false,
     });
-    if (res?.error) setError(res.error);
+    if (res?.ok) {
+      router.push("/");
+    } else {
+      if (res?.error === "NO_ACCOUNT") {
+        setError(
+          <>
+            Account not found.{" "}
+            <a href="/choose-role" className="underline">
+              Sign up
+            </a>
+          </>
+        );
+      } else if (res?.error === "INVALID_CREDENTIALS") {
+        setError("Invalid email or password.");
+      } else {
+        setError(res?.error || "An unknown error occurred");
+      }
+    }
     setLoading(false);
   }
 

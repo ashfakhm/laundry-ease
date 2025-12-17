@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const db = await getDb();
+  const { db } = await getDb();
   const users = db.collection("users");
 
   const existing = await users.findOne({ email });

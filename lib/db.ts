@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
-import { getDb, Role } from "./mongodb";
+import { getDb } from "./mongodb";
+import { Role } from "@/types/enums";
 import bcrypt from "bcrypt";
 
 export type User = {
@@ -7,13 +8,24 @@ export type User = {
   email: string;
   role: Role | null;
   name?: string | null;
+  phone?: string | null;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  address?: {
+    line1: string;
+    city: string;
+    state: string;
+    country: string;
+    postalCode: string;
+    landmark?: string;
+  } | null;
   passwordHash?: string | null;
   createdAt: Date;
 };
 
 export async function getUserByEmail(email?: string | null) {
   if (!email) return null;
-  const db = await getDb();
+  const { db } = await getDb();
   return db.collection<User>("users").findOne({ email });
 }
 
@@ -23,7 +35,7 @@ export async function createUser(data: {
   name?: string | null;
   password?: string;
 }) {
-  const db = await getDb();
+  const { db } = await getDb();
   const now = new Date();
   const passwordHash = data.password
     ? await bcrypt.hash(data.password, 10)
@@ -41,6 +53,17 @@ export async function createUser(data: {
   return { ...user, _id: res.insertedId };
 }
 
+export async function updateUserRoleAndName(
+  email: string,
+  data: { role: Role; name: string }
+) {
+  const { db } = await getDb();
+  const res = await db
+    .collection<User>("users")
+    .updateOne({ email }, { $set: data });
+  return res;
+}
+
 export type ProviderProfile = {
   _id?: ObjectId;
   userId: ObjectId;
@@ -51,7 +74,7 @@ export type ProviderProfile = {
 };
 
 export async function createProviderProfile(profile: ProviderProfile) {
-  const db = await getDb();
+  const { db } = await getDb();
   const res = await db
     .collection<ProviderProfile>("providers")
     .insertOne(profile);

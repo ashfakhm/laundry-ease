@@ -46,43 +46,66 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const db = await getDb();
-  const users = db.collection("users");
+  const { db, client } = await getDb();
+  const session = client.startSession();
 
-  const existing = await users.findOne({ $or: [{ email }] });
-  if (existing) {
-    return NextResponse.json(
-      { error: "Email already in use" },
-      { status: 409 }
+  try {
+    session.startTransaction();
+
+    const users = db.collection("users");
+
+    const existing = await users.findOne({ email }, { session });
+    if (existing) {
+      await session.abortTransaction();
+      return NextResponse.json(
+        { error: "Email already in use" },
+        { status: 409 }
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const now = new Date();
+
+    const userRes = await users.insertOne(
+      {
+        email,
+        role: "provider",
+        name,
+        phone,
+        emailVerified: true,
+        phoneVerified: true,
+        passwordHash,
+        createdAt: now,
+      },
+      { session }
     );
+
+    // Create provider profile
+    const providers = db.collection("providers");
+    await providers.insertOne(
+      {
+        userId: userRes.insertedId,
+        businessName,
+        bio,
+        description,
+        pricingRates,
+        tags,
+        location,
+        createdAt: now,
+      },
+      { session }
+    );
+
+    await session.commitTransaction();
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Provider signup failed:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  } finally {
+    await session.endSession();
   }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const now = new Date();
-
-  const userRes = await users.insertOne({
-    email,
-    role: "provider",
-    name,
-    phone,
-    emailVerified: true,
-    phoneVerified: true,
-    passwordHash,
-    createdAt: now,
-  });
-
-  // Create provider profile
-  const providers = db.collection("providers");
-  await providers.insertOne({
-    userId: userRes.insertedId,
-    businessName,
-    bio,
-    description,
-    pricingRates,
-    tags,
-    location,
-    createdAt: now,
-  });
-
-  return NextResponse.json({ ok: true });
 }

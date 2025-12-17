@@ -33,12 +33,10 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 const isAdminRoute = createRouteMatcher(["/admin", "/dashboard/admin"]);
-
 const isProviderRoute = createRouteMatcher([
   "/provider",
   "/dashboard/provider",
 ]);
-
 const isSeekerRoute = createRouteMatcher(["/seeker", "/dashboard/seeker"]);
 
 /* ================= MIDDLEWARE ================= */
@@ -46,6 +44,20 @@ const isSeekerRoute = createRouteMatcher(["/seeker", "/dashboard/seeker"]);
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const token = (await getToken({ req })) as JWT | null;
+
+  // Role-based redirects for authenticated users
+  if (token && pathname === "/") {
+    const role = token.role as string;
+    if (role === "admin") {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
+    if (role === "provider") {
+      return NextResponse.redirect(new URL("/provider", req.url));
+    }
+    if (role === "seeker") {
+      return NextResponse.redirect(new URL("/seeker", req.url));
+    }
+  }
 
   /* 1️⃣ Public routes */
   if (isPublicRoute(req)) {

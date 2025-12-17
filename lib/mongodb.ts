@@ -21,9 +21,9 @@ function createClientPromise(): Promise<MongoClient> {
 
 export async function getDb() {
   if (!clientPromise) clientPromise = createClientPromise();
-  const conn = await clientPromise;
+  const client = await clientPromise;
   const dbName = process.env.MONGODB_DB || "laundryease";
-  return conn.db(dbName);
+  return { db: client.db(dbName), client };
 }
 
 export type Role = "seeker" | "provider" | "admin";
