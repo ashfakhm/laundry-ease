@@ -8,11 +8,6 @@ const schema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
-  username: z
-    .string()
-    .min(3)
-    .max(32)
-    .regex(/^[a-zA-Z0-9_]+$/),
   phone: z.string().min(8),
   address: z.object({
     line1: z.string().min(3),
@@ -30,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
-  const { name, email, password, username, phone, address } = parsed.data;
+  const { name, email, password, phone, address } = parsed.data;
 
   // Require verified OTPs for email and phone
   const emailOk = await isOtpVerifiedRecently(email, "email");
@@ -45,10 +40,10 @@ export async function POST(req: NextRequest) {
   const db = await getDb();
   const users = db.collection("users");
 
-  const existing = await users.findOne({ $or: [{ email }, { username }] });
+  const existing = await users.findOne({ email });
   if (existing) {
     return NextResponse.json(
-      { error: "Email or username already in use" },
+      { error: "Email already in use" },
       { status: 409 }
     );
   }
@@ -60,7 +55,6 @@ export async function POST(req: NextRequest) {
     email,
     role: "seeker",
     name,
-    username,
     phone,
     emailVerified: true,
     phoneVerified: true,

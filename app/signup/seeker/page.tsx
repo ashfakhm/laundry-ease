@@ -17,7 +17,6 @@ export default function SeekerSignupPage() {
     name: "",
     email: "",
     password: "",
-    username: "",
     phone: "",
     address: {
       line1: "",
@@ -150,18 +149,6 @@ export default function SeekerSignupPage() {
                   placeholder="John Doe"
                   value={form.name}
                   onChange={(e) => set("name", e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Username
-                </label>
-                <input
-                  className="w-full px-5 py-3.5 rounded-xl border-2 border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
-                  placeholder="johndoe"
-                  value={form.username}
-                  onChange={(e) => set("username", e.target.value)}
                   required
                 />
               </div>
