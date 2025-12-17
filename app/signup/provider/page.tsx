@@ -40,6 +40,19 @@ export default function ProviderSignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Normalize phone to E.164; default to +91 for 10-digit Indian numbers
+  function normalizePhone(input: string) {
+    const raw = (input || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("+")) return raw;
+    const digits = raw.replace(/\D+/g, "");
+    if (digits.length === 10) return `+91${digits}`;
+    if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
+    if (digits.length === 11 && digits.startsWith("0"))
+      return `+91${digits.slice(1)}`;
+    return raw.startsWith("+") ? raw : `+${digits || raw}`;
+  }
+
   function set<K extends keyof typeof form>(k: K, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
   }
@@ -69,17 +82,17 @@ export default function ProviderSignupPage() {
       type: "email",
     });
     if (!ok) return setError(data?.error || "Failed to send email OTP");
-    setEmailOtpSent(data.devCode || "sent");
+    setEmailOtpSent("OTP sent to your email");
   }
 
   async function sendPhoneOtp() {
     setError(null);
     const { ok, data } = await postJSON("/api/otp/request", {
-      target: form.phone,
+      target: normalizePhone(form.phone),
       type: "phone",
     });
     if (!ok) return setError(data?.error || "Failed to send phone OTP");
-    setPhoneOtpSent(data.devCode || "sent");
+    setPhoneOtpSent("OTP sent via SMS");
   }
 
   async function verifyEmail() {
@@ -100,7 +113,7 @@ export default function ProviderSignupPage() {
     if (!form.phone) return setError("Please enter your phone number first");
     if (!phoneCode) return setError("Please enter the verification code");
     const { ok, data } = await postJSON("/api/otp/verify", {
-      target: form.phone,
+      target: normalizePhone(form.phone),
       type: "phone",
       code: phoneCode,
     });
@@ -126,7 +139,7 @@ export default function ProviderSignupPage() {
       name: form.name,
       email: form.email,
       password: form.password,
-      phone: form.phone,
+      phone: normalizePhone(form.phone),
       businessName: form.businessName,
       bio: form.bio,
       description: form.description,
@@ -244,6 +257,9 @@ export default function ProviderSignupPage() {
                 onChange={(e) => set("phone", e.target.value)}
                 required
               />
+              <p className="text-xs text-gray-400 mt-1">
+                We’ll automatically add +91 for Indian mobile numbers.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
