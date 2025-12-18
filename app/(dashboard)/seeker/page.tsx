@@ -1,3 +1,6 @@
+import { LaundryCycleSteps } from "@/components/ui/laundry-cycle-steps";
+import { LaundryOrderCardPlaceholder } from "@/components/ui/laundry-order-card";
+
 export default function SeekerDashboardPage() {
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-6">
@@ -49,19 +52,18 @@ export default function SeekerDashboardPage() {
 
         <section className="grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border bg-card p-4 shadow-sm">
-            <h2 className="mb-2 text-sm font-semibold">Next steps</h2>
-            <p className="text-sm text-muted-foreground">
-              Once you add bookings and orders, this area can show you a
-              timeline of pickups, washing, delivery, and the 24‑hour escrow
-              window.
-            </p>
+            <h2 className="mb-2 text-sm font-semibold">
+              Your LaundryEase cycle
+            </h2>
+            <LaundryCycleSteps />
           </div>
-          <div className="rounded-2xl border bg-card p-4 shadow-sm">
-            <h2 className="mb-2 text-sm font-semibold">Recent activity</h2>
-            <p className="text-sm text-muted-foreground">
-              Use this card later to list your last few orders, complaints, and
-              refunds so everything feels transparent.
+          <div className="space-y-3 rounded-2xl border bg-card p-4 shadow-sm">
+            <h2 className="text-sm font-semibold">Next order preview</h2>
+            <p className="text-xs text-muted-foreground">
+              This is a static preview for now. When you build bookings and
+              orders, replace it with your real upcoming order card.
             </p>
+            <LaundryOrderCardPlaceholder />
           </div>
         </section>
       </div>

@@ -247,7 +247,7 @@ export default function ProviderSignupPage() {
                   </label>
                   <input
                     className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    placeholder="Owner name"
+                    placeholder="Enter owner's full name"
                     value={form.name}
                     onChange={(e) => set("name", e.target.value)}
                     required
@@ -259,7 +259,7 @@ export default function ProviderSignupPage() {
                   </label>
                   <input
                     className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    placeholder="LaundryPro Services"
+                    placeholder="Enter your business name"
                     value={form.businessName}
                     onChange={(e) => set("businessName", e.target.value)}
                     required
@@ -272,7 +272,7 @@ export default function ProviderSignupPage() {
                   <input
                     className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                     type="email"
-                    placeholder="business@example.com"
+                    placeholder="Enter your business email"
                     value={form.email}
                     onChange={(e) => set("email", e.target.value)}
                     required
@@ -285,7 +285,7 @@ export default function ProviderSignupPage() {
                   <input
                     className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                     type="password"
-                    placeholder="Minimum 8 characters"
+                    placeholder="Create a password"
                     value={form.password}
                     onChange={(e) => set("password", e.target.value)}
                     required
@@ -297,7 +297,7 @@ export default function ProviderSignupPage() {
                   </label>
                   <input
                     className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    placeholder="+91 98765 43210"
+                    placeholder="Enter your business phone number"
                     value={form.phone}
                     onChange={(e) => set("phone", e.target.value)}
                     required
@@ -313,7 +313,7 @@ export default function ProviderSignupPage() {
                   </label>
                   <input
                     className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    placeholder="City, locality (e.g., Andheri West)"
+                    placeholder="Enter your service area"
                     value={form.location}
                     onChange={(e) => set("location", e.target.value)}
                     required
@@ -331,7 +331,7 @@ export default function ProviderSignupPage() {
                   </label>
                   <input
                     className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    placeholder="Fast, reliable, eco‑friendly laundry service"
+                    placeholder="Enter a short bio or tagline for your business"
                     value={form.bio}
                     onChange={(e) => set("bio", e.target.value)}
                     maxLength={200}
@@ -347,7 +347,7 @@ export default function ProviderSignupPage() {
                   </label>
                   <textarea
                     className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    placeholder="Tell seekers about your experience, turnaround time, and what makes your service stand out."
+                    placeholder="Describe your business in detail"
                     value={form.description}
                     onChange={(e) => set("description", e.target.value)}
                     rows={4}
@@ -413,7 +413,7 @@ export default function ProviderSignupPage() {
                 </legend>
                 <input
                   className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                  placeholder="Type tags separated by comma (e.g., eco‑friendly, same‑day, pickup‑available)"
+                  placeholder="Enter relevant tags, separated by commas"
                   value={form.tags}
                   onChange={(e) => set("tags", e.target.value)}
                   required

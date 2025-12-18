@@ -226,7 +226,7 @@ export default function SeekerSignupPage() {
                     </label>
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      placeholder="John Doe"
+                      placeholder="Enter your full name"
                       value={form.name}
                       onChange={(e) => set("name", e.target.value)}
                       required
@@ -239,7 +239,7 @@ export default function SeekerSignupPage() {
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder="Enter your email address"
                       value={form.email}
                       onChange={(e) => set("email", e.target.value)}
                       required
@@ -252,7 +252,7 @@ export default function SeekerSignupPage() {
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                       type="password"
-                      placeholder="Minimum 8 characters"
+                      placeholder="Enter your password"
                       value={form.password}
                       onChange={(e) => set("password", e.target.value)}
                       required
@@ -264,7 +264,7 @@ export default function SeekerSignupPage() {
                     </label>
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      placeholder="+91 98765 43210"
+                      placeholder="Enter your phone number"
                       value={form.phone}
                       onChange={(e) => set("phone", e.target.value)}
                       required
@@ -288,7 +288,7 @@ export default function SeekerSignupPage() {
                     </label>
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      placeholder="123 Main Street, Apartment 4B"
+                      placeholder="Enter your street address"
                       value={form.address.line1}
                       onChange={(e) => setAddr("line1", e.target.value)}
                       required
@@ -300,7 +300,7 @@ export default function SeekerSignupPage() {
                     </label>
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      placeholder="Mumbai"
+                      placeholder="Enter your city"
                       value={form.address.city}
                       onChange={(e) => setAddr("city", e.target.value)}
                       required
@@ -312,7 +312,7 @@ export default function SeekerSignupPage() {
                     </label>
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      placeholder="Maharashtra"
+                      placeholder="Enter your state"
                       value={form.address.state}
                       onChange={(e) => setAddr("state", e.target.value)}
                       required
@@ -324,7 +324,7 @@ export default function SeekerSignupPage() {
                     </label>
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      placeholder="India"
+                      placeholder="Enter your country"
                       value={form.address.country}
                       onChange={(e) => setAddr("country", e.target.value)}
                       required
@@ -336,7 +336,7 @@ export default function SeekerSignupPage() {
                     </label>
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      placeholder="400001"
+                      placeholder="Enter your postal code"
                       value={form.address.postalCode}
                       onChange={(e) => setAddr("postalCode", e.target.value)}
                       required
@@ -348,7 +348,7 @@ export default function SeekerSignupPage() {
                     </label>
                     <input
                       className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                      placeholder="Near Phoenix Mall"
+                      placeholder="Enter a nearby landmark"
                       value={form.address.landmark}
                       onChange={(e) => setAddr("landmark", e.target.value)}
                     />

@@ -102,7 +102,7 @@ export default function AuthPage() {
                 <input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="Enter your email address"
                   className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -124,7 +124,7 @@ export default function AuthPage() {
                 <input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
