@@ -176,8 +176,8 @@ export default function ProviderSignupPage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-900 via-slate-900 to-zinc-900">
       <form onSubmit={submit} className="w-full max-w-4xl">
-        <div className="bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-10 space-y-8 border border-gray-700">
-          <div className="text-center space-y-3">
+        <article className="bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-10 space-y-8 border border-gray-700">
+          <header className="text-center space-y-3">
             <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mb-4 shadow-xl">
               <svg
                 className="w-10 h-10 text-white"
@@ -199,15 +199,18 @@ export default function ProviderSignupPage() {
             <p className="text-gray-400 text-lg">
               Start offering your laundry services
             </p>
-          </div>
+          </header>
 
           {error && (
-            <div className="p-4 rounded-lg bg-red-900/50 border border-red-700">
+            <aside
+              className="p-4 rounded-lg bg-red-900/50 border border-red-700"
+              role="alert"
+            >
               <p className="text-sm text-red-400">{error}</p>
-            </div>
+            </aside>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 Full Name
@@ -285,9 +288,9 @@ export default function ProviderSignupPage() {
                 required
               />
             </div>
-          </div>
+          </fieldset>
 
-          <div className="space-y-3">
+          <fieldset className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 Bio / Tagline
@@ -317,10 +320,12 @@ export default function ProviderSignupPage() {
                 required
               />
             </div>
-          </div>
+          </fieldset>
 
-          <div className="space-y-2">
-            <label className="font-medium text-white">Pricing Rates</label>
+          <fieldset className="space-y-4 border border-gray-600 rounded-xl p-6 bg-gray-700/50">
+            <legend className="font-semibold text-lg text-white px-2">
+              Pricing Rates
+            </legend>
             <div className="space-y-2">
               {pricingRates.map((rate, idx) => (
                 <div key={idx} className="flex gap-2">
@@ -358,10 +363,10 @@ export default function ProviderSignupPage() {
                 + Add Custom Item
               </button>
             </div>
-          </div>
+          </fieldset>
 
-          <div className="space-y-2">
-            <label className="font-medium text-white">Tags</label>
+          <fieldset className="space-y-2">
+            <legend className="font-medium text-white mb-1">Tags</legend>
             <input
               className="w-full px-3 py-2 rounded-lg border border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
               placeholder="Type tags separated by comma (e.g., eco-friendly, same-day, pickup-available)"
@@ -385,10 +390,10 @@ export default function ProviderSignupPage() {
                   ))}
               </div>
             )}
-          </div>
+          </fieldset>
 
-          <div className="space-y-4 border border-gray-600 rounded-xl p-6 bg-gray-700/50">
-            <h3 className="font-semibold text-lg text-white">Verification</h3>
+          <section className="space-y-4 border border-gray-600 rounded-xl p-6 bg-gray-700/50">
+            <h2 className="font-semibold text-lg text-white">Verification</h2>
 
             <div className="space-y-4">
               {/* Email OTP */}
@@ -515,7 +520,7 @@ export default function ProviderSignupPage() {
                 )}
               </div>
             </div>
-          </div>
+          </section>
 
           <button
             disabled={loading || !emailVerified || !phoneVerified}
@@ -523,7 +528,7 @@ export default function ProviderSignupPage() {
           >
             {loading ? "Creating account..." : "Create account"}
           </button>
-        </div>
+        </article>
       </form>
     </main>
   );

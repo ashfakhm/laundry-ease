@@ -1,5 +1,9 @@
 const page = () => {
-  return <div>Seeker</div>;
+  return (
+    <main>
+      <h1>Seeker Dashboard</h1>
+    </main>
+  );
 };
 
 export default page;

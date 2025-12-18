@@ -137,8 +137,8 @@ export default function SeekerSignupPage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-900 via-slate-900 to-zinc-900">
       <form onSubmit={submit} className="w-full max-w-4xl">
-        <div className="bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-10 space-y-8 border border-gray-700">
-          <div className="text-center space-y-3">
+        <article className="bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-10 space-y-8 border border-gray-700">
+          <header className="text-center space-y-3">
             <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-xl">
               <svg
                 className="w-10 h-10 text-white"
@@ -160,15 +160,18 @@ export default function SeekerSignupPage() {
             <p className="text-gray-400 text-lg">
               Join to find laundry services near you
             </p>
-          </div>
+          </header>
 
           {error && (
-            <div className="p-4 rounded-lg bg-red-900/50 border border-red-700">
+            <aside
+              className="p-4 rounded-lg bg-red-900/50 border border-red-700"
+              role="alert"
+            >
               <p className="text-sm text-red-400">{error}</p>
-            </div>
+            </aside>
           )}
 
-          <div className="space-y-4">
+          <fieldset className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -225,8 +228,10 @@ export default function SeekerSignupPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900">Address</h3>
+            <fieldset className="space-y-3">
+              <legend className="text-lg font-semibold text-white">
+                Address
+              </legend>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -300,138 +305,138 @@ export default function SeekerSignupPage() {
                   />
                 </div>
               </div>
-            </div>
+            </fieldset>
+          </fieldset>
 
-            <div className="space-y-4 border border-gray-600 rounded-xl p-6 bg-gray-700/50">
-              <h3 className="font-semibold text-lg text-white">Verification</h3>
+          <section className="space-y-4 border border-gray-600 rounded-xl p-6 bg-gray-700/50">
+            <h2 className="font-semibold text-lg text-white">Verification</h2>
 
-              <div className="space-y-4">
-                {/* Email OTP */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-300">
-                      Email Verification
-                    </label>
-                    {emailVerified && (
-                      <div className="flex items-center gap-1.5 text-green-400">
-                        <svg
-                          className="w-5 h-5"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        <span className="text-sm font-medium">Verified</span>
-                      </div>
-                    )}
-                  </div>
-                  {!emailVerified && (
-                    <div className="flex gap-2">
-                      {!emailOtpSent ? (
-                        <button
-                          type="button"
-                          className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
-                          onClick={sendEmailOtp}
-                          disabled={!form.email || emailSending}
-                        >
-                          {emailSending ? "Sending..." : "Send OTP"}
-                        </button>
-                      ) : (
-                        <>
-                          <input
-                            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                            placeholder="Enter 6-digit code"
-                            value={emailCode}
-                            onChange={(e) => setEmailCode(e.target.value)}
-                            maxLength={6}
-                          />
-                          <button
-                            type="button"
-                            className="px-4 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
-                            onClick={verifyEmail}
-                            disabled={emailVerifying}
-                          >
-                            {emailVerifying ? "Verifying..." : "Verify"}
-                          </button>
-                        </>
-                      )}
+            <div className="space-y-4">
+              {/* Email OTP */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-300">
+                    Email Verification
+                  </label>
+                  {emailVerified && (
+                    <div className="flex items-center gap-1.5 text-green-400">
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-sm font-medium">Verified</span>
                     </div>
                   )}
-                  {emailOtpSent && !emailVerified && (
-                    <p className="text-sm text-green-400 font-medium mt-2">
-                      {emailOtpSent}
-                    </p>
-                  )}
                 </div>
-
-                {/* Phone OTP */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-300">
-                      Phone Verification
-                    </label>
-                    {phoneVerified && (
-                      <div className="flex items-center gap-1.5 text-green-400">
-                        <svg
-                          className="w-5 h-5"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        <span className="text-sm font-medium">Verified</span>
-                      </div>
-                    )}
-                  </div>
-                  {!phoneVerified && (
-                    <div className="flex gap-2">
-                      {!phoneOtpSent ? (
+                {!emailVerified && (
+                  <div className="flex gap-2">
+                    {!emailOtpSent ? (
+                      <button
+                        type="button"
+                        className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
+                        onClick={sendEmailOtp}
+                        disabled={!form.email || emailSending}
+                      >
+                        {emailSending ? "Sending..." : "Send OTP"}
+                      </button>
+                    ) : (
+                      <>
+                        <input
+                          className="flex-1 px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                          placeholder="Enter 6-digit code"
+                          value={emailCode}
+                          onChange={(e) => setEmailCode(e.target.value)}
+                          maxLength={6}
+                        />
                         <button
                           type="button"
-                          className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
-                          onClick={sendPhoneOtp}
-                          disabled={!form.phone || phoneSending}
+                          className="px-4 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
+                          onClick={verifyEmail}
+                          disabled={emailVerifying}
                         >
-                          {phoneSending ? "Sending..." : "Send OTP"}
+                          {emailVerifying ? "Verifying..." : "Verify"}
                         </button>
-                      ) : (
-                        <>
-                          <input
-                            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
-                            placeholder="Enter 6-digit code"
-                            value={phoneCode}
-                            onChange={(e) => setPhoneCode(e.target.value)}
-                            maxLength={6}
-                          />
-                          <button
-                            type="button"
-                            className="px-4 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
-                            onClick={verifyPhone}
-                            disabled={phoneVerifying}
-                          >
-                            {phoneVerifying ? "Verifying..." : "Verify"}
-                          </button>
-                        </>
-                      )}
+                      </>
+                    )}
+                  </div>
+                )}
+                {emailOtpSent && !emailVerified && (
+                  <p className="text-sm text-green-400 font-medium mt-2">
+                    {emailOtpSent}
+                  </p>
+                )}
+              </div>
+
+              {/* Phone OTP */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-300">
+                    Phone Verification
+                  </label>
+                  {phoneVerified && (
+                    <div className="flex items-center gap-1.5 text-green-400">
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-sm font-medium">Verified</span>
                     </div>
                   )}
-                  {phoneOtpSent && !phoneVerified && (
-                    <p className="text-sm text-green-400 font-medium mt-2">
-                      {phoneOtpSent}
-                    </p>
-                  )}
                 </div>
+                {!phoneVerified && (
+                  <div className="flex gap-2">
+                    {!phoneOtpSent ? (
+                      <button
+                        type="button"
+                        className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
+                        onClick={sendPhoneOtp}
+                        disabled={!form.phone || phoneSending}
+                      >
+                        {phoneSending ? "Sending..." : "Send OTP"}
+                      </button>
+                    ) : (
+                      <>
+                        <input
+                          className="flex-1 px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700/50 text-white placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                          placeholder="Enter 6-digit code"
+                          value={phoneCode}
+                          onChange={(e) => setPhoneCode(e.target.value)}
+                          maxLength={6}
+                        />
+                        <button
+                          type="button"
+                          className="px-4 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
+                          onClick={verifyPhone}
+                          disabled={phoneVerifying}
+                        >
+                          {phoneVerifying ? "Verifying..." : "Verify"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+                {phoneOtpSent && !phoneVerified && (
+                  <p className="text-sm text-green-400 font-medium mt-2">
+                    {phoneOtpSent}
+                  </p>
+                )}
               </div>
             </div>
-          </div>
+          </section>
 
           <button
             disabled={loading || !emailVerified || !phoneVerified}
@@ -439,7 +444,7 @@ export default function SeekerSignupPage() {
           >
             {loading ? "Creating account..." : "Create account"}
           </button>
-        </div>
+        </article>
       </form>
     </main>
   );

@@ -14,8 +14,8 @@ export default function ChooseRole() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-900 via-slate-900 to-zinc-900">
-      <div className="w-full max-w-5xl">
-        <div className="text-center space-y-4 mb-12">
+      <article className="w-full max-w-5xl">
+        <header className="text-center space-y-4 mb-12">
           <div className="mx-auto w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl transform rotate-3">
             <svg
               className="w-10 h-10 text-white transform -rotate-3"
@@ -37,8 +37,8 @@ export default function ChooseRole() {
           <p className="text-xl text-gray-400 font-medium">
             Choose your role to get started
           </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        </header>
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <button
             className="group bg-gray-800/90 backdrop-blur-sm p-10 rounded-3xl border-2 border-gray-700 hover:border-green-500 hover:shadow-2xl hover:shadow-green-500/20 transition-all duration-300 text-left transform hover:-translate-y-2"
             onClick={() => choose("seeker")}
@@ -154,8 +154,8 @@ export default function ChooseRole() {
               </svg>
             </div>
           </button>
-        </div>
-        <div className="text-center mt-8">
+        </section>
+        <footer className="text-center mt-8">
           <p className="text-gray-400">
             Already have an account?{" "}
             <a
@@ -165,8 +165,8 @@ export default function ChooseRole() {
               Sign in
             </a>
           </p>
-        </div>
-      </div>
+        </footer>
+      </article>
     </main>
   );
 }

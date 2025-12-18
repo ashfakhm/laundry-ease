@@ -43,9 +43,9 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-900 via-slate-900 to-zinc-900">
-      <div className="w-full max-w-md">
+      <article className="w-full max-w-md">
         <div className="bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-10 space-y-6 border border-gray-700">
-          <div className="text-center space-y-2">
+          <header className="text-center space-y-2">
             <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
               <svg
                 className="w-8 h-8 text-white"
@@ -63,7 +63,7 @@ export default function AuthPage() {
             </div>
             <h1 className="text-4xl font-bold text-white">Welcome back</h1>
             <p className="text-gray-400 text-lg">Sign in to your account</p>
-          </div>
+          </header>
 
           <button
             className="w-full px-6 py-4 rounded-xl border-2 border-gray-600 font-semibold text-white hover:border-blue-500 hover:bg-gray-700/50 transition-all flex items-center justify-center gap-3"
@@ -137,9 +137,12 @@ export default function AuthPage() {
               />
             </div>
             {error && (
-              <div className="p-3 rounded-lg bg-red-900/50 border border-red-700">
+              <aside
+                className="p-3 rounded-lg bg-red-900/50 border border-red-700"
+                role="alert"
+              >
                 <p className="text-sm text-red-400">{error}</p>
-              </div>
+              </aside>
             )}
             <button
               type="submit"
@@ -150,7 +153,7 @@ export default function AuthPage() {
             </button>
           </form>
 
-          <div className="text-center pt-4 border-t border-gray-700">
+          <footer className="text-center pt-4 border-t border-gray-700">
             <p className="text-sm text-gray-400">
               Don&apos;t have an account?{" "}
               <a
@@ -160,9 +163,9 @@ export default function AuthPage() {
                 Sign up
               </a>
             </p>
-          </div>
+          </footer>
         </div>
-      </div>
+      </article>
     </main>
   );
 }
