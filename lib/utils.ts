@@ -1,6 +1,3 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+// Utility helpers live here. Currently empty because
+// the original `cn` helper was unused. Add shared
+// utilities as the app grows.

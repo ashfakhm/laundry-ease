@@ -1,16 +1,15 @@
 import { MongoClient } from "mongodb";
-
-const uri = process.env.MONGODB_URI;
+import { env } from "./env";
 
 declare global {
+  // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
 let clientPromise: Promise<MongoClient> | undefined;
 
 function createClientPromise(): Promise<MongoClient> {
-  if (!uri) throw new Error("MONGODB_URI is not set in environment");
-  const client = new MongoClient(uri);
+  const client = new MongoClient(env.MONGODB_URI);
   if (process.env.NODE_ENV === "development") {
     if (!global._mongoClientPromise)
       global._mongoClientPromise = client.connect();
@@ -22,8 +21,5 @@ function createClientPromise(): Promise<MongoClient> {
 export async function getDb() {
   if (!clientPromise) clientPromise = createClientPromise();
   const client = await clientPromise;
-  const dbName = process.env.MONGODB_DB || "laundryease";
-  return { db: client.db(dbName), client };
+  return { db: client.db(env.MONGODB_DB), client };
 }
-
-export type Role = "seeker" | "provider" | "admin";

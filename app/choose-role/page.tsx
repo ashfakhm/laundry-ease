@@ -13,160 +13,91 @@ export default function ChooseRole() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-900 via-slate-900 to-zinc-900">
-      <article className="w-full max-w-5xl">
-        <header className="text-center space-y-4 mb-12">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl transform rotate-3">
-            <svg
-              className="w-10 h-10 text-white transform -rotate-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-5xl font-bold text-white">
-            Welcome to LaundryEase
+    <main className="min-h-screen bg-background">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col items-center justify-center px-4 py-12 md:items-stretch">
+        <header className="mb-10 text-center md:mb-12">
+          <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Step 0 · Choose how you use LaundryEase
+          </p>
+          <h1 className="text-balance text-3xl font-semibold tracking-tight md:text-4xl">
+            Are you booking laundry or providing it?
           </h1>
-          <p className="text-xl text-gray-400 font-medium">
-            Choose your role to get started
+          <p className="mt-3 text-sm text-muted-foreground md:text-base">
+            Pick the role that fits you best. You can always create a second
+            account later if you run both sides of the marketplace.
           </p>
         </header>
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+        <section className="grid w-full max-w-4xl gap-5 md:grid-cols-2">
           <button
-            className="group bg-gray-800/90 backdrop-blur-sm p-10 rounded-3xl border-2 border-gray-700 hover:border-green-500 hover:shadow-2xl hover:shadow-green-500/20 transition-all duration-300 text-left transform hover:-translate-y-2"
+            className="group flex flex-col justify-between rounded-3xl border bg-card/80 p-6 text-left shadow-sm transition hover:border-emerald-500 hover:shadow-md"
             onClick={() => choose("seeker")}
+            type="button"
           >
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                <svg
-                  className="w-10 h-10 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2.5}
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                  />
-                </svg>
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                For customers
               </div>
-              <svg
-                className="w-6 h-6 text-gray-500 group-hover:text-green-400 transition-colors"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              <div className="space-y-1.5">
+                <h2 className="text-lg font-semibold">I am a Seeker</h2>
+                <p className="text-sm text-muted-foreground">
+                  Request pickups, approve invoices, pay securely into escrow,
+                  and track delivery with OTP confirmation.
+                </p>
+              </div>
+              <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+                <li>• Book one‑time or recurring pickups.</li>
+                <li>• View transparent pricing before you pay.</li>
+                <li>• Raise complaints with photo proof if needed.</li>
+              </ul>
             </div>
-            <h2 className="text-3xl font-bold text-white mb-3">
-              I am a Seeker
-            </h2>
-            <p className="text-gray-400 text-lg leading-relaxed">
-              I need laundry services done for me. I&apos;ll drop off or have
-              pickup available.
-            </p>
-            <div className="mt-6 flex items-center text-green-400 font-semibold group-hover:translate-x-2 transition-transform">
-              <span>Get Started</span>
-              <svg
-                className="w-5 h-5 ml-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                />
-              </svg>
+            <div className="mt-6 flex items-center justify-between text-sm font-medium text-emerald-600">
+              <span>Continue as seeker</span>
+              <span className="transition group-hover:translate-x-1">→</span>
             </div>
           </button>
+
           <button
-            className="group bg-gray-800/90 backdrop-blur-sm p-10 rounded-3xl border-2 border-gray-700 hover:border-purple-500 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-300 text-left transform hover:-translate-y-2"
+            className="group flex flex-col justify-between rounded-3xl border bg-card/80 p-6 text-left shadow-sm transition hover:border-sky-500 hover:shadow-md"
             onClick={() => choose("provider")}
+            type="button"
           >
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                <svg
-                  className="w-10 h-10 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2.5}
-                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 text-[11px] font-medium text-sky-700 ring-1 ring-sky-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+                For service providers
               </div>
-              <svg
-                className="w-7 h-7 text-gray-500 group-hover:text-purple-400 transition-colors"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              <div className="space-y-1.5">
+                <h2 className="text-lg font-semibold">I am a Provider</h2>
+                <p className="text-sm text-muted-foreground">
+                  Receive bookings, generate invoices, manage delivery radius
+                  and pricing, and get paid after the escrow window.
+                </p>
+              </div>
+              <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+                <li>• Configure per‑item pricing and service areas.</li>
+                <li>• Use OTP to confirm each successful delivery.</li>
+                <li>• Track payouts and disputes in your dashboard.</li>
+              </ul>
             </div>
-            <h2 className="text-3xl font-bold text-white mb-3">
-              I am a Provider
-            </h2>
-            <p className="text-gray-400 text-lg leading-relaxed">
-              I offer laundry services and want to connect with customers.
-            </p>
-            <div className="mt-6 flex items-center text-purple-400 font-semibold group-hover:translate-x-2 transition-transform">
-              <span>Get Started</span>
-              <svg
-                className="w-5 h-5 ml-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                />
-              </svg>
+            <div className="mt-6 flex items-center justify-between text-sm font-medium text-sky-600">
+              <span>Continue as provider</span>
+              <span className="transition group-hover:translate-x-1">→</span>
             </div>
           </button>
         </section>
-        <footer className="text-center mt-8">
-          <p className="text-gray-400">
-            Already have an account?{" "}
-            <a
-              href="/auth"
-              className="text-blue-400 hover:text-blue-300 font-semibold hover:underline"
-            >
-              Sign in
-            </a>
-          </p>
+
+        <footer className="mt-8 text-center text-xs text-muted-foreground">
+          Already have an account?{" "}
+          <a
+            href="/auth"
+            className="font-medium text-emerald-600 hover:text-emerald-500"
+          >
+            Sign in
+          </a>
         </footer>
-      </article>
+      </div>
     </main>
   );
 }

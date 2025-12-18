@@ -2,6 +2,7 @@ import { getDb } from "./mongodb";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import twilio from "twilio";
+import { env } from "./env";
 
 type OtpType = "email" | "phone";
 
@@ -13,17 +14,14 @@ function generateCode() {
 const emailTransporter = nodemailer.createTransport({
   service: "Gmail",
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: env.EMAIL_USER,
+    pass: env.EMAIL_PASS,
   },
-  debug: true, // Enable debug mode
-  logger: true, // Log information
+  debug: process.env.NODE_ENV === "development",
+  logger: process.env.NODE_ENV === "development",
 });
 
-const smsClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+const smsClient = twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
 
 export async function requestOtp(
   target: string,
@@ -52,7 +50,7 @@ export async function requestOtp(
     if (type === "email") {
       console.log(`[OTP] Sending email to ${target}`);
       await emailTransporter.sendMail({
-        from: process.env.EMAIL_USER,
+        from: env.EMAIL_USER,
         to: target,
         subject: "Your OTP Code",
         text: `Your OTP code is ${code}. It will expire in ${ttlMinutes} minutes.`,
@@ -62,7 +60,7 @@ export async function requestOtp(
       console.log(`[OTP] Sending SMS to ${target}`);
       await smsClient.messages.create({
         body: `Your OTP code is ${code}. It will expire in ${ttlMinutes} minutes.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
+        from: env.TWILIO_PHONE_NUMBER,
         to: target,
       });
       console.log(`[OTP] SMS sent successfully to ${target}`);

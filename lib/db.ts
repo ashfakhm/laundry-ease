@@ -145,49 +145,6 @@ export async function createProvider(data: {
   return { ...provider, _id: res.insertedId };
 }
 
-/**
- * Create a new admin user (manual setup only)
- */
-export async function createAdmin(data: {
-  email: string;
-  name?: string | null;
-  password: string;
-}) {
-  const { db } = await getDb();
-  const now = new Date();
-  const passwordHash = await bcrypt.hash(data.password, 10);
-
-  const admin: Admin = {
-    email: data.email,
-    name: data.name ?? null,
-    passwordHash,
-    emailVerified: true,
-    phoneVerified: false,
-    createdAt: now,
-  };
-
-  const res = await db.collection<Admin>("admins").insertOne(admin);
-  return { ...admin, _id: res.insertedId };
-}
-
-/**
- * Update seeker profile
- */
-export async function updateSeeker(email: string, data: Partial<Seeker>) {
-  const { db } = await getDb();
-  const res = await db
-    .collection<Seeker>("seekers")
-    .updateOne({ email }, { $set: data });
-  return res;
-}
-
-/**
- * Update provider profile
- */
-export async function updateProvider(email: string, data: Partial<Provider>) {
-  const { db } = await getDb();
-  const res = await db
-    .collection<Provider>("providers")
-    .updateOne({ email }, { $set: data });
-  return res;
-}
+// Note: admin creation and profile update helpers used to live here.
+// They have been removed for now because they were unused. Reintroduce
+// them alongside the first real admin/profile management features.
