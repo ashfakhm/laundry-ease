@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 
 async function postJSON(url: string, body: Record<string, unknown>) {
@@ -39,6 +39,10 @@ export default function ProviderSignupPage() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailSending, startEmailSend] = useTransition();
+  const [phoneSending, startPhoneSend] = useTransition();
+  const [emailVerifying, startEmailVerify] = useTransition();
+  const [phoneVerifying, startPhoneVerify] = useTransition();
 
   // Normalize phone to E.164; default to +91 for 10-digit Indian numbers
   function normalizePhone(input: string) {
@@ -76,49 +80,57 @@ export default function ProviderSignupPage() {
   }
 
   async function sendEmailOtp() {
-    setError(null);
-    const { ok, data } = await postJSON("/api/otp/request", {
-      target: form.email,
-      type: "email",
+    startEmailSend(async () => {
+      setError(null);
+      const { ok, data } = await postJSON("/api/otp/request", {
+        target: form.email,
+        type: "email",
+      });
+      if (!ok) return setError(data?.error || "Failed to send email OTP");
+      setEmailOtpSent("OTP sent to your email");
     });
-    if (!ok) return setError(data?.error || "Failed to send email OTP");
-    setEmailOtpSent("OTP sent to your email");
   }
 
   async function sendPhoneOtp() {
-    setError(null);
-    const { ok, data } = await postJSON("/api/otp/request", {
-      target: normalizePhone(form.phone),
-      type: "phone",
+    startPhoneSend(async () => {
+      setError(null);
+      const { ok, data } = await postJSON("/api/otp/request", {
+        target: normalizePhone(form.phone),
+        type: "phone",
+      });
+      if (!ok) return setError(data?.error || "Failed to send phone OTP");
+      setPhoneOtpSent("OTP sent via SMS");
     });
-    if (!ok) return setError(data?.error || "Failed to send phone OTP");
-    setPhoneOtpSent("OTP sent via SMS");
   }
 
   async function verifyEmail() {
-    setError(null);
-    if (!form.email) return setError("Please enter your email first");
-    if (!emailCode) return setError("Please enter the verification code");
-    const { ok, data } = await postJSON("/api/otp/verify", {
-      target: form.email,
-      type: "email",
-      code: emailCode,
+    startEmailVerify(async () => {
+      setError(null);
+      if (!form.email) return setError("Please enter your email first");
+      if (!emailCode) return setError("Please enter the verification code");
+      const { ok, data } = await postJSON("/api/otp/verify", {
+        target: form.email,
+        type: "email",
+        code: emailCode,
+      });
+      if (!ok) return setError(data?.error || "Invalid email code");
+      setEmailVerified(true);
     });
-    if (!ok) return setError(data?.error || "Invalid email code");
-    setEmailVerified(true);
   }
 
   async function verifyPhone() {
-    setError(null);
-    if (!form.phone) return setError("Please enter your phone number first");
-    if (!phoneCode) return setError("Please enter the verification code");
-    const { ok, data } = await postJSON("/api/otp/verify", {
-      target: normalizePhone(form.phone),
-      type: "phone",
-      code: phoneCode,
+    startPhoneVerify(async () => {
+      setError(null);
+      if (!form.phone) return setError("Please enter your phone number first");
+      if (!phoneCode) return setError("Please enter the verification code");
+      const { ok, data } = await postJSON("/api/otp/verify", {
+        target: normalizePhone(form.phone),
+        type: "phone",
+        code: phoneCode,
+      });
+      if (!ok) return setError(data?.error || "Invalid phone code");
+      setPhoneVerified(true);
     });
-    if (!ok) return setError(data?.error || "Invalid phone code");
-    setPhoneVerified(true);
   }
 
   async function submit(e: React.FormEvent) {
@@ -409,9 +421,9 @@ export default function ProviderSignupPage() {
                         type="button"
                         className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
                         onClick={sendEmailOtp}
-                        disabled={!form.email}
+                        disabled={!form.email || emailSending}
                       >
-                        Send OTP
+                        {emailSending ? "Sending..." : "Send OTP"}
                       </button>
                     ) : (
                       <>
@@ -424,25 +436,21 @@ export default function ProviderSignupPage() {
                         />
                         <button
                           type="button"
-                          className="px-4 py-2.5 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-all"
+                          className="px-4 py-2.5 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
                           onClick={verifyEmail}
+                          disabled={emailVerifying}
                         >
-                          Verify
+                          {emailVerifying ? "Verifying..." : "Verify"}
                         </button>
                       </>
                     )}
                   </div>
                 )}
-                {emailOtpSent &&
-                  !emailVerified &&
-                  process.env.NODE_ENV !== "production" && (
-                    <p className="text-xs text-gray-400">
-                      Dev code:{" "}
-                      <span className="font-mono font-bold text-purple-400">
-                        {emailOtpSent}
-                      </span>
-                    </p>
-                  )}
+                {emailOtpSent && !emailVerified && (
+                  <p className="text-sm text-purple-400 font-medium mt-2">
+                    {emailOtpSent}
+                  </p>
+                )}
               </div>
 
               {/* Phone OTP */}
@@ -475,9 +483,9 @@ export default function ProviderSignupPage() {
                         type="button"
                         className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
                         onClick={sendPhoneOtp}
-                        disabled={!form.phone}
+                        disabled={!form.phone || phoneSending}
                       >
-                        Send OTP
+                        {phoneSending ? "Sending..." : "Send OTP"}
                       </button>
                     ) : (
                       <>
@@ -490,25 +498,21 @@ export default function ProviderSignupPage() {
                         />
                         <button
                           type="button"
-                          className="px-4 py-2.5 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-all"
+                          className="px-4 py-2.5 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
                           onClick={verifyPhone}
+                          disabled={phoneVerifying}
                         >
-                          Verify
+                          {phoneVerifying ? "Verifying..." : "Verify"}
                         </button>
                       </>
                     )}
                   </div>
                 )}
-                {phoneOtpSent &&
-                  !phoneVerified &&
-                  process.env.NODE_ENV !== "production" && (
-                    <p className="text-xs text-gray-400">
-                      Dev code:{" "}
-                      <span className="font-mono font-bold text-purple-400">
-                        {phoneOtpSent}
-                      </span>
-                    </p>
-                  )}
+                {phoneOtpSent && !phoneVerified && (
+                  <p className="text-sm text-purple-400 font-medium mt-2">
+                    {phoneOtpSent}
+                  </p>
+                )}
               </div>
             </div>
           </div>
