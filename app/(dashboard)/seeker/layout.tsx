@@ -4,8 +4,8 @@ import { Navbar } from "@/components/ui/navbar";
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const seekerLinks = [
-    { label: "Dashboard", href: "/seeker" },
-    { label: "View Orders", href: "/seeker/view-orders" },
+    { label: "Search Providers", href: "/seeker" },
+    { label: "My Orders", href: "/seeker/view-orders" },
   ];
 
   return (

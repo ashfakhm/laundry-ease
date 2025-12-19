@@ -7,9 +7,10 @@ import { ObjectId } from "mongodb";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.PROVIDER) {
@@ -25,22 +26,21 @@ export async function POST(
 
     // TODO: Implement actual OTP validation
     if (otp !== "123456") {
-        return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
+      return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
     }
 
-    const order_id = new ObjectId(params.id);
+    const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json(
-        { message: "Order not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
     if (order.provider_id.toString() !== session.user.id) {
       return NextResponse.json(
-        { message: "You are not authorized to confirm delivery for this order" },
+        {
+          message: "You are not authorized to confirm delivery for this order",
+        },
         { status: 403 }
       );
     }
@@ -55,7 +55,9 @@ export async function POST(
     const success = await confirmDelivery(order_id);
 
     if (success) {
-      return NextResponse.json({ message: "Delivery confirmed, escrow started" });
+      return NextResponse.json({
+        message: "Delivery confirmed, escrow started",
+      });
     } else {
       return NextResponse.json(
         { message: "Failed to confirm delivery" },

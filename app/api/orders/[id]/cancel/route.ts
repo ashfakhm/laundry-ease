@@ -9,23 +9,21 @@ const CANCELLATION_FEE = 1000; // 10 currency units
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const order_id = new ObjectId(params.id);
+    const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json(
-        { message: "Order not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
     if (order.seeker_id.toString() !== session.user.id) {
@@ -41,15 +39,19 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
     if (order.cancellation_status) {
-        return NextResponse.json(
-            { message: "Order has already been cancelled" },
-            { status: 400 }
-        );
+      return NextResponse.json(
+        { message: "Order has already been cancelled" },
+        { status: 400 }
+      );
     }
 
-    const success = await cancelOrder(order_id, new ObjectId(session.user.id), CANCELLATION_FEE);
+    const success = await cancelOrder(
+      order_id,
+      new ObjectId(session.user.id),
+      CANCELLATION_FEE
+    );
 
     if (success) {
       return NextResponse.json({ message: "Order cancelled successfully" });

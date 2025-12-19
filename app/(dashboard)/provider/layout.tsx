@@ -8,6 +8,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     { label: "Order Status", href: "/provider/order-status" },
     { label: "Invoice Generation", href: "/provider/invoice-generation" },
     { label: "Manage Reviews", href: "/provider/Reviews-Manage" },
+    { label: "My Profile", href: "/provider/profile" },
   ];
 
   return (

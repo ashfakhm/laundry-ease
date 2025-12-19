@@ -35,7 +35,9 @@ export async function POST(req: Request) {
 
     if (booking.provider_id.toString() !== session.user.id) {
       return NextResponse.json(
-        { message: "You are not authorized to create an order for this booking" },
+        {
+          message: "You are not authorized to create an order for this booking",
+        },
         { status: 403 }
       );
     }
@@ -49,21 +51,29 @@ export async function POST(req: Request) {
 
     // Calculate total price
     const total_price = items.reduce((acc: number, item: OrderItem) => {
-        item.line_total = item.quantity * item.unit_price;
-        return acc + item.line_total;
+      item.line_total = item.quantity * item.unit_price;
+      return acc + item.line_total;
     }, 0);
 
     // TODO: Implement Haversine formula for distance calculation
-    const delivery_distance_km = 10; 
-    
+    const delivery_distance_km = 10;
+
     const provider = await getUserByEmail(session.user.email);
     let delivery_charge = 0;
-    if (provider && provider.role === Role.PROVIDER && provider.radius_km && provider.per_km_rate && provider.covers_beyond_radius) {
-        if (delivery_distance_km > provider.radius_km) {
-            delivery_charge = (delivery_distance_km - provider.radius_km) * provider.per_km_rate;
+    if (provider && provider.role === Role.PROVIDER) {
+      const providerData = provider as any;
+      if (
+        providerData.radius_km &&
+        providerData.per_km_rate &&
+        providerData.covers_beyond_radius
+      ) {
+        if (delivery_distance_km > providerData.radius_km) {
+          delivery_charge =
+            (delivery_distance_km - providerData.radius_km) *
+            providerData.per_km_rate;
         }
+      }
     }
-
 
     const order = await createOrder({
       booking_id: new ObjectId(booking_id),

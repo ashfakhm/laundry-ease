@@ -44,7 +44,7 @@ export async function PATCH(
 
     if (booking.provider_id.toString() !== provider._id.toString()) {
       return NextResponse.json(
-        { message: "You are not authorized to accept this booking" },
+        { message: "You are not authorized to reject this booking" },
         { status: 403 }
       );
     }
@@ -56,18 +56,18 @@ export async function PATCH(
       );
     }
 
-    const success = await updateBookingStatus(booking_id, "accepted");
+    const success = await updateBookingStatus(booking_id, "rejected");
 
     if (success) {
-      return NextResponse.json({ message: "Booking accepted" });
+      return NextResponse.json({ message: "Booking rejected" });
     } else {
       return NextResponse.json(
-        { message: "Failed to accept booking" },
+        { message: "Failed to reject booking" },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error("Error accepting booking:", error);
+    console.error("Error rejecting booking:", error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

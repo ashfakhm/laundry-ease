@@ -7,23 +7,21 @@ import { ObjectId } from "mongodb";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const order_id = new ObjectId(params.id);
+    const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json(
-        { message: "Order not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
     if (order.seeker_id.toString() !== session.user.id) {

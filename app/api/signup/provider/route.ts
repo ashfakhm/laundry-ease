@@ -14,6 +14,7 @@ const schema = z.object({
   pricingRates: z.record(z.string(), z.number().nonnegative()),
   tags: z.array(z.string()).min(1),
   location: z.string().min(1),
+  radius_km: z.number().min(1).max(100).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     description,
     pricingRates,
     tags,
+    radius_km,
     location,
   } = parsed.data;
 
@@ -62,6 +64,11 @@ export async function POST(req: NextRequest) {
     password,
     services: tags, // tags as services
     location,
+    businessName,
+    bio,
+    description,
+    radius_km,
+    pricingRates,
   });
 
   return NextResponse.json({ ok: true });
