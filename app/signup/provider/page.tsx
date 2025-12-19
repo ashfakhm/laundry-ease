@@ -281,14 +281,51 @@ export default function ProviderSignupPage() {
                   <label className="text-xs font-medium text-muted-foreground">
                     Password
                   </label>
-                  <input
-                    className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                    type="password"
-                    placeholder="Create a password"
-                    value={form.password}
-                    onChange={(e) => set("password", e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      className="w-full rounded-xl border bg-background px-4 py-2.5 pr-10 text-sm shadow-sm outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 cursor-text"
+                      type="password"
+                      placeholder="Create a password"
+                      value={form.password}
+                      onChange={(e) => set("password", e.target.value)}
+                      required
+                      id="password-provider"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const input = document.getElementById(
+                          "password-provider"
+                        ) as HTMLInputElement;
+                        if (input) {
+                          input.type =
+                            input.type === "password" ? "text" : "password";
+                        }
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Toggle password visibility"
+                    >
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
@@ -581,9 +618,7 @@ export default function ProviderSignupPage() {
                   disabled={loading || !emailVerified || !phoneVerified}
                   className="inline-flex items-center justify-center rounded-xl bg-sky-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-muted"
                 >
-                  {loading
-                    ? "Creating account..."
-                    : "Create provider account"}
+                  {loading ? "Creating account..." : "Create provider account"}
                 </button>
               </div>
             </div>

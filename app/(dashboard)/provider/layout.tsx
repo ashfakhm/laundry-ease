@@ -1,23 +1,26 @@
 "use client";
-
-import { signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { Navbar } from "@/components/ui/navbar";
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
-  const router = useRouter();
-
-  const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push("/");
-  };
+  const providerLinks = [
+    { label: "Dashboard", href: "/provider" },
+    { label: "Manage Bookings", href: "/provider/Manage-booking" },
+    { label: "Order Status", href: "/provider/order-status" },
+    { label: "Invoice Generation", href: "/provider/invoice-generation" },
+    { label: "Manage Reviews", href: "/provider/Reviews-Manage" },
+  ];
 
   return (
-    <main>
-      {/* Here Goes Navbar or dashboard for provider */}
-      <h1>Provider Dashboard Layout</h1>
-      <button onClick={handleSignOut}>Sign Out</button>
-      {children}
-    </main>
+    <div className="min-h-screen bg-background">
+      <Navbar
+        title="Provider Dashboard"
+        links={providerLinks}
+        userRole="provider"
+      />
+      <main className="w-full">
+        <div className="container mx-auto px-4 py-6">{children}</div>
+      </main>
+    </div>
   );
 };
 

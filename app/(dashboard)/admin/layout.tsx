@@ -1,23 +1,22 @@
 "use client";
-
-import { signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { Navbar } from "@/components/ui/navbar";
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
-  const router = useRouter();
-
-  const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push("/");
-  };
+  const adminLinks = [
+    { label: "Dashboard", href: "/admin" },
+    { label: "Complaints", href: "/admin/Complaints" },
+    { label: "Logs", href: "/admin/Logs" },
+    { label: "Payment Management", href: "/admin/payment-management" },
+    { label: "User Management", href: "/admin/User-Management" },
+  ];
 
   return (
-    <main>
-      {/* Here Goes Admin Navbar  or dashboard */}
-      <h1>Admin Dashboard Layout</h1>
-      <button onClick={handleSignOut}>Sign Out</button>
-      {children}
-    </main>
+    <div className="min-h-screen bg-background">
+      <Navbar title="Admin Dashboard" links={adminLinks} userRole="admin" />
+      <main className="w-full">
+        <div className="container mx-auto px-4 py-6">{children}</div>
+      </main>
+    </div>
   );
 };
 

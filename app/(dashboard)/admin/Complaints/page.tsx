@@ -1,5 +1,10 @@
-const page = () => {
-  return <div>page</div>;
-};
-
-export default page;
+export default function ComplaintsPage() {
+  return (
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight">Complaints</h1>
+      <p className="text-sm text-muted-foreground">
+        View and manage user complaints.
+      </p>
+    </div>
+  );
+}
