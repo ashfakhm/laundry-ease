@@ -1,3 +1,6 @@
-// Utility helpers live here. Currently empty because
-// the original `cn` helper was unused. Add shared
-// utilities as the app grows.
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}

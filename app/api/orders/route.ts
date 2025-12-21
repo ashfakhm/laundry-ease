@@ -1,96 +1,110 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { createOrder, getBookingById, getUserByEmail } from "@/lib/db";
-import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { OrderItem } from "@/types/orders";
+import { calculateDistance } from "@/lib/distance";
+import { requireProvider } from "@/lib/api/auth";
+import { successResponse, withErrorHandling } from "@/lib/api/response";
+import { createOrderSchema } from "@/lib/api/schemas";
+import { Errors } from "@/lib/api/errors";
+import { Role } from "@/types/enums";
 
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
+interface ProviderData {
+  role: Role;
+  coordinates?: { lat: number; lng: number };
+  radius_km?: number;
+  per_km_rate?: number;
+  covers_beyond_radius?: boolean;
+}
 
-    if (!session || !session.user || session.user.role !== Role.PROVIDER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+export const POST = withErrorHandling(async (req: Request) => {
+  const session = await requireProvider();
 
-    const body = await req.json();
-    const { booking_id, items, seeker_location } = body;
+  const body = await req.json();
+  const result = createOrderSchema.safeParse(body);
 
-    if (!booking_id || !items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { message: "Booking ID and items are required" },
-        { status: 400 }
-      );
-    }
-
-    const booking = await getBookingById(new ObjectId(booking_id));
-
-    if (!booking) {
-      return NextResponse.json(
-        { message: "Booking not found" },
-        { status: 404 }
-      );
-    }
-
-    if (booking.provider_id.toString() !== session.user.id) {
-      return NextResponse.json(
-        {
-          message: "You are not authorized to create an order for this booking",
-        },
-        { status: 403 }
-      );
-    }
-
-    if (booking.status !== "accepted") {
-      return NextResponse.json(
-        { message: "Booking must be accepted before creating an order" },
-        { status: 400 }
-      );
-    }
-
-    // Calculate total price
-    const total_price = items.reduce((acc: number, item: OrderItem) => {
-      item.line_total = item.quantity * item.unit_price;
-      return acc + item.line_total;
-    }, 0);
-
-    // TODO: Implement Haversine formula for distance calculation
-    const delivery_distance_km = 10;
-
-    const provider = await getUserByEmail(session.user.email);
-    let delivery_charge = 0;
-    if (provider && provider.role === Role.PROVIDER) {
-      const providerData = provider as any;
-      if (
-        providerData.radius_km &&
-        providerData.per_km_rate &&
-        providerData.covers_beyond_radius
-      ) {
-        if (delivery_distance_km > providerData.radius_km) {
-          delivery_charge =
-            (delivery_distance_km - providerData.radius_km) *
-            providerData.per_km_rate;
-        }
-      }
-    }
-
-    const order = await createOrder({
-      booking_id: new ObjectId(booking_id),
-      seeker_id: booking.seeker_id,
-      provider_id: booking.provider_id,
-      items,
-      total_price,
-      delivery_distance_km,
-      delivery_charge,
-    });
-
-    return NextResponse.json(order, { status: 201 });
-  } catch (error) {
-    console.error("Error creating order:", error);
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
+  if (!result.success) {
+    throw Errors.validation(
+      "Invalid order data",
+      result.error.flatten().fieldErrors
     );
   }
-}
+
+  const { booking_id, items } = result.data;
+
+  const booking = await getBookingById(new ObjectId(booking_id));
+
+  if (!booking) {
+    throw Errors.notFound("Booking not found");
+  }
+
+  if (booking.provider_id.toString() !== session.user.id) {
+    throw Errors.forbidden(
+      "You are not authorized to create an order for this booking"
+    );
+  }
+
+  if (booking.status !== "accepted") {
+    throw Errors.badRequest(
+      "Booking must be accepted before creating an order"
+    );
+  }
+
+  // Calculate total price with line items
+  const processedItems: OrderItem[] = items.map((item) => ({
+    ...item,
+    line_total: item.quantity * item.unit_price,
+  }));
+
+  const total_price = processedItems.reduce(
+    (acc, item) => acc + item.line_total,
+    0
+  );
+
+  // Calculate distance using Haversine formula
+  const booking_coords = booking.seeker_coordinates;
+  const providerUser = (await getUserByEmail(
+    session.user.email
+  )) as ProviderData | null;
+  const provider_coords = providerUser?.coordinates;
+
+  // Default to 1km if coords missing
+  const delivery_distance_km =
+    booking_coords && provider_coords
+      ? calculateDistance(booking_coords, provider_coords)
+      : 1;
+
+  if (!booking_coords || !provider_coords) {
+    console.warn(
+      `[ORDER_CREATION] Missing coordinates for Booking ${booking_id}. Using default 1km.`
+    );
+  }
+
+  let delivery_charge = 0;
+  if (providerUser?.role === Role.PROVIDER) {
+    const providerData = providerUser;
+    if (
+      providerData.radius_km &&
+      providerData.per_km_rate &&
+      providerData.covers_beyond_radius
+    ) {
+      if (delivery_distance_km > providerData.radius_km) {
+        delivery_charge =
+          (delivery_distance_km - providerData.radius_km) *
+          providerData.per_km_rate;
+      }
+    }
+  }
+
+  const order = await createOrder({
+    booking_id: new ObjectId(booking_id),
+    seeker_id: new ObjectId(booking.seeker_id.toString()),
+    provider_id: new ObjectId(booking.provider_id.toString()),
+    items: processedItems,
+    total_price,
+    delivery_distance_km,
+    delivery_charge,
+    deadline: booking.deadline ? new Date(booking.deadline) : undefined,
+  });
+
+  return successResponse(order, 201);
+});

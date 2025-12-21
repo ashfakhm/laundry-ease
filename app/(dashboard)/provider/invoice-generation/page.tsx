@@ -32,11 +32,20 @@ type Order = {
   };
 };
 
+type ProviderProfile = {
+  _id: string;
+  name: string;
+  businessName?: string;
+  email: string;
+  phone?: string;
+  services?: Array<{ name: string; pricePerKg: number }>;
+};
+
 export default function InvoiceGenerationPage() {
   const { data: session } = useSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [provider, setProvider] = useState<any>(null);
+  const [provider, setProvider] = useState<ProviderProfile | null>(null);
 
   useEffect(() => {
     async function fetchData() {

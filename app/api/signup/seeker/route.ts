@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 });
   }
-  const { name, email, password, phone, address } = parsed.data;
+  const { name, email, password, phone } = parsed.data;
 
   // Require verified OTPs for email and phone
   const emailOk = await isOtpVerifiedRecently(email, "email");

@@ -76,7 +76,7 @@ export default function ViewOrdersPage() {
   function getStatusBadge(order: Order) {
     if (order.cancellation_status) {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/50 px-3 py-1 text-xs font-medium text-red-700 dark:text-red-400">
           <XCircle className="h-3 w-3" />
           Cancelled
         </span>
@@ -85,7 +85,7 @@ export default function ViewOrdersPage() {
 
     if (order.otp_confirmed_at) {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
           <CheckCircle2 className="h-3 w-3" />
           Delivered
         </span>
@@ -96,28 +96,28 @@ export default function ViewOrdersPage() {
       case "paid":
       case "held":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 dark:bg-blue-900/50 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-400">
             <Clock className="h-3 w-3" />
             In Progress
           </span>
         );
       case "released":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 className="h-3 w-3" />
             Completed
           </span>
         );
       case "unpaid":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/50 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
             <Clock className="h-3 w-3" />
             Pending Payment
           </span>
         );
       case "refunded":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-400">
             <XCircle className="h-3 w-3" />
             Refunded
           </span>

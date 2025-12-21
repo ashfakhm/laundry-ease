@@ -41,13 +41,54 @@ type Order = {
   } | null;
 };
 
+type OrderWithProcessStatus = Order & {
+  process_status?:
+    | "processing"
+    | "washing"
+    | "ironing"
+    | "ready"
+    | "out_for_delivery"
+    | "delivered";
+  deadline?: Date;
+};
+
 export default function OrderStatusPage() {
   const { data: session } = useSession();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderWithProcessStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<
     "all" | "active" | "completed" | "cancelled"
   >("active");
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  async function updateStatus(orderId: string, newStatus: string) {
+    setUpdating(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        // Optimistic update
+        setOrders((prev) =>
+          prev.map((o) =>
+            o._id === orderId
+              ? {
+                  ...o,
+                  process_status:
+                    newStatus as OrderWithProcessStatus["process_status"],
+                }
+              : o
+          )
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUpdating(null);
+    }
+  }
 
   useEffect(() => {
     async function fetchOrders() {
@@ -236,7 +277,31 @@ export default function OrderStatusPage() {
                           <h3 className="font-semibold">
                             Order #{order._id.slice(-8)}
                           </h3>
-                          {getStatusBadge(order)}
+                          {/* Status Dropdown if Active */}
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(order)}
+                            {!order.otp_confirmed_at &&
+                              order.payment_status !== "released" &&
+                              !order.cancellation_status && (
+                                <select
+                                  className="text-xs border rounded px-1 py-0.5"
+                                  value={order.process_status || "processing"}
+                                  onChange={(e) =>
+                                    updateStatus(order._id, e.target.value)
+                                  }
+                                  disabled={updating === order._id}
+                                >
+                                  <option value="processing">Processing</option>
+                                  <option value="washing">Washing</option>
+                                  <option value="ironing">Ironing</option>
+                                  <option value="ready">Ready</option>
+                                  <option value="out_for_delivery">
+                                    Out for Delivery
+                                  </option>
+                                  <option value="delivered">Delivered</option>
+                                </select>
+                              )}
+                          </div>
                         </div>
                         <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Calendar className="h-3 w-3" />

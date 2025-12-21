@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getHeldOrdersPastEscrowDate, releaseEscrowPayment } from "@/lib/db";
 import { Order } from "@/types/orders";
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const ordersToRelease = await getHeldOrdersPastEscrowDate();
 

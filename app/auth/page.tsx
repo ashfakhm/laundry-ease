@@ -71,7 +71,7 @@ export default function AuthPage() {
       } else {
         setError(data.error || "Failed to send reset email");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setForgotLoading(false);

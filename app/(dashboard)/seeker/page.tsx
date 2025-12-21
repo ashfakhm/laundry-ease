@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Search, MapPin, Tag, Star, Phone, Mail } from "lucide-react";
+import { Search, MapPin, Tag, Star, Phone, Mail, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { ProviderCardSkeleton } from "@/components/ui/skeleton";
 
 type Provider = {
   _id: string;
@@ -20,12 +22,31 @@ type Provider = {
 export default function SeekerDashboardPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { toast } = useToast();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bookingInProgress, setBookingInProgress] = useState<string | null>(
+    null
+  );
   const [searchLocation, setSearchLocation] = useState("");
   const [searchName, setSearchName] = useState("");
   const [selectedService, setSelectedService] = useState("");
   const [seekerLocation, setSeekerLocation] = useState("");
+  const [coordinates, setCoordinates] = useState<
+    { lat: number; lng: number } | undefined
+  >(undefined);
+
+  // FAANG Practice: Get User Coordinates
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setCoordinates({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      });
+    }
+  }, []);
 
   // Fetch seeker's location from profile
   useEffect(() => {
@@ -66,13 +87,18 @@ export default function SeekerDashboardPage() {
         }
       } catch (error) {
         console.error("Error fetching providers:", error);
+        toast({
+          title: "Failed to load providers",
+          description: "Please try again later",
+          type: "error",
+        });
       } finally {
         setLoading(false);
       }
     }
 
     fetchProviders();
-  }, [searchLocation, searchName, selectedService]);
+  }, [searchLocation, searchName, selectedService, toast]);
 
   const popularServices = [
     "Wash & Fold",
@@ -84,22 +110,44 @@ export default function SeekerDashboardPage() {
   ];
 
   async function handleBookProvider(providerId: string) {
+    if (bookingInProgress) return;
+
+    setBookingInProgress(providerId);
     try {
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider_id: providerId }),
+        body: JSON.stringify({
+          provider_id: providerId,
+          seeker_coordinates: coordinates,
+        }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        alert("Booking request sent successfully!");
+        toast({
+          title: "Booking requested!",
+          description: "Your booking request has been sent to the provider",
+          type: "success",
+        });
+        router.push("/seeker/bookings");
       } else {
-        const data = await response.json();
-        alert(data.error || "Failed to create booking");
+        toast({
+          title: "Booking failed",
+          description: data.error || "Failed to create booking",
+          type: "error",
+        });
       }
     } catch (error) {
       console.error("Error creating booking:", error);
-      alert("An error occurred. Please try again.");
+      toast({
+        title: "Something went wrong",
+        description: "Please check your connection and try again",
+        type: "error",
+      });
+    } finally {
+      setBookingInProgress(null);
     }
   }
 
@@ -186,15 +234,12 @@ export default function SeekerDashboardPage() {
         </header>
 
         {/* Results */}
-        <section>
+        <section aria-label="Provider search results">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
-                <p className="mt-4 text-sm text-muted-foreground">
-                  Finding providers...
-                </p>
-              </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <ProviderCardSkeleton key={i} />
+              ))}
             </div>
           ) : providers.length === 0 ? (
             <div className="rounded-3xl border bg-card/80 p-12 text-center shadow-sm backdrop-blur">
@@ -209,7 +254,7 @@ export default function SeekerDashboardPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {providers.map((provider) => (
-                <div
+                <article
                   key={provider._id}
                   className="group rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur transition hover:shadow-md"
                 >
@@ -219,6 +264,13 @@ export default function SeekerDashboardPage() {
                       router.push(`/seeker/provider/${provider._id}`)
                     }
                     className="cursor-pointer"
+                    role="link"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        router.push(`/seeker/provider/${provider._id}`);
+                      }
+                    }}
                   >
                     {/* Provider Header */}
                     <div className="flex items-start justify-between">
@@ -301,24 +353,34 @@ export default function SeekerDashboardPage() {
                   {/* Action Buttons */}
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <button
+                      type="button"
                       onClick={() =>
                         router.push(`/seeker/provider/${provider._id}`)
                       }
-                      className="rounded-xl border bg-background py-2.5 text-sm font-medium transition hover:bg-muted"
+                      className="rounded-xl border bg-background py-2.5 text-sm font-medium transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                     >
                       View Profile
                     </button>
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleBookProvider(provider._id);
                       }}
-                      className="rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+                      disabled={bookingInProgress === provider._id}
+                      className="rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Book Now
+                      {bookingInProgress === provider._id ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Booking...
+                        </span>
+                      ) : (
+                        "Book Now"
+                      )}
                     </button>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}

@@ -23,4 +23,14 @@ export type Order = {
   otp_confirmed_at?: Date;
   cancellation_status?: "cancelled_by_seeker" | "cancelled_by_provider";
   createdAt: Date;
+  process_status?:
+    | "invoiced"
+    | "processing"
+    | "washing"
+    | "ironing"
+    | "ready"
+    | "out_for_delivery"
+    | "delivered";
+  deadline?: Date;
+  latePenalty?: number;
 };

@@ -66,6 +66,7 @@ export async function PATCH(req: Request) {
       services,
       pricingRates,
       radius_km,
+      coordinates,
     } = body;
 
     // Build update object with only provided fields
@@ -78,6 +79,7 @@ export async function PATCH(req: Request) {
     if (services !== undefined) updateFields.services = services;
     if (pricingRates !== undefined) updateFields.pricingRates = pricingRates;
     if (radius_km !== undefined) updateFields.radius_km = Number(radius_km);
+    if (coordinates !== undefined) updateFields.coordinates = coordinates;
 
     if (Object.keys(updateFields).length === 0) {
       return NextResponse.json(

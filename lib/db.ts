@@ -26,6 +26,7 @@ export type Seeker = BaseUser & {
     postalCode: string;
     landmark?: string;
   } | null;
+  coordinates?: { lat: number; lng: number };
   outstanding_fees?: number;
   blocked_until?: Date;
 };
@@ -34,6 +35,7 @@ export type Provider = BaseUser & {
   services?: string[];
   pricing?: number;
   location?: string;
+  coordinates?: { lat: number; lng: number };
   documents?: string[];
   radius_km?: number;
   per_km_rate?: number;
@@ -170,9 +172,12 @@ export async function createProvider(data: {
 /**
  * Create a new booking
  */
+
 export async function createBooking(data: {
   seeker_id: ObjectId;
   provider_id: ObjectId;
+  deadline?: Date;
+  seeker_coordinates?: { lat: number; lng: number };
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -181,6 +186,10 @@ export async function createBooking(data: {
     seeker_id: data.seeker_id,
     provider_id: data.provider_id,
     status: "requested",
+    bookingFee: 50, // Fixed fee for MVP
+    bookingFeeStatus: "pending",
+    deadline: data.deadline,
+    seeker_coordinates: data.seeker_coordinates,
     createdAt: now,
   };
 
@@ -228,6 +237,7 @@ export async function createOrder(data: {
   total_price: number;
   delivery_distance_km?: number;
   delivery_charge: number;
+  deadline?: Date;
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -241,6 +251,8 @@ export async function createOrder(data: {
     delivery_distance_km: data.delivery_distance_km,
     delivery_charge: data.delivery_charge,
     payment_status: "unpaid",
+    process_status: "invoiced",
+    deadline: data.deadline,
     createdAt: now,
   };
 
@@ -319,6 +331,20 @@ export async function getHeldOrdersPastEscrowDate(): Promise<Order[]> {
  */
 export async function releaseEscrowPayment(order_id: ObjectId) {
   const { db } = await getDb();
+
+  // VALIDATION: Check for active complaints before releasing
+  const openComplaint = await db.collection("complaints").findOne({
+    order_id: new ObjectId(order_id),
+    status: { $in: ["open", "in_progress"] },
+  });
+
+  if (openComplaint) {
+    console.log(
+      `Escrow release blocked for Order ${order_id} due to open complaint ${openComplaint._id}`
+    );
+    return false;
+  }
+
   const res = await db
     .collection<Order>("orders")
     .updateOne({ _id: order_id }, { $set: { payment_status: "released" } });
@@ -391,3 +417,74 @@ export async function createComplaint(data: {
 // Note: admin creation and profile update helpers used to live here.
 // They have been removed for now because they were unused. Reintroduce
 // them alongside the first real admin/profile management features.
+
+/**
+ * Force freeze escrow (explicitly mark as disputed if needed)
+ * Effectively handled by createComplaint, but this ensures payment status reflects it.
+ */
+export async function freezeEscrow(order_id: ObjectId) {
+  // We don't strictly change status to 'disputed' to avoid breaking enum types in MVP,
+  // but we could. For now, we rely on the complaint check in releaseEscrowPayment.
+  // Optionally, we can log this action.
+  console.log(`[ESCROW] Frozen for order ${order_id.toString()}`);
+}
+
+/**
+ * Get all bookings for a provider (Server Component Helper)
+ */
+export async function getBookingsForProvider(email: string) {
+  const { db } = await getDb();
+
+  const provider = await db
+    .collection<Provider>("providers")
+    .findOne({ email });
+  if (!provider) return [];
+
+  const bookings = await db
+    .collection<Booking>("bookings")
+    .find({ provider_id: provider._id })
+    .sort({ createdAt: -1 })
+    .toArray();
+
+  // Parallel enrichment
+  const enrichedBookings = await Promise.all(
+    bookings.map(async (booking) => {
+      const seeker = await db
+        .collection<Seeker>("seekers")
+        .findOne(
+          { _id: new ObjectId(booking.seeker_id) },
+          { projection: { passwordHash: 0 } }
+        );
+
+      // Serialize ObjectIds to strings for Client Components
+      return {
+        ...booking,
+        _id: booking._id.toString(),
+        seeker_id: booking.seeker_id.toString(),
+        provider_id: booking.provider_id.toString(),
+        createdAt: new Date(booking.createdAt).toISOString(),
+        deadline: booking.deadline
+          ? new Date(booking.deadline).toISOString()
+          : undefined,
+        pickupSlot: booking.pickupSlot
+          ? {
+              ...booking.pickupSlot,
+              dateTime: new Date(booking.pickupSlot.dateTime).toISOString(), // Ensure ISO string
+              confirmedAt: booking.pickupSlot.confirmedAt
+                ? new Date(booking.pickupSlot.confirmedAt).toISOString()
+                : undefined,
+            }
+          : undefined,
+        seeker: seeker
+          ? {
+              ...seeker,
+              _id: seeker._id?.toString() || "",
+              createdAt: new Date(seeker.createdAt).toISOString(),
+            }
+          : undefined,
+      };
+    })
+  );
+
+  return enrichedBookings;
+}

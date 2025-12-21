@@ -1,40 +1,55 @@
 "use client";
 
+import { useMemo } from "react";
 import { Star, MessageSquare, Calendar } from "lucide-react";
 
-export default function ReviewsManagePage() {
-  // Mock reviews data - replace with actual API call
-  const reviews = [
-    {
-      _id: "1",
-      seeker_name: "Rahul Sharma",
-      rating: 5,
-      comment:
-        "Excellent service! Very professional and clothes came back perfectly clean.",
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      order_id: "ORD123",
-    },
-    {
-      _id: "2",
-      seeker_name: "Priya Patel",
-      rating: 4,
-      comment: "Good quality work. Delivery was on time. Will use again.",
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      order_id: "ORD124",
-    },
-    {
-      _id: "3",
-      seeker_name: "Amit Kumar",
-      rating: 5,
-      comment:
-        "Best laundry service in the area! Very careful with delicate fabrics.",
-      createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-      order_id: "ORD125",
-    },
-  ];
+type Review = {
+  _id: string;
+  seeker_name: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  order_id: string;
+};
 
-  const averageRating =
-    reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length || 0;
+// Static mock data - in production, this would come from an API
+const MOCK_REVIEWS: Review[] = [
+  {
+    _id: "1",
+    seeker_name: "Rahul Sharma",
+    rating: 5,
+    comment:
+      "Excellent service! Very professional and clothes came back perfectly clean.",
+    createdAt: "2024-12-19T10:00:00.000Z",
+    order_id: "ORD123",
+  },
+  {
+    _id: "2",
+    seeker_name: "Priya Patel",
+    rating: 4,
+    comment: "Good quality work. Delivery was on time. Will use again.",
+    createdAt: "2024-12-16T10:00:00.000Z",
+    order_id: "ORD124",
+  },
+  {
+    _id: "3",
+    seeker_name: "Amit Kumar",
+    rating: 5,
+    comment:
+      "Best laundry service in the area! Very careful with delicate fabrics.",
+    createdAt: "2024-12-11T10:00:00.000Z",
+    order_id: "ORD125",
+  },
+];
+
+export default function ReviewsManagePage() {
+  // In production, this would use SWR/React Query to fetch from API
+  const reviews = MOCK_REVIEWS;
+
+  const averageRating = useMemo(
+    () => reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length || 0,
+    [reviews]
+  );
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background">

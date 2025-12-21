@@ -1,15 +1,36 @@
 # Product Requirements Document (PRD) - LaundryEase
 
-**Version:** 2.0 (FAANG-Grade, Production-Ready)
+**Version:** 3.0 (FAANG-Grade, Logic-Sealed Production-Ready)
 **Date:** 2025-12-21
-**Status:** Final
+**Status:** Final - Approved for Development
 **Author:** Ashfakh M
 
 ---
 
 ## Executive Summary
 
-LaundryEase is a B2C marketplace connecting time-constrained urban professionals with vetted laundry service providers. The platform differentiates through **deadline-guaranteed service**, **escrow-protected payments**, **evidence-backed dispute resolution**, and **privacy-first communication**.
+LaundryEase is a **web-based laundry service marketplace** designed for busy individuals who have money but lack time to manage traditional laundry workflows.
+
+### The Problem
+
+Traditional laundry services require customers to physically visit shops for drop-off and pickup. This causes:
+
+- **Time loss** (2-4 hours/week)
+- **Missed deadlines** for urgent clothes
+- **Poor communication** about urgency and special requirements
+- **Lack of transparency** in pricing and delivery timelines
+- **No recourse** for damaged or lost items
+
+### The Solution
+
+LaundryEase solves these problems by providing:
+
+- **Doorstep pickup and delivery** — Zero travel required
+- **Deadline-based provider matching** — Only see providers who can meet your timeline
+- **Transparent pricing** — All prices visible upfront, no surprises
+- **Real-time order tracking** — Know exactly where your clothes are
+- **Escrow-protected payments** — Money held securely until satisfaction
+- **Evidence-backed dispute resolution** — Photo documentation + Admin mediation
 
 **Target Market:** Urban professionals (25-45) with household income >₹8L/year
 **TAM:** ₹15,000 Cr (Indian urban laundry market)
@@ -64,26 +85,38 @@ LaundryEase is a B2C marketplace connecting time-constrained urban professionals
 
 ### 2.1 Value Proposition Canvas
 
-| Customer Job       | Pain Reliever                    | Gain Creator                      |
-| :----------------- | :------------------------------- | :-------------------------------- |
-| Get laundry done   | Doorstep pickup/delivery         | Zero time investment              |
-| Meet deadlines     | Deadline-locked bookings         | Penalty-backed guarantees         |
-| Know costs upfront | Fixed price lists                | No surprise charges               |
-| Resolve disputes   | Photo evidence + Admin mediation | Fair, transparent outcomes        |
-| Pay securely       | Escrow system                    | Money protected until satisfied   |
-| Maintain Privacy   | Phone/Email Masking              | No spam/harassment from strangers |
+| Customer Job             | Pain Reliever                           | Gain Creator                      |
+| :----------------------- | :-------------------------------------- | :-------------------------------- |
+| Get laundry done         | Doorstep pickup/delivery                | Zero time investment              |
+| Meet deadlines           | Deadline-locked bookings                | Penalty-backed guarantees         |
+| Know costs upfront       | Fixed price lists from provider profile | No surprise charges               |
+| Resolve disputes         | Photo evidence + Admin mediation        | Fair, transparent outcomes        |
+| Pay securely             | Escrow system (24h hold post-delivery)  | Money protected until satisfied   |
+| Maintain Privacy         | Phone/Email Masking                     | No spam/harassment from strangers |
+| Prevent fake bookings    | Platform-defined booking fee            | Serious seekers only              |
+| Ensure provider shows up | No-show detection + auto-penalties      | Provider reliability enforced     |
 
 ### 2.2 Core Differentiators
 
-1. **Deadline-First Architecture:** Every booking is locked to a deadline; system auto-hides providers who can't meet it
-2. **AI Video Ingestion (Speed):** Doorstep handover takes <30 seconds via continuous video scan; processing is asynchronous.
-3. **Smart Logistics:** Dynamic batching of pickups/deliveries via "Slot Windows" (e.g., 9-11 AM) to maximize provider density.
-4. **Escrow + Insurance:** Payments protected by escrow; Items protected by micro-insurance.
-5. **Algorithmic Trust:** Provider visibility tied to real-time capacity and historical performance
+1. **Deadline-First Architecture:** Every booking is locked to a deadline; system auto-hides providers who can't meet it or are overbooked
+2. **No Undefined States:** Complete lifecycle management — every possible user action has a defined system response
+3. **Platform-Controlled Booking Fee:** Prevents casual/fake bookings; fee adjusted in final invoice or refunded per rules
+4. **Escrow + 24h Complaint Window:** Payments held until seeker confirms satisfaction or complaint window expires
+5. **Photo Evidence Mandate:** Every item photographed at pickup — irrefutable dispute resolution
+6. **Algorithmic Trust:** Provider visibility tied to real-time capacity, availability, and historical performance
+7. **Clear Responsibility Assignment:** Seeker, Provider, and Admin roles have unambiguous responsibilities at every stage
 
 ---
 
-## 3. User Personas
+## 3. User Roles & Personas
+
+### 3.0 Role Definitions
+
+| Role         | Definition                             | Primary Responsibilities                                                                    |
+| :----------- | :------------------------------------- | :------------------------------------------------------------------------------------------ |
+| **Seeker**   | Customer who requests laundry services | Book providers, approve invoices, pay for orders, confirm delivery, raise complaints        |
+| **Provider** | Laundry service professional           | Accept/reject bookings, pickup clothes, process laundry, deliver on deadline, update status |
+| **Admin**    | System authority                       | Dispute resolution, payment control, fraud prevention, platform moderation, user management |
 
 ### 3.1 Primary Persona: The Time-Starved Professional (Seeker)
 
@@ -115,49 +148,82 @@ LaundryEase is a B2C marketplace connecting time-constrained urban professionals
 
 ### 3.3 Tertiary Persona: Platform Admin
 
-| Attribute            | Detail                                                           |
-| :------------------- | :--------------------------------------------------------------- |
-| **Role**             | Operations Manager                                               |
-| **Responsibilities** | Dispute resolution, fraud prevention, provider quality           |
-| **KPIs**             | Resolution time <24h, Fraud rate <0.5%, Provider churn <5%/month |
+| Attribute            | Detail                                                                                                                                   |
+| :------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| **Role**             | Operations Manager / Super Admin                                                                                                         |
+| **Responsibilities** | Dispute resolution, fraud prevention, provider quality, payment control                                                                  |
+| **Capabilities**     | User management (ban, suspend, delete), Booking/order audits, Complaint resolution, Payment/escrow control, System logs, Fraud detection |
+| **KPIs**             | Resolution time <24h, Fraud rate <0.5%, Provider churn <5%/month                                                                         |
+| **System Note**      | Initially operates with single super admin; role expansion supported later                                                               |
 
 ---
 
 ## 4. User Journeys & State Machines
 
-### 4.1 Booking State Machine
+### 4.1 Booking State Machine (Complete Flow)
 
-> **Implementation Note:** Current MVP uses a simplified booking flow. Advanced states (CONFIRMED, NO_SHOW, CANCELLED) are planned for Phase 2.
+> **Logic-Sealed:** Every possible state transition is defined. No undefined states exist.
 
 ```
-┌─────────────┐
-│  REQUESTED  │ ← Seeker submits booking request
-└──────┬──────┘
-       │
-       ├──────────────────────────────┐
-       │ Provider Accepts             │ Provider Rejects
-       ▼                              ▼
-┌─────────────┐                ┌─────────────┐
-│  ACCEPTED   │                │  REJECTED   │ → Booking Closed
-└──────┬──────┘                └─────────────┘
-       │
-       │ Provider creates invoice at pickup
-       ▼
-┌─────────────┐
-│   ORDER     │ → Converts to Order (see Order State Machine)
-│   CREATED   │
-└─────────────┘
+┌─────────────────┐
+│    REQUESTED    │ ← Seeker submits booking + pays booking fee
+└────────┬────────┘
+         │
+         ├────────────────────────────────────────┐
+         │ Provider Accepts (within 2h)           │ Provider Rejects OR Auto-reject (2h timeout)
+         ▼                                        ▼
+┌─────────────────┐                        ┌─────────────────┐
+│    ACCEPTED     │                        │    REJECTED     │ → Full booking fee refund
+└────────┬────────┘                        └─────────────────┘
+         │
+         │ Provider proposes pickup time
+         ▼
+┌─────────────────┐
+│ PICKUP_PROPOSED │
+└────────┬────────┘
+         │
+         ├────────────────────────────────────────┐
+         │ Seeker confirms (within 12h)           │ Seeker doesn't confirm (12h timeout)
+         ▼                                        ▼
+┌─────────────────┐                        ┌─────────────────┐
+│   CONFIRMED     │                        │   CANCELLED     │ → Full booking fee refund
+└────────┬────────┘                        └─────────────────┘
+         │
+         ├────────────────────────────────────────┐
+         │ Provider arrives (±30 min window)      │ Provider doesn't arrive (no-show)
+         │                                        ▼
+         │                                 ┌─────────────────┐
+         │                                 │    NO_SHOW      │ → Full refund + Provider penalty
+         │                                 └─────────────────┘
+         │
+         │ Seeker available                       │ Seeker unavailable (15 min wait)
+         ▼                                        ▼
+┌─────────────────┐                        ┌─────────────────┐
+│ INVOICE_CREATED │                        │   CANCELLED     │ → Booking fee forfeited
+└────────┬────────┘                        └─────────────────┘
+         │
+         ├────────────────────────────────────────┐
+         │ Seeker approves invoice                │ Seeker rejects invoice
+         ▼                                        ▼
+┌─────────────────┐                        ┌─────────────────┐
+│  ORDER_CREATED  │ → Converts to Order    │    REJECTED     │ → Booking fee retained by provider
+└─────────────────┘                        └─────────────────┘
 ```
 
-**Future States (Phase 2):**
+**Booking Fee Rules Summary:**
 
-- `CONFIRMED`: Pickup time mutually agreed
-- `CANCELLED`: Seeker cancellation after acceptance
-- `NO_SHOW`: Provider failed to arrive at pickup
+| Scenario                         | Fee Status | Recipient                 |
+| :------------------------------- | :--------- | :------------------------ |
+| Provider rejects/auto-rejects    | Refunded   | Seeker                    |
+| Seeker cancels after acceptance  | Forfeited  | Provider                  |
+| Provider no-show                 | Refunded   | Seeker                    |
+| Seeker no-show at pickup         | Forfeited  | Provider                  |
+| Invoice approved → Order created | Applied    | Deducted from order total |
+| Invoice rejected                 | Retained   | Provider                  |
 
 ### 4.2 Order State Machine (Payment-Status Based)
 
-> **Implementation Note:** Orders track progress via `payment_status` field. Process status tracking is planned for Phase 2.
+> **Logic-Sealed:** Escrow ensures payment safety. Every exit path is defined.
 
 ```
 ┌─────────────┐
@@ -191,6 +257,15 @@ LaundryEase is a B2C marketplace connecting time-constrained urban professionals
                                └─────────────┘
 ```
 
+└─────────────┘ └──────┬──────┘
+│ Admin Resolution
+▼
+┌─────────────┐
+│ REFUNDED │ (if applicable)
+└─────────────┘
+
+```
+
 **Key Timestamps:**
 
 - `payment_made_at`: When seeker completed payment
@@ -203,21 +278,23 @@ LaundryEase is a B2C marketplace connecting time-constrained urban professionals
 > **Implementation Note:** Complaints use simplified status tracking. Resolution outcomes are determined by admin during resolution.
 
 ```
+
 ┌─────────────┐
-│    OPEN     │ ← Seeker raises complaint (within 24h escrow window)
-└──────┬──────┘    Escrow automatically frozen
-       │
-       │ Admin begins review
-       ▼
+│ OPEN │ ← Seeker raises complaint (within 24h escrow window)
+└──────┬──────┘ Escrow automatically frozen
+│
+│ Admin begins review
+▼
 ┌─────────────┐
 │ IN_PROGRESS │ ← Admin investigating, evidence review
 └──────┬──────┘
-       │
-       │ Admin makes decision
-       ▼
+│
+│ Admin makes decision
+▼
 ┌─────────────┐
-│  RESOLVED   │ → Payment action executed
+│ RESOLVED │ → Payment action executed
 └─────────────┘
+
 ```
 
 **Resolution Outcomes (handled externally):**
@@ -251,65 +328,82 @@ LaundryEase is a B2C marketplace connecting time-constrained urban professionals
 | **Description**         | Magic link sent to email; valid for 24 hours                    |
 | **Acceptance Criteria** | 1. Link works only once<br>2. Expired link shows re-send option |
 
-#### FR-AUTH-003: Provider Profile Setup
+#### FR-AUTH-003: Provider Profile Setup (Registration)
 
-| Field                   | Value                                                                                                                              |
-| :---------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                                                                                 |
-| **Required Fields**     | Base location (geocoded), Max radius (1-50km), Free delivery distance (0-10km), Extra charge/km (₹0-50), Price list (min 10 items) |
-| **Validation**          | All prices must be >₹0; radius must be >free delivery distance                                                                     |
-| **Acceptance Criteria** | 1. Cannot accept bookings until profile 100% complete<br>2. Location validated via Google Places API                               |
+| Field                   | Value                                                                                                                                                                                                                                                     |
+| :---------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                                                                                                                                                        |
+| **Required Fields**     | Base service location (geocoded), Max service radius (1-50km), Free delivery distance (0-10km), Extra charge per km (₹0-50), Fixed price list (min 10 standard items), Phone (OTP verified), Email (verified)                                             |
+| **Validation Rules**    | All prices must be >₹0; Max radius must be > free delivery distance; Price list must cover standard clothing categories                                                                                                                                   |
+| **Profile Edit Policy** | Providers may edit profile at any time. **Changes apply only to future bookings, not active or confirmed orders.**                                                                                                                                        |
+| **Acceptance Criteria** | 1. Cannot accept bookings until profile 100% complete<br>2. Location validated via Google Places API<br>3. All prices used in system are strictly fetched from provider's profile<br>4. Manual price entry NOT allowed except for items marked as "Other" |
 
-#### FR-AUTH-004: Seeker Profile Setup
+#### FR-AUTH-004: Seeker Profile Setup (Registration)
 
-| Field                   | Value                                                                      |
-| :---------------------- | :------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                         |
-| **Required Fields**     | Default location (geocoded)                                                |
-| **Acceptance Criteria** | 1. Can edit location anytime<br>2. Location autocomplete via Google Places |
+| Field                   | Value                                                                                                                                                        |
+| :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                                                           |
+| **Required Fields**     | Default location (geocoded), Phone number (OTP verified), Email address (verified)                                                                           |
+| **Purpose**             | Ensures accurate provider matching and reliable communication                                                                                                |
+| **Acceptance Criteria** | 1. Can edit location anytime<br>2. Location autocomplete via Google Places<br>3. OTP verification required for phone<br>4. Email verification via magic link |
 
 ---
 
 ### 5.2 Provider Discovery
 
-#### FR-DISC-001: Location-Based Search
+#### FR-DISC-001: Location & Deadline-Based Search
 
-| Field                   | Value                                                                               |
-| :---------------------- | :---------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                                  |
-| **Inputs**              | Seeker location, Required deadline                                                  |
-| **Matching Algorithm**  | `distance(seeker, provider.base) <= provider.maxRadius`                             |
-| **Acceptance Criteria** | 1. Only matching providers shown<br>2. Results sorted by: Rating > Distance > Price |
+| Field                   | Value                                                                                                                                                                                                           |
+| :---------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                                                                                                              |
+| **Seeker Inputs**       | Location, Required completion deadline                                                                                                                                                                          |
+| **Matching Logic**      | System lists ONLY providers who: 1) Cover the seeker's location (`distance(seeker, provider.base) <= provider.maxRadius`), 2) Have declared availability to meet the deadline, 3) Are NOT overbooked internally |
+| **Acceptance Criteria** | 1. Only matching providers shown<br>2. Results sorted by: Rating > Distance > Price<br>3. Providers who cannot realistically meet the deadline are automatically hidden                                         |
 
-#### FR-DISC-002: Availability Filtering
+#### FR-DISC-002: Availability & Capacity Filtering
 
-| Field                   | Value                                                                                            |
-| :---------------------- | :----------------------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                                               |
-| **Logic**               | Hide providers where `activeOrders >= maxCapacity` OR `estimatedCompletionTime > seekerDeadline` |
-| **Acceptance Criteria** | 1. Overbooked providers auto-hidden<br>2. Provider can manually mark unavailable                 |
+| Field                   | Value                                                                                                                                      |
+| :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                                         |
+| **Internal Logic**      | Provider workload and availability are managed internally by the system to prevent overbooking                                             |
+| **Hide Conditions**     | Hide providers where `activeOrders >= maxCapacity` OR `estimatedCompletionTime > seekerDeadline`                                           |
+| **Acceptance Criteria** | 1. Overbooked providers auto-hidden<br>2. Provider can manually mark unavailable<br>3. System prevents deadline violations at booking time |
 
 #### FR-DISC-003: Provider Profile View
 
-| Field                   | Value                                                                                             |
-| :---------------------- | :------------------------------------------------------------------------------------------------ |
-| **Priority**            | P0                                                                                                |
-| **Displayed**           | Name, Photo, Rating, Review count, Price list, Delivery charges, Verification tier, Response rate |
-| **Acceptance Criteria** | 1. All prices visible before booking<br>2. Reviews paginated (10 per page)                        |
+| Field                   | Value                                                                                                                      |
+| :---------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                         |
+| **Seeker Capabilities** | View provider profiles, Read verified reviews, View pricing and delivery charges, Search providers by name                 |
+| **Name Search Rule**    | **Seeker can search by name ONLY if the provider covers their location** (prevents bypassing location filtering)           |
+| **Displayed Info**      | Name, Photo, Rating, Review count, Price list, Delivery charges, Verification tier, Response rate                          |
+| **Acceptance Criteria** | 1. All prices visible before booking<br>2. Reviews paginated (10 per page)<br>3. Name search respects location constraints |
 
 ---
 
 ### 5.3 Booking Flow
 
-#### FR-BOOK-001: Booking Creation
+#### FR-BOOK-001: Booking Creation & Booking Fee
 
-| Field                   | Value                                                                                                                                |
-| :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                                                                                   |
-| **Inputs**              | Provider ID, Deadline, Pickup location, Estimated items (optional)                                                                   |
-| **Payment**             | Booking fee charged immediately (treated as **down payment**).                                                                       |
-| **Insurance**           | Optional "Micro-Insurance" add-on (₹10-50) for "No-Questions-Asked" coverage.                                                        |
-| **Acceptance Criteria** | 1. Booking fee = max(₹50, 5% of estimated order)<br>2. Payment failure blocks booking<br>3. Fee is deducted from final invoice total |
+| Field               | Value                                                                                                                                         |
+| :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**        | P0                                                                                                                                            |
+| **Inputs**          | Provider ID, Deadline, Pickup location, Estimated items (optional)                                                                            |
+| **Booking Fee**     | A **platform-defined booking fee** is paid upfront. This fee is controlled by the system admin and exists to prevent fake or casual bookings. |
+| **Fee Calculation** | `max(₹50, estimatedOrder * 0.05)` — Fee is deducted from final invoice total if order proceeds.                                               |
+| **Insurance**       | Optional "Micro-Insurance" add-on (₹10-50) for "No-Questions-Asked" coverage.                                                                 |
+
+**Booking Fee Refund Rules:**
+
+| Scenario                              | Refund Amount           | Notes                                         |
+| :------------------------------------ | :---------------------- | :-------------------------------------------- |
+| Provider rejects booking              | 100% refund to seeker   | Full booking fee returned                     |
+| Provider cancels booking              | 100% refund to seeker   | Full booking fee returned                     |
+| Provider accepts but fails to appear  | 100% refund to seeker   | + Provider penalty/flag applied               |
+| Seeker cancels after provider accepts | 0% (fee forfeited)      | Booking fee retained as provider compensation |
+| Booking proceeds to order             | Fee adjusted in invoice | Deducted from final payment                   |
+
+| **Acceptance Criteria** | 1. Payment failure blocks booking<br>2. Booking fee status tracked (`paid`, `refunded`, `forfeited`)<br>3. Clear display of fee rules to seeker |
 
 #### FR-BOOK-002: Provider Accept/Reject
 
@@ -320,83 +414,110 @@ LaundryEase is a B2C marketplace connecting time-constrained urban professionals
 | **Auto-Reject**         | If no response in 2h, auto-reject + full refund                           |
 | **Acceptance Criteria** | 1. Push + SMS notification to provider<br>2. Accept/Reject buttons in app |
 
-#### FR-BOOK-003: Pickup Scheduling
+#### FR-BOOK-003: Pickup Scheduling & Confirmation
 
-| Field                   | Value                                                                                                                 |
-| :---------------------- | :-------------------------------------------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                                                                    |
-| **Flow**                | Provider proposes slot OR "Smart Window" (e.g., 9-11 AM) to allow route batching.                                     |
-| **Mode**                | 1. **Handshake:** Physical meet.<br>2. **Drop & Go:** Leave at Security/Concierge (requires photo proof of bag seal). |
-| **Constraints**         | Pickup must be ≥2 hours from now, ≤48 hours from booking                                                              |
-| **Acceptance Criteria** | 1. Calendar UI shows "Cheaper" slots for Batched Windows<br>2. Both parties receive confirmation                      |
+| Field                        | Value                                                                                                                                                              |
+| :--------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**                 | P0                                                                                                                                                                 |
+| **Flow**                     | 1. Provider proposes pickup date and time<br>2. **Seeker must explicitly confirm availability**<br>3. Only after confirmation does the provider visit the location |
+| **Confirmation Requirement** | Mutual confirmation is MANDATORY before provider travels to pickup location                                                                                        |
+| **Slot Options**             | Provider proposes slot OR "Smart Window" (e.g., 9-11 AM) to allow route batching.                                                                                  |
+| **Mode**                     | 1. **Handshake:** Physical meet.<br>2. **Drop & Go:** Leave at Security/Concierge (requires photo proof of bag seal).                                              |
+| **Constraints**              | Pickup must be ≥2 hours from now, ≤48 hours from booking                                                                                                           |
+| **Acceptance Criteria**      | 1. Calendar UI shows "Cheaper" slots for Batched Windows<br>2. Both parties receive confirmation<br>3. Provider CANNOT visit without seeker confirmation           |
 
-#### FR-BOOK-004: No-Show Detection
+#### FR-BOOK-004: No-Show Detection & Protection
 
-| Field                   | Value                                                                     |
-| :---------------------- | :------------------------------------------------------------------------ |
-| **Priority**            | P0                                                                        |
-| **Window**              | Provider has ±30 minutes from confirmed time                              |
-| **Trigger**             | If provider doesn't mark "Arrived" within window                          |
-| **Consequence**         | Auto-cancel, full refund, provider penalty                                |
-| **Acceptance Criteria** | 1. GPS check when marking arrived<br>2. Penalty logged in provider record |
+| Field                   | Value                                                                                                                  |
+| :---------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                     |
+| **Window**              | Provider has ±30 minutes from confirmed pickup time                                                                    |
+| **Trigger**             | If provider doesn't mark "Arrived" within window                                                                       |
+| **Consequences**        | 1. Booking is auto-cancelled<br>2. Full booking fee refunded to seeker<br>3. Provider receives system penalty          |
+| **Protection Purpose**  | Prevents seeker exploitation and enforces provider reliability                                                         |
+| **GPS Verification**    | Provider must be within acceptable radius of pickup location when marking "Arrived"                                    |
+| **Acceptance Criteria** | 1. GPS check when marking arrived<br>2. Penalty logged in provider record<br>3. Auto-notification to seeker on no-show |
 
 ---
 
 ### 5.4 Invoice & Order Creation
 
-#### FR-INV-001: Invoice Generation
+#### FR-INV-001: Invoice Generation at Pickup
 
-| Field                   | Value                                                                                                                                            |
-| :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                                                                                               |
-| **Location**            | At seeker's doorstep (Physical) OR Asynchronous (Drop & Go).                                                                                     |
-| **Method**              | **Video Ingestion (Primary):** Continuous video scan of items. AI/Manual backend extracts items later.<br>**Manual Backup:** Item-by-item entry. |
-| **Required per Item**   | Category, Quantity, Price (auto-filled), Photo/Video Frame, Notes                                                                                |
-| **"Other" Items**       | Manual price entry allowed; requires photo + justification                                                                                       |
-| **AI Data Collection**  | Photos are tagged with manual entries to build dataset for future AI clothing recognition models (MVP: Data collection only).                    |
-| **Acceptance Criteria** | 1. Cannot submit without photo per item<br>2. Prices locked from provider profile                                                                |
+| Field                 | Value                                                                                                                                                                                                                                                        |
+| :-------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**          | P0                                                                                                                                                                                                                                                           |
+| **Location**          | At seeker's doorstep (Physical) OR Asynchronous (Drop & Go).                                                                                                                                                                                                 |
+| **Invoice Creation**  | Provider verifies clothes and generates invoice with: Manual entry of clothing items, Notes for each item (stains, damage, special instructions), **Mandatory photo capture of each item** (dispute evidence), Auto-filled prices from provider's price list |
+| **Method**            | **Video Ingestion (Primary):** Continuous video scan of items. AI/Manual backend extracts items later.<br>**Manual Backup:** Item-by-item entry.                                                                                                             |
+| **Required per Item** | Category, Quantity, Price (auto-filled from profile), Photo/Video Frame, Notes (optional)                                                                                                                                                                    |
 
-#### FR-INV-002: Invoice Approval
+**"Other" Items Handling:**
 
-| Field                   | Value                                                                               |
-| :---------------------- | :---------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                                  |
-| **Seeker Actions**      | Approve / Reject / Request Edit                                                     |
-| **Approve**             | Booking converts to Order; clothes handed over                                      |
-| **Reject**              | Clothes returned immediately; booking fee retained by provider                      |
-| **Acceptance Criteria** | 1. Seeker sees itemized list with photos<br>2. Cannot leave without explicit action |
+| Scenario               | Handling                                                                      |
+| :--------------------- | :---------------------------------------------------------------------------- |
+| Item NOT in price list | Mark as "Other" → Manual price entry allowed → Requires photo + justification |
+| Standard item          | Price auto-filled from provider profile → Manual price entry NOT allowed      |
+
+| **AI Note** | AI-based clothing detection is excluded from MVP. May be introduced later only as a suggestion tool. Photos are tagged with manual entries to build dataset for future AI models. |
+| **Acceptance Criteria** | 1. Cannot submit without photo per item<br>2. Prices locked from provider profile for standard items<br>3. "Other" items require justification<br>4. All photos stored as dispute evidence |
+
+#### FR-INV-002: Invoice Review & Order Confirmation
+
+| Field              | Value                           |
+| :----------------- | :------------------------------ |
+| **Priority**       | P0                              |
+| **Seeker Actions** | Approve / Reject / Request Edit |
+
+**Invoice Approval Consequences:**
+
+| Action  | Consequence                                                                                  |
+| :------ | :------------------------------------------------------------------------------------------- |
+| Approve | Booking converts to confirmed Order; Clothes officially handed over to provider              |
+| Reject  | Clothes returned immediately; Booking fee retained by provider as compensation; Process ends |
+| Edit    | Provider revises invoice; Seeker reviews again                                               |
+
+| **Critical Rule** | Invoice approval is MANDATORY before clothes leave the seeker's possession |
+| **Acceptance Criteria** | 1. Seeker sees itemized list with photos<br>2. Cannot proceed without explicit action<br>3. Rejected invoice = immediate clothes return<br>4. Clear display of booking fee forfeiture on rejection |
 
 ---
 
 ### 5.5 Order Processing
 
-#### FR-ORD-001: Status Updates
+#### FR-ORD-001: Order Processing & Status Updates
 
-| Field                   | Value                                                                            |
-| :---------------------- | :------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                               |
-| **Statuses**            | `PICKED_UP` → `WASHING` → `IRONING` → `READY` → `OUT_FOR_DELIVERY` → `DELIVERED` |
-| **Provider Action**     | Must update status within 4 hours of actual transition                           |
-| **Acceptance Criteria** | 1. Seeker sees real-time status<br>2. Push notification on each update           |
+| Field                   | Value                                                                                              |
+| :---------------------- | :------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                 |
+| **Status Flow**         | `PICKED_UP` → `WASHING` → `IRONING` → `READY` → `OUT_FOR_DELIVERY` → `DELIVERED`                   |
+| **Provider Action**     | Must update status within 4 hours of actual transition                                             |
+| **Tracking**            | Seeker can track progress in real-time via the system                                              |
+| **Communication**       | System notifications are the primary communication channel. Phone/email act as backup only.        |
+| **Acceptance Criteria** | 1. Seeker sees real-time status<br>2. Push notification on each update<br>3. Status history logged |
 
 #### FR-ORD-002: Delivery Scheduling
 
-| Field                   | Value                                                                                       |
-| :---------------------- | :------------------------------------------------------------------------------------------ |
-| **Priority**            | P0                                                                                          |
-| **Constraint**          | Delivery date ≤ Original deadline                                                           |
-| **Flow**                | Bidirectional negotiation: Provider proposes -> Seeker accepts/counters -> Provider accepts |
-| **Acceptance Criteria** | 1. Cannot schedule past deadline<br>2. Seeker can request earlier slot                      |
+| Field                   | Value                                                                                                                                              |
+| :---------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                                                 |
+| **Trigger**             | Provider marks order as "Ready for Delivery"                                                                                                       |
+| **Flow**                | 1. Provider proposes delivery date and time<br>2. Seeker confirms availability<br>3. If seeker proposes alternate date, provider approval required |
+| **Deadline Constraint** | **Delivery date CANNOT exceed the original booking deadline**                                                                                      |
+| **Negotiation**         | Bidirectional negotiation: Provider proposes → Seeker accepts/counters → Provider accepts                                                          |
+| **Logging**             | All delivery confirmations are logged by the system                                                                                                |
+| **Acceptance Criteria** | 1. Cannot schedule past deadline<br>2. Seeker can request earlier slot<br>3. Both parties must confirm final time                                  |
 
-#### FR-ORD-003: Delivery Confirmation
+#### FR-ORD-003: Delivery Confirmation & Payment Execution
 
-| Field                   | Value                                                                                |
-| :---------------------- | :----------------------------------------------------------------------------------- |
-| **Priority**            | P0                                                                                   |
-| **Seeker Action**       | Confirm receipt in app                                                               |
-| **Evidence**            | Provider must capture delivery photo (GPS-tagged)                                    |
-| **Payment**             | Final amount charged; deposited to escrow                                            |
-| **Acceptance Criteria** | 1. Order incomplete until seeker confirms<br>2. Auto-reminder if not confirmed in 2h |
+| Field                   | Value                                                                                                                                                                          |
+| :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                                                                             |
+| **At Delivery**         | 1. Seeker confirms receipt of items<br>2. Remaining invoice amount paid digitally<br>3. Payment placed into system escrow                                                      |
+| **Seeker Action**       | Confirm receipt in app (OTP verification)                                                                                                                                      |
+| **Evidence**            | Provider must capture delivery photo (GPS-tagged)                                                                                                                              |
+| **Late Delivery**       | If delivery exceeds deadline, a predefined system-calculated penalty discount is **automatically applied**. Admin override allowed only in case of dispute.                    |
+| **Payment Flow**        | Final amount charged → Deposited to escrow → Held for 24h                                                                                                                      |
+| **Acceptance Criteria** | 1. Order incomplete until seeker confirms<br>2. Auto-reminder if not confirmed in 2h<br>3. Late penalty auto-calculated<br>4. Payment goes to escrow, NOT directly to provider |
 
 ---
 
@@ -411,47 +532,94 @@ LaundryEase is a B2C marketplace connecting time-constrained urban professionals
 | **Gateway**             | Razorpay (primary), Stripe (backup)                  |
 | **Acceptance Criteria** | 1. PCI-DSS compliant<br>2. Failed payment retries 3x |
 
-#### FR-PAY-002: Escrow Hold
+#### FR-PAY-002: Escrow Hold & Complaint Window
 
-| Field                   | Value                                                            |
-| :---------------------- | :--------------------------------------------------------------- |
-| **Priority**            | P0                                                               |
-| **Hold Period**         | 24 hours post-delivery confirmation                              |
-| **Release Condition**   | No complaint raised within window                                |
-| **Acceptance Criteria** | 1. Provider sees "Pending" status<br>2. Auto-release at 24h mark |
+| Field                   | Value                                                                                                                                                                                   |
+| :---------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                                                                                      |
+| **Hold Period**         | **24 hours** post-delivery confirmation                                                                                                                                                 |
+| **Complaint Window**    | Within this 24h window, seeker may raise complaints for: Late delivery, Damaged items, Missing items, Partial service issues                                                            |
+| **Release Condition**   | If NO complaint raised within 24h window → Payment automatically released to provider                                                                                                   |
+| **Complaint Impact**    | If complaint raised → Payment is FROZEN until resolution                                                                                                                                |
+| **Provider View**       | Provider sees "Pending" status during escrow hold                                                                                                                                       |
+| **Acceptance Criteria** | 1. Auto-release at exactly 24h mark if no complaints<br>2. Immediate freeze on complaint<br>3. Clear countdown visible to both parties<br>4. Release requires check for open complaints |
 
 #### FR-PAY-003: Late Delivery Penalty
 
-| Field                   | Value                                                                 |
-| :---------------------- | :-------------------------------------------------------------------- |
-| **Priority**            | P1                                                                    |
-| **Calculation**         | 5% discount per hour late (max 30%)                                   |
-| **Application**         | Auto-deducted from final payment                                      |
-| **Acceptance Criteria** | 1. Seeker sees discount applied<br>2. Provider sees penalty in payout |
+| Field                   | Value                                                                                                                                                                  |
+| :---------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P1                                                                                                                                                                     |
+| **Calculation**         | `5% discount per hour late (max 30%)` → Formula: `min(hoursLate * 0.05, 0.30) * orderTotal`                                                                            |
+| **Application**         | **Automatically** deducted from final payment — no manual intervention required                                                                                        |
+| **Admin Override**      | Allowed ONLY in case of formal dispute (e.g., seeker-caused delay)                                                                                                     |
+| **Acceptance Criteria** | 1. Seeker sees discount applied with breakdown<br>2. Provider sees penalty in payout<br>3. Penalty logged in order history<br>4. Override requires admin justification |
 
 ---
 
 ### 5.7 Dispute Resolution
 
-#### FR-DISP-001: Complaint Filing
+#### FR-DISP-001: Complaint Filing & Escrow Freeze
 
-| Field                   | Value                                                           |
-| :---------------------- | :-------------------------------------------------------------- |
-| **Priority**            | P0                                                              |
-| **Window**              | Within 24 hours of delivery                                     |
-| **Categories**          | Late Delivery, Damaged Item, Missing Item, Quality Issue, Other |
-| **Required**            | Category, Description, Photo evidence (optional but weighted)   |
-| **Acceptance Criteria** | 1. Escrow frozen immediately<br>2. Both parties notified        |
+| Field                   | Value                                                                                                                         |
+| :---------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                            |
+| **Window**              | Within **24 hours** of delivery confirmation (escrow window)                                                                  |
+| **Categories**          | Late Delivery, Damaged Item, Missing Item, Quality Issue, Partial Service, Other                                              |
+| **Required**            | Category, Description, Photo evidence (optional but weighted heavily in resolution)                                           |
+| **Complaint Linking**   | Every complaint is linked to the specific **order ID** for traceability                                                       |
+| **Immediate Action**    | Escrow is FROZEN immediately upon complaint filing                                                                            |
+| **Acceptance Criteria** | 1. Escrow frozen immediately<br>2. Both parties notified<br>3. Complaint linked to order<br>4. Photo evidence stored securely |
 
-#### FR-DISP-002: Resolution Process
+#### FR-DISP-002: Resolution Process & Controlled Communication
 
-| Field                   | Value                                                                |
-| :---------------------- | :------------------------------------------------------------------- |
-| **Priority**            | P0                                                                   |
-| **SLA**                 | Admin first response within 4 hours; resolution within 48 hours      |
-| **Channel**             | In-app 3-way chat (Seeker-Provider-Admin)                            |
-| **Outcomes**            | Full refund, Partial refund, No action, Provider penalty             |
-| **Acceptance Criteria** | 1. Chat history preserved<br>2. Final decision logged with reasoning |
+| Field          | Value                                                                                     |
+| :------------- | :---------------------------------------------------------------------------------------- |
+| **Priority**   | P0                                                                                        |
+| **SLA**        | Admin first response within 4 hours; resolution within 48 hours                           |
+| **Channel**    | **Controlled three-way chat** (Seeker-Provider-Admin) — Admin moderates all communication |
+| **Admin Role** | Moderates all communication, reviews evidence, makes final decision                       |
+
+**Resolution Outcomes:**
+
+| Outcome          | Action                                          |
+| :--------------- | :---------------------------------------------- |
+| Full refund      | 100% order amount refunded to seeker            |
+| Partial refund   | Admin-determined percentage refunded            |
+| No action        | Full payment released to provider               |
+| Provider penalty | Payment action + Provider warning or suspension |
+
+**Post-Resolution:**
+
+| Action               | Description                                                              |
+| :------------------- | :----------------------------------------------------------------------- |
+| Chat closure         | Three-way chat is **permanently closed** once resolved                   |
+| Payment finalization | Payment action is executed and finalized                                 |
+| History logging      | Complaint history is logged for **fraud detection** and pattern analysis |
+
+| **Acceptance Criteria** | 1. Chat history preserved permanently<br>2. Final decision logged with reasoning<br>3. Chat closed after resolution<br>4. Complaint history available for fraud detection |
+
+---
+
+### 5.8 Reviews & Abuse Prevention
+
+#### FR-REV-001: Review System
+
+| Field                   | Value                                                                                                                   |
+| :---------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P1                                                                                                                      |
+| **Trigger**             | After successful order completion (payment released)                                                                    |
+| **Seeker Actions**      | Submit star rating (1-5) and written review                                                                             |
+| **Display**             | Reviews appear on provider profiles                                                                                     |
+| **Acceptance Criteria** | 1. Only verified completed orders can leave reviews<br>2. Reviews are timestamped<br>3. Provider can respond to reviews |
+
+#### FR-REV-002: Abuse Pattern Monitoring
+
+| Field                   | Value                                                                                                                      |
+| :---------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P1                                                                                                                         |
+| **System Monitors**     | Repeated false complaints, Review manipulation, Abuse patterns, Unusual booking velocity                                   |
+| **Admin Actions**       | Restrict review privileges, Restrict complaint privileges, Account warnings, Suspensions                                   |
+| **Acceptance Criteria** | 1. Automated flagging of suspicious patterns<br>2. Admin dashboard for abuse review<br>3. Audit trail for all restrictions |
 
 ---
 
@@ -552,37 +720,39 @@ LaundryEase is a B2C marketplace connecting time-constrained urban professionals
 ### 8.2 System Architecture Diagram
 
 ```
+
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           CLIENT LAYER                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
-│  │  Seeker App  │  │ Provider App │  │  Admin Panel │              │
-│  │  (Next.js)   │  │  (Next.js)   │  │  (Next.js)   │              │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘              │
+│ CLIENT LAYER │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │
+│ │ Seeker App │ │ Provider App │ │ Admin Panel │ │
+│ │ (Next.js) │ │ (Next.js) │ │ (Next.js) │ │
+│ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ │
 └─────────┼─────────────────┼─────────────────┼───────────────────────┘
-          │                 │                 │
-          ▼                 ▼                 ▼
+│ │ │
+▼ ▼ ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                           API LAYER                                 │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │                    Next.js API Routes                       │    │
-│  │  /api/auth/*  /api/bookings/*  /api/orders/*  /api/admin/* │    │
-│  └────────────────────────────────────────────────────────────┘    │
+│ API LAYER │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Next.js API Routes │ │
+│ │ /api/auth/_ /api/bookings/_ /api/orders/_ /api/admin/_ │ │
+│ └────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────┬───────────────────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
+│
+┌───────────────────┼───────────────────┐
+▼ ▼ ▼
 ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
-│    MongoDB       │ │     Redis        │ │    BullMQ        │
-│  (Primary DB)    │ │  (Cache/Session) │ │  (Job Queue)     │
+│ MongoDB │ │ Redis │ │ BullMQ │
+│ (Primary DB) │ │ (Cache/Session) │ │ (Job Queue) │
 └──────────────────┘ └──────────────────┘ └────────┬─────────┘
-                                                   │
-                              ┌────────────────────┼────────────────────┐
-                              ▼                    ▼                    ▼
-                     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-                     │   Twilio     │     │  Razorpay    │     │  SendGrid    │
-                     │  (SMS/OTP)   │     │  (Payments)  │     │  (Email)     │
-                     └──────────────┘     └──────────────┘     └──────────────┘
-```
+│
+┌────────────────────┼────────────────────┐
+▼ ▼ ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ Twilio │ │ Razorpay │ │ SendGrid │
+│ (SMS/OTP) │ │ (Payments) │ │ (Email) │
+└──────────────┘ └──────────────┘ └──────────────┘
+
+````
 
 ### 8.3 Background Jobs
 
@@ -613,7 +783,7 @@ interface BaseUser {
   passwordHash?: string | null;
   createdAt: Date;
 }
-```
+````
 
 ### 9.2 Seeker
 
@@ -1008,28 +1178,28 @@ interface ComplaintExtended extends Complaint {
 
 ### 14.1 MVP Scope (v1.0) - Implementation Status
 
-| Feature                            | PRD Status  | Code Status |
-| :--------------------------------- | :---------- | :---------- |
-| Seeker registration & auth         | ✅ In Scope | ✅ Done     |
-| Provider registration & profile    | ✅ In Scope | ✅ Done     |
-| Provider discovery & search        | ✅ In Scope | ✅ Done     |
-| Booking flow (basic)               | ✅ In Scope | ✅ Done     |
-| Booking flow (scheduling, no-show) | ✅ In Scope | 🚧 Phase 2  |
-| Invoice/Order creation             | ✅ In Scope | ✅ Done     |
+| Feature                            | PRD Status  | Code Status                          |
+| :--------------------------------- | :---------- | :----------------------------------- |
+| Seeker registration & auth         | ✅ In Scope | ✅ Done                              |
+| Provider registration & profile    | ✅ In Scope | ✅ Done                              |
+| Provider discovery & search        | ✅ In Scope | ✅ Done                              |
+| Booking flow (basic)               | ✅ In Scope | ✅ Done                              |
+| Booking flow (scheduling, no-show) | ✅ In Scope | 🚧 Phase 2                           |
+| Invoice/Order creation             | ✅ In Scope | ✅ Done                              |
 | Order payment                      | ✅ In Scope | 🚧 In Progress (Pending Integration) |
-| Delivery confirmation (OTP)        | ✅ In Scope | ✅ Done     |
-| Escrow hold & auto-release         | ✅ In Scope | 🚧 Partial (Missing Logic) |
-| Complaint filing                   | ✅ In Scope | ✅ Done     |
-| Admin complaint management         | ✅ In Scope | ✅ Done     |
-| Admin payment management           | ✅ In Scope | ✅ Done     |
-| Admin user management              | ✅ In Scope | ✅ Done     |
-| Order process tracking (wash/iron) | ✅ In Scope | 🚧 Phase 2  |
-| Booking fee system                 | ✅ In Scope | 🚧 Phase 2  |
-| Late delivery penalties            | ✅ In Scope | 🚧 Phase 2  |
-| AI clothing detection              | ❌ Post-MVP | ❌ Post-MVP |
-| Route optimization                 | ❌ Post-MVP | ❌ Post-MVP |
-| Subscription plans                 | ❌ Post-MVP | ❌ Post-MVP |
-| Native mobile apps                 | ❌ Post-MVP | ❌ Post-MVP |
+| Delivery confirmation (OTP)        | ✅ In Scope | ✅ Done                              |
+| Escrow hold & auto-release         | ✅ In Scope | 🚧 Partial (Missing Logic)           |
+| Complaint filing                   | ✅ In Scope | ✅ Done                              |
+| Admin complaint management         | ✅ In Scope | ✅ Done                              |
+| Admin payment management           | ✅ In Scope | ✅ Done                              |
+| Admin user management              | ✅ In Scope | ✅ Done                              |
+| Order process tracking (wash/iron) | ✅ In Scope | 🚧 Phase 2                           |
+| Booking fee system                 | ✅ In Scope | 🚧 Phase 2                           |
+| Late delivery penalties            | ✅ In Scope | 🚧 Phase 2                           |
+| AI clothing detection              | ❌ Post-MVP | ❌ Post-MVP                          |
+| Route optimization                 | ❌ Post-MVP | ❌ Post-MVP                          |
+| Subscription plans                 | ❌ Post-MVP | ❌ Post-MVP                          |
+| Native mobile apps                 | ❌ Post-MVP | ❌ Post-MVP                          |
 
 ### 14.2 Timeline
 
@@ -1047,12 +1217,11 @@ interface ComplaintExtended extends Complaint {
 > [!IMPORTANT]
 > The following items are marked as "Done" in previous versions but require immediate engineering attention to meet FAANG-grade standards.
 
-| Component | Current State | Required Action |
-| :--- | :--- | :--- |
-| **Payment Gateway** | Logic placeholders exist | Install `razorpay` SDK; Implement `/api/orders/[id]/pay`; Handle webhooks |
-| **Escrow Logic** | Basic timer exists | Implement `releaseEscrowPayment` validations (check for open complaints); specific freeze logic |
-| **Admin Controls** | Read-only views | Add generic "Refund" and "Penalty" modification actions in Admin API |
-
+| Component           | Current State            | Required Action                                                                                 |
+| :------------------ | :----------------------- | :---------------------------------------------------------------------------------------------- |
+| **Payment Gateway** | Logic placeholders exist | Install `razorpay` SDK; Implement `/api/orders/[id]/pay`; Handle webhooks                       |
+| **Escrow Logic**    | Basic timer exists       | Implement `releaseEscrowPayment` validations (check for open complaints); specific freeze logic |
+| **Admin Controls**  | Read-only views          | Add generic "Refund" and "Penalty" modification actions in Admin API                            |
 
 ---
 
@@ -1077,14 +1246,76 @@ interface ComplaintExtended extends Complaint {
 
 ### 15.3 Revision History
 
-| Version | Date       | Author       | Changes                                      |
-| :------ | :--------- | :----------- | :------------------------------------------- |
-| 1.0     | 2025-12-21 | Product Team | Initial draft                                |
-| 2.0     | 2025-12-21 | Product Team | FAANG-grade rewrite with full specifications |
+| Version | Date       | Author       | Changes                                                          |
+| :------ | :--------- | :----------- | :--------------------------------------------------------------- |
+| 1.0     | 2025-12-21 | Product Team | Initial draft                                                    |
+| 2.0     | 2025-12-21 | Product Team | FAANG-grade rewrite with full specifications                     |
+| 3.0     | 2025-12-21 | Product Team | Logic-sealed version: No undefined states, clear role assignment |
 
 ---
 
-**Document Status:** ✅ Approved for Development
+## 16. Final System Integrity Summary
+
+> **This section confirms that LaundryEase has no undefined states or exploitable flows.**
+
+### 16.1 Lifecycle Completeness
+
+| Lifecycle     | States Covered                                                                | Edge Cases Handled |
+| :------------ | :---------------------------------------------------------------------------- | :----------------- |
+| **Booking**   | Requested → Accepted/Rejected → Confirmed → No-Show/Cancelled → Order Created | ✅ Complete        |
+| **Order**     | Unpaid → Paid → Processing → Ready → Delivered → Held → Released/Refunded     | ✅ Complete        |
+| **Payment**   | Booking Fee → Invoice → Payment → Escrow → Release/Refund                     | ✅ Complete        |
+| **Complaint** | Open → In Progress → Resolved                                                 | ✅ Complete        |
+
+### 16.2 No Undefined States Guarantee
+
+| Scenario                             | System Response                                    |
+| :----------------------------------- | :------------------------------------------------- |
+| Provider doesn't respond to booking  | Auto-reject after 2h, full refund                  |
+| Seeker doesn't confirm pickup        | Booking cancelled after 12h, full refund           |
+| Provider no-show at pickup           | Auto-cancel, full refund, provider penalty         |
+| Seeker no-show at pickup             | Booking fee forfeited, booking cancelled           |
+| Invoice rejected                     | Clothes returned, booking fee retained by provider |
+| Seeker doesn't confirm delivery      | Auto-confirm after 2h (unless disputed)            |
+| No complaint in 24h                  | Escrow auto-released to provider                   |
+| Complaint raised                     | Escrow frozen, admin resolution required           |
+| Both parties unresponsive in dispute | Admin unilateral decision after 72h                |
+
+### 16.3 Clear Responsibility Assignment
+
+| Stage             | Seeker Responsibility                | Provider Responsibility           | Admin Responsibility      |
+| :---------------- | :----------------------------------- | :-------------------------------- | :------------------------ |
+| **Booking**       | Pay booking fee, confirm pickup time | Accept/reject, propose pickup     | Monitor for fraud         |
+| **Pickup**        | Be available, approve invoice        | Arrive on time, create invoice    | Handle no-show disputes   |
+| **Processing**    | Track progress                       | Update status, meet deadline      | N/A                       |
+| **Delivery**      | Confirm receipt, pay balance         | Deliver on time, capture evidence | N/A                       |
+| **Post-Delivery** | Raise complaints if needed           | Respond to complaints             | Mediate, resolve, release |
+
+### 16.4 Financial Safety Summary
+
+| Protection                  | Mechanism                                                |
+| :-------------------------- | :------------------------------------------------------- |
+| Fake booking prevention     | Platform-defined booking fee (non-refundable on no-show) |
+| Provider no-show protection | Full refund + provider penalty                           |
+| Payment before service      | Never — clothes handed over only after invoice approval  |
+| Money held safely           | Escrow for 24h post-delivery                             |
+| Dispute resolution          | Evidence-based admin mediation                           |
+| Late delivery compensation  | Automatic penalty (5%/hour, max 30%)                     |
+
+### 16.5 Abuse & Fraud Protection Summary
+
+| Threat               | Protection Mechanism                                  |
+| :------------------- | :---------------------------------------------------- |
+| Fake seekers         | OTP + email verification, booking fee                 |
+| Unreliable providers | No-show detection, penalty escalation, suspension/ban |
+| False complaints     | Pattern monitoring, privilege revocation              |
+| Review manipulation  | Verified-order-only reviews, abuse detection          |
+| Payment fraud        | Escrow system, PCI-DSS compliance                     |
+| Identity fraud       | Device ID tracking, liveness checks (Phase 2)         |
+
+---
+
+**Document Status:** ✅ Approved for Development — Logic-Sealed, MVP-Ready, Future-Scalable
 
 **Sign-off:**
 

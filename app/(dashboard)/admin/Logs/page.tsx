@@ -18,7 +18,7 @@ type Log = {
   user_id?: string;
   user_role?: string;
   user_name?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 };
 
@@ -68,13 +68,13 @@ export default function LogsPage() {
   function getLogBadge(level: string) {
     switch (level) {
       case "error":
-        return "bg-red-100 text-red-700";
+        return "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400";
       case "warning":
-        return "bg-amber-100 text-amber-700";
+        return "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400";
       case "success":
-        return "bg-emerald-100 text-emerald-700";
+        return "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400";
       default:
-        return "bg-blue-100 text-blue-700";
+        return "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400";
     }
   }
 

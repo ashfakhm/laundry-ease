@@ -1,21 +1,22 @@
-"use client";
+import { Metadata } from "next";
+import { SeekerTopNav } from "@/components/navigation/seeker-topnav";
 
-import { Navbar } from "@/components/ui/navbar";
+export const metadata: Metadata = {
+  title: "Seeker Dashboard | LaundryEase",
+  description: "Find and book top-rated laundry providers near you.",
+};
 
-const Layout = ({ children }: { children: React.ReactNode }) => {
-  const seekerLinks = [
-    { label: "Search Providers", href: "/seeker" },
-    { label: "My Orders", href: "/seeker/view-orders" },
-  ];
-
+export default function SeekerLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen bg-background">
-      <Navbar title="Seeker Dashboard" links={seekerLinks} userRole="seeker" />
-      <main className="w-full">
+      <SeekerTopNav />
+      <main className="w-full pb-20 md:pb-0">
         <div className="container mx-auto px-4 py-6">{children}</div>
       </main>
     </div>
   );
-};
-
-export default Layout;
+}

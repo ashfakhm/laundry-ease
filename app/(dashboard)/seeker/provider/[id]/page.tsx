@@ -11,7 +11,9 @@ import {
   ArrowLeft,
   CheckCircle2,
   TrendingUp,
+  Loader2,
 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 type Provider = {
   _id: string;
@@ -41,11 +43,13 @@ type Review = {
 export default function ProviderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const providerId = params.id as string;
 
   const [provider, setProvider] = useState<Provider | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState(false);
 
   useEffect(() => {
     async function fetchProviderDetails() {
@@ -97,6 +101,9 @@ export default function ProviderDetailPage() {
   }, [providerId]);
 
   async function handleBookProvider() {
+    if (booking) return;
+    setBooking(true);
+
     try {
       const response = await fetch("/api/bookings", {
         method: "POST",
@@ -104,16 +111,31 @@ export default function ProviderDetailPage() {
         body: JSON.stringify({ provider_id: providerId }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        alert("Booking request sent successfully!");
-        router.push("/seeker/view-orders");
+        toast({
+          title: "Booking requested!",
+          description: "Your booking request has been sent to the provider",
+          type: "success",
+        });
+        router.push("/seeker/bookings");
       } else {
-        const data = await response.json();
-        alert(data.error || "Failed to create booking");
+        toast({
+          title: "Booking failed",
+          description: data.error || "Failed to create booking",
+          type: "error",
+        });
       }
     } catch (error) {
       console.error("Error creating booking:", error);
-      alert("An error occurred. Please try again.");
+      toast({
+        title: "Something went wrong",
+        description: "Please check your connection and try again",
+        type: "error",
+      });
+    } finally {
+      setBooking(false);
     }
   }
 
@@ -142,6 +164,7 @@ export default function ProviderDetailPage() {
               This provider may have been removed or doesn&apos;t exist.
             </p>
             <button
+              type="button"
               onClick={() => router.back()}
               className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
             >
@@ -422,10 +445,19 @@ export default function ProviderDetailPage() {
 
               {/* Book Button */}
               <button
+                type="button"
                 onClick={handleBookProvider}
-                className="mt-6 w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+                disabled={booking}
+                className="mt-6 w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
               >
-                Book Now
+                {booking ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Booking...
+                  </span>
+                ) : (
+                  "Book Now"
+                )}
               </button>
 
               <p className="mt-3 text-center text-xs text-muted-foreground">
