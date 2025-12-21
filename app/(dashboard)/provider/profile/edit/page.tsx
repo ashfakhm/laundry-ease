@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion } from "framer-motion";
@@ -15,6 +15,9 @@ import {
   Sparkles,
   DollarSign,
   Truck,
+  Plus,
+  Trash2,
+  Tag,
 } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { useRouter } from "next/navigation";
@@ -43,6 +46,16 @@ const providerProfileSchema = z
       (val) => (val === "" ? undefined : Number(val)),
       z.number().min(0)
     ), // Base pricing MVP
+    // Fixed Price List
+    items: z.array(
+      z.object({
+        name: z.string().min(1, "Item name is required"),
+        price: z.preprocess(
+          (val) => (val === "" ? undefined : Number(val)),
+          z.number().min(0, "Price must be 0 or more")
+        ),
+      })
+    ),
     // Security
     currentPassword: z.string().optional(),
     newPassword: z.string().optional(),
@@ -96,6 +109,7 @@ type ProviderProfileValues = {
   free_radius_km: number;
   per_km_rate: number;
   pricing: number;
+  items: { name: string; price: number }[];
   currentPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
@@ -121,10 +135,16 @@ export default function ProviderEditProfilePage() {
       free_radius_km: 5,
       per_km_rate: 10,
       pricing: 0,
+      items: [],
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
   });
 
   useEffect(() => {
@@ -145,6 +165,12 @@ export default function ProviderEditProfilePage() {
           free_radius_km: data.free_radius_km || 5,
           per_km_rate: data.per_km_rate || 10,
           pricing: data.pricing || 0,
+          items: data.pricingRates
+            ? Object.entries(data.pricingRates).map(([name, price]) => ({
+                name,
+                price: Number(price),
+              }))
+            : [],
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
@@ -162,7 +188,20 @@ export default function ProviderEditProfilePage() {
     setIsSaving(true);
     try {
       // Clean up empty password fields
-      const payload: ProviderProfileValues = { ...data };
+      const payload: any = { ...data };
+      
+      // Transform items array back to Record<string, number>
+      if (data.items) {
+        payload.pricingRates = data.items.reduce(
+          (acc: Record<string, number>, item) => {
+            acc[item.name] = item.price;
+            return acc;
+          },
+          {}
+        );
+        delete payload.items;
+      }
+
       if (!data.newPassword) {
         delete payload.currentPassword;
         delete payload.newPassword;
@@ -384,6 +423,95 @@ export default function ProviderEditProfilePage() {
                     />
                   </div>
                 </div>
+              </div>
+            </SpotlightCard>
+          </motion.div>
+
+          {/* Fixed Price List */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.5 }}
+            className="md:col-span-2"
+          >
+            <SpotlightCard className="h-full rounded-3xl bg-card border-border p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                    <Tag className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold font-heading">
+                      Fixed Price List
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Define standard prices for common items.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => append({ name: "", price: 0 })}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Item
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {fields.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border">
+                    No items added yet. Add items to automate invoicing.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {fields.map((field, index) => (
+                      <div
+                        key={field.id}
+                        className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border group hover:border-primary/50 transition-colors"
+                      >
+                        <div className="flex-1 space-y-2">
+                          <input
+                            {...form.register(`items.${index}.name`)}
+                            placeholder="Item Name (e.g. Shirt)"
+                            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                          />
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
+                              ₹
+                            </span>
+                            <input
+                              type="number"
+                              {...form.register(`items.${index}.price`, {
+                                valueAsNumber: true,
+                              })}
+                              placeholder="Price"
+                              className="w-full h-9 pl-6 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                            />
+                          </div>
+                          {form.formState.errors.items?.[index]?.name && (
+                            <p className="text-xs text-destructive">
+                              {form.formState.errors.items[index]?.name?.message}
+                            </p>
+                          )}
+                           {form.formState.errors.items?.[index]?.price && (
+                            <p className="text-xs text-destructive">
+                              {form.formState.errors.items[index]?.price?.message}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => remove(index)}
+                          className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </SpotlightCard>
           </motion.div>
