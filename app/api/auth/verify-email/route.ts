@@ -1,0 +1,76 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getDb } from "@/lib/mongodb";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-secret-key";
+
+export async function POST(req: Request) {
+  try {
+    const { token } = await req.json();
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "Token is required" },
+        { status: 400 }
+      );
+    }
+
+    // Verify JWT token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Invalid or expired token" },
+        { status: 400 }
+      );
+    }
+
+    const { email, type } = decoded;
+
+    if (type !== "email_verification") {
+      return NextResponse.json(
+        { error: "Invalid token type" },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await getDb();
+
+    // Check if user exists in seekers or providers
+    const seeker = await db.collection("seekers").findOne({ email });
+    const provider = await db.collection("providers").findOne({ email });
+
+    if (!seeker && !provider) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update emailVerified flag
+    if (seeker) {
+      await db.collection("seekers").updateOne(
+        { email },
+        { $set: { emailVerified: true } }
+      );
+    }
+
+    if (provider) {
+      await db.collection("providers").updateOne(
+        { email },
+        { $set: { emailVerified: true } }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Email verification error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

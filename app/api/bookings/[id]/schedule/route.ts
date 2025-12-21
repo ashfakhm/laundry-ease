@@ -1,92 +1,71 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getBookingById } from "@/lib/db";
-import { Role } from "@/types/enums";
-import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
-import { Booking } from "@/types/bookings";
+import { ObjectId } from "mongodb";
 
-// POST: Propose a Slot (Provider) or Confirm (Seeker)
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const booking_id = new ObjectId(id);
-    const booking = await getBookingById(booking_id);
+    const { dateTime } = await req.json();
+
+    if (!dateTime) {
+      return NextResponse.json(
+        { error: "Date and time required" },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await getDb();
+    const bookingId = new ObjectId(params.id);
+
+    // Verify booking belongs to this provider
+    const provider = await db
+      .collection("providers")
+      .findOne({ email: session.user.email });
+
+    if (!provider) {
+      return NextResponse.json({ error: "Provider not found" }, { status: 404 });
+    }
+
+    const booking = await db.collection("bookings").findOne({ _id: bookingId });
 
     if (!booking) {
-      return NextResponse.json(
-        { message: "Booking not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    const body = await req.json();
-    const { dateTime, action } = body;
-    const { db } = await getDb();
+    if (booking.provider_id.toString() !== provider._id.toString()) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
-    // Provider Proposes Slot
-    if (session.user.role === Role.PROVIDER) {
-      if (booking.provider_id.toString() !== session.user.id) {
-        return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
-      }
-
-      await db.collection<Booking>("bookings").updateOne(
-        { _id: booking_id },
-        {
-          $set: {
-            status: "pickup_proposed",
-            pickupSlot: {
-              proposedBy: "provider",
-              dateTime: new Date(dateTime),
-            },
+    // Update booking with proposed pickup time
+    await db.collection("bookings").updateOne(
+      { _id: bookingId },
+      {
+        $set: {
+          status: "pickup_proposed",
+          pickupSlot: {
+            dateTime: new Date(dateTime),
+            confirmed: false,
           },
-        }
-      );
-
-      return NextResponse.json({ message: "Slot proposed" });
-    }
-
-    // Seeker Confirms Slot
-    if (session.user.role === Role.SEEKER) {
-      if (booking.seeker_id.toString() !== session.user.id) {
-        return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+        },
       }
+    );
 
-      if (action === "confirm") {
-        if (!booking.pickupSlot || !booking.pickupSlot.dateTime) {
-          return NextResponse.json(
-            { message: "No slot to confirm" },
-            { status: 400 }
-          );
-        }
+    // TODO: Send notification to seeker
 
-        await db.collection<Booking>("bookings").updateOne(
-          { _id: booking_id },
-          {
-            $set: {
-              status: "confirmed",
-              "pickupSlot.confirmedAt": new Date(),
-            },
-          }
-        );
-        return NextResponse.json({ message: "Slot confirmed" });
-      }
-    }
-
-    return NextResponse.json({ message: "Invalid action" }, { status: 400 });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error scheduling booking:", error);
+    console.error("Schedule pickup error:", error);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
