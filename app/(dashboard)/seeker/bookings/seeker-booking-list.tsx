@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Inbox } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SeekerBookingListProps {
   initialBookings: PopulatedSeekerBooking[];
@@ -40,10 +41,10 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
   }, [bookings]);
 
   const tabs: { id: FilterType; label: string }[] = [
-    { id: "all", label: "All Bookings" },
+    { id: "all", label: "All" },
     { id: "requested", label: "Pending" },
     { id: "accepted", label: "Accepted" },
-    { id: "pickup_proposed", label: "Review Slot" },
+    { id: "pickup_proposed", label: "Review" },
     { id: "confirmed", label: "Scheduled" },
   ];
 
@@ -56,16 +57,16 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
       />
 
       {/* Filters/Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-1 overflow-x-auto">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-1 overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setFilter(tab.id)}
             className={cn(
-              "group relative rounded-t-lg px-4 py-3 text-sm font-medium transition-colors focus:z-10 whitespace-nowrap",
+              "group relative rounded-t-lg px-4 py-3 text-sm font-medium transition-all focus:z-10 whitespace-nowrap",
               filter === tab.id
-                ? "text-emerald-700 dark:text-emerald-400 bg-white dark:bg-gray-800 border-b-2 border-emerald-600 dark:border-emerald-500 shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                ? "text-primary border-b-2 border-primary bg-background"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             )}
           >
             <span className="flex items-center gap-2">
@@ -73,10 +74,10 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
               {(counts[tab.id] || 0) > 0 && (
                 <span
                   className={cn(
-                    "ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold transition-colors",
+                    "ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors",
                     filter === tab.id
-                      ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-600"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground group-hover:bg-muted/80"
                   )}
                 >
                   {counts[tab.id]}
@@ -89,21 +90,26 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
 
       {/* List Area */}
       {filteredBookings.length === 0 ? (
-        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-12 text-center">
-          <div className="rounded-full bg-white dark:bg-gray-800 p-4 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700">
-            <Inbox className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+        <motion.div
+           initial={{ opacity: 0, y: 10 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center"
+        >
+          <div className="rounded-full bg-muted p-4 shadow-sm">
+            <Inbox className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="mt-4 text-lg font-heading font-bold text-foreground">
             No bookings found
           </h3>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+          <p className="mt-2 text-sm text-muted-foreground max-w-sm">
             {filter === "all"
-              ? "You typically haven't made any bookings yet."
+              ? "You haven't made any bookings yet."
               : `You have no ${filter} bookings at the moment.`}
           </p>
-        </div>
+        </motion.div>
       ) : (
         <div className="space-y-4">
+          <AnimatePresence>
           {filteredBookings.map((booking) => (
             <SeekerBookingCard
               key={booking._id.toString()}
@@ -111,6 +117,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
               onRefresh={() => router.refresh()}
             />
           ))}
+          </AnimatePresence>
         </div>
       )}
     </div>

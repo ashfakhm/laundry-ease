@@ -48,6 +48,15 @@ export async function GET() {
  * PATCH /api/profile/provider
  * Update the logged-in provider's profile
  */
+// ... imports
+import bcrypt from "bcrypt";
+
+// ... GET function
+
+/**
+ * PATCH /api/profile/provider
+ * Update the logged-in provider's profile
+ */
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -66,7 +75,11 @@ export async function PATCH(req: Request) {
       services,
       pricingRates,
       radius_km,
+      free_radius_km,
+      per_km_rate,
       coordinates,
+      currentPassword,
+      newPassword
     } = body;
 
     // Build update object with only provided fields
@@ -79,7 +92,34 @@ export async function PATCH(req: Request) {
     if (services !== undefined) updateFields.services = services;
     if (pricingRates !== undefined) updateFields.pricingRates = pricingRates;
     if (radius_km !== undefined) updateFields.radius_km = Number(radius_km);
+    if (free_radius_km !== undefined) updateFields.free_radius_km = Number(free_radius_km);
+    if (per_km_rate !== undefined) updateFields.per_km_rate = Number(per_km_rate);
     if (coordinates !== undefined) updateFields.coordinates = coordinates;
+
+    const { db } = await getDb();
+
+    // Secure Password Change Logic
+    if (newPassword) {
+        if (!currentPassword) {
+            return NextResponse.json({ error: "Current password is required to set a new password" }, { status: 400 });
+        }
+
+        const provider = await db.collection("providers").findOne(
+            { email: session.user.email },
+            { projection: { passwordHash: 1 } }
+        );
+
+        if (!provider || !provider.passwordHash) {
+             return NextResponse.json({ error: "Provider not found or no password set" }, { status: 404 });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, provider.passwordHash);
+        if (!isMatch) {
+            return NextResponse.json({ error: "Incorrect current password" }, { status: 401 });
+        }
+
+        updateFields.passwordHash = await bcrypt.hash(newPassword, 10);
+    }
 
     if (Object.keys(updateFields).length === 0) {
       return NextResponse.json(
@@ -88,7 +128,6 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const { db } = await getDb();
     const result = await db
       .collection("providers")
       .findOneAndUpdate(

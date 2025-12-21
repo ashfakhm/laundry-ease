@@ -15,6 +15,8 @@ const schema = z.object({
   tags: z.array(z.string()).min(1),
   location: z.string().min(1),
   radius_km: z.number().min(1).max(100).optional(),
+  free_radius_km: z.number().min(0).max(100).optional(),
+  price_per_km: z.number().nonnegative().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -34,6 +36,8 @@ export async function POST(req: NextRequest) {
     pricingRates,
     tags,
     radius_km,
+    free_radius_km,
+    price_per_km,
     location,
   } = parsed.data;
 
@@ -68,6 +72,8 @@ export async function POST(req: NextRequest) {
     bio,
     description,
     radius_km,
+    free_radius_km,
+    per_km_rate: price_per_km, 
     pricingRates,
   });
 

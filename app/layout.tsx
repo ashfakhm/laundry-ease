@@ -1,8 +1,15 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://laundryease.in";
 
@@ -87,22 +94,32 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
+import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
+
+// ...
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
+  params: { [key: string]: string | string[] | undefined }; // Fix for Next.js 15 type strictness if needed, or keep simple
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen w-full antialiased">
+      <body className={`min-h-screen w-full antialiased ${inter.variable} overflow-x-hidden selection:bg-primary/20 selection:text-primary`}>
         <SessionProvider>
           <ThemeProvider
             attribute="class"
-            defaultTheme="system"
-            enableSystem
+            defaultTheme="dark" 
+            enableSystem={false}
             disableTransitionOnChange
           >
-            <ToastProvider>{children}</ToastProvider>
+            {/* Global High-Tech Background */}
+            <InteractiveGridPattern />
+            
+            <div className="relative z-10 w-full min-h-screen flex flex-col">
+               <ToastProvider>{children}</ToastProvider>
+            </div>
           </ThemeProvider>
         </SessionProvider>
       </body>

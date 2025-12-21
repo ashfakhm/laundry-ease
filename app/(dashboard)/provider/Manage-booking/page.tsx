@@ -1,7 +1,8 @@
 import { getProviderBookings } from "@/lib/data/bookings";
 import { BookingList } from "./booking-list";
 import { Metadata } from "next";
-import { ClipboardList, Calendar, Clock, CheckCircle2 } from "lucide-react";
+import { ClipboardList, Calendar, Clock, CheckCircle2, ShieldAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Manage Bookings | LaundryEase Provider",
@@ -13,19 +14,17 @@ export default async function ManageBookingsPage() {
 
   if (!result.success || !result.data) {
     return (
-      <main className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100/50 dark:from-gray-900 dark:to-gray-800/50">
-        <div className="flex h-[60vh] items-center justify-center px-4">
-          <div className="text-center max-w-md">
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
-              <ClipboardList className="h-8 w-8 text-red-600 dark:text-red-400" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Unable to load bookings
-            </h2>
-            <p className="mt-3 text-gray-600 dark:text-gray-400">
-              {result.error || "Please try again later."}
-            </p>
+      <main className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <div className="mx-auto h-20 w-20 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
+            <ShieldAlert className="h-10 w-10 text-destructive" />
           </div>
+          <h2 className="text-2xl font-heading font-bold text-foreground">
+            Unable to load bookings
+          </h2>
+          <p className="mt-2 text-muted-foreground">
+            {result.error || "Please try again later."}
+          </p>
         </div>
       </main>
     );
@@ -40,46 +39,44 @@ export default async function ManageBookingsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background pb-20">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-background/50 p-6 space-y-8">
+      <div className="mx-auto max-w-7xl">
         {/* Header */}
-        <header className="mb-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                Manage Bookings
-              </h1>
-              <p className="mt-2 text-gray-500 dark:text-gray-400">
-                Review requests, propose pickup times, and track order status.
-              </p>
-            </div>
+        <header className="mb-8 flex flex-col gap-6">
+          <div>
+            <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
+              Manage Bookings
+            </h1>
+            <p className="mt-2 text-muted-foreground max-w-2xl">
+              Review requests, propose pickup times, and track order status.
+            </p>
           </div>
 
           {/* Stats Cards */}
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               icon={Clock}
               label="Pending"
               value={stats.pending}
-              color="amber"
+              className="bg-amber-500/10 text-amber-600 border-amber-500/20"
             />
             <StatCard
               icon={Calendar}
               label="Confirmed"
               value={stats.confirmed}
-              color="emerald"
+              className="bg-primary/10 text-primary border-primary/20"
             />
             <StatCard
               icon={CheckCircle2}
               label="Completed"
               value={stats.completed}
-              color="blue"
+              className="bg-green-500/10 text-green-600 border-green-500/20"
             />
             <StatCard
               icon={ClipboardList}
-              label="Total"
+              label="Total Orders"
               value={stats.total}
-              color="gray"
+              className="bg-background border-border"
             />
           </div>
         </header>
@@ -95,33 +92,27 @@ function StatCard({
   icon: Icon,
   label,
   value,
-  color,
+  className,
 }: {
   icon: React.ElementType;
   label: string;
   value: number;
-  color: "amber" | "emerald" | "blue" | "gray";
+  className?: string;
 }) {
-  const colorClasses = {
-    amber:
-      "bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/50",
-    emerald:
-      "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/50",
-    blue: "bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/50",
-    gray: "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-gray-700",
-  };
-
   return (
     <div
-      className={`rounded-2xl border p-4 ${colorClasses[color]} transition-transform hover:scale-[1.02]`}
+      className={cn(
+        "rounded-2xl border p-5 transition-all duration-200 hover:shadow-md",
+        className
+      )}
     >
-      <div className="flex items-center gap-3">
-        <div className="rounded-xl bg-white/80 dark:bg-white/10 p-2 shadow-sm">
-          <Icon className="h-5 w-5" />
-        </div>
+      <div className="flex items-start justify-between">
         <div>
-          <p className="text-2xl font-bold">{value}</p>
-          <p className="text-xs font-medium opacity-80">{label}</p>
+           <p className="text-3xl font-bold font-heading">{value}</p>
+           <p className="text-xs font-semibold uppercase tracking-wider opacity-70 mt-1">{label}</p>
+        </div>
+        <div className="rounded-xl bg-background/50 p-2.5 shadow-sm">
+          <Icon className="h-5 w-5 opacity-80" />
         </div>
       </div>
     </div>

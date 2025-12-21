@@ -2,6 +2,10 @@
 import { useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import { AppHeader } from "@/components/ui/app-header";
+import { motion } from "framer-motion";
+import { CheckCircle2, ShieldCheck, Loader2, Plus, X, Store, Info, Phone, Mail } from "lucide-react";
+import { PasswordInput } from "@/components/ui/password-input";
+import { cn } from "@/lib/utils";
 
 async function postJSON(url: string, body: Record<string, unknown>) {
   const res = await fetch(url, {
@@ -41,7 +45,7 @@ export default function SeekerSignupPage() {
   const [emailVerifying, startEmailVerify] = useTransition();
   const [phoneVerifying, startPhoneVerify] = useTransition();
 
-  // Normalize phone to E.164; default to +91 for 10-digit Indian numbers
+  // Normalize phone to E.164
   function normalizePhone(input: string) {
     const raw = (input || "").trim();
     if (!raw) return "";
@@ -49,10 +53,6 @@ export default function SeekerSignupPage() {
     const digits = raw.replace(/\D+/g, "");
     if (digits.length === 10) return `+91${digits}`;
     if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
-    // Fallback: if user typed leading 0 then 10 digits
-    if (digits.length === 11 && digits.startsWith("0"))
-      return `+91${digits.slice(1)}`;
-    // If we cannot confidently infer, prefix + and let backend/SMS provider validate
     return raw.startsWith("+") ? raw : `+${digits || raw}`;
   }
 
@@ -95,11 +95,7 @@ export default function SeekerSignupPage() {
         type: "email",
         code: emailCode,
       });
-      if (!ok)
-        return setError(
-          data?.error ||
-            "The 6-digit code you entered is incorrect. Please try again."
-        );
+      if (!ok) return setError(data?.error || "Invalid code");
       setEmailVerified(true);
     });
   }
@@ -113,11 +109,7 @@ export default function SeekerSignupPage() {
         type: "phone",
         code: phoneCode,
       });
-      if (!ok)
-        return setError(
-          data?.error ||
-            "The 6-digit code you entered is incorrect. Please try again."
-        );
+      if (!ok) return setError(data?.error || "Invalid code");
       setPhoneVerified(true);
     });
   }
@@ -126,7 +118,7 @@ export default function SeekerSignupPage() {
     e.preventDefault();
     setError(null);
     if (!emailVerified || !phoneVerified)
-      return setError("Verify email and phone first");
+      return setError("Please verify both email and phone number");
     setLoading(true);
     const { ok, data } = await postJSON("/api/signup/seeker", {
       ...form,
@@ -134,7 +126,6 @@ export default function SeekerSignupPage() {
     });
     setLoading(false);
     if (!ok) return setError(data?.error || "Signup failed");
-    // Auto sign-in via credentials
     await signIn("credentials", {
       email: form.email,
       password: form.password,
@@ -146,412 +137,284 @@ export default function SeekerSignupPage() {
   return (
     <>
       <AppHeader showAuth={false} />
-      <main className="min-h-screen bg-background">
-        <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-10 px-4 py-10 md:flex-row md:items-stretch md:py-16">
-          {/* Left rail: brand + benefits */}
-          <section className="flex flex-1 flex-col justify-between rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur-sm md:p-8">
-            <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Secure seeker onboarding
-              </div>
-              <div className="space-y-4">
-                <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                  Create your LaundryEase account
-                </h1>
-                <p className="max-w-md text-sm text-muted-foreground md:text-base">
-                  One account to book pickups, track orders in real time, and
-                  keep all your invoices in one safe place.
-                </p>
-              </div>
-              <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <span className="mt-1 h-5 w-5 rounded-full bg-emerald-600/10 text-emerald-500 ring-1 ring-emerald-500/30 flex items-center justify-center text-xs">
-                    ✓
-                  </span>
-                  <span>Two-step OTP verification for email and phone.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-1 h-5 w-5 rounded-full bg-emerald-600/10 text-emerald-500 ring-1 ring-emerald-500/30 flex items-center justify-center text-xs">
-                    ✓
-                  </span>
-                  <span>
-                    Save multiple addresses for faster future bookings.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-1 h-5 w-5 rounded-full bg-emerald-600/10 text-emerald-500 ring-1 ring-emerald-500/30 flex items-center justify-center text-xs">
-                    ✓
-                  </span>
-                  <span>
-                    Escrow-backed payments to keep every order protected.
-                  </span>
-                </li>
-              </ul>
+      <main className="min-h-screen bg-background p-6">
+        <div className="mx-auto flex min-h-[calc(100vh-100px)] w-full max-w-6xl flex-col gap-12 md:flex-row items-start">
+          
+          {/* Left Rail */}
+          <motion.section 
+             initial={{ opacity: 0, x: -20 }}
+             animate={{ opacity: 1, x: 0 }}
+             transition={{ duration: 0.5 }}
+             className="flex-1 space-y-8 sticky top-24 pt-8"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-secondary-foreground border border-border/50 text-xs font-medium">
+              <ShieldCheck className="w-4 h-4 text-primary" />
+              <span>Verified Seeker Account</span>
+            </div>
+            
+            <div className="space-y-4">
+               <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground">
+                Join LaundryEase as a <span className="text-primary">Seeker</span>
+               </h1>
+               <p className="text-lg text-muted-foreground leading-relaxed max-w-md">
+                 Create one account to manage all your laundry needs. Reliable providers, transparent pricing and guaranteed deadlines.
+               </p>
             </div>
 
-            <footer className="mt-8 border-t pt-4 text-xs text-muted-foreground">
-              Already have an account?{" "}
-              <a
-                href="/auth"
-                className="font-medium text-emerald-600 hover:text-emerald-500"
-              >
-                Sign in
-              </a>
-            </footer>
-          </section>
-
-          {/* Right rail: form */}
-          <section className="flex flex-1 flex-col">
-            <form
-              onSubmit={submit}
-              className="flex h-full flex-col rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur-sm md:p-8"
-            >
-              <header className="mb-6 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                    Step 1 of 2
-                  </p>
-                  <h2 className="mt-1 text-lg font-semibold">
-                    Personal & contact details
-                  </h2>
-                </div>
-                <div className="hidden h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/30 md:flex">
-                  <span className="text-lg font-semibold">S</span>
-                </div>
-              </header>
-
-              <div className="space-y-8 overflow-y-auto pr-1">
-                <fieldset className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Full name
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        placeholder="Enter your full name"
-                        value={form.name}
-                        onChange={(e) => set("name", e.target.value)}
-                        required
-                      />
+            <div className="space-y-4 pt-4">
+               {[
+                 "Bank-grade escrow payment protection",
+                 "Verified providers with real reviews",
+                 "One-click repeat bookings"
+               ].map((benefit, i) => (
+                 <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                       <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Email
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        type="email"
-                        placeholder="Enter your email address"
-                        value={form.email}
-                        onChange={(e) => set("email", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Password
-                      </label>
-                      <div className="relative">
+                    {benefit}
+                 </div>
+               ))}
+            </div>
+          </motion.section>
+
+          {/* Right Rail - Form */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex-[1.5] w-full"
+          >
+             <form onSubmit={submit} className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl shadow-xl shadow-primary/5 p-6 md:p-8 space-y-8">
+                
+                {/* Personal Details */}
+                <div className="space-y-6">
+                   <div>
+                     <h3 className="font-heading text-lg font-bold">Personal Details</h3>
+                     <p className="text-sm text-muted-foreground">Your basic account information.</p>
+                   </div>
+                   
+                   <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Full Name</label>
                         <input
-                          className="w-full rounded-xl border bg-background px-4 py-2.5 pr-10 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 cursor-text"
-                          type="password"
-                          placeholder="Enter your password"
-                          value={form.password}
-                          onChange={(e) => set("password", e.target.value)}
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                          placeholder="John Doe"
+                          value={form.name}
+                          onChange={(e) => set("name", e.target.value)}
                           required
-                          id="password-seeker"
                         />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const input = document.getElementById(
-                              "password-seeker"
-                            ) as HTMLInputElement;
-                            if (input) {
-                              input.type =
-                                input.type === "password" ? "text" : "password";
-                            }
-                          }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                          aria-label="Toggle password visibility"
-                        >
-                          <svg
-                            className="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Email</label>
+                        <input
+                           type="email"
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                          placeholder="john@example.com"
+                          value={form.email}
+                          onChange={(e) => set("email", e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                         <PasswordInput
+                           id="password"
+                           placeholder="Create a strong password"
+                           value={form.password}
+                           onChange={(e) => set("password", e.target.value)}
+                           required
+                         />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                         <label className="text-sm font-medium">Phone Number</label>
+                         <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-50">
+                               <Phone className="w-4 h-4" />
+                            </span>
+                            <input
+                              className="flex h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                              placeholder="9876543210"
+                              value={form.phone}
+                              onChange={(e) => set("phone", e.target.value)}
+                              required
                             />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                          </svg>
-                        </button>
+                         </div>
+                        <p className="text-[11px] text-muted-foreground">We'll add +91 automatically for Indian numbers.</p>
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Phone number
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        placeholder="Enter your phone number"
-                        value={form.phone}
-                        onChange={(e) => set("phone", e.target.value)}
-                        required
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        We’ll automatically add +91 if you enter a 10‑digit
-                        Indian mobile number.
-                      </p>
-                    </div>
-                  </div>
-                </fieldset>
+                   </div>
+                </div>
 
-                <fieldset className="space-y-4">
-                  <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Address
-                  </legend>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="md:col-span-2 space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Street address
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        placeholder="Enter your street address"
-                        value={form.address.line1}
-                        onChange={(e) => setAddr("line1", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        City
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        placeholder="Enter your city"
-                        value={form.address.city}
-                        onChange={(e) => setAddr("city", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        State
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        placeholder="Enter your state"
-                        value={form.address.state}
-                        onChange={(e) => setAddr("state", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Country
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        placeholder="Enter your country"
-                        value={form.address.country}
-                        onChange={(e) => setAddr("country", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Postal code
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        placeholder="Enter your postal code"
-                        value={form.address.postalCode}
-                        onChange={(e) => setAddr("postalCode", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="md:col-span-2 space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Nearby landmark (optional)
-                      </label>
-                      <input
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                        placeholder="Enter a nearby landmark"
-                        value={form.address.landmark}
-                        onChange={(e) => setAddr("landmark", e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </fieldset>
+                <div className="h-px bg-border/50" />
 
-                <section className="space-y-3 rounded-2xl border bg-background px-4 py-4 text-sm shadow-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Step 2 · Verify contact details
-                      </h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        We’ll send you a 6‑digit code on both email and SMS.
-                      </p>
-                    </div>
-                    <span className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-600 ring-1 ring-emerald-500/20 md:inline-flex">
-                      Required for booking
-                    </span>
-                  </div>
-
-                  <div className="mt-3 grid gap-4 md:grid-cols-2">
-                    {/* Email OTP */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Email verification
-                        </span>
-                        {emailVerified && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 ring-1 ring-emerald-500/20">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Verified
-                          </span>
-                        )}
+                {/* Address */}
+                <div className="space-y-6">
+                   <div>
+                     <h3 className="font-heading text-lg font-bold">Default Address</h3>
+                     <p className="text-sm text-muted-foreground">Where should we pick up your laundry?</p>
+                   </div>
+                   
+                   <div className="grid md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2 space-y-2">
+                         <label className="text-sm font-medium">Street Address</label>
+                         <input
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          placeholder="Flat No, Building, Street"
+                          value={form.address.line1}
+                          onChange={(e) => setAddr("line1", e.target.value)}
+                          required
+                        />
                       </div>
-                      {!emailVerified && (
-                        <div className="flex gap-2">
-                          {!emailOtpSent ? (
-                            <button
-                              type="button"
-                              className="inline-flex flex-1 items-center justify-center rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-muted"
-                              onClick={sendEmailOtp}
-                              disabled={!form.email || emailSending}
-                            >
-                              {emailSending ? "Sending..." : "Send code"}
-                            </button>
-                          ) : (
-                            <>
-                              <input
-                                className="flex-1 rounded-xl border bg-background px-3 py-2 text-xs outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                                placeholder="6-digit code"
-                                value={emailCode}
-                                onChange={(e) => setEmailCode(e.target.value)}
-                                maxLength={6}
-                              />
-                              <button
-                                type="button"
-                                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-muted"
-                                onClick={verifyEmail}
-                                disabled={emailVerifying}
-                              >
-                                {emailVerifying ? "..." : "Verify"}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {emailOtpSent && !emailVerified && (
-                        <p className="text-[11px] text-emerald-600">
-                          {emailOtpSent}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Phone OTP */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Phone verification
-                        </span>
-                        {phoneVerified && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 ring-1 ring-emerald-500/20">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Verified
-                          </span>
-                        )}
+                      <div className="space-y-2">
+                         <label className="text-sm font-medium">City</label>
+                         <input
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={form.address.city}
+                          onChange={(e) => setAddr("city", e.target.value)}
+                          required
+                        />
                       </div>
-                      {!phoneVerified && (
-                        <div className="flex gap-2">
-                          {!phoneOtpSent ? (
-                            <button
-                              type="button"
-                              className="inline-flex flex-1 items-center justify-center rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-muted"
-                              onClick={sendPhoneOtp}
-                              disabled={!form.phone || phoneSending}
-                            >
-                              {phoneSending ? "Sending..." : "Send code"}
-                            </button>
-                          ) : (
-                            <>
-                              <input
-                                className="flex-1 rounded-xl border bg-background px-3 py-2 text-xs outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                                placeholder="6-digit code"
-                                value={phoneCode}
-                                onChange={(e) => setPhoneCode(e.target.value)}
-                                maxLength={6}
-                              />
-                              <button
-                                type="button"
-                                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-muted"
-                                onClick={verifyPhone}
-                                disabled={phoneVerifying}
-                              >
-                                {phoneVerifying ? "..." : "Verify"}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {phoneOtpSent && !phoneVerified && (
-                        <p className="text-[11px] text-emerald-600">
-                          {phoneOtpSent}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </section>
-              </div>
+                      <div className="space-y-2">
+                         <label className="text-sm font-medium">State</label>
+                         <input
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={form.address.state}
+                          onChange={(e) => setAddr("state", e.target.value)}
+                          required
+                        />
+                      </div>
+                       <div className="space-y-2">
+                         <label className="text-sm font-medium">Country</label>
+                         <input
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={form.address.country}
+                          onChange={(e) => setAddr("country", e.target.value)}
+                          required
+                        />
+                      </div>
+                       <div className="space-y-2">
+                         <label className="text-sm font-medium">Postal Code</label>
+                         <input
+                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={form.address.postalCode}
+                          onChange={(e) => setAddr("postalCode", e.target.value)}
+                          required
+                        />
+                      </div>
+                   </div>
+                </div>
 
-              <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-[11px] text-muted-foreground">
-                  By creating an account, you agree to our{" "}
-                  <span className="font-medium text-emerald-600">
-                    Terms of Service
-                  </span>{" "}
-                  and{" "}
-                  <span className="font-medium text-emerald-600">
-                    Privacy Policy
-                  </span>
-                  .
-                </p>
-                <div className="flex flex-col gap-2">
+                <div className="h-px bg-border/50" />
+
+                {/* Verification Section */}
+                <div className="bg-secondary/30 rounded-xl p-6 border border-border/50 space-y-6">
+                   <div>
+                     <h3 className="font-heading text-lg font-bold">Verify Identity</h3>
+                     <p className="text-sm text-muted-foreground">Required to ensure platform safety.</p>
+                   </div>
+
+                   <div className="grid md:grid-cols-2 gap-6">
+                      {/* Email Verify */}
+                      <div className="space-y-3">
+                         <div className="flex justify-between items-center">
+                            <label className="text-sm font-medium flex items-center gap-2"><Mail className="w-4 h-4 text-muted-foreground" /> Email</label>
+                            {emailVerified && <span className="text-xs font-bold text-primary flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Verified</span>}
+                         </div>
+                         {!emailVerified && (
+                           <div className="flex gap-2">
+                             {!emailOtpSent ? (
+                               <button 
+                                 type="button" 
+                                 onClick={sendEmailOtp} disabled={!form.email || emailSending}
+                                 className="flex-1 h-10 bg-primary/10 text-primary border border-primary/20 text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
+                               >
+                                 {emailSending ? "Sending..." : "Send Code"}
+                               </button>
+                             ) : (
+                               <>
+                                 <input 
+                                   className="flex-1 h-10 rounded-lg border border-input px-3 text-xs bg-background"
+                                   placeholder="XXXXXX"
+                                   maxLength={6}
+                                   value={emailCode}
+                                   onChange={e => setEmailCode(e.target.value)}
+                                 />
+                                 <button 
+                                   type="button" 
+                                   onClick={verifyEmail} disabled={emailVerifying}
+                                   className="px-4 h-10 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                                 >
+                                   Verify
+                                 </button>
+                               </>
+                             )}
+                           </div>
+                         )}
+                         {emailOtpSent && !emailVerified && <p className="text-[10px] text-green-600 font-medium">OTP Sent to {form.email}</p>}
+                      </div>
+
+                      {/* Phone Verify */}
+                      <div className="space-y-3">
+                         <div className="flex justify-between items-center">
+                            <label className="text-sm font-medium flex items-center gap-2"><Phone className="w-4 h-4 text-muted-foreground" /> Phone</label>
+                            {phoneVerified && <span className="text-xs font-bold text-primary flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Verified</span>}
+                         </div>
+                         {!phoneVerified && (
+                           <div className="flex gap-2">
+                             {!phoneOtpSent ? (
+                               <button 
+                                 type="button" 
+                                 onClick={sendPhoneOtp} disabled={!form.phone || phoneSending}
+                                 className="flex-1 h-10 bg-primary/10 text-primary border border-primary/20 text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
+                               >
+                                 {phoneSending ? "Sending..." : "Send Code"}
+                               </button>
+                             ) : (
+                               <>
+                                 <input 
+                                   className="flex-1 h-10 rounded-lg border border-input px-3 text-xs bg-background"
+                                   placeholder="XXXXXX"
+                                   maxLength={6}
+                                   value={phoneCode}
+                                   onChange={e => setPhoneCode(e.target.value)}
+                                 />
+                                 <button 
+                                   type="button" 
+                                   onClick={verifyPhone} disabled={phoneVerifying}
+                                   className="px-4 h-10 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                                 >
+                                   Verify
+                                 </button>
+                               </>
+                             )}
+                           </div>
+                         )}
+                          {phoneOtpSent && !phoneVerified && <p className="text-[10px] text-green-600 font-medium">OTP Sent to {form.phone}</p>}
+                      </div>
+                   </div>
+                </div>
+
+                <div className="pt-4 flex flex-col gap-4">
                   {error && (
-                    <aside
-                      className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-                      role="alert"
-                    >
+                    <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
                       {error}
-                    </aside>
+                    </div>
                   )}
+                  
                   <button
                     type="submit"
                     disabled={loading || !emailVerified || !phoneVerified}
-                    className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-muted"
+                    className="w-full h-12 bg-primary text-primary-foreground font-bold text-base rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
                   >
-                    {loading ? "Creating account..." : "Create account"}
+                    {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                    {loading ? "Creating Account..." : "Create Account"}
                   </button>
+
+                  <p className="text-center text-xs text-muted-foreground">
+                    By confirming, you agree to our Terms and Privacy Policy.
+                  </p>
                 </div>
-              </div>
-            </form>
-          </section>
+             </form>
+          </motion.div>
         </div>
       </main>
     </>

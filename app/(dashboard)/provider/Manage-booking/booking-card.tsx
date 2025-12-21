@@ -12,9 +12,12 @@ import {
   XCircle,
   Send,
   Sparkles,
+  ArrowRight,
+  User,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface BookingCardProps {
   booking: PopulatedBooking;
@@ -107,115 +110,91 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
     }
   }
 
-  const statusColors = {
-    requested:
-      "from-amber-500/10 to-orange-500/5 border-amber-200/50 dark:from-amber-500/20 dark:to-orange-500/10 dark:border-amber-700/50",
-    accepted:
-      "from-blue-500/10 to-indigo-500/5 border-blue-200/50 dark:from-blue-500/20 dark:to-indigo-500/10 dark:border-blue-700/50",
-    pickup_proposed:
-      "from-indigo-500/10 to-purple-500/5 border-indigo-200/50 dark:from-indigo-500/20 dark:to-purple-500/10 dark:border-indigo-700/50",
-    confirmed:
-      "from-emerald-500/10 to-teal-500/5 border-emerald-200/50 dark:from-emerald-500/20 dark:to-teal-500/10 dark:border-emerald-700/50",
-    rejected:
-      "from-red-500/10 to-rose-500/5 border-red-200/50 dark:from-red-500/20 dark:to-rose-500/10 dark:border-red-700/50",
-    cancelled:
-      "from-gray-500/10 to-slate-500/5 border-gray-200/50 dark:from-gray-500/20 dark:to-slate-500/10 dark:border-gray-700/50",
-    completed:
-      "from-purple-500/10 to-violet-500/5 border-purple-200/50 dark:from-purple-500/20 dark:to-violet-500/10 dark:border-purple-700/50",
-  };
-
   return (
-    <article
-      className={cn(
-        "group relative overflow-hidden rounded-3xl border bg-linear-to-br p-6 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 dark:shadow-black/20",
-        statusColors[booking.status] ||
-          "from-gray-500/10 to-slate-500/5 border-gray-200/50 dark:from-gray-500/20 dark:to-slate-500/10 dark:border-gray-700/50"
-      )}
+    <motion.article
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group relative overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
     >
-      {/* Decorative element */}
-      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/40 dark:bg-white/5 blur-2xl" />
-
       {/* Header */}
-      <div className="relative flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-xs font-bold text-gray-400 dark:text-gray-500">
-              #{booking._id.toString().slice(-6).toUpperCase()}
-            </span>
-            <BookingStatusBadge status={booking.status} />
+             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center font-bold text-primary shadow-sm">
+                {booking.seeker.name?.charAt(0) || "U"}
+             </div>
+             <div>
+                <h3 className="text-lg font-heading font-bold text-foreground flex items-center gap-2">
+                   {booking.seeker.name}
+                   <BookingStatusBadge status={booking.status} />
+                </h3>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <span className="font-mono opacity-70">#{booking._id.toString().slice(-6).toUpperCase()}</span>
+                    <span>•</span>
+                    <span>{new Date(booking.createdAt).toLocaleDateString()}</span>
+                  </div>
+             </div>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {booking.seeker.name}
-          </h3>
-        </div>
-
-        {/* Time Info */}
-        <div className="text-right">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {new Date(booking.createdAt).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
-          </p>
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500">
-            {new Date(booking.createdAt).toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
         </div>
       </div>
 
       {/* Customer Details */}
-      <div className="relative mt-4 space-y-2">
-        {booking.seeker.phone && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <Phone className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-            <span>{booking.seeker.phone}</span>
-          </div>
-        )}
-        {booking.seeker.address && (
-          <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <MapPin className="h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500 mt-0.5" />
-            <span className="line-clamp-1">
-              {booking.seeker.address.line1}, {booking.seeker.address.city}
-            </span>
-          </div>
-        )}
+      <div className="mt-4 rounded-2xl bg-muted/30 p-4 border border-border/50">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+           <User className="w-3.5 h-3.5" /> Customer Details
+        </h4>
+        <div className="space-y-2">
+          {booking.seeker.phone && (
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <span>{booking.seeker.phone}</span>
+            </div>
+          )}
+          {booking.seeker.address && (
+            <div className="flex items-start gap-2 text-sm text-foreground">
+              <MapPin className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+              <span className="line-clamp-2">
+                {booking.seeker.address.line1}, {booking.seeker.address.city}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Pickup Slot Info */}
       {booking.pickupSlot && (
-        <div className="mt-4 rounded-xl bg-white/60 dark:bg-white/5 backdrop-blur-sm p-3 border border-white/80 dark:border-white/10">
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium text-gray-900 dark:text-white">
-              {new Date(booking.pickupSlot.dateTime).toLocaleString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
+         <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-background border border-border">
+            <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center">
+               <Calendar className="w-5 h-5 text-foreground" />
+            </div>
+            <div>
+               <p className="text-xs text-muted-foreground font-medium">Scheduled Pickup</p>
+               <p className="text-sm font-bold text-foreground">
+                  {new Date(booking.pickupSlot.dateTime).toLocaleString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+               </p>
+            </div>
             {booking.pickupSlot.confirmedAt && (
-              <span className="ml-auto flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Confirmed
-              </span>
+                <div className="ml-auto px-2 py-1 bg-green-500/10 text-green-600 rounded-md text-xs font-bold flex items-center gap-1">
+                   <CheckCircle2 className="w-3 h-3" /> Confirmed
+                </div>
             )}
-          </div>
-        </div>
+         </div>
       )}
 
       {/* Action Area */}
-      <div className="relative mt-5 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
+      <div className="relative mt-5 pt-4 border-t border-border/50">
         {booking.status === "requested" && (
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={() => handleAction("accept")}
               disabled={processing}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all hover:shadow-md"
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all"
             >
               <CheckCircle2 className="h-4 w-4" />
               {processing ? "Accepting..." : "Accept"}
@@ -223,7 +202,7 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
             <button
               onClick={() => handleAction("reject")}
               disabled={processing}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-all"
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-input bg-background px-4 py-2.5 text-sm font-bold text-foreground hover:bg-muted disabled:opacity-50 transition-all"
             >
               <XCircle className="h-4 w-4" />
               {processing ? "..." : "Decline"}
@@ -232,72 +211,75 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
         )}
 
         {booking.status === "accepted" && (
-          <div className="space-y-3">
+          <div className="space-y-4 rounded-xl bg-blue-500/5 p-4 border border-blue-500/10">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Propose Pickup Time
+              <Clock className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-bold text-blue-900">
+                Action Required: Propose Pickup Time
               </span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               <input
                 type="datetime-local"
-                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-all"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 value={slotDate}
                 onChange={(e) => setSlotDate(e.target.value)}
               />
               <button
                 onClick={handleProposeSlot}
                 disabled={processing || !slotDate}
-                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-md"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                <Send className="h-4 w-4" />
-                {processing ? "..." : "Send"}
+                <div className="flex items-center gap-2">
+                   {processing ? "Sending..." : "Send Proposal"} <Send className="h-3.5 w-3.5" />
+                </div>
               </button>
             </div>
           </div>
         )}
 
         {booking.status === "pickup_proposed" && (
-          <div className="flex items-center gap-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 p-3 text-sm">
-            <Clock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="flex items-center gap-3 rounded-xl bg-secondary/50 p-4 border border-border/50 text-sm">
+            <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shadow-sm">
+               <Clock className="h-4 w-4 text-muted-foreground" />
+            </div>
             <div>
-              <p className="font-medium text-indigo-900 dark:text-indigo-200">
-                Awaiting Confirmation
+              <p className="font-bold text-foreground">
+                Proposal Sent
               </p>
-              <p className="text-xs text-indigo-600 dark:text-indigo-400">
-                Customer needs to confirm the proposed time
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Waiting for customer to confirm time.
               </p>
             </div>
           </div>
         )}
 
         {booking.status === "confirmed" && (
-          <div className="flex items-center gap-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 p-3 text-sm">
-            <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <div className="flex items-center gap-3 rounded-xl bg-green-500/10 p-4 border border-green-500/20 text-sm">
+             <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shadow-sm">
+                <Sparkles className="h-4 w-4 text-green-600" />
+             </div>
             <div className="flex-1">
-              <p className="font-semibold text-emerald-900 dark:text-emerald-200">
+              <p className="font-bold text-green-700">
                 Ready for Pickup
               </p>
-              <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                {new Date(
-                  booking.pickupSlot?.dateTime as string
-                ).toLocaleString()}
+              <p className="text-xs text-green-600/80 mt-0.5">
+                 Prepare for service at scheduled time.
               </p>
             </div>
           </div>
         )}
 
         {booking.status === "rejected" && (
-          <div className="flex items-center gap-3 rounded-xl bg-red-50 dark:bg-red-950/50 p-3 text-sm">
-            <XCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
-            <p className="font-medium text-red-800 dark:text-red-200">
+          <div className="flex items-center gap-3 rounded-xl bg-destructive/10 p-4 border border-destructive/20 text-sm">
+            <XCircle className="h-5 w-5 text-destructive" />
+            <p className="font-bold text-destructive">
               Booking Declined
             </p>
           </div>
         )}
       </div>
-    </article>
+    </motion.article>
   );
 }
 

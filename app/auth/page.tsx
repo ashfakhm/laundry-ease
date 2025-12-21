@@ -1,10 +1,13 @@
 "use client";
+
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import React from "react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { AppHeader } from "@/components/ui/app-header";
+import { motion } from "framer-motion";
+import { ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -33,7 +36,7 @@ export default function AuthPage() {
         setError(
           <>
             Account not found.{" "}
-            <a href="/choose-role" className="underline">
+            <a href="/choose-role" className="underline hover:text-primary">
               Sign up
             </a>
           </>
@@ -81,144 +84,179 @@ export default function AuthPage() {
   return (
     <>
       <AppHeader showAuth={false} />
-      <main className="min-h-screen bg-background">
-        <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-10 px-4 py-10 md:flex-row md:items-stretch md:py-16">
-          <section className="flex flex-1 flex-col justify-center gap-6">
-            <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Secure sign‑in for seekers & providers
+      <main className="min-h-screen bg-background flex items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-5xl flex flex-col md:flex-row gap-12 items-center">
+          
+          {/* Left Side - Brand Promise */}
+          <motion.section 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            className="flex-1 space-y-8 hidden md:block"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-secondary-foreground border border-border/50 text-xs font-medium">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              <span>Bank-grade security</span>
             </div>
-            <div className="space-y-3">
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                Welcome back to LaundryEase
+            
+            <div className="space-y-4">
+              <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground leading-[1.1]">
+                Welcome back to <br/> <span className="text-primary">LaundryEase</span>
               </h1>
-              <p className="max-w-md text-sm text-muted-foreground md:text-base">
-                Pick up where you left off—track active orders, approve
-                invoices, or manage your bookings from a single dashboard.
+              <p className="text-lg text-muted-foreground leading-relaxed">
+                Manage your premium laundry services. Track orders in real-time, approve detailed invoices, and pay securely via escrow.
               </p>
             </div>
-            <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-              <li>• One login for both web and mobile.</li>
-              <li>• 24‑hour escrow protection on all paid orders.</li>
-              <li>• Raise complaints directly from your order timeline.</li>
-            </ul>
-          </section>
 
-          <section className="flex flex-1 items-center">
-            <article className="w-full rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur-sm md:p-8">
+            <div className="grid grid-cols-2 gap-6 pt-4">
+              <div className="p-4 rounded-xl bg-card border border-border/50">
+                <div className="text-2xl font-bold text-foreground mb-1">24h</div>
+                <div className="text-sm text-muted-foreground">Escrow Protection</div>
+              </div>
+              <div className="p-4 rounded-xl bg-card border border-border/50">
+                <div className="text-2xl font-bold text-foreground mb-1">100%</div>
+                <div className="text-sm text-muted-foreground">Deadline Guarantee</div>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* Right Side - Auth Form */}
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="flex-1 w-full max-w-md"
+          >
+            <div className="bg-card border border-border/50 shadow-xl shadow-primary/5 rounded-2xl p-6 md:p-8 backdrop-blur-sm">
               {!showForgotPassword ? (
                 <>
-                  <header className="mb-6 space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      Sign in
+                  <div className="mb-8 text-center md:text-left">
+                    <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
+                    <p className="text-sm text-muted-foreground mt-2">
+                       Enter your credentials to access your account
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      Use Google or your email and password.
-                    </p>
-                  </header>
+                  </div>
 
                   <button
-                    className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border bg-background px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted cursor-pointer"
+                    className="w-full h-11 flex items-center justify-center gap-2 rounded-lg border border-border bg-background hover:bg-secondary transition-colors text-sm font-medium"
                     onClick={() => signIn("google", { callbackUrl: "/" })}
                     type="button"
                   >
-                    <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
-                    <span>Continue with Google</span>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path
+                        fill="currentColor"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        className="text-[#4285F4]"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        className="text-[#34A853]"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        className="text-[#FBBC05]"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        className="text-[#EA4335]"
+                      />
+                    </svg>
+                    Continue with Google
                   </button>
 
-                  <div className="my-4 flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span className="h-px flex-1 bg-border" />
-                    <span>or continue with email</span>
-                    <span className="h-px flex-1 bg-border" />
+                  <div className="relative my-8">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or with email</span>
+                    </div>
                   </div>
 
-                  <form onSubmit={onCredentials} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="email"
-                        className="text-xs font-medium text-muted-foreground"
-                      >
-                        Email address
-                      </label>
+                  <form onSubmit={onCredentials} className="space-y-5">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Email</label>
                       <input
-                        id="email"
                         type="email"
-                        placeholder="Enter your email address"
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 cursor-text"
+                        placeholder="name@example.com"
+                        className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
                       />
                     </div>
-                    <PasswordInput
-                      id="password"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                    <div className="flex justify-between items-center text-xs">
-                      <span></span>
+                    
+                    <div className="space-y-2">
+                       <PasswordInput
+                        id="password"
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end">
                       <button
                         type="button"
                         onClick={() => setShowForgotPassword(true)}
-                        className="text-emerald-600 hover:text-emerald-500 cursor-pointer font-medium"
+                        className="text-xs font-medium text-primary hover:underline"
                       >
                         Forgot password?
                       </button>
                     </div>
+
                     {error && (
-                      <aside
-                        className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700"
-                        role="alert"
-                      >
+                      <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
                         {error}
-                      </aside>
+                      </div>
                     )}
+
                     <button
                       type="submit"
                       disabled={loading}
-                      className="mt-1 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-muted cursor-pointer"
+                      className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
+                      {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                       {loading ? "Signing in..." : "Sign in"}
                     </button>
                   </form>
 
-                  <footer className="mt-4 border-t pt-3 text-center text-xs text-muted-foreground">
+                  <div className="mt-6 text-center text-sm text-muted-foreground">
                     Don&apos;t have an account?{" "}
-                    <a
-                      href="/choose-role"
-                      className="font-medium text-emerald-600 hover:text-emerald-500 cursor-pointer"
-                    >
-                      Sign up
+                    <a href="/choose-role" className="font-medium text-primary hover:underline">
+                      Create account
                     </a>
-                  </footer>
+                  </div>
                 </>
               ) : (
                 <>
-                  <header className="mb-6 space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      Reset Password
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Enter your email address and we&apos;ll send you a link to
-                      reset your password.
-                    </p>
-                  </header>
+                  <button 
+                    onClick={() => setShowForgotPassword(false)}
+                    className="mb-6 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
+                  </button>
 
-                  <form onSubmit={handleForgotPassword} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="forgot-email"
-                        className="text-xs font-medium text-muted-foreground"
-                      >
-                        Email address
-                      </label>
+                  <div className="mb-6">
+                     <h2 className="text-2xl font-semibold tracking-tight">Reset Password</h2>
+                     <p className="text-sm text-muted-foreground mt-2">
+                       We'll email you instructions to reset your password.
+                     </p>
+                  </div>
+
+                  <form onSubmit={handleForgotPassword} className="space-y-5">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Email address</label>
                       <input
-                        id="forgot-email"
                         type="email"
-                        placeholder="Enter your email address"
-                        className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 cursor-text"
+                        placeholder="name@example.com"
+                        className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
                         required
@@ -226,46 +264,53 @@ export default function AuthPage() {
                     </div>
 
                     {forgotSuccess && (
-                      <aside
-                        className="rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-xs text-green-700"
-                        role="alert"
-                      >
-                        Check your email for password reset instructions.
-                      </aside>
+                      <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-600 flex items-center gap-2">
+                         <CheckCircle2 className="w-4 h-4" />
+                         Check email for instructions.
+                      </div>
                     )}
 
                     {error && (
-                      <aside
-                        className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700"
-                        role="alert"
-                      >
+                      <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                         {error}
-                      </aside>
+                      </div>
                     )}
 
                     <button
                       type="submit"
                       disabled={forgotLoading}
-                      className="mt-1 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-muted cursor-pointer"
+                       className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      {forgotLoading ? "Sending..." : "Send reset link"}
+                      {forgotLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {forgotLoading ? "Sending..." : "Send Reset Link"}
                     </button>
                   </form>
-
-                  <footer className="mt-4 border-t pt-3 text-center text-xs">
-                    <button
-                      onClick={() => setShowForgotPassword(false)}
-                      className="font-medium text-emerald-600 hover:text-emerald-500 cursor-pointer"
-                    >
-                      Back to sign in
-                    </button>
-                  </footer>
                 </>
               )}
-            </article>
-          </section>
+            </div>
+          </motion.section>
         </div>
       </main>
     </>
   );
+}
+
+function CheckCircle2(props: any) {
+    return (
+        <svg
+        {...props}
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        >
+        <circle cx="12" cy="12" r="10" />
+        <path d="m9 12 2 2 4-4" />
+        </svg>
+    )
 }

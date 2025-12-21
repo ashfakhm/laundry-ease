@@ -44,6 +44,7 @@ export type Provider = BaseUser & {
   bio?: string;
   description?: string;
   pricingRates?: Record<string, number>;
+  free_radius_km?: number;
 };
 
 export type Admin = BaseUser;
@@ -139,6 +140,8 @@ export async function createProvider(data: {
   description?: string;
   pricingRates?: Record<string, number>;
   radius_km?: number;
+  free_radius_km?: number;
+  per_km_rate?: number;
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -161,6 +164,8 @@ export async function createProvider(data: {
     description: data.description,
     pricingRates: data.pricingRates,
     radius_km: data.radius_km ?? 10,
+    free_radius_km: data.free_radius_km ?? 5,
+    per_km_rate: data.per_km_rate ?? 0,
     documents: [],
     createdAt: now,
   };

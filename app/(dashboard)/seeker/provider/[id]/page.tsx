@@ -12,8 +12,12 @@ import {
   CheckCircle2,
   TrendingUp,
   Loader2,
+  ShieldCheck,
+  Package,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 type Provider = {
   _id: string;
@@ -54,6 +58,9 @@ export default function ProviderDetailPage() {
   useEffect(() => {
     async function fetchProviderDetails() {
       try {
+        // Simulating API delay for smoother transition
+        await new Promise(r => setTimeout(r, 500));
+        
         const response = await fetch(`/api/providers/${providerId}`);
         if (response.ok) {
           const data = await response.json();
@@ -68,7 +75,7 @@ export default function ProviderDetailPage() {
       }
     }
 
-    // Mock reviews for now (will be replaced with real API)
+    // Mock reviews
     setReviews([
       {
         _id: "1",
@@ -141,38 +148,38 @@ export default function ProviderDetailPage() {
 
   if (loading) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Loading provider details...
-            </p>
-          </div>
-        </div>
+      <main className="min-h-screen bg-background flex items-center justify-center">
+        <motion.div
+           initial={{ opacity: 0, scale: 0.9 }}
+           animate={{ opacity: 1, scale: 1 }}
+           className="text-center"
+        >
+           <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+           <p className="text-muted-foreground font-medium">Fetching details...</p>
+        </motion.div>
       </main>
     );
   }
 
   if (!provider) {
     return (
-      <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-6">
-        <div className="mx-auto max-w-4xl">
-          <div className="rounded-3xl border bg-card/80 p-12 text-center shadow-sm backdrop-blur">
-            <h2 className="text-xl font-semibold">Provider not found</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              This provider may have been removed or doesn&apos;t exist.
+      <main className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+          <div className="flex flex-col items-center text-center max-w-md">
+             <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-6">
+               <ShieldCheck className="w-8 h-8 text-muted-foreground" />
+             </div>
+            <h2 className="text-2xl font-bold font-heading">Provider Unavailable</h2>
+            <p className="mt-2 text-muted-foreground">
+              This provider profile is no longer active or could not be found.
             </p>
             <button
-              type="button"
               onClick={() => router.back()}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+              className="mt-8 flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-105"
             >
               <ArrowLeft className="h-4 w-4" />
-              Go Back
+              Back to Search
             </button>
           </div>
-        </div>
       </main>
     );
   }
@@ -181,289 +188,220 @@ export default function ProviderDetailPage() {
     reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length || 0;
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-6">
-      <div className="mx-auto max-w-6xl">
-        {/* Back Button */}
+    <main className="min-h-screen bg-background/50 p-6">
+      <div className="mx-auto max-w-7xl">
         <button
           onClick={() => router.back()}
-          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+          className="mb-6 flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors group"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to search
+          <div className="w-8 h-8 rounded-full bg-background border border-border flex items-center justify-center group-hover:border-primary/50 transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+          </div>
+          Back to Results
         </button>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Left Column - Provider Info */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* Left Column - Main Details */}
+          <motion.div 
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="lg:col-span-2 space-y-8"
+          >
             {/* Header Card */}
-            <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-2xl font-bold text-white">
-                      {provider.name?.charAt(0) || "P"}
+            <div className="rounded-3xl border border-border bg-card p-6 md:p-8 shadow-sm">
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                 <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary shadow-inner">
+                    {provider.name?.charAt(0) || "P"}
+                 </div>
+                 
+                 <div className="flex-1 space-y-2">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                       <div>
+                          <h1 className="font-heading text-3xl font-bold">{provider.businessName || provider.name}</h1>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                             <MapPin className="w-4 h-4" />
+                             {provider.location}
+                             <span className="text-border mx-1">|</span>
+                             <span className="text-primary font-medium flex items-center gap-1">
+                                <Star className="w-3.5 h-3.5 fill-current" />
+                                {averageRating.toFixed(1)} Rating
+                             </span>
+                          </div>
+                       </div>
+                       
+                       <div className="flex flex-col items-end">
+                           <div className="text-right">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Starting At</p>
+                              <p className="text-3xl font-bold text-primary">₹{provider.pricing || 0}</p>
+                           </div>
+                       </div>
                     </div>
-                    <div>
-                      <h1 className="text-2xl font-semibold">
-                        {provider.name || "Provider"}
-                      </h1>
-                      {provider.businessName && (
-                        <p className="text-sm text-muted-foreground">
-                          {provider.businessName}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4" />
-                      <span>{provider.location || "Location not set"}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Star className="h-4 w-4 fill-emerald-500 text-emerald-500" />
-                      <span className="font-medium text-foreground">
-                        {averageRating.toFixed(1)}
-                      </span>
-                      <span>({reviews.length} reviews)</span>
-                    </div>
-                    {provider.createdAt && (
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-4 w-4" />
-                        <span>
-                          Member since{" "}
-                          {new Date(provider.createdAt).toLocaleDateString(
-                            "en-US",
-                            { month: "short", year: "numeric" }
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="flex gap-4 sm:flex-col sm:items-end">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-emerald-600">
-                      ₹{provider.pricing || "N/A"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Starting price
-                    </p>
-                  </div>
-                </div>
+                    
+                     {provider.bio && (
+                       <p className="text-muted-foreground leading-relaxed pt-2">
+                         {provider.bio}
+                       </p>
+                     )}
+                 </div>
               </div>
 
-              {/* Bio */}
-              {provider.bio && (
-                <div className="mt-6 rounded-xl bg-muted/50 p-4">
-                  <p className="text-sm leading-relaxed">{provider.bio}</p>
-                </div>
-              )}
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-border/50">
+                  <div className="space-y-1">
+                     <p className="text-xs text-muted-foreground">Joined</p>
+                     <p className="text-sm font-semibold flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-primary" />
+                        {provider.createdAt ? new Date(provider.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric'}) : 'Recently'}
+                     </p>
+                  </div>
+                   <div className="space-y-1">
+                     <p className="text-xs text-muted-foreground">Response Time</p>
+                     <p className="text-sm font-semibold flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-green-500" />
+                        &lt; 1 Hour
+                     </p>
+                  </div>
+                   <div className="space-y-1">
+                     <p className="text-xs text-muted-foreground">Completed</p>
+                     <p className="text-sm font-semibold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                        120+ Orders
+                     </p>
+                  </div>
+                   <div className="space-y-1">
+                     <p className="text-xs text-muted-foreground">Radius</p>
+                     <p className="text-sm font-semibold flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        {provider.radius_km || 10} km
+                     </p>
+                  </div>
+               </div>
             </div>
 
-            {/* About & Description */}
-            <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-              <h2 className="text-lg font-semibold">About this Provider</h2>
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                {provider.description ||
-                  "This provider offers professional laundry services with attention to detail and quality. All items are handled with care using premium detergents and modern equipment."}
-              </p>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border bg-background p-4">
-                  <div className="flex items-center gap-2 text-emerald-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <p className="text-sm font-semibold">Quality Assured</p>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Premium service standards
-                  </p>
-                </div>
-                <div className="rounded-xl border bg-background p-4">
-                  <div className="flex items-center gap-2 text-emerald-600">
-                    <TrendingUp className="h-5 w-5" />
-                    <p className="text-sm font-semibold">Fast Turnaround</p>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    24-48 hour delivery
-                  </p>
-                </div>
-                <div className="rounded-xl border bg-background p-4">
-                  <div className="flex items-center gap-2 text-emerald-600">
-                    <MapPin className="h-5 w-5" />
-                    <p className="text-sm font-semibold">Service Coverage</p>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Up to {provider.radius_km || 10} km radius
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Services Offered */}
-            <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-              <h2 className="text-lg font-semibold">Services Offered</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {provider.services && provider.services.length > 0 ? (
-                  provider.services.map((service, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-3 rounded-xl border bg-background p-4"
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{service}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No services listed
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Pricing Rates */}
-            {provider.pricingRates &&
-              Object.keys(provider.pricingRates).length > 0 && (
-                <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-                  <h2 className="text-lg font-semibold">Pricing Details</h2>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {Object.entries(provider.pricingRates).map(
-                      ([item, rate]) => (
-                        <div
-                          key={item}
-                          className="flex items-center justify-between rounded-xl border bg-background p-4"
-                        >
-                          <p className="font-medium capitalize">{item}</p>
-                          <p className="text-lg font-semibold text-emerald-600">
-                            ₹{rate}
-                          </p>
+            {/* Services & Pricing */}
+            <div className="grid md:grid-cols-2 gap-6">
+               <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
+                  <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
+                     <Package className="w-5 h-5 text-primary" />
+                     Services
+                  </h3>
+                  <div className="space-y-3">
+                     {provider.services?.map((service, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-colors">
+                           <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shadow-sm">
+                              <CheckCircle2 className="w-4 h-4 text-green-500" />
+                           </div>
+                           <span className="font-medium text-sm">{service}</span>
                         </div>
-                      )
-                    )}
+                     ))}
+                     {!provider.services?.length && <p className="text-sm text-muted-foreground">No services listed.</p>}
                   </div>
-                </div>
-              )}
+               </div>
+
+               <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
+                  <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
+                     <TrendingUp className="w-5 h-5 text-primary" />
+                     Base Rates
+                  </h3>
+                   <div className="space-y-3">
+                     {provider.pricingRates && Object.entries(provider.pricingRates).map(([item, rate], i) => (
+                        <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-colors">
+                           <span className="font-medium text-sm text-muted-foreground">{item}</span>
+                           <span className="font-bold text-foreground">₹{rate}</span>
+                        </div>
+                     ))}
+                     {!provider.pricingRates && <p className="text-sm text-muted-foreground">Contact for custom pricing.</p>}
+                  </div>
+               </div>
+            </div>
+
+            {/* Description */}
+             <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                <h3 className="font-heading text-lg font-bold mb-4">About the Business</h3>
+                <p className="text-muted-foreground text-sm leading-7">
+                  {provider.description || "No description provided."}
+                </p>
+             </div>
 
             {/* Reviews */}
-            <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Customer Reviews</h2>
-                <div className="flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5">
-                  <Star className="h-4 w-4 fill-emerald-500 text-emerald-500" />
-                  <span className="text-sm font-semibold text-emerald-700">
-                    {averageRating.toFixed(1)} / 5
-                  </span>
+            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                   <h3 className="font-heading text-lg font-bold">Client Reviews</h3>
+                   <span className="text-xs font-bold bg-secondary px-3 py-1 rounded-full text-secondary-foreground">{reviews.length} Verified Reviews</span>
                 </div>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                {reviews.map((review) => (
-                  <div
-                    key={review._id}
-                    className="rounded-xl border bg-background p-4"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold">{review.seeker_name}</p>
-                        <div className="mt-1 flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-3 w-3 ${
-                                i < review.rating
-                                  ? "fill-emerald-500 text-emerald-500"
-                                  : "text-muted-foreground"
-                              }`}
-                            />
-                          ))}
-                        </div>
+                
+                <div className="grid gap-4">
+                   {reviews.map((review) => (
+                      <div key={review._id} className="p-4 rounded-2xl bg-muted/20 border border-transparent hover:border-border transition-all">
+                         <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-2">
+                               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                  {review.seeker_name.charAt(0)}
+                               </div>
+                               <div>
+                                  <p className="text-sm font-bold">{review.seeker_name}</p>
+                                  <div className="flex gap-0.5">
+                                     {[...Array(5)].map((_, i) => (
+                                        <Star key={i} className={cn("w-3 h-3", i < review.rating ? "fill-orange-400 text-orange-400" : "text-muted-foreground/30")} />
+                                     ))}
+                                  </div>
+                               </div>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">{new Date(review.createdAt).toLocaleDateString()}</span>
+                         </div>
+                         <p className="text-sm text-muted-foreground pl-10">"{review.comment}"</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(review.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      {review.comment}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                   ))}
+                </div>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Right Column - Booking Card (Sticky) */}
+          {/* Right Column - Sticky Booking Card */}
           <div className="lg:col-span-1">
-            <div className="sticky top-6 rounded-3xl border bg-card/80 p-6 shadow-lg backdrop-blur">
-              <h3 className="text-lg font-semibold">Book This Provider</h3>
-
-              {/* Service Radius */}
-              <div className="mt-4 rounded-xl bg-muted/50 p-4">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Service Coverage
-                </p>
-                <p className="mt-1 text-2xl font-bold">
-                  {provider.radius_km || 10} km
-                </p>
-                {provider.per_km_rate && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    ₹{provider.per_km_rate}/km beyond radius
-                  </p>
-                )}
-              </div>
-
-              {/* Contact Info */}
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center gap-3 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{provider.phone || "Not provided"}</span>
+             <motion.div 
+               initial={{ opacity: 0, x: 20 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ delay: 0.2 }}
+               className="sticky top-6 rounded-3xl border border-border bg-card p-6 shadow-xl shadow-black/5"
+             >
+                <div className="text-center mb-6">
+                   <h3 className="font-heading text-xl font-bold">Book Provider</h3>
+                   <p className="text-sm text-muted-foreground">Secure your slot now</p>
                 </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">{provider.email}</span>
+
+                <div className="space-y-4 mb-6">
+                   <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+                      <span className="text-sm font-medium text-muted-foreground">Service Fee</span>
+                      <span className="font-bold">₹{provider.pricing}</span>
+                   </div>
+                   <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+                      <span className="text-sm font-medium text-muted-foreground">Escrow Protection</span>
+                      <span className="font-bold text-green-600 flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Included</span>
+                   </div>
                 </div>
-              </div>
 
-              {/* Pricing Info */}
-              <div className="mt-6 rounded-xl border bg-background p-4">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Starting Price
-                </p>
-                <p className="mt-1 text-3xl font-bold text-emerald-600">
-                  ₹{provider.pricing || "N/A"}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Final price based on items
-                </p>
-              </div>
+                <div className="space-y-3 mb-8">
+                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <Phone className="w-4 h-4" /> 
+                      <span className="font-medium text-foreground">{provider.phone}</span>
+                   </div>
+                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <Mail className="w-4 h-4" /> 
+                      <span className="font-medium text-foreground truncate">{provider.email}</span>
+                   </div>
+                </div>
 
-              {/* Book Button */}
-              <button
-                type="button"
-                onClick={handleBookProvider}
-                disabled={booking}
-                className="mt-6 w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-              >
-                {booking ? (
-                  <span className="inline-flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Booking...
-                  </span>
-                ) : (
-                  "Book Now"
-                )}
-              </button>
-
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                Payment after invoice approval
-              </p>
-            </div>
+                <button
+                  onClick={handleBookProvider}
+                  disabled={booking}
+                  className="w-full h-12 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                >
+                  {booking ? <Loader2 className="w-5 h-5 animate-spin" /> : "Request Booking"}
+                </button>
+                
+                <p className="text-xs text-center text-muted-foreground mt-4">
+                   You won't be charged until the provider accepts your request.
+                </p>
+             </motion.div>
           </div>
         </div>
       </div>

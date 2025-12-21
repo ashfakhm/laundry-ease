@@ -6,6 +6,7 @@ import { BookingCard } from "./booking-card";
 import { cn } from "@/lib/utils";
 import { Inbox, Search, Filter } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface BookingListProps {
   initialBookings: PopulatedBooking[];
@@ -74,26 +75,26 @@ export function BookingList({ initialBookings }: BookingListProps) {
   return (
     <div className="space-y-6">
       {/* Search & Filter Bar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-card p-4 rounded-2xl border border-border shadow-sm">
+        <div className="relative flex-1 max-w-md group">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <input
             type="text"
             placeholder="Search by customer name or booking ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 py-2.5 pl-10 pr-4 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            className="w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/50"
           />
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
           <Filter className="h-4 w-4" />
           <span>{filteredBookings.length} bookings</span>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="relative">
-        <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="relative border-b border-border pb-1 overflow-x-auto">
+        <div className="flex gap-2">
           {TABS.map((tab) => {
             const isActive = filter === tab.id;
             const count = counts[tab.id] || 0;
@@ -103,23 +104,25 @@ export function BookingList({ initialBookings }: BookingListProps) {
                 key={tab.id}
                 onClick={() => setFilter(tab.id)}
                 className={cn(
-                  "group relative flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all",
+                  "group relative flex shrink-0 items-center gap-2 rounded-t-lg px-4 py-3 text-sm font-bold transition-all border-b-2 whitespace-nowrap",
                   isActive
-                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/25"
-                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                    ? "border-primary text-primary bg-primary/5"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >
                 <span>{tab.label}</span>
-                <span
+                {count > 0 && (
+                   <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-semibold transition-colors",
+                    "rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors",
                     isActive
-                      ? "bg-white/20 text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-600"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
                   )}
                 >
                   {count}
                 </span>
+                )}
               </button>
             );
           })}
@@ -130,7 +133,8 @@ export function BookingList({ initialBookings }: BookingListProps) {
       {filteredBookings.length === 0 ? (
         <EmptyState filter={filter} onReset={() => setFilter("all")} />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
+           <AnimatePresence>
           {filteredBookings.map((booking) => (
             <BookingCard
               key={booking._id.toString()}
@@ -138,6 +142,7 @@ export function BookingList({ initialBookings }: BookingListProps) {
               onRefresh={() => router.refresh()}
             />
           ))}
+          </AnimatePresence>
         </div>
       )}
     </div>
@@ -193,24 +198,28 @@ function EmptyState({
   const { title, description } = messages[filter] || messages.all;
 
   return (
-    <div className="flex min-h-80 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-linear-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 p-12 text-center">
-      <div className="rounded-2xl bg-white dark:bg-gray-800 p-5 shadow-sm ring-1 ring-gray-100 dark:ring-gray-700">
-        <Inbox className="h-10 w-10 text-gray-300 dark:text-gray-600" />
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center"
+    >
+      <div className="rounded-full bg-muted p-5 shadow-sm mb-6">
+        <Inbox className="h-10 w-10 text-muted-foreground" />
       </div>
-      <h3 className="mt-6 text-lg font-semibold text-gray-900 dark:text-white">
+      <h3 className="text-xl font-heading font-bold text-foreground">
         {title}
       </h3>
-      <p className="mt-2 max-w-sm text-sm text-gray-500 dark:text-gray-400">
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
         {description}
       </p>
       {filter !== "all" && (
         <button
           onClick={onReset}
-          className="mt-6 rounded-xl bg-gray-900 dark:bg-gray-100 px-5 py-2.5 text-sm font-semibold text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-white transition-colors"
+          className="mt-6 rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:scale-105 transition-all"
         >
           View all bookings
         </button>
       )}
-    </div>
+    </motion.div>
   );
 }

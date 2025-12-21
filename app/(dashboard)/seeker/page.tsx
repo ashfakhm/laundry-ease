@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Search, MapPin, Tag, Star, Phone, Mail, Loader2 } from "lucide-react";
+import { Search, MapPin, Tag, Star, Phone, Mail, Loader2, Filter, ArrowRight } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { ProviderCardSkeleton } from "@/components/ui/skeleton";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 type Provider = {
   _id: string;
@@ -152,53 +154,63 @@ export default function SeekerDashboardPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-6">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+    <main className="min-h-screen bg-background/50 p-6 space-y-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         {/* Header */}
-        <header className="flex flex-col gap-4">
+        <motion.header 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between"
+        >
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Find Laundry Providers Near You
+            <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Find Laundry Providers
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Search by location, service type, or provider name to find the
-              perfect laundry service
+            <p className="mt-2 text-lg text-muted-foreground max-w-2xl">
+              Discover trusted professionals near you for all your garment care needs.
             </p>
           </div>
+        </motion.header>
 
-          {/* Search Filters */}
-          <div className="grid gap-3 md:grid-cols-3">
+        {/* Search & Filters */}
+        <motion.div 
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.1 }}
+           className="bg-card border border-border/50 rounded-2xl p-4 md:p-6 shadow-sm space-y-4"
+        >
+          <div className="grid gap-4 md:grid-cols-3">
             {/* Location Search */}
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative group">
+              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
                 placeholder={seekerLocation || "Search by location..."}
                 value={searchLocation}
                 onChange={(e) => setSearchLocation(e.target.value)}
-                className="w-full rounded-xl border bg-background py-2.5 pl-10 pr-4 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                className="w-full h-11 rounded-xl border border-input bg-background pl-10 pr-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-muted-foreground/50"
               />
             </div>
 
             {/* Name Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
                 placeholder="Search by provider name..."
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
-                className="w-full rounded-xl border bg-background py-2.5 pl-10 pr-4 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                className="w-full h-11 rounded-xl border border-input bg-background pl-10 pr-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-muted-foreground/50"
               />
             </div>
 
             {/* Service Filter */}
-            <div className="relative">
-              <Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative group">
+              <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <select
                 value={selectedService}
                 onChange={(e) => setSelectedService(e.target.value)}
-                className="w-full appearance-none rounded-xl border bg-background py-2.5 pl-10 pr-4 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                className="w-full h-11 appearance-none rounded-xl border border-input bg-background pl-10 pr-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
               >
                 <option value="">All Services</option>
                 {popularServices.map((service) => (
@@ -210,10 +222,9 @@ export default function SeekerDashboardPage() {
             </div>
           </div>
 
-          {/* Quick Service Tags */}
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Quick filters:
+          <div className="flex flex-wrap gap-2 items-center pt-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-2">
+              Popular:
             </span>
             {popularServices.slice(0, 4).map((service) => (
               <button
@@ -221,181 +232,132 @@ export default function SeekerDashboardPage() {
                 onClick={() =>
                   setSelectedService(selectedService === service ? "" : service)
                 }
-                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-all duration-200 border",
                   selectedService === service
-                    ? "bg-emerald-500 text-white"
-                    : "border bg-background hover:bg-muted"
-                }`}
+                    ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                    : "bg-background border-border hover:border-primary/50 hover:bg-muted"
+                )}
               >
                 {service}
               </button>
             ))}
           </div>
-        </header>
+        </motion.div>
 
-        {/* Results */}
+        {/* Results Grid */}
         <section aria-label="Provider search results">
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <ProviderCardSkeleton key={i} />
+                 <ProviderCardSkeleton key={i} />
               ))}
             </div>
           ) : providers.length === 0 ? (
-            <div className="rounded-3xl border bg-card/80 p-12 text-center shadow-sm backdrop-blur">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                <Search className="h-8 w-8 text-muted-foreground" />
+            <motion.div 
+               initial={{ opacity: 0, scale: 0.95 }}
+               animate={{ opacity: 1, scale: 1 }}
+               className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border py-24 text-center"
+            >
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted/50 mb-6">
+                <Search className="h-10 w-10 text-muted-foreground/50" />
               </div>
-              <h3 className="mt-4 text-lg font-semibold">No providers found</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Try adjusting your search filters or location
+              <h3 className="text-xl font-bold text-foreground">No providers found</h3>
+              <p className="mt-2 text-muted-foreground max-w-sm">
+                We couldn't find any providers matching your search filters. Try adjusting your location or service type.
               </p>
-            </div>
+            </motion.div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {providers.map((provider) => (
-                <article
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <AnimatePresence>
+              {providers.map((provider, i) => (
+                <motion.article
                   key={provider._id}
-                  className="group rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur transition hover:shadow-md"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="group relative flex flex-col justify-between rounded-3xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20"
                 >
-                  {/* Clickable area to view profile */}
+                  {/* Card Content */}
                   <div
-                    onClick={() =>
-                      router.push(`/seeker/provider/${provider._id}`)
-                    }
-                    className="cursor-pointer"
-                    role="link"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        router.push(`/seeker/provider/${provider._id}`);
-                      }
-                    }}
+                    onClick={() => router.push(`/seeker/provider/${provider._id}`)}
+                    className="cursor-pointer space-y-6"
                   >
-                    {/* Provider Header */}
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold group-hover:text-emerald-600 transition">
-                          {provider.name || "Provider"}
-                        </h3>
-                        <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          <span>{provider.location || "Location not set"}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700">
-                        <Star className="h-3 w-3 fill-emerald-500" />
-                        <span>4.5</span>
-                      </div>
+                    <div className="flex justify-between items-start">
+                       <div>
+                          <h3 className="font-heading text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+                            {provider.name || "Provider"}
+                          </h3>
+                          <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
+                             <MapPin className="w-3.5 h-3.5" />
+                             {provider.location || "Location not set"}
+                          </div>
+                       </div>
+                       <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-bold ring-1 ring-amber-500/20">
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                          4.5
+                       </div>
                     </div>
 
-                    {/* Services */}
-                    <div className="mt-4">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Services
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {provider.services && provider.services.length > 0 ? (
-                          provider.services.slice(0, 3).map((service, idx) => (
-                            <span
-                              key={idx}
-                              className="rounded-full border bg-background px-2 py-0.5 text-[10px] font-medium"
-                            >
-                              {service}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            No services listed
-                          </span>
-                        )}
-                        {provider.services && provider.services.length > 3 && (
-                          <span className="rounded-full border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            +{provider.services.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Pricing & Radius */}
-                    <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-muted/50 p-3">
-                      <div>
-                        <p className="text-[10px] font-medium text-muted-foreground">
-                          Starting Price
-                        </p>
-                        <p className="mt-0.5 text-sm font-semibold">
-                          ₹{provider.pricing || "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-medium text-muted-foreground">
-                          Service Radius
-                        </p>
-                        <p className="mt-0.5 text-sm font-semibold">
-                          {provider.radius_km || 10} km
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Contact Info */}
-                    <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-3 w-3" />
-                        <span>{provider.phone || "Not provided"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-3 w-3" />
-                        <span className="truncate">{provider.email}</span>
-                      </div>
+                    <div className="space-y-3">
+                       <div className="flex flex-wrap gap-2">
+                          {provider.services?.slice(0, 3).map((service, idx) => (
+                             <span key={idx} className="px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
+                               {service}
+                             </span>
+                          ))}
+                          {provider.services?.length > 3 && (
+                             <span className="px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs font-medium">
+                               +{provider.services.length - 3} more
+                             </span>
+                          )}
+                       </div>
+                       
+                       <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="bg-muted/30 p-3 rounded-xl">
+                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Base Price</p>
+                             <p className="text-base font-bold text-foreground mt-0.5">₹{provider.pricing || 0}</p>
+                          </div>
+                           <div className="bg-muted/30 p-3 rounded-xl">
+                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Radius</p>
+                             <p className="text-base font-bold text-foreground mt-0.5">{provider.radius_km || 10} km</p>
+                          </div>
+                       </div>
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="mt-4 grid grid-cols-2 gap-2">
+                  {/* Actions */}
+                  <div className="mt-6 flex items-center gap-3">
                     <button
-                      type="button"
-                      onClick={() =>
-                        router.push(`/seeker/provider/${provider._id}`)
-                      }
-                      className="rounded-xl border bg-background py-2.5 text-sm font-medium transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                      onClick={(e) => {
+                         e.stopPropagation();
+                         router.push(`/seeker/provider/${provider._id}`);
+                      }}
+                      className="flex-1 h-10 rounded-xl border border-input bg-background font-medium text-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
-                      View Profile
+                      View Details
                     </button>
                     <button
-                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleBookProvider(provider._id);
                       }}
                       disabled={bookingInProgress === provider._id}
-                      className="rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-primary/30 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                     >
-                      {bookingInProgress === provider._id ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Booking...
-                        </span>
-                      ) : (
-                        "Book Now"
-                      )}
+                       {bookingInProgress === provider._id ? (
+                           <Loader2 className="w-4 h-4 animate-spin" />
+                       ) : (
+                           <>Book Now <ArrowRight className="w-4 h-4" /></>
+                       )}
                     </button>
                   </div>
-                </article>
+                </motion.article>
               ))}
+              </AnimatePresence>
             </div>
           )}
         </section>
-
-        {/* Results Count */}
-        {!loading && providers.length > 0 && (
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Showing {providers.length} provider
-              {providers.length !== 1 ? "s" : ""}{" "}
-              {searchLocation && `in ${searchLocation}`}
-            </p>
-          </div>
-        )}
       </div>
     </main>
   );

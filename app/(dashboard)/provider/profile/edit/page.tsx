@@ -1,402 +1,494 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
+import {
+  Loader2,
+  Briefcase,
+  MapPin,
+  Lock,
+  Save,
+  Sparkles,
+  DollarSign,
+  Truck,
+} from "lucide-react";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { useRouter } from "next/navigation";
-import { Save, X, Plus, Trash2 } from "lucide-react";
 
-type Provider = {
-  _id: string;
+const providerProfileSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    businessName: z.string().optional(),
+    bio: z.string().optional(),
+    description: z.string().optional(),
+    location: z.string().min(3, "Location is required"),
+    phone: z.string().optional(),
+    radius_km: z.preprocess(
+      (val) => (val === "" ? undefined : Number(val)),
+      z.number().min(1, "Minimum radius is 1km")
+    ),
+    free_radius_km: z.preprocess(
+      (val) => (val === "" ? undefined : Number(val)),
+      z.number().min(0)
+    ),
+    per_km_rate: z.preprocess(
+      (val) => (val === "" ? undefined : Number(val)),
+      z.number().min(0)
+    ),
+    pricing: z.preprocess(
+      (val) => (val === "" ? undefined : Number(val)),
+      z.number().min(0)
+    ), // Base pricing MVP
+    // Security
+    currentPassword: z.string().optional(),
+    newPassword: z.string().optional(),
+    confirmPassword: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.newPassword && data.newPassword.length < 8) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "New password must be at least 8 characters",
+      path: ["newPassword"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.newPassword && !data.currentPassword) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Current password is required to change password",
+      path: ["currentPassword"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.newPassword !== data.confirmPassword) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    }
+  );
+
+type ProviderProfileValues = {
   name: string;
-  email: string;
-  phone: string;
-  location: string;
-  services: string[];
-  pricing: number;
-  radius_km?: number;
+  businessName?: string;
   bio?: string;
   description?: string;
-  businessName?: string;
-  pricingRates?: Record<string, number>;
+  location: string;
+  phone?: string;
+  radius_km: number;
+  free_radius_km: number;
+  per_km_rate: number;
+  pricing: number;
+  currentPassword?: string;
+  newPassword?: string;
+  confirmPassword?: string;
 };
 
-export default function EditProviderProfilePage() {
-  const { data: session } = useSession();
+export default function ProviderEditProfilePage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [form, setForm] = useState({
-    name: "",
-    businessName: "",
-    bio: "",
-    description: "",
-    location: "",
-    radius_km: "10",
-    tags: "",
+  const form = useForm<ProviderProfileValues>({
+    resolver: zodResolver(
+      providerProfileSchema
+    ) as import("react-hook-form").Resolver<ProviderProfileValues>,
+    defaultValues: {
+      name: "",
+      businessName: "",
+      bio: "",
+      description: "",
+      location: "",
+      phone: "",
+      radius_km: 10,
+      free_radius_km: 5,
+      per_km_rate: 10,
+      pricing: 0,
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
   });
 
-  const [pricingRates, setPricingRates] = useState<
-    { item: string; rate: string }[]
-  >([]);
-
   useEffect(() => {
-    async function fetchProviderProfile() {
+    async function loadProfile() {
       try {
-        const response = await fetch("/api/profile/provider");
-        if (response.ok) {
-          const data: Provider = await response.json();
-          setForm({
-            name: data.name || "",
-            businessName: data.businessName || "",
-            bio: data.bio || "",
-            description: data.description || "",
-            location: data.location || "",
-            radius_km: String(data.radius_km || 10),
-            tags: data.services?.join(", ") || "",
-          });
+        const res = await fetch("/api/profile/provider");
+        if (!res.ok) throw new Error("Failed to load profile");
+        const data = await res.json();
 
-          // Convert pricingRates object to array
-          if (data.pricingRates) {
-            const rates = Object.entries(data.pricingRates).map(
-              ([item, rate]) => ({
-                item,
-                rate: String(rate),
-              })
-            );
-            setPricingRates(
-              rates.length > 0 ? rates : [{ item: "", rate: "" }]
-            );
-          } else {
-            setPricingRates([{ item: "", rate: "" }]);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-        setError("Failed to load profile");
+        form.reset({
+          name: data.name || "",
+          businessName: data.businessName || "",
+          bio: data.bio || "",
+          description: data.description || "",
+          location: data.location || "",
+          phone: data.phone || "",
+          radius_km: data.radius_km || 10,
+          free_radius_km: data.free_radius_km || 5,
+          per_km_rate: data.per_km_rate || 10,
+          pricing: data.pricing || 0,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } catch {
+        toast.error("Could not load profile");
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     }
+    loadProfile();
+  }, [form]);
 
-    if (session) {
-      fetchProviderProfile();
-    }
-  }, [session]);
-
-  function set<K extends keyof typeof form>(k: K, v: string) {
-    setForm((f) => ({ ...f, [k]: v }));
-  }
-
-  function updateRate(index: number, field: "item" | "rate", value: string) {
-    setPricingRates((prev) => {
-      const updated = [...prev];
-      updated[index][field] = value;
-      return updated;
-    });
-  }
-
-  function addPricingRow() {
-    setPricingRates((prev) => [...prev, { item: "", rate: "" }]);
-  }
-
-  function removePricingRow(index: number) {
-    if (pricingRates.length > 1) {
-      setPricingRates((prev) => prev.filter((_, i) => i !== index));
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSuccess(false);
-    setSaving(true);
-
-    // Convert pricing rates array to object
-    const ratesObj = pricingRates.reduce((acc, { item, rate }) => {
-      if (item && rate) {
-        acc[item] = Number(rate) || 0;
-      }
-      return acc;
-    }, {} as Record<string, number>);
-
-    const updateData = {
-      name: form.name,
-      businessName: form.businessName,
-      bio: form.bio,
-      description: form.description,
-      location: form.location,
-      radius_km: Number(form.radius_km) || 10,
-      services: form.tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
-      pricingRates: ratesObj,
-    };
-
+  async function onSubmit(data: ProviderProfileValues) {
+    setIsSaving(true);
     try {
-      const response = await fetch("/api/profile/provider", {
+      // Clean up empty password fields
+      const payload: ProviderProfileValues = { ...data };
+      if (!data.newPassword) {
+        delete payload.currentPassword;
+        delete payload.newPassword;
+        delete payload.confirmPassword;
+      }
+
+      const res = await fetch("/api/profile/provider", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        setSuccess(true);
-        setTimeout(() => router.push("/provider/profile"), 1500);
-      } else {
-        const data = await response.json();
-        setError(data.error || "Failed to update profile");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update");
       }
+
+      toast.success("Profile updated successfully");
+      router.push("/provider/profile");
+      router.refresh();
     } catch (error) {
-      console.error("Error updating profile:", error);
-      setError("Failed to update profile");
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("An unknown error occurred");
+      }
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Loading profile...
-          </p>
-        </div>
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-6">
-      <div className="mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Edit Profile</h1>
-            <p className="text-sm text-muted-foreground">
-              Update your provider information
-            </p>
-          </div>
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-2 rounded-xl border bg-background px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+    <main className="min-h-screen p-6 space-y-8 max-w-5xl mx-auto">
+      <header className="mb-8">
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+          <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+          Edit Business Profile
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Update your service details, pricing, and security settings.
+        </p>
+      </header>
+
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Business Details */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
           >
-            <X className="h-4 w-4" />
-            Cancel
-          </button>
+            <SpotlightCard className="h-full rounded-3xl bg-card border-border p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <Briefcase className="h-5 w-5" />
+                </div>
+                <h2 className="text-xl font-bold font-heading">
+                  Business Info
+                </h2>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Your Name
+                    </label>
+                    <input
+                      {...form.register("name")}
+                      className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    />
+                    {form.formState.errors.name &&
+                      typeof form.formState.errors.name?.message ===
+                        "string" && (
+                        <p className="text-xs text-destructive">
+                          {form.formState.errors.name.message}
+                        </p>
+                      )}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Business Name
+                    </label>
+                    <input
+                      {...form.register("businessName")}
+                      className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      placeholder="e.g. Sparkle Laundry"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Location
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                    <input
+                      {...form.register("location")}
+                      className="w-full h-11 pl-10 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      placeholder="City, Area"
+                    />
+                  </div>
+                  {form.formState.errors.location &&
+                    typeof form.formState.errors.location?.message ===
+                      "string" && (
+                      <p className="text-xs text-destructive">
+                        {form.formState.errors.location.message}
+                      </p>
+                    )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Short Bio
+                  </label>
+                  <input
+                    {...form.register("bio")}
+                    className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="Expert laundry services..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Detailed Description
+                  </label>
+                  <textarea
+                    {...form.register("description")}
+                    className="w-full min-h-25 rounded-lg border border-input bg-background p-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="Describe your services, equipment, and expertise..."
+                  />
+                </div>
+              </div>
+            </SpotlightCard>
+          </motion.div>
+
+          {/* Service & Delivery */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+          >
+            <SpotlightCard className="h-full rounded-3xl bg-card border-border p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <h2 className="text-xl font-bold font-heading">
+                  Service Settings
+                </h2>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Max Radius (km)
+                    </label>
+                    <input
+                      type="number"
+                      {...form.register("radius_km", { valueAsNumber: true })}
+                      className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    />
+                    {form.formState.errors.radius_km &&
+                      typeof form.formState.errors.radius_km?.message ===
+                        "string" && (
+                        <p className="text-xs text-destructive">
+                          {form.formState.errors.radius_km.message}
+                        </p>
+                      )}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Free Radius (km)
+                    </label>
+                    <input
+                      type="number"
+                      {...form.register("free_radius_km", {
+                        valueAsNumber: true,
+                      })}
+                      className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Extra Delivery Charge (₹ per km)
+                  </label>
+                  <input
+                    type="number"
+                    {...form.register("per_km_rate", { valueAsNumber: true })}
+                    className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  />
+                </div>
+
+                <div className="p-4 bg-muted/30 rounded-xl border border-border/50">
+                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-emerald-500" /> Base
+                    Pricing
+                  </h4>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Starting From (₹)
+                    </label>
+                    <input
+                      type="number"
+                      {...form.register("pricing", { valueAsNumber: true })}
+                      className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </SpotlightCard>
+          </motion.div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-            <h2 className="text-lg font-semibold">Basic Information</h2>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Full Name
-                </label>
-                <input
-                  className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  required
-                />
+        {/* Security */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+        >
+          <SpotlightCard className="rounded-3xl bg-card border-border p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-10 w-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+                <Lock className="h-5 w-5" />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Business Name
-                </label>
-                <input
-                  className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  value={form.businessName}
-                  onChange={(e) => set("businessName", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Location
-                </label>
-                <input
-                  className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  value={form.location}
-                  onChange={(e) => set("location", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Service Radius (km)
-                </label>
-                <input
-                  className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={form.radius_km}
-                  onChange={(e) => set("radius_km", e.target.value)}
-                  required
-                />
-              </div>
+              <h2 className="text-xl font-bold font-heading">Security</h2>
             </div>
-          </div>
 
-          {/* Profile Details */}
-          <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-            <h2 className="text-lg font-semibold">Profile Details</h2>
-            <div className="mt-4 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Bio / Tagline
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Current Password
                 </label>
                 <input
-                  className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  value={form.bio}
-                  onChange={(e) => set("bio", e.target.value)}
-                  maxLength={200}
-                  required
+                  type="password"
+                  {...form.register("currentPassword")}
+                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Enter current password"
                 />
-                <p className="text-xs text-muted-foreground">
-                  {form.bio.length}/200 characters
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Description
-                </label>
-                <textarea
-                  className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  value={form.description}
-                  onChange={(e) => set("description", e.target.value)}
-                  rows={5}
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Services/Tags */}
-          <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-            <h2 className="text-lg font-semibold">Services</h2>
-            <div className="mt-4 space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">
-                Service Tags (comma-separated)
-              </label>
-              <input
-                className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                placeholder="e.g., Dry Cleaning, Ironing, Laundry"
-                value={form.tags}
-                onChange={(e) => set("tags", e.target.value)}
-                required
-              />
-              {form.tags && (
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {form.tags
-                    .split(",")
-                    .map((tag) => tag.trim())
-                    .filter(Boolean)
-                    .map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-500/30"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Pricing Rates */}
-          <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-            <h2 className="text-lg font-semibold">Pricing Rates</h2>
-            <div className="mt-4 space-y-3">
-              {pricingRates.map((rate, idx) => (
-                <div key={idx} className="flex gap-2">
-                  <input
-                    className="flex-1 rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                    placeholder="Item (e.g., Shirt)"
-                    value={rate.item}
-                    onChange={(e) => updateRate(idx, "item", e.target.value)}
-                  />
-                  <input
-                    className="w-32 rounded-xl border bg-background px-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                    placeholder="Rate (₹)"
-                    type="number"
-                    min="0"
-                    value={rate.rate}
-                    onChange={(e) => updateRate(idx, "rate", e.target.value)}
-                  />
-                  {pricingRates.length > 1 && (
-                    <button
-                      type="button"
-                      className="rounded-xl border bg-background px-3 text-red-500 hover:bg-red-50"
-                      onClick={() => removePricingRow(idx)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                {form.formState.errors.currentPassword &&
+                  typeof form.formState.errors.currentPassword?.message ===
+                    "string" && (
+                    <p className="text-xs text-destructive">
+                      {form.formState.errors.currentPassword.message}
+                    </p>
                   )}
-                </div>
-              ))}
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl border bg-background px-4 py-2.5 text-sm font-medium text-emerald-600 hover:bg-emerald-50"
-                onClick={addPricingRow}
-              >
-                <Plus className="h-4 w-4" />
-                Add Pricing Item
-              </button>
-            </div>
-          </div>
+              </div>
 
-          {/* Error/Success Messages */}
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-              Profile updated successfully! Redirecting...
-            </div>
-          )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  {...form.register("newPassword")}
+                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Min 8 chars"
+                />
+                {form.formState.errors.newPassword &&
+                  typeof form.formState.errors.newPassword?.message ===
+                    "string" && (
+                    <p className="text-xs text-destructive">
+                      {form.formState.errors.newPassword.message}
+                    </p>
+                  )}
+              </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="rounded-xl border bg-background px-6 py-2.5 text-sm font-medium transition hover:bg-muted"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  {...form.register("confirmPassword")}
+                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Confirm new password"
+                />
+                {form.formState.errors.confirmPassword &&
+                  typeof form.formState.errors.confirmPassword?.message ===
+                    "string" && (
+                    <p className="text-xs text-destructive">
+                      {form.formState.errors.confirmPassword.message}
+                    </p>
+                  )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4">
+              Leave fields blank if you do not wish to change your password.
+            </p>
+          </SpotlightCard>
+        </motion.div>
+
+        <div className="flex justify-end gap-4 pt-4 pb-20">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="h-12 px-8 text-foreground/70 font-semibold hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="h-12 px-8 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(45,212,191,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Save className="h-5 w-5" />
+            )}
+            Save Changes
+          </button>
+        </div>
+      </form>
     </main>
   );
 }

@@ -15,9 +15,11 @@ import {
   X,
   LogOut,
   ChevronLeft,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface NavItem {
   label: string;
@@ -65,29 +67,31 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col border-r bg-card transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64",
+        "hidden lg:flex flex-col border-r border-border/50 bg-background/50 backdrop-blur-xl transition-all duration-300",
+        isCollapsed ? "w-20" : "w-72",
         className
       )}
     >
       {/* Header */}
-      <div className="flex h-16 items-center justify-between border-b px-4">
+      <div className="flex h-20 items-center justify-between border-b border-border/50 px-6">
         {!isCollapsed && (
-          <Link href="/provider" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">LE</span>
+          <Link href="/provider" className="flex items-center gap-3 group">
+            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+              <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-foreground">LaundryEase</span>
+            <div className="flex flex-col">
+               <span className="font-heading font-bold text-base leading-none">LaundryEase</span>
+               <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium mt-1">Provider</span>
+            </div>
           </Link>
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 rounded-lg hover:bg-muted transition-colors"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="p-2 rounded-lg hover:bg-muted transition-colors ml-auto"
         >
           <ChevronLeft
             className={cn(
-              "h-5 w-5 text-muted-foreground transition-transform",
+              "h-4 w-4 text-muted-foreground transition-transform",
               isCollapsed && "rotate-180"
             )}
           />
@@ -95,11 +99,11 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-6">
+      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8">
         {navigation.map((group, groupIndex) => (
           <div key={groupIndex}>
             {group.title && !isCollapsed && (
-              <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <h3 className="px-4 mb-3 text-[11px] font-bold text-muted-foreground/60 uppercase tracking-widest">
                 {group.title}
               </h3>
             )}
@@ -115,25 +119,31 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
                     <Link
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        "relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 group overflow-hidden",
                         isActive
-                          ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                        isCollapsed && "justify-center px-2"
+                          ? "text-primary bg-primary/5"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                        isCollapsed && "justify-center px-0 w-12 h-12 mx-auto"
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
+                      {isActive && (
+                         <motion.div
+                           layoutId="activeSidebar"
+                           className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-primary"
+                         />
+                      )}
                       <Icon
                         className={cn(
-                          "h-5 w-5 shrink-0",
-                          isActive && "text-emerald-600 dark:text-emerald-400"
+                          "h-5 w-5 shrink-0 transition-colors",
+                          isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                         )}
                       />
                       {!isCollapsed && (
                         <>
                           <span>{item.label}</span>
                           {item.badge !== undefined && item.badge > 0 && (
-                            <span className="ml-auto rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
+                            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
                               {item.badge}
                             </span>
                           )}
@@ -149,24 +159,21 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="border-t p-3">
-        {!isCollapsed && (
-          <div className="flex items-center justify-between mb-3 px-3">
-            <span className="text-xs text-muted-foreground">Theme</span>
-            <ThemeToggle />
-          </div>
-        )}
-        <button
-          onClick={() => signOut({ callbackUrl: "/" })}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors w-full",
-            isCollapsed && "justify-center px-2"
-          )}
-          title={isCollapsed ? "Sign Out" : undefined}
-        >
-          <LogOut className="h-5 w-5 shrink-0" />
-          {!isCollapsed && <span>Sign Out</span>}
-        </button>
+      <div className="border-t border-border/50 p-4 bg-muted/20">
+        <div className={cn("flex items-center gap-2", isCollapsed ? "flex-col" : "justify-between")}>
+          <ThemeToggle />
+          <button
+             onClick={() => signOut({ callbackUrl: "/" })}
+             className={cn(
+               "flex items-center gap-2 rounded-lg p-2 text-sm font-medium text-muted-foreground hover:text-destructive transition-colors",
+               isCollapsed && "mt-2"
+             )}
+             title="Sign Out"
+          >
+             <LogOut className="h-5 w-5" />
+             {!isCollapsed && <span>Sign Out</span>}
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -180,101 +187,93 @@ export function ProviderMobileNav() {
 
   return (
     <>
-      {/* Mobile Top Bar */}
-      <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-card/95 backdrop-blur-sm px-4">
+      <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/50 bg-background/80 backdrop-blur-md px-4">
         <Link href="/provider" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">LE</span>
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+             <Sparkles className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="font-semibold text-foreground">Provider</span>
+          <span className="font-heading font-semibold text-lg tracking-tight">Provider</span>
         </Link>
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-lg hover:bg-muted transition-colors"
-            aria-label="Toggle menu"
+            className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
           >
-            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
       </header>
 
-      {/* Mobile Slide Menu */}
+      <AnimatePresence>
       {isOpen && (
-        <>
-          <div
-            className="lg:hidden fixed inset-0 z-40 bg-black/50"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="lg:hidden fixed inset-y-0 right-0 z-50 w-72 bg-card border-l shadow-xl">
+        <motion.div
+            initial={{ opacity: 0, x: "100%" }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-0 z-50 bg-background lg:hidden flex flex-col"
+        >
             <div className="flex h-16 items-center justify-between border-b px-4">
-              <span className="font-semibold">Menu</span>
+              <span className="font-heading font-semibold text-lg">Menu</span>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 rounded-lg hover:bg-muted"
+                className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
               >
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               </button>
             </div>
-            <nav className="p-4 space-y-6">
+            
+            <nav className="flex-1 overflow-y-auto p-6 space-y-8">
               {navigation.map((group, groupIndex) => (
                 <div key={groupIndex}>
                   {group.title && (
-                    <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <h3 className="px-2 mb-4 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                       {group.title}
                     </h3>
                   )}
-                  <ul className="space-y-1">
+                  <div className="space-y-2">
                     {group.items.map((item) => {
-                      const isActive =
-                        pathname === item.href ||
-                        (item.href !== "/provider" &&
-                          pathname.startsWith(item.href));
-                      const Icon = item.icon;
-
+                      const isActive = pathname === item.href;
                       return (
-                        <li key={item.href}>
-                          <Link
-                            href={item.href}
-                            onClick={() => setIsOpen(false)}
-                            className={cn(
-                              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                              isActive
-                                ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                            )}
-                          >
-                            <Icon className="h-5 w-5 shrink-0" />
-                            <span>{item.label}</span>
-                          </Link>
-                        </li>
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setIsOpen(false)}
+                          className={cn(
+                            "flex items-center gap-4 p-3 rounded-xl transition-colors",
+                            isActive
+                              ? "bg-secondary text-primary font-semibold"
+                              : "text-muted-foreground hover:bg-muted/50"
+                          )}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          {item.label}
+                        </Link>
                       );
                     })}
-                  </ul>
+                  </div>
                 </div>
               ))}
             </nav>
-            <div className="absolute bottom-0 inset-x-0 border-t p-4">
-              <button
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors w-full"
-              >
-                <LogOut className="h-5 w-5" />
-                <span>Sign Out</span>
-              </button>
-            </div>
-          </div>
-        </>
-      )}
 
-      {/* Mobile Bottom Tab Bar */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t bg-card/95 backdrop-blur-sm">
+            <div className="p-6 border-t border-border/50">
+               <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="flex items-center gap-3 w-full p-4 rounded-xl bg-destructive/5 text-destructive font-medium hover:bg-destructive/10 transition-colors"
+               >
+                 <LogOut className="h-5 w-5" />
+                 Sign Out
+               </button>
+            </div>
+        </motion.div>
+      )}
+      </AnimatePresence>
+
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/50 bg-background/80 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-center justify-around h-16">
           {mobileNavItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/provider" && pathname.startsWith(item.href));
+            const isActive = pathname === item.href;
             const Icon = item.icon;
 
             return (
@@ -282,14 +281,14 @@ export function ProviderMobileNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors",
+                  "flex flex-col items-center gap-1 p-2 rounded-lg transition-all",
                   isActive
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-muted-foreground"
+                    ? "text-primary scale-105"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Icon className="h-5 w-5" />
-                <span className="text-xs font-medium">{item.label}</span>
+                <Icon className={cn("h-5 w-5", isActive && "fill-current/20")} />
+                <span className="text-[10px] font-medium">{item.label}</span>
               </Link>
             );
           })}

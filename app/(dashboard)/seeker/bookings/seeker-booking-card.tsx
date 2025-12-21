@@ -10,8 +10,13 @@ import {
   Phone,
   IndianRupee,
   CheckCircle,
+  Clock,
+  ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface SeekerBookingCardProps {
   booking: PopulatedSeekerBooking;
@@ -161,56 +166,67 @@ function SeekerBookingCardComponent({
   }
 
   return (
-    <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm transition-all hover:shadow-md hover:border-emerald-100/50 dark:hover:border-emerald-900/50">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      layout
+      className="group relative rounded-3xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-lg hover:border-primary/20"
+    >
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         {/* Header Section */}
-        <div className="space-y-3 flex-1">
-          <div className="flex items-center gap-3">
-            <h3 className="font-bold text-gray-900 dark:text-white">
-              #{booking._id.toString().slice(-6).toUpperCase()}
-            </h3>
-            <BookingStatusBadge status={booking.status} />
+        <div className="space-y-4 flex-1">
+          <div className="flex items-center gap-4">
+             <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-primary shadow-sm">
+                B
+             </div>
+             <div>
+                <h3 className="font-heading font-bold text-lg text-foreground flex items-center gap-2">
+                  #{booking._id.toString().slice(-6).toUpperCase()}
+                   <BookingStatusBadge status={booking.status} />
+                </h3>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                   <Calendar className="w-3.5 h-3.5" />
+                   Created {new Date(booking.createdAt).toLocaleDateString()}
+                </div>
+             </div>
           </div>
 
-          <div className="flex flex-col gap-1 text-sm text-gray-500 dark:text-gray-400">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span>
-                Created: {new Date(booking.createdAt).toLocaleDateString()}
-              </span>
-            </div>
-            {booking.deadline && (
-              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
-                <ClockIcon className="h-4 w-4" />
-                <span>
-                  Deadline: {new Date(booking.deadline).toLocaleDateString()}
-                </span>
-              </div>
-            )}
+          <div className="grid grid-cols-2 gap-4 pt-2">
+             {booking.deadline && (
+               <div className="rounded-xl bg-orange-500/10 p-3 text-orange-600 border border-orange-500/20">
+                 <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">Deadline</p>
+                 <div className="flex items-center gap-1.5 font-bold mt-1">
+                   <Clock className="h-4 w-4" />
+                   {new Date(booking.deadline).toLocaleDateString()}
+                 </div>
+               </div>
+             )}
+              <div className="rounded-xl bg-secondary p-3 border border-border/50">
+                 <p className="text-[10px] uppercase font-bold tracking-wider opacity-70 text-muted-foreground">Provider</p>
+                 <div className="flex items-center gap-1.5 font-bold mt-1 text-foreground">
+                   <User className="h-4 w-4" />
+                   {booking.provider.name}
+                 </div>
+               </div>
           </div>
         </div>
 
-        {/* Provider Details */}
-        <div className="w-full sm:w-72 shrink-0 rounded-xl bg-gray-50 dark:bg-gray-900/50 p-4 text-sm border border-gray-100/50 dark:border-gray-700/50">
-          <div className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-2 border-b border-gray-200 dark:border-gray-700 pb-2">
-            <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        {/* Provider Contact */}
+        <div className="w-full md:w-72 shrink-0 rounded-2xl bg-muted/30 p-4 border border-border/50 space-y-3">
+          <h4 className="font-bold text-sm flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-primary" />
             Provider Details
-          </div>
-          <div className="space-y-2 text-gray-600 dark:text-gray-400">
-            <div className="flex items-start gap-2">
-              <span className="font-medium text-gray-800 dark:text-gray-200">
-                {booking.provider.name}
-              </span>
-            </div>
+          </h4>
+          <div className="space-y-2 text-sm text-muted-foreground">
             {booking.provider.phone && (
               <div className="flex items-center gap-2">
-                <Phone className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                <Phone className="h-3.5 w-3.5 opacity-70" />
                 <span>{booking.provider.phone}</span>
               </div>
             )}
             {booking.provider.address && (
               <div className="flex items-start gap-2">
-                <MapPin className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 mt-0.5" />
+                <MapPin className="h-3.5 w-3.5 opacity-70 mt-1" />
                 <span className="line-clamp-2">{booking.provider.address}</span>
               </div>
             )}
@@ -218,93 +234,74 @@ function SeekerBookingCardComponent({
         </div>
       </div>
 
-      {/* Action Area: Booking Fee */}
-      <div className="mt-5 border-t border-gray-100 dark:border-gray-700 pt-4 space-y-4">
-        <div className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-900/50 p-3">
-          <span className="text-sm font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300">
-            <IndianRupee className="w-4 h-4 text-gray-500 dark:text-gray-400" />{" "}
-            Booking Fee (₹50)
-          </span>
+      {/* Action Area */}
+      <div className="mt-6 border-t border-border/50 pt-4 space-y-4">
+        {/* Booking Fee */}
+        <div className="flex items-center justify-between rounded-xl bg-muted/20 p-4 border border-transparent hover:border-border transition-colors">
+          <div className="flex items-center gap-3">
+             <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center border border-border text-foreground">
+                <IndianRupee className="w-4 h-4" />
+             </div>
+             <div>
+                <p className="font-bold text-sm">Booking Fee (₹50)</p>
+                <p className="text-xs text-muted-foreground">Required to process order</p>
+             </div>
+          </div>
+          
           {booking.bookingFeeStatus === "paid" ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-3 py-1 text-xs font-bold text-green-600 border border-green-500/20">
               <CheckCircle className="h-3.5 w-3.5" /> Paid
             </span>
-          ) : booking.status === "rejected" ||
-            booking.status === "cancelled" ? (
-            <span className="text-xs text-gray-500 dark:text-gray-400 italic">
-              Fee Refunded/Void
+          ) : booking.status === "rejected" || booking.status === "cancelled" ? (
+            <span className="text-xs font-medium text-muted-foreground italic">
+              Refunded/Void
             </span>
           ) : (
             <button
               onClick={handlePayBookingFee}
               disabled={processing}
-              className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-50 disabled:scale-100"
             >
-              {processing ? "..." : "Pay Now"}
+              {processing ? "Starting Payment..." : "Pay Now"}
             </button>
           )}
         </div>
 
-        {/* Action Area: Pickup Slot */}
+        {/* Pickup Slot Action */}
         {booking.status === "pickup_proposed" && booking.pickupSlot && (
-          <div className="rounded-lg border border-blue-100 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/30 p-4">
-            <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 flex items-center gap-2 mb-2">
-              <Calendar className="w-4 h-4" /> Confirm Pickup Slot
-            </h4>
-            <div className="flex items-center justify-between">
+          <motion.div 
+             initial={{ opacity: 0, height: 0 }}
+             animate={{ opacity: 1, height: 'auto' }}
+             className="rounded-xl border border-primary/20 bg-primary/5 p-4"
+          >
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <p className="text-sm text-blue-800 dark:text-blue-300">
-                  Proposed:{" "}
-                  <strong>
-                    {new Date(booking.pickupSlot.dateTime).toLocaleString()}
-                  </strong>
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                  Please confirm this time for the provider to arrive.
+                <h4 className="text-sm font-bold text-primary flex items-center gap-2 mb-1">
+                  <Clock className="w-4 h-4" /> Action Required: Confirm Slot
+                </h4>
+                <p className="text-sm text-foreground">
+                  Proposed: <strong>{new Date(booking.pickupSlot.dateTime).toLocaleString()}</strong>
                 </p>
               </div>
               <button
                 onClick={handleConfirmSlot}
                 disabled={processing}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all disabled:opacity-50"
               >
-                {processing ? "..." : "Confirm Slot"}
+                {processing ? "Confirming..." : "Confirm Slot"} <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {booking.status === "confirmed" && booking.pickupSlot && (
-          <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900/50">
+          <div className="flex items-center gap-2 text-sm font-medium text-green-600 bg-green-500/10 p-3 rounded-xl border border-green-500/20">
             <CheckCircle className="h-4 w-4" />
-            Pickup confirmed for{" "}
-            <strong>
-              {new Date(booking.pickupSlot.dateTime).toLocaleString()}
-            </strong>
+            Pickup confirmed for <strong>{new Date(booking.pickupSlot.dateTime).toLocaleString()}</strong>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function ClockIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
+    </motion.div>
   );
 }
 
