@@ -1,30 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { emailExists, createSeeker } from "@/lib/db";
 import { isOtpVerifiedRecently } from "@/lib/otp";
+import { signupSeekerSchema } from "@/lib/api/schemas";
 
-const schema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(8),
-  phone: z.string().min(8),
-  address: z.object({
-    line1: z.string().min(3),
-    city: z.string().min(2),
-    state: z.string().min(2),
-    country: z.string().min(2),
-    postalCode: z.string().min(3),
-    landmark: z.string().optional(),
-  }),
-});
-
-export async function POST(req: NextRequest) {
   const payload = await req.json();
-  const parsed = schema.safeParse(payload);
+  const parsed = signupSeekerSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid data", details: parsed.error.flatten() }, { status: 400 });
   }
-  const { name, email, password, phone } = parsed.data;
+  const { name, email, password, phone, address } = parsed.data;
 
   // Require verified OTPs for email and phone
   const emailOk = await isOtpVerifiedRecently(email, "email");
@@ -51,6 +35,7 @@ export async function POST(req: NextRequest) {
     name,
     phone,
     password,
+    address,
   });
 
   return NextResponse.json({ ok: true });

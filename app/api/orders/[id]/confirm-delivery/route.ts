@@ -13,7 +13,7 @@ export async function POST(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user || session.user.role !== Role.PROVIDER) {
+    if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
@@ -24,10 +24,7 @@ export async function POST(
       return NextResponse.json({ message: "OTP is required" }, { status: 400 });
     }
 
-    // TODO: Implement actual OTP validation
-    if (otp !== "123456") {
-      return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
-    }
+
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
@@ -36,7 +33,7 @@ export async function POST(
       return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
-    if (order.provider_id.toString() !== session.user.id) {
+    if (order.seeker_id.toString() !== session.user.id) {
       return NextResponse.json(
         {
           message: "You are not authorized to confirm delivery for this order",
@@ -50,6 +47,16 @@ export async function POST(
         { message: "Order must be paid before confirming delivery" },
         { status: 400 }
       );
+    }
+
+    // DB Comparison for OTP
+    if (order.delivery_otp && order.delivery_otp !== otp) {
+      return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
+    }
+
+    // DB Comparison for OTP
+    if (order.delivery_otp && order.delivery_otp !== otp) {
+      return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
     }
 
     const success = await confirmDelivery(order_id);

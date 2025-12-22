@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getHeldOrdersPastEscrowDate, releaseEscrowPayment } from "@/lib/db";
+import { getDb } from "@/lib/mongodb";
 import { Order } from "@/types/orders";
+import { ObjectId } from "mongodb";
 
 export async function POST() {
   try {
@@ -13,8 +15,19 @@ export async function POST() {
     const releasedOrders: Order[] = [];
     const failedOrders: Order[] = [];
 
+    const { db } = await getDb();
+
     for (const order of ordersToRelease) {
-      // TODO: Check for open complaints before releasing payment
+      // Check for open complaints before releasing payment
+      const activeComplaint = await db.collection("complaints").findOne({
+        order_id: new ObjectId(order._id),
+        status: { $in: ["open", "investigating", "escalated"] }
+      });
+
+      if (activeComplaint) {
+        console.log(`Escrow release skipped for order ${order._id} due to active complaint`);
+        continue;
+      }
       const success = await releaseEscrowPayment(order._id);
       if (success) {
         releasedOrders.push(order);

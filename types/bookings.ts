@@ -6,8 +6,22 @@ export type BookingStatus =
   | "rejected"
   | "pickup_proposed"
   | "confirmed"
+  | "invoice_created"
   | "cancelled"
   | "completed";
+
+export interface InvoiceItem {
+  itemType: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface InvoiceData {
+  items: InvoiceItem[];
+  notes?: string;
+  photos?: string[];
+  createdAt: Date | string;
+}
 
 export interface SeekerDetails {
   _id: string; // ID is string after Population/Serialization
@@ -35,7 +49,9 @@ export type Booking = {
     dateTime: Date | string;
     confirmedAt?: Date | string;
   };
+  arrivedAt?: Date | string; // Provider arrival timestamp
 
+  invoice?: InvoiceData;
   seeker_coordinates?: { lat: number; lng: number };
   noShowStatus?: boolean;
   deadline?: Date | string;

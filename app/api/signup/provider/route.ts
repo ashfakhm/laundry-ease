@@ -1,29 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { emailExists, createProvider } from "@/lib/db";
 import { isOtpVerifiedRecently } from "@/lib/otp";
-
-const schema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(8),
-  phone: z.string().min(8),
-  businessName: z.string().min(1),
-  bio: z.string().min(1).max(200),
-  description: z.string().min(1),
-  pricingRates: z.record(z.string(), z.number().nonnegative()),
-  tags: z.array(z.string()).min(1),
-  location: z.string().min(1),
-  radius_km: z.number().min(1).max(100).optional(),
-  free_radius_km: z.number().min(0).max(100).optional(),
-  price_per_km: z.number().nonnegative().optional(),
-});
+import { signupProviderSchema } from "@/lib/api/schemas";
 
 export async function POST(req: NextRequest) {
   const payload = await req.json();
-  const parsed = schema.safeParse(payload);
+  const parsed = signupProviderSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid data", details: parsed.error.flatten() }, { status: 400 });
   }
   const {
     name,
@@ -33,12 +17,12 @@ export async function POST(req: NextRequest) {
     businessName,
     bio,
     description,
-    pricingRates,
-    tags,
-    radius_km,
-    free_radius_km,
-    price_per_km,
+    services,
     location,
+    radius_km,
+    per_km_rate,
+    pricing,
+    pricingRates,
   } = parsed.data;
 
   // Require verified OTPs for email and phone
@@ -60,21 +44,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Create provider in providers collection with business details
+  // Create provider in providers collection
   await createProvider({
     email,
     name,
-    phone,
     password,
-    services: tags, // tags as services
-    location,
+    phone,
     businessName,
     bio,
     description,
-    radius_km,
-    free_radius_km,
-    per_km_rate: price_per_km, 
     pricingRates,
+    services,
+    location,
+    radius_km,
+    per_km_rate,
+    pricing,
   });
 
   return NextResponse.json({ ok: true });

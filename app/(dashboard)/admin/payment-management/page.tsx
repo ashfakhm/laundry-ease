@@ -1,82 +1,224 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import React from "react";
+type ActionType = "refund" | "penalty";
+
+type ActionState = {
+  open: boolean;
+  paymentId: string | null;
+  type: ActionType | null;
+};
+  const [action, setAction] = useState<ActionState>({ open: false, paymentId: null, type: null });
+  const [amount, setAmount] = useState(0);
+  const [reason, setReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  function openActionModal(paymentId: string, type: ActionType) {
+    setAction({ open: true, paymentId, type });
+    setAmount(0);
+    setReason("");
+    setActionError(null);
+    setActionSuccess(null);
+  }
+
+  function closeActionModal() {
+    setAction({ open: false, paymentId: null, type: null });
+    setAmount(0);
+    setReason("");
+    setActionError(null);
+    setActionSuccess(null);
+  }
+
+  async function handleActionSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!action.paymentId || !action.type) return;
+    setActionLoading(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const res = await fetch("/api/admin/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentId: action.paymentId,
+          type: action.type,
+          amount,
+          reason,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to process action");
+      setActionSuccess(
+        action.type === "refund"
+          ? "Refund processed successfully."
+          : "Penalty applied successfully."
+      );
+      fetchPayments();
+      setTimeout(closeActionModal, 1200);
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "message" in err) {
+        setActionError((err as { message?: string }).message || "Unknown error");
+      } else {
+        setActionError("Unknown error");
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  }
 import {
   DollarSign,
   TrendingUp,
   Clock,
   CheckCircle2,
   Calendar,
-  IndianRupee,
-} from "lucide-react";
+        <div className="space-y-4">
+          {filteredPayments.map((payment) => (
+            <div
+              key={payment._id}
+              className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">
+                          Order #{payment.order_id.slice(-8)}
+                        </h3>
+                        {getStatusBadge(payment.payment_status)}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(payment.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
 
-type Payment = {
-  _id: string;
-  order_id: string;
-  total_price: number;
-  delivery_charge: number;
-  payment_status: "unpaid" | "paid" | "held" | "released" | "refunded";
-  payment_made_at?: string;
-  escrow_started_at?: string;
-  escrow_release_at?: string;
-  createdAt: string;
-  seeker?: {
-    name: string;
-  };
-  provider?: {
-    name: string;
-    businessName?: string;
-  };
-};
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {payment.seeker && (
+                      <div className="rounded-xl border bg-background p-3">
+                        <p className="text-xs text-muted-foreground">Seeker</p>
+                        <p className="mt-0.5 text-sm font-medium">
+                          {payment.seeker.name}
+                        </p>
+                      </div>
+                    )}
+                    {payment.provider && (
+                      <div className="rounded-xl border bg-background p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Provider
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium">
+                          {payment.provider.businessName ||
+                            payment.provider.name}
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-export default function PaymentManagementPage() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "held" | "released" | "unpaid">(
-    "held"
-  );
+                  {payment.escrow_release_at && (
+                    <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs">
+                      <p className="font-medium text-amber-900">
+                        Escrow release: {" "}
+                        {new Date(payment.escrow_release_at).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
 
-  useEffect(() => {
-    fetchPayments();
-  }, []);
+                  {/* Refund/Penalty Controls */}
+                  <div className="flex gap-2 mt-2">
+                    {(payment.payment_status === "held" || payment.payment_status === "released") && (
+                      <>
+                        <button
+                          className="btn btn-error btn-sm"
+                          onClick={() => openActionModal(payment._id, "refund")}
+                        >
+                          Refund
+                        </button>
+                        <button
+                          className="btn btn-warning btn-sm"
+                          onClick={() => openActionModal(payment._id, "penalty")}
+                        >
+                          Penalty
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-  async function fetchPayments() {
-    try {
-      const response = await fetch("/api/admin/payments");
-      if (response.ok) {
-        const data = await response.json();
-        setPayments(data);
-      }
-    } catch (error) {
-      console.error("Error fetching payments:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Amount</p>
+                  <div className="mt-1 flex items-baseline justify-end gap-1">
+                    <IndianRupee className="h-5 w-5 text-emerald-600" />
+                    <p className="text-2xl font-bold text-emerald-600">
+                      {(
+                        payment.total_price + payment.delivery_charge
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-  const filteredPayments = payments.filter((p) => {
-    if (filter === "all") return true;
-    return p.payment_status === filter;
-  });
-
-  const totalRevenue = payments
-    .filter((p) => p.payment_status === "released")
-    .reduce((sum, p) => sum + p.total_price + p.delivery_charge, 0);
-
-  const escrowAmount = payments
-    .filter((p) => p.payment_status === "held")
-    .reduce((sum, p) => sum + p.total_price + p.delivery_charge, 0);
-
-  function getStatusBadge(status: string) {
-    switch (status) {
-      case "unpaid":
-        return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
-            <Clock className="h-3 w-3" />
-            Unpaid
-          </span>
-        );
-      case "paid":
+        {/* Refund/Penalty Modal */}
+        {action.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+              <h2 className="text-lg font-bold mb-2">
+                {action.type === "refund" ? "Process Refund" : "Apply Penalty"}
+              </h2>
+              <form onSubmit={handleActionSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={amount}
+                    onChange={e => setAmount(Number(e.target.value))}
+                    className="input input-bordered w-full"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Reason
+                  </label>
+                  <input
+                    type="text"
+                    value={reason}
+                    onChange={e => setReason(e.target.value)}
+                    className="input input-bordered w-full"
+                    required
+                  />
+                </div>
+                {actionError && <div className="text-error">{actionError}</div>}
+                {actionSuccess && <div className="text-success">{actionSuccess}</div>}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={closeActionModal}
+                    disabled={actionLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={actionLoading}
+                  >
+                    {actionLoading ? "Processing..." : action.type === "refund" ? "Refund" : "Apply Penalty"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       case "held":
         return (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">

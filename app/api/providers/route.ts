@@ -45,10 +45,34 @@ export async function GET(req: NextRequest) {
       })
       .toArray();
 
+    // Capacity Check
+    // Filter out providers who have reached their max concurrent bookings
+    const availableProviders = [];
+    
+    for (const provider of providers) {
+      // Default capacity if not set
+      const CAPACITY_LIMIT = provider.capacity || 5; 
+
+      const activeBookingsCount = await db.collection("bookings").countDocuments({
+        provider_id: provider._id,
+        status: { $in: ["accepted", "confirmed", "pickup_proposed"] }
+      });
+
+      // Also check active orders (processing, washing, etc.)
+      const activeOrdersCount = await db.collection("orders").countDocuments({
+        provider_id: provider._id,
+        process_status: { $in: ["processing", "washing", "ironing", "ready", "out_for_delivery"] }
+      });
+
+      if ((activeBookingsCount + activeOrdersCount) < CAPACITY_LIMIT) {
+        availableProviders.push(provider);
+      }
+    }
+
     return NextResponse.json(
       {
-        providers,
-        total: providers.length,
+        providers: availableProviders,
+        total: availableProviders.length,
       },
       { status: 200 }
     );

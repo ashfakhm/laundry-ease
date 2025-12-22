@@ -4,9 +4,9 @@
 **Date:** 2025-12-21  
 **Status:** Final - Approved for Development  
 **Author:** Ashfakh M  
-**Implementation Status:** 🚧 In Progress (Phase 2 Complete - 43% Overall)
+**Implementation Status:** 🚧 In Progress (Phase 4 Complete - 60% Overall)
 
-> **Latest Update (2025-12-21)**: Seeker Booking Flow completed. Provider search, booking creation, and fixed price list management are fully functional. OTP system infrastructure exists. Next: Provider Booking Management UI.
+> **Latest Update (2025-12-23)**: Provider Booking Management completed. Implemented strict Booking Fee visibility rules (bookings hidden until paid). Added Seeker Cancellation & Deletion flows. Next: Invoice Generation & Payment Integration.
 
 
 ---
@@ -66,8 +66,8 @@ LaundryEase solves these problems by providing:
 
 ## Implementation Status
 
-**Last Updated**: 2025-12-22 00:02 IST  
-**Overall Progress**: 52% (16/31 features)
+**Last Updated**: 2025-12-23 00:05 IST  
+**Overall Progress**: 60% (19/33 features)
 
 ### Legend
 - ✅ **Fully Implemented** - Feature complete and tested
@@ -97,7 +97,7 @@ LaundryEase solves these problems by providing:
 | Provider Search API (FR-DISC-001) | ✅ | `/api/providers/search` with distance filtering |
 | Search Page | ✅ | `/seeker/search` with manual lat/lng input (MVP) |
 | Provider Cards | ✅ | Display rating, distance, delivery fee, base price |
-| Booking Creation (FR-BOOK-001) | ✅ | `/api/bookings` POST endpoint, ₹50 booking fee |
+| Booking Creation (FR-BOOK-001) | ✅ | `/api/bookings` POST endpoint, Dynamic Booking Price support |
 | Booking Modal | ✅ | Deadline selection, fee display, booking request |
 
 **Completion**: 100% (5/5)  
@@ -122,10 +122,11 @@ LaundryEase solves these problems by providing:
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Provider Accept/Reject (FR-BOOK-002) | ✅ | Complete dashboard (`/provider/bookings`), accept/reject UI working |
-| Provider Bookings Dashboard | ✅ | Stats, filtering by status, seeker details display |
+| Provider Bookings Dashboard | ✅ | Stats, filtering by status, seeker details display. **Visibility restricted until booking fee paid.** |
 | Pickup Scheduling (FR-BOOK-003) | ✅ | Modal UI, API endpoint, 2h-48h validation |
 | Auto-Reject Timeout | ⏳ | Background job not implemented |
 | No-Show Detection (FR-BOOK-004) | ⏳ | GPS verification not implemented |
+| Seeker Cancellation (FR-BOOK-005) | ✅ | Cancel "Requested" bookings, Delete "Cancelled" from history |
 
 **Completion**: 60% (3/5 features complete)
 
@@ -199,13 +200,13 @@ LaundryEase solves these problems by providing:
 | Phase 1: Foundation | 4 | 4 | 0 | 0 | 100% |
 | Phase 2: Discovery | 5 | 5 | 0 | 0 | 100% |
 | Phase 3: Auth | 2 | 2 | 0 | 0 | 100% |
-| Phase 4: Booking Mgmt | 5 | 3 | 0 | 2 | 60% |
+| Phase 4: Booking Mgmt | 6 | 4 | 0 | 2 | 65% |
 | Phase 5: Invoice | 4 | 0 | 1 | 3 | 10% |
 | Phase 6: Order Tracking | 3 | 0 | 0 | 3 | 10% |
 | Phase 7: Payment | 3 | 0 | 0 | 3 | 10% |
 | Phase 8: Disputes | 3 | 0 | 0 | 3 | 20% |
 | Phase 9: Reviews | 2 | 0 | 0 | 2 | 0% |
-| **TOTAL** | **31** | **14** | **1** | **16** | **52%** |
+| **TOTAL** | **33** | **17** | **1** | **15** | **60%** |
 
 ---
 
@@ -269,7 +270,7 @@ LaundryEase solves these problems by providing:
 
 1. **Deadline-First Architecture:** Every booking is locked to a deadline; system auto-hides providers who can't meet it or are overbooked
 2. **No Undefined States:** Complete lifecycle management — every possible user action has a defined system response
-3. **Platform-Controlled Booking Fee:** Prevents casual/fake bookings; fee adjusted in final invoice or refunded per rules
+3. **Provider-Controlled Booking Price:** Providers set their own minimum entry price to filter serious seekers; fee adjusted in final invoice.
 4. **Escrow + 24h Complaint Window:** Payments held until seeker confirms satisfaction or complaint window expires
 5. **Photo Evidence Mandate:** Every item photographed at pickup — irrefutable dispute resolution
 6. **Algorithmic Trust:** Provider visibility tied to real-time capacity, availability, and historical performance
@@ -368,7 +369,7 @@ LaundryEase solves these problems by providing:
          │ Seeker available                       │ Seeker unavailable (15 min wait)
          ▼                                        ▼
 ┌─────────────────┐                        ┌─────────────────┐
-│ INVOICE_CREATED │                        │   CANCELLED     │ → Booking fee forfeited
+│ INVOICE_CREATED │                        │   CANCELLED     │ → Booking fee forfeited (if late cancel)
 └────────┬────────┘                        └─────────────────┘
          │
          ├────────────────────────────────────────┐
@@ -502,7 +503,7 @@ LaundryEase solves these problems by providing:
 | Field                   | Value                                                                                                                                                                                                                                                     |
 | :---------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Priority**            | P0                                                                                                                                                                                                                                                        |
-| **Required Fields**     | Base service location (geocoded), Max service radius (1-50km), Free delivery distance (0-10km), Extra charge per km (₹0-50), **Fixed price list (Record<string, number>)**, Phone (OTP verified), Email (verified)                                             |
+| **Required Fields**     | Base service location (geocoded), Max service radius (1-50km), Free delivery distance (0-10km), Extra charge per km (₹0-50), **Booking Price (Minimum Fee)**, **Fixed price list (Record<string, number>)**, Phone (OTP verified), Email (verified)                                             |
 | **Validation Rules**    | All prices must be >₹0; Max radius must be > free delivery distance; Price list must cover standard clothing categories                                                                                                                                   |
 | **Profile Edit Policy** | Providers may edit profile at any time. **Changes apply only to future bookings, not active or confirmed orders.**                                                                                                                                        |
 | **Acceptance Criteria** | 1. Cannot accept bookings until profile 100% complete<br>2. Location validated via Google Places API (or manual coords for MVP)<br>3. All prices used in system are strictly fetched from provider's profile<br>4. Manual price entry NOT allowed except for items marked as "Other" |
@@ -558,8 +559,8 @@ LaundryEase solves these problems by providing:
 | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Priority**        | P0                                                                                                                                            |
 | **Inputs**          | Provider ID, Deadline, Pickup location, Estimated items (optional)                                                                            |
-| **Booking Fee**     | A **platform-defined booking fee (₹50)** is paid upfront. This fee is controlled by the system admin and exists to prevent fake or casual bookings. |
-| **Fee Calculation** | `₹50` (Fixed for MVP) — Fee is deducted from final invoice total if order proceeds.                                               |
+| **Booking Fee**     | A **Provider-Defined Booking Fee** (Dynamic) is paid upfront. This allows providers to set their own minimum engagement price to filter serious seekers. |
+| **Fee Calculation** | `Provider.pricing` (Set in Profile) — Fee is deducted from final invoice total if order proceeds.                                               |
 | **Insurance**       | Optional "Micro-Insurance" add-on (₹10-50) for "No-Questions-Asked" coverage.                                                                 |
 
 **Booking Fee Refund Rules:**
@@ -572,7 +573,17 @@ LaundryEase solves these problems by providing:
 | Seeker cancels after provider accepts | 0% (fee forfeited)      | Booking fee retained as provider compensation |
 | Booking proceeds to order             | Fee adjusted in invoice | Deducted from final payment                   |
 
-| **Acceptance Criteria** | 1. Payment failure blocks booking<br>2. Booking fee status tracked (`paid`, `refunded`, `forfeited`)<br>3. Clear display of fee rules to seeker |
+| **Acceptance Criteria** | 1. Payment failure blocks booking<br>2. Booking fee status tracked (`paid`, `refunded`, `forfeited`)<br>3. **Bookings remain HIDDEN from provider until fee is paid** |
+
+#### FR-BOOK-005: Seeker Cancellation & Deletion
+
+| Field                   | Value                                                                                                                              |
+| :---------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+| **Priority**            | P0                                                                                                                                 |
+| **Cancellation Window** | Allowed during `REQUESTED` and `PICKUP_PROPOSED` states. Restricted once `ACCEPTED` (requires logic) or `CONFIRMED`.               |
+| **Deletion**            | "Delete from History" allowed ONLY for `CANCELLED` or `REJECTED` bookings.                                                         |
+| **Fee Impact**          | Cancel before Accept = Refund. Cancel after Accept = Forfeit (System Policy).                                                      |
+| **Acceptance Criteria** | 1. "Cancel" button visible only in allowed states<br>2. "Delete" button visible only in terminal failure states<br>3. History cleaned upon deletion |
 
 #### FR-BOOK-002: Provider Accept/Reject
 

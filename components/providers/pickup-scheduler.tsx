@@ -7,9 +7,11 @@ import { useRouter } from "next/navigation";
 
 export function PickupScheduler({
   bookingId,
+  deadline,
   onClose,
 }: {
   bookingId: string;
+  deadline?: string | Date;
   onClose: () => void;
 }) {
   const [date, setDate] = useState("");
@@ -17,27 +19,32 @@ export function PickupScheduler({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
+  // Compute min/max for date/time pickers
+  const now = new Date();
+  const minDateTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2h from now
+  const minDate = minDateTime.toISOString().split("T")[0];
+  const maxDate = deadline
+    ? new Date(deadline).toISOString().split("T")[0]
+    : new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString().split("T")[0];
+
   async function handlePropose() {
     if (!date || !time) {
       toast.error("Please select both date and time");
       return;
     }
-
     const dateTime = new Date(`${date}T${time}`);
-    const now = new Date();
-    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const fortyEightHoursFromNow = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-
-    if (dateTime < twoHoursFromNow) {
+    const minDateTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    let maxDateTime = deadline
+      ? new Date(deadline)
+      : new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    if (dateTime < minDateTime) {
       toast.error("Pickup must be at least 2 hours from now");
       return;
     }
-
-    if (dateTime > fortyEightHoursFromNow) {
-      toast.error("Pickup must be within 48 hours");
+    if (dateTime > maxDateTime) {
+      toast.error("Pickup cannot be after seeker's deadline");
       return;
     }
-
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/bookings/${bookingId}/schedule`, {
@@ -47,16 +54,15 @@ export function PickupScheduler({
           dateTime: dateTime.toISOString(),
         }),
       });
-
       if (!res.ok) {
-        throw new Error("Failed to propose pickup time");
+        const err = await res.json();
+        throw new Error(err.error || "Failed to propose pickup time");
       }
-
       toast.success("Pickup time proposed! Waiting for seeker confirmation.");
       router.refresh();
       onClose();
-    } catch (error) {
-      toast.error("Failed to propose pickup time");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to propose pickup time");
     } finally {
       setIsSubmitting(false);
     }
@@ -88,7 +94,8 @@ export function PickupScheduler({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
+              min={minDate}
+              max={maxDate}
               className="w-full h-10 px-3 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
             />
           </div>
@@ -109,7 +116,7 @@ export function PickupScheduler({
             <p className="text-xs text-muted-foreground">
               • Pickup must be at least 2 hours from now
               <br />
-              • Pickup must be within 48 hours of booking
+              • Pickup cannot be after seeker's deadline
               <br />• Seeker must confirm before you visit
             </p>
           </div>

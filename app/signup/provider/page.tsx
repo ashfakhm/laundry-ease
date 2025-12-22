@@ -45,6 +45,7 @@ export default function ProviderSignupPage() {
     radius_km: "10",
     free_radius_km: "5",
     price_per_km: "0",
+    pricing: "0",
   });
   const [pricingRates, setPricingRates] = useState<
     { item: string; rate: string }[]
@@ -185,6 +186,7 @@ export default function ProviderSignupPage() {
       radius_km: Number(form.radius_km) || 10,
       free_radius_km: Number(form.free_radius_km) || 0,
       price_per_km: Number(form.price_per_km) || 0,
+      pricing: Number(form.pricing) || 0,
     });
     setLoading(false);
     if (!ok) return setError(data?.error || "Signup failed");
@@ -429,10 +431,28 @@ export default function ProviderSignupPage() {
                 <div className="space-y-6">
                     <div>
                      <h3 className="font-heading text-lg font-bold">Services & Pricing</h3>
-                     <p className="text-sm text-muted-foreground">List your base rates. You can edit these later.</p>
+      <p className="text-sm text-muted-foreground">Set your base Booking Price and item rates.</p>
+                   </div>
+                   
+                   <div className="space-y-2">
+                      <label className="text-sm font-medium">Booking Price (Minimum Fee)</label>
+                      <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs opacity-70">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            className="flex h-10 w-full rounded-lg border border-input bg-background pl-6 pr-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                            placeholder="e.g. 50"
+                            value={form.pricing}
+                            onChange={(e) => set("pricing", e.target.value)}
+                            required
+                          />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">The starting price shown on your profile card.</p>
                    </div>
 
                    <div className="space-y-3">
+                      <p className="text-sm font-medium">Item Rates</p>
                       {pricingRates.map((rate, idx) => (
                         <div key={idx} className="flex gap-2">
                            <input

@@ -20,6 +20,7 @@ import {
   Tag,
 } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { useRouter } from "next/navigation";
 
 const providerProfileSchema = z
@@ -29,6 +30,7 @@ const providerProfileSchema = z
     bio: z.string().optional(),
     description: z.string().optional(),
     location: z.string().min(3, "Location is required"),
+    coordinates: z.object({ lat: z.number(), lng: z.number() }).optional(),
     phone: z.string().optional(),
     radius_km: z.preprocess(
       (val) => (val === "" ? undefined : Number(val)),
@@ -46,6 +48,10 @@ const providerProfileSchema = z
       (val) => (val === "" ? undefined : Number(val)),
       z.number().min(0)
     ), // Base pricing MVP
+    capacity: z.preprocess(
+      (val) => (val === "" ? undefined : Number(val)),
+      z.number().min(1, "Minimum capacity is 1")
+    ),
     // Fixed Price List
     items: z.array(
       z.object({
@@ -109,6 +115,7 @@ type ProviderProfileValues = {
   free_radius_km: number;
   per_km_rate: number;
   pricing: number;
+  capacity: number;
   items: { name: string; price: number }[];
   currentPassword?: string;
   newPassword?: string;
@@ -135,6 +142,7 @@ export default function ProviderEditProfilePage() {
       free_radius_km: 5,
       per_km_rate: 10,
       pricing: 0,
+      capacity: 5,
       items: [],
       currentPassword: "",
       newPassword: "",
@@ -160,11 +168,13 @@ export default function ProviderEditProfilePage() {
           bio: data.bio || "",
           description: data.description || "",
           location: data.location || "",
+          coordinates: data.coordinates || undefined,
           phone: data.phone || "",
           radius_km: data.radius_km || 10,
           free_radius_km: data.free_radius_km || 5,
           per_km_rate: data.per_km_rate || 10,
           pricing: data.pricing || 0,
+          capacity: data.capacity || 5,
           items: data.pricingRates
             ? Object.entries(data.pricingRates).map(([name, price]) => ({
                 name,
@@ -175,6 +185,23 @@ export default function ProviderEditProfilePage() {
           newPassword: "",
           confirmPassword: "",
         });
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-muted-foreground">
+            Max Concurrent Bookings (Capacity)
+          </label>
+          <input
+            type="number"
+            {...form.register("capacity", { valueAsNumber: true })}
+            className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+            min={1}
+          />
+          {form.formState.errors.capacity &&
+            typeof form.formState.errors.capacity?.message === "string" && (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.capacity.message}
+              </p>
+            )}
+        </div>;
       } catch {
         toast.error("Could not load profile");
       } finally {
@@ -189,7 +216,7 @@ export default function ProviderEditProfilePage() {
     try {
       // Clean up empty password fields
       const payload: any = { ...data };
-      
+
       // Transform items array back to Record<string, number>
       if (data.items) {
         payload.pricingRates = data.items.reduce(
@@ -307,9 +334,17 @@ export default function ProviderEditProfilePage() {
                   </label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                    <input
-                      {...form.register("location")}
-                      className="w-full h-11 pl-10 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    <LocationAutocomplete
+                      value={form.watch("location")}
+                      onChange={(address, coords) => {
+                        form.setValue("location", address, {
+                          shouldValidate: true,
+                        });
+                        if (coords)
+                          form.setValue("coordinates", coords, {
+                            shouldValidate: true,
+                          });
+                      }}
                       placeholder="City, Area"
                     />
                   </div>
@@ -409,12 +444,11 @@ export default function ProviderEditProfilePage() {
 
                 <div className="p-4 bg-muted/30 rounded-xl border border-border/50">
                   <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-emerald-500" /> Base
-                    Pricing
+                    <DollarSign className="h-4 w-4 text-emerald-500" /> Booking Pricing
                   </h4>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">
-                      Starting From (₹)
+                      Booking Price (₹)
                     </label>
                     <input
                       type="number"
@@ -492,12 +526,18 @@ export default function ProviderEditProfilePage() {
                           </div>
                           {form.formState.errors.items?.[index]?.name && (
                             <p className="text-xs text-destructive">
-                              {form.formState.errors.items[index]?.name?.message}
+                              {
+                                form.formState.errors.items[index]?.name
+                                  ?.message
+                              }
                             </p>
                           )}
-                           {form.formState.errors.items?.[index]?.price && (
+                          {form.formState.errors.items?.[index]?.price && (
                             <p className="text-xs text-destructive">
-                              {form.formState.errors.items[index]?.price?.message}
+                              {
+                                form.formState.errors.items[index]?.price
+                                  ?.message
+                              }
                             </p>
                           )}
                         </div>

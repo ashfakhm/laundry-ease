@@ -33,7 +33,10 @@ export async function GET() {
     // Fetch all bookings for this provider
     const bookings = await db
       .collection("bookings")
-      .find({ provider_id: provider._id })
+      .find({ 
+        provider_id: provider._id,
+        bookingFeeStatus: "paid" 
+      })
       .sort({ createdAt: -1 })
       .toArray();
 

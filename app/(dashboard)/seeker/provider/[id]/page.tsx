@@ -58,9 +58,11 @@ export default function ProviderDetailPage() {
   useEffect(() => {
     async function fetchProviderDetails() {
       try {
-        // Simulating API delay for smoother transition
-        await new Promise(r => setTimeout(r, 500));
-        
+        if (!providerId) {
+           setLoading(false);
+           return;
+        }
+
         const response = await fetch(`/api/providers/${providerId}`);
         if (response.ok) {
           const data = await response.json();
@@ -231,7 +233,7 @@ export default function ProviderDetailPage() {
                        
                        <div className="flex flex-col items-end">
                            <div className="text-right">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Starting At</p>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Booking Price</p>
                               <p className="text-3xl font-bold text-primary">₹{provider.pricing || 0}</p>
                            </div>
                        </div>
@@ -300,7 +302,7 @@ export default function ProviderDetailPage() {
                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
                   <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
                      <TrendingUp className="w-5 h-5 text-primary" />
-                     Base Rates
+                     Item Rates
                   </h3>
                    <div className="space-y-3">
                      {provider.pricingRates && Object.entries(provider.pricingRates).map(([item, rate], i) => (

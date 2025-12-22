@@ -117,6 +117,7 @@ export const signupProviderSchema = z.object({
   services: z.array(z.string()).min(1, "At least one service is required"),
   radius_km: z.number().positive().max(50).default(10),
   per_km_rate: z.number().nonnegative().default(10),
+  pricing: z.number().nonnegative().default(0), // "Booking Price"
   pricingRates: z.record(z.string(), z.number().nonnegative()).optional(),
 });
 

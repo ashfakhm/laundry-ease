@@ -89,11 +89,11 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
           <div className="bg-muted/50 p-4 rounded-xl space-y-2 border border-border/50">
             <div className="flex justify-between text-sm text-foreground">
               <span>Booking Fee</span>
-              <span>₹50.00</span>
+              <span>₹{provider.pricing ?? 0}</span>
             </div>
             <div className="flex justify-between text-sm font-bold pt-2 border-t border-border mt-2 text-foreground">
               <span>Total to Pay</span>
-              <span>₹50.00</span>
+              <span>₹{provider.pricing ?? 0}</span>
             </div>
           </div>
 

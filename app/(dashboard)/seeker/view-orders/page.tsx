@@ -48,7 +48,7 @@ type Order = {
 };
 
 export default function ViewOrdersPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "paid" | "unpaid" | "cancelled">(
@@ -72,10 +72,14 @@ export default function ViewOrdersPage() {
       }
     }
 
+    if (status === "loading") return;
+
     if (session) {
       fetchOrders();
+    } else {
+      setLoading(false);
     }
-  }, [session]);
+  }, [session, status]);
 
   function getStatusBadge(order: Order) {
     if (order.cancellation_status) {

@@ -78,6 +78,7 @@ export async function PATCH(req: Request) {
       free_radius_km,
       per_km_rate,
       coordinates,
+      pricing,
       currentPassword,
       newPassword
     } = body;
@@ -90,6 +91,7 @@ export async function PATCH(req: Request) {
     if (description !== undefined) updateFields.description = description;
     if (location !== undefined) updateFields.location = location;
     if (services !== undefined) updateFields.services = services;
+    if (pricing !== undefined) updateFields.pricing = Number(pricing);
     if (pricingRates !== undefined) updateFields.pricingRates = pricingRates;
     if (radius_km !== undefined) updateFields.radius_km = Number(radius_km);
     if (free_radius_km !== undefined) updateFields.free_radius_km = Number(free_radius_km);

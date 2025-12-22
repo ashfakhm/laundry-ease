@@ -45,6 +45,7 @@ export type Provider = BaseUser & {
   description?: string;
   pricingRates?: Record<string, number>;
   free_radius_km?: number;
+  capacity?: number; // Max concurrent bookings
 };
 
 export type Admin = BaseUser;
@@ -142,6 +143,7 @@ export async function createProvider(data: {
   radius_km?: number;
   free_radius_km?: number;
   per_km_rate?: number;
+  capacity?: number;
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -168,6 +170,7 @@ export async function createProvider(data: {
     per_km_rate: data.per_km_rate ?? 0,
     documents: [],
     createdAt: now,
+    capacity: data.capacity ?? 5, // Default to 5 concurrent bookings if not provided
   };
 
   const res = await db.collection<Provider>("providers").insertOne(provider);
@@ -182,6 +185,7 @@ export async function createBooking(data: {
   seeker_id: ObjectId;
   provider_id: ObjectId;
   deadline?: Date;
+  bookingFee: number;
   seeker_coordinates?: { lat: number; lng: number };
 }) {
   const { db } = await getDb();
@@ -191,7 +195,7 @@ export async function createBooking(data: {
     seeker_id: data.seeker_id,
     provider_id: data.provider_id,
     status: "requested",
-    bookingFee: 50, // Fixed fee for MVP
+    bookingFee: data.bookingFee, // Dynamic fee from provider
     bookingFeeStatus: "pending",
     deadline: data.deadline,
     seeker_coordinates: data.seeker_coordinates,
@@ -447,7 +451,10 @@ export async function getBookingsForProvider(email: string) {
 
   const bookings = await db
     .collection<Booking>("bookings")
-    .find({ provider_id: provider._id })
+    .find({ 
+      provider_id: provider._id,
+      bookingFeeStatus: "paid"
+    })
     .sort({ createdAt: -1 })
     .toArray();
 

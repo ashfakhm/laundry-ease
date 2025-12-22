@@ -32,6 +32,21 @@ export async function PATCH(
       );
     }
 
+    // Enforce provider capacity
+    const activeBookingsCount = await db.collection("bookings").countDocuments({
+      provider_id: provider._id,
+      status: { $in: ["accepted", "pickup_proposed", "confirmed"] },
+    });
+    const maxCapacity = provider.capacity ?? 5;
+    if (activeBookingsCount >= maxCapacity) {
+      return NextResponse.json(
+        {
+          message: `You are at your maximum capacity of ${maxCapacity} active bookings.`,
+        },
+        { status: 400 }
+      );
+    }
+
     const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 

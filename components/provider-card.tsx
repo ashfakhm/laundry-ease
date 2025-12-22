@@ -52,7 +52,7 @@ export function ProviderCard({ provider }: { provider: ProviderSearchResult }) {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <IndianRupee className="h-4 w-4 text-blue-500" />
             <span>
-                Starts at: <span className="font-semibold text-foreground">₹{provider.pricing}</span>
+                Booking Price: <span className="font-semibold text-foreground">₹{provider.pricing}</span>
             </span>
         </div>
       </div>

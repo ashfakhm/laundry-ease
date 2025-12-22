@@ -157,10 +157,10 @@ export default function ProviderProfilePage() {
                 <div className="flex gap-4 sm:flex-col sm:items-end">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-emerald-600">
-                      ₹{provider.pricing || "N/A"}
+                      ₹{provider.pricing ?? "N/A"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Starting price
+                      Booking Price
                     </p>
                   </div>
                 </div>
