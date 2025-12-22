@@ -4,9 +4,9 @@
 **Date:** 2025-12-21  
 **Status:** Final - Approved for Development  
 **Author:** Ashfakh M  
-**Implementation Status:** 🚧 In Progress (Phase 5, 6, 7 Mostly Complete - 75% Overall)
+**Implementation Status:** 🚧 In Progress (Core booking, scheduling, and invoice flows complete; payment, escrow, admin, and review systems in progress)
 
-> **Latest Update (2025-12-23)**: Invoice Generation, S3 Photo Upload, Order Creation, Razorpay Payment, and Delivery OTP Confirmation are now fully implemented. Critical path logic for the Service Lifecycle is complete. Next: Admin Dashboard & Escrow Automation.
+> **Latest Update (2025-12-23)**: Core booking, scheduling, and invoice flows are robust and PRD-compliant. Discount logic fixed. Auto-reject and refund logic complete. Payment, escrow, admin, and review systems are the next priorities.
 
 ---
 
@@ -117,41 +117,41 @@ LaundryEase solves these problems by providing:
 
 ---
 
-### Phase 4: Provider Booking Management 🚧
+### Phase 4: Provider Booking Management ✅
 
 | Feature                              | Status | Notes                                                                                                 |
 | ------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------- |
 | Provider Accept/Reject (FR-BOOK-002) | ✅     | Complete dashboard (`/provider/bookings`), accept/reject UI working                                   |
 | Provider Bookings Dashboard          | ✅     | Stats, filtering by status, seeker details display. **Visibility restricted until booking fee paid.** |
 | Pickup Scheduling (FR-BOOK-003)      | ✅     | Modal UI, API endpoint, 2h-48h validation                                                             |
-| Auto-Reject Timeout                  | ⏳     | Background job not implemented                                                                        |
+| Auto-Reject Timeout                  | ✅     | Background job implemented, refunds booking fee if not accepted in time                               |
 | No-Show Detection (FR-BOOK-004)      | ⏳     | GPS verification not implemented                                                                      |
 | Seeker Cancellation (FR-BOOK-005)    | ✅     | Cancel "Requested" bookings, Delete "Cancelled" from history                                          |
 
-**Completion**: 60% (3/5 features complete)
+**Completion**: 83% (5/6 features complete)
 
 ---
 
-### Phase 5: Invoice & Order Creation ✅
+### Phase 5: Invoice & Order Creation 🚧
 
-| Feature                         | Status | Notes                                |
-| ------------------------------- | ------ | ------------------------------------ |
-| Invoice Generation (FR-INV-001) | ✅     | Fully Implemented with S3 Photo Upload |
-| Invoice Review (FR-INV-002)     | ✅     | Seeker can approve (-> Order) or Reject (-> Cancel) |
-| Photo Capture                   | ✅     | Integrated via S3 and File Upload API |
-| S3/R2 Integration               | ✅     | Fully functional with `lib/s3.ts` |
+| Feature                         | Status | Notes                                                                                             |
+| ------------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
+| Invoice Generation (FR-INV-001) | ✅     | UI and backend logic complete, discount logic fixed, photo upload present, S3 integration present |
+| Invoice Review (FR-INV-002)     | ✅     | Seeker can approve/reject, booking fee logic correct, UI present                                  |
+| Photo Capture                   | ✅     | UI and backend present, S3 integration present                                                    |
+| S3/R2 Integration               | ✅     | Fully functional with `lib/s3.ts`                                                                 |
 
-**Completion**: 100% (4/4)
+**Completion**: 100% (4/4 features complete)
 
 ---
 
 ### Phase 6: Order Processing & Tracking ✅
 
-| Feature                            | Status | Notes                                                        |
-| ---------------------------------- | ------ | ------------------------------------------------------------ |
+| Feature                            | Status | Notes                                                       |
+| ---------------------------------- | ------ | ----------------------------------------------------------- |
 | Order Status Updates (FR-ORD-001)  | ✅     | Full lifecycle tracking enabled (`/api/orders/[id]/status`) |
-| Delivery Scheduling (FR-ORD-002)   | ⏳     | Not started                                                  |
-| Delivery Confirmation (FR-ORD-003) | ✅     | **OTP Implemented**. Provider enters code from Seeker.       |
+| Delivery Scheduling (FR-ORD-002)   | ⏳     | Not started                                                 |
+| Delivery Confirmation (FR-ORD-003) | ✅     | **OTP Implemented**. Provider enters code from Seeker.      |
 
 **Completion**: 66% (2/3 features)
 
@@ -159,23 +159,22 @@ LaundryEase solves these problems by providing:
 
 ### Phase 7: Payment & Escrow 🚧
 
-| Feature                            | Status | Notes                                                                                |
-| ---------------------------------- | ------ | ------------------------------------------------------------------------------------ |
-| Payment Integration (FR-PAY-001)   | ✅     | **Razorpay Integrated**. Seeker pays via `PaymentButton`.                            |
-| Escrow System (FR-PAY-002)         | �     | DB statuses (`held`, `released`) exist. **Auto-release CRON job pending.**           |
-| Late Delivery Penalty (FR-PAY-003) | ✅     | Logic implemented in `status` API (5% deduction rule).                               |
+| Feature                            | Status | Notes                                                                      |
+| ---------------------------------- | ------ | -------------------------------------------------------------------------- |
+| Payment Integration (FR-PAY-001)   | ✅     | **Razorpay Integrated**. Seeker pays via `PaymentButton`.                  |
+| Escrow System (FR-PAY-002)         | 🔧     | DB statuses (`held`, `released`) exist. **Auto-release CRON job pending.** |
+| Late Delivery Penalty (FR-PAY-003) | ✅     | Logic implemented in `status` API (5% deduction rule).                     |
 
-**Completion**: 80% (Payment and Penalty logic done, Automated Escrow release pending)  
-**Dependencies**: Razorpay API keys (Configured)
+**Completion**: 80% (Payment and Penalty logic done, Automated Escrow release pending)
 
 ---
 
-### Phase 8: Dispute Resolution �
+### Phase 8: Dispute Resolution 🔧
 
-| Feature                        | Status | Notes                                         |
-| ------------------------------ | ------ | --------------------------------------------- |
-| Complaint Filing (FR-DISP-001) | ✅     | Implemented via `ChatInterface` (Raise Dispute). |
-| Admin Resolution (FR-DISP-002) | ⏳     | Admin Dashboard Pending.                      |
+| Feature                        | Status | Notes                                               |
+| ------------------------------ | ------ | --------------------------------------------------- |
+| Complaint Filing (FR-DISP-001) | ✅     | Implemented via `ChatInterface` (Raise Dispute).    |
+| Admin Resolution (FR-DISP-002) | ⏳     | Admin Dashboard Pending.                            |
 | Three-Way Chat                 | ✅     | `ChatInterface` supports messaging between parties. |
 
 **Completion**: 66% (User facing dispute UI done)
@@ -200,7 +199,7 @@ LaundryEase solves these problems by providing:
 | Phase 1: Foundation     | 4        | 4           | 0           | 0       | 100%         |
 | Phase 2: Discovery      | 5        | 5           | 0           | 0       | 100%         |
 | Phase 3: Auth           | 2        | 2           | 0           | 0       | 100%         |
-| Phase 4: Booking Mgmt   | 6        | 4           | 0           | 2       | 65%          |
+| Phase 4: Booking Mgmt   | 6        | 5           | 0           | 1       | 83%          |
 | Phase 5: Invoice        | 4        | 4           | 0           | 0       | 100%         |
 | Phase 6: Order Tracking | 3        | 2           | 0           | 1       | 66%          |
 | Phase 7: Payment        | 3        | 2           | 1           | 0       | 80%          |
