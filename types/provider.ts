@@ -9,6 +9,9 @@ export type ProviderSearchResult = {
   delivery_fee: number;
   rating: number;
   reviewCount: number;
+  radius_km?: number;
+  per_km_rate?: number;
+  covers_beyond_radius?: boolean;
 };
 
 export type Provider = {

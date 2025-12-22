@@ -52,3 +52,26 @@ export function verifyRazorpaySignature(
 
   return generatedSignature === signature;
 }
+
+/**
+ * Refund a payment
+ * @param paymentId Razorpay Payment ID
+ * @param amount Amount in paise (optional, refund full if not provided)
+ * @param notes Optional notes for refund
+ */
+export async function refundRazorpayPayment(
+  paymentId: string,
+  amount?: number,
+  notes?: Record<string, string>
+) {
+  try {
+    const params: any = {};
+    if (amount) params.amount = amount;
+    if (notes) params.notes = notes;
+    const refund = await razorpay.payments.refund(paymentId, params);
+    return refund;
+  } catch (error) {
+    console.error("Error refunding Razorpay payment:", error);
+    throw error;
+  }
+}

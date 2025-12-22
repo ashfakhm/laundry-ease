@@ -11,18 +11,33 @@ export async function POST(
 ) {
   try {
     // Support both sync and async params (Promise or object)
-    const params =
-      typeof (context.params as any).then === "function"
-        ? await context.params
-        : context.params;
-    const { id } = params;
+    let id: string;
+    if (
+      typeof (context.params as unknown as Promise<unknown>).then === "function"
+    ) {
+      id = ((await context.params) as { id: string }).id;
+    } else {
+      id = (context.params as { id: string }).id;
+    }
+
+    // Always use ObjectId for MongoDB queries
+    let bookingQuery;
+    try {
+      bookingQuery = { _id: new ObjectId(id) };
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid booking id" },
+        { status: 400 }
+      );
+    }
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { items, notes, photos } = body;
+    const { items, notes, photos, discount, total, subtotal } = body;
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: "Invoice items required" },
@@ -31,12 +46,6 @@ export async function POST(
     }
 
     const { db } = await getDb();
-    let bookingQuery;
-    try {
-      bookingQuery = { _id: new ObjectId(id) };
-    } catch {
-      bookingQuery = { _id: id };
-    }
 
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
@@ -60,11 +69,28 @@ export async function POST(
       );
     }
 
-    // Invoice structure: items (array), notes (optional), photos (optional)
+    // Invoice structure: items, notes, photos, discount, subtotal, total
     const invoice = {
       items,
       notes: notes || "",
       photos: photos || [],
+      discount: typeof discount === "number" ? discount : 0,
+      subtotal:
+        typeof subtotal === "number"
+          ? subtotal
+          : items.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0),
+      total:
+        typeof total === "number"
+          ? total
+          : Math.max(
+              0,
+              (typeof subtotal === "number"
+                ? subtotal
+                : items.reduce(
+                    (sum, it) => sum + it.quantity * it.unitPrice,
+                    0
+                  )) - (typeof discount === "number" ? discount : 0)
+            ),
       createdAt: new Date(),
     };
 
