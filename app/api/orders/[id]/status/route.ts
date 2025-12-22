@@ -53,11 +53,35 @@ export async function POST(
     // Usually penalty is finalized at 'delivered' or 'out_for_delivery'?
     // Let's calculate it when status becomes "delivered".
 
-    type ProcessStatus = Order["process_status"];
-    const updateData: { process_status: ProcessStatus; latePenalty?: number } =
-      {
-        process_status: status as ProcessStatus,
-      };
+    // OTP Logic
+    const updateData: any = { // Using any to allow dynamic fields like delivery_otp
+        process_status: status,
+        updatedAt: new Date()
+    };
+
+    if (status === "out_for_delivery") {
+        // Generate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        updateData.delivery_otp = otp;
+        // In production: await sendSms(order.seeker.phone, `Your delivery OTP is ${otp}`);
+        console.log(`[MOCK SMS] To Order #${id}: Your delivery OTP is ${otp}`);
+    }
+
+    if (status === "delivered") {
+        const { otp } = body;
+        
+        // If order allows "Seeker Confirmation" via checking their own device, we might skip this.
+        // But for "Provider enters OTP" flow:
+        if (!otp) {
+             return NextResponse.json({ message: "OTP required for delivery confirmation" }, { status: 400 });
+        }
+
+        if (otp !== order.delivery_otp) {
+             return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
+        }
+        
+        updateData.otp_confirmed_at = new Date();
+    }
 
     if (status === "delivered" && order.deadline) {
       const now = new Date();
@@ -71,14 +95,11 @@ export async function POST(
         const penaltyAmount = Math.round(order.total_price * penaltyRate);
 
         updateData.latePenalty = penaltyAmount;
-        // Note: total_price is NOT reduced in DB usually to keep record of original price,
-        // but the *payable* amount is reduced.
-        // However, for simplicity here, we might just store the penalty.
       }
     }
 
     await db
-      .collection<Order>("orders")
+      .collection("orders")
       .updateOne({ _id: order_id }, { $set: updateData });
 
     return NextResponse.json({

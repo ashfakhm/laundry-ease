@@ -33,4 +33,5 @@ export type Order = {
     | "delivered";
   deadline?: Date;
   latePenalty?: number;
+  delivery_otp?: string;
 };

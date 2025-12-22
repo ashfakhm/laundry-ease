@@ -11,6 +11,7 @@ import {
   Calendar,
   User,
   TruckIcon,
+  ShieldCheck,
 } from "lucide-react";
 
 type OrderItem = {
@@ -61,14 +62,31 @@ export default function OrderStatusPage() {
   >("active");
   const [updating, setUpdating] = useState<string | null>(null);
 
-  async function updateStatus(orderId: string, newStatus: string) {
+  // OTP Modal State
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [selectedOrderForOtp, setSelectedOrderForOtp] = useState<string | null>(null);
+  const [otpInput, setOtpInput] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+
+  async function updateStatus(orderId: string, newStatus: string, otp?: string) {
+    if (newStatus === "delivered" && !otp) {
+        // Open Modal
+        setSelectedOrderForOtp(orderId);
+        setOtpModalOpen(true);
+        setOtpInput("");
+        setOtpError(null);
+        return;
+    }
+
     setUpdating(orderId);
     try {
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, otp }),
       });
+      const data = await res.json();
+
       if (res.ok) {
         // Optimistic update
         setOrders((prev) =>
@@ -78,16 +96,30 @@ export default function OrderStatusPage() {
                   ...o,
                   process_status:
                     newStatus as OrderWithProcessStatus["process_status"],
+                  otp_confirmed_at: newStatus === "delivered" ? new Date().toISOString() : o.otp_confirmed_at
                 }
               : o
           )
         );
+        // Close modal if open
+        if(otpModalOpen) setOtpModalOpen(false);
+      } else {
+          if(otp) setOtpError(data.message || "Failed to verify OTP");
+          else alert(data.message || "Failed to update status");
       }
     } catch (e) {
       console.error(e);
+      if(otp) setOtpError("Network error");
     } finally {
       setUpdating(null);
     }
+  }
+
+  function handleOtpSubmit(e: React.FormEvent) {
+      e.preventDefault();
+      if(selectedOrderForOtp && otpInput.length === 6) {
+          updateStatus(selectedOrderForOtp, "delivered", otpInput);
+      }
   }
 
   useEffect(() => {
@@ -183,7 +215,7 @@ export default function OrderStatusPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-background">
+    <main className="min-h-[calc(100vh-4rem)] bg-background relative">
       <div className="mx-auto max-w-7xl px-4 py-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Order Status</h1>
@@ -379,6 +411,54 @@ export default function OrderStatusPage() {
           </div>
         )}
       </div>
+
+      {/* OTP Modal */}
+        {otpModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="bg-card w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-primary" /> Verify Delivery
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        Please enter the OTP provided by the customer to confirm delivery.
+                    </p>
+                    
+                    <form onSubmit={handleOtpSubmit} className="space-y-4">
+                         <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            placeholder="Enter 6-digit OTP"
+                            className="input input-bordered w-full text-center text-2xl tracking-widest font-mono"
+                            value={otpInput}
+                            onChange={(e) => setOtpInput(e.target.value.replace(/[^0-9]/g, ''))}
+                            autoFocus
+                         />
+                         
+                         {otpError && (
+                             <p className="text-xs text-error font-bold text-center">{otpError}</p>
+                         )}
+                         
+                         <div className="grid grid-cols-2 gap-3">
+                             <button 
+                                type="button" 
+                                className="btn btn-ghost"
+                                onClick={() => { setOtpModalOpen(false); setOtpError(null); }}
+                             >
+                                 Cancel
+                             </button>
+                             <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={otpInput.length !== 6 || !!updating}
+                             >
+                                 {updating ? "Verifying..." : "Confirm"}
+                             </button>
+                         </div>
+                    </form>
+                </div>
+            </div>
+        )}
     </main>
   );
 }

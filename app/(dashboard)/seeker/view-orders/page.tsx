@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { PaymentButton } from "@/components/orders/payment-button";
+import Link from "next/link";
 import {
   Package,
   Clock,
@@ -333,10 +335,27 @@ export default function ViewOrdersPage() {
                       </p>
                     </div>
                     
-                    <div className="flex items-center justify-center gap-2 text-sm w-full py-2 bg-muted/30 rounded-xl border border-border/50 text-foreground font-medium capitalize">
-                        <IndianRupee className="h-4 w-4" />
-                         {order.payment_status}
-                      </div>
+                    <div className="flex flex-col gap-2 w-full">
+                         <div className="flex items-center justify-center gap-2 text-sm w-full py-2 bg-muted/30 rounded-xl border border-border/50 text-foreground font-medium capitalize">
+                            <IndianRupee className="h-4 w-4" />
+                             {order.payment_status}
+                          </div>
+                          
+                          {order.payment_status === "unpaid" && !order.cancellation_status && (
+                              <PaymentButton 
+                                orderId={order._id} 
+                                amount={order.total_price + order.delivery_charge} 
+                              />
+                          )}
+                           
+                           <Link
+                              href={`/seeker/orders/${order._id}`}
+                              className="btn btn-ghost btn-sm w-full text-xs"
+                           >
+                              View Details
+                           </Link>
+                    </div>
+
                   </div>
                 </div>
               </motion.div>
