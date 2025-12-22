@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
+import Image from "next/image";
 import {
   LayoutDashboard,
   Calendar,
@@ -14,8 +15,7 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronLeft,
-  Sparkles
+  ChevronLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -76,8 +76,13 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
       <div className="flex h-20 items-center justify-between border-b border-border/50 px-6">
         {!isCollapsed && (
           <Link href="/provider" className="flex items-center gap-3 group">
-            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
+            <div className="relative h-9 w-9 rounded-xl overflow-hidden flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+              <Image 
+                src="/laundryease-logo.png" 
+                alt="LaundryEase" 
+                fill
+                className="object-cover"
+              />
             </div>
             <div className="flex flex-col">
                <span className="font-heading font-bold text-base leading-none">LaundryEase</span>
@@ -189,8 +194,13 @@ export function ProviderMobileNav() {
     <>
       <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/50 bg-background/80 backdrop-blur-md px-4">
         <Link href="/provider" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-             <Sparkles className="h-4 w-4 text-primary-foreground" />
+          <div className="relative h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center">
+             <Image 
+                src="/laundryease-logo.png" 
+                alt="LaundryEase" 
+                fill
+                className="object-cover"
+              />
           </div>
           <span className="font-heading font-semibold text-lg tracking-tight">Provider</span>
         </Link>

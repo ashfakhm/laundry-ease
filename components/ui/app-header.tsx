@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ThemeToggle } from "./theme-toggle";
 import { Sparkles } from "lucide-react";
 
@@ -13,8 +14,13 @@ export function AppHeader({ showAuth = true }: AppHeaderProps) {
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-            <Sparkles className="w-5 h-5 text-primary-foreground" />
+          <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+            <Image 
+              src="/laundryease-logo.png" 
+              alt="LaundryEase" 
+              fill
+              className="object-cover"
+            />
           </div>
           <span className="font-heading font-semibold text-lg tracking-tight">
             LaundryEase

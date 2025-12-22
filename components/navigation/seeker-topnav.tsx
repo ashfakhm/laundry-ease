@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
-import { Search, Calendar, Package, Menu, X, LogOut, Home, Sparkles, User } from "lucide-react";
+import Image from "next/image";
+import { Search, Calendar, Package, Menu, X, LogOut, Home, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,8 +34,13 @@ export function SeekerTopNav() {
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/seeker" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <Image 
+                  src="/laundryease-logo.png" 
+                  alt="LaundryEase" 
+                  fill
+                  className="object-cover"
+                />
               </div>
               <span className="font-heading font-semibold text-lg tracking-tight">LaundryEase</span>
             </Link>

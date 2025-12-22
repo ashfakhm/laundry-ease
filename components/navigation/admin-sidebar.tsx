@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
+import Image from "next/image";
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -14,7 +15,6 @@ import {
   X,
   LogOut,
   ChevronLeft,
-  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -78,8 +78,13 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
       <div className="flex h-16 items-center justify-between border-b px-4">
         {!isCollapsed && (
           <Link href="/admin" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-violet-600 flex items-center justify-center">
-              <Shield className="h-4 w-4 text-white" />
+            <div className="relative h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm">
+              <Image 
+                src="/laundryease-logo.png" 
+                alt="LaundryEase Admin" 
+                fill
+                className="object-cover"
+              />
             </div>
             <span className="font-semibold text-foreground">Admin Panel</span>
           </Link>
@@ -185,8 +190,13 @@ export function AdminMobileNav() {
       {/* Mobile Top Bar */}
       <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-card/95 backdrop-blur-sm px-4">
         <Link href="/admin" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-violet-600 flex items-center justify-center">
-            <Shield className="h-4 w-4 text-white" />
+          <div className="relative h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm">
+             <Image 
+                src="/laundryease-logo.png" 
+                alt="LaundryEase Admin" 
+                fill
+                className="object-cover"
+              />
           </div>
           <span className="font-semibold text-foreground">Admin</span>
         </Link>

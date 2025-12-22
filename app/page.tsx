@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, MapPin, ShieldCheck, Sparkles, Clock } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, CheckCircle2, MapPin, ShieldCheck, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
@@ -14,8 +15,13 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(45,212,191,0.5)]">
-              <Sparkles className="w-5 h-5 text-black animate-pulse" />
+            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm">
+               <Image 
+                  src="/laundryease-logo.png" 
+                  alt="LaundryEase" 
+                  fill
+                  className="object-cover"
+                />
             </div>
             <span className="font-heading font-semibold text-lg tracking-tight">LaundryEase</span>
           </div>
