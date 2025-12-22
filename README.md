@@ -132,26 +132,26 @@ LaundryEase solves these problems by providing:
 
 ---
 
-### Phase 5: Invoice & Order Creation 🚧
+### Phase 5: Invoice & Order Creation ✅
 
-| Feature                         | Status | Notes                                                                                             |
-| ------------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
-| Invoice Generation (FR-INV-001) | ✅     | UI and backend logic complete, discount logic fixed, photo upload present, S3 integration present |
-| Invoice Review (FR-INV-002)     | ✅     | Seeker can approve/reject, booking fee logic correct, UI present                                  |
-| Photo Capture                   | ✅     | UI and backend present, S3 integration present                                                    |
-| S3/R2 Integration               | ✅     | Fully functional with `lib/s3.ts`                                                                 |
+| Feature                         | Status | Notes                                |
+| ------------------------------- | ------ | ------------------------------------ |
+| Invoice Generation (FR-INV-001) | ✅     | Fully Implemented with S3 Photo Upload |
+| Invoice Review (FR-INV-002)     | ✅     | Seeker can approve (-> Order) or Reject (-> Cancel) |
+| Photo Capture                   | ✅     | Integrated via S3 and File Upload API |
+| S3/R2 Integration               | ✅     | Fully functional with `lib/s3.ts` |
 
-**Completion**: 100% (4/4 features complete)
+**Completion**: 100% (4/4)
 
 ---
 
 ### Phase 6: Order Processing & Tracking ✅
 
-| Feature                            | Status | Notes                                                       |
-| ---------------------------------- | ------ | ----------------------------------------------------------- |
+| Feature                            | Status | Notes                                                        |
+| ---------------------------------- | ------ | ------------------------------------------------------------ |
 | Order Status Updates (FR-ORD-001)  | ✅     | Full lifecycle tracking enabled (`/api/orders/[id]/status`) |
-| Delivery Scheduling (FR-ORD-002)   | ⏳     | Not started                                                 |
-| Delivery Confirmation (FR-ORD-003) | ✅     | **OTP Implemented**. Provider enters code from Seeker.      |
+| Delivery Scheduling (FR-ORD-002)   | ⏳     | Not started                                                  |
+| Delivery Confirmation (FR-ORD-003) | ✅     | **OTP Implemented**. Provider enters code from Seeker.       |
 
 **Completion**: 66% (2/3 features)
 
@@ -159,22 +159,23 @@ LaundryEase solves these problems by providing:
 
 ### Phase 7: Payment & Escrow 🚧
 
-| Feature                            | Status | Notes                                                                      |
-| ---------------------------------- | ------ | -------------------------------------------------------------------------- |
-| Payment Integration (FR-PAY-001)   | ✅     | **Razorpay Integrated**. Seeker pays via `PaymentButton`.                  |
-| Escrow System (FR-PAY-002)         | 🔧     | DB statuses (`held`, `released`) exist. **Auto-release CRON job pending.** |
-| Late Delivery Penalty (FR-PAY-003) | ✅     | Logic implemented in `status` API (5% deduction rule).                     |
+| Feature                            | Status | Notes                                                                                |
+| ---------------------------------- | ------ | ------------------------------------------------------------------------------------ |
+| Payment Integration (FR-PAY-001)   | ✅     | **Razorpay Integrated**. Seeker pays via `PaymentButton`.                            |
+| Escrow System (FR-PAY-002)         | �     | DB statuses (`held`, `released`) exist. **Auto-release CRON job pending.**           |
+| Late Delivery Penalty (FR-PAY-003) | ✅     | Logic implemented in `status` API (5% deduction rule).                               |
 
-**Completion**: 80% (Payment and Penalty logic done, Automated Escrow release pending)
+**Completion**: 80% (Payment and Penalty logic done, Automated Escrow release pending)  
+**Dependencies**: Razorpay API keys (Configured)
 
 ---
 
-### Phase 8: Dispute Resolution 🔧
+### Phase 8: Dispute Resolution �
 
-| Feature                        | Status | Notes                                               |
-| ------------------------------ | ------ | --------------------------------------------------- |
-| Complaint Filing (FR-DISP-001) | ✅     | Implemented via `ChatInterface` (Raise Dispute).    |
-| Admin Resolution (FR-DISP-002) | ⏳     | Admin Dashboard Pending.                            |
+| Feature                        | Status | Notes                                         |
+| ------------------------------ | ------ | --------------------------------------------- |
+| Complaint Filing (FR-DISP-001) | ✅     | Implemented via `ChatInterface` (Raise Dispute). |
+| Admin Resolution (FR-DISP-002) | ⏳     | Admin Dashboard Pending.                      |
 | Three-Way Chat                 | ✅     | `ChatInterface` supports messaging between parties. |
 
 **Completion**: 66% (User facing dispute UI done)
@@ -205,7 +206,7 @@ LaundryEase solves these problems by providing:
 | Phase 7: Payment        | 3        | 2           | 1           | 0       | 80%          |
 | Phase 8: Disputes       | 3        | 2           | 0           | 1       | 66%          |
 | Phase 9: Reviews        | 2        | 0           | 0           | 2       | 0%           |
-| **TOTAL**               | **33**   | **25**      | **1**       | **7**   | **75%**      |
+| **TOTAL**               | **33**   | **26**      | **1**       | **6**   | **78%**      |
 
 ---
 
@@ -226,7 +227,6 @@ LaundryEase solves these problems by providing:
 11. ⏳ Admin Dashboard for Disputes
 
 **Estimated Time to MVP**: 1-2 weeks (remaining work)
-
 **Estimated Time to MVP**: 3-4 weeks (remaining work)
 
 ---
