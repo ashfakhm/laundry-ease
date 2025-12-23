@@ -34,4 +34,10 @@ export type Order = {
   deadline?: Date;
   latePenalty?: number;
   delivery_otp?: string;
+  platform_commission?: number;
+  provider_payout_amount?: number;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  payout_status?: "pending" | "processing" | "paid" | "failed";
+  payout_id?: string;
 };

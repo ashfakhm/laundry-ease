@@ -57,6 +57,13 @@ export type Booking = {
   deadline?: Date | string;
   createdAt: Date | string;
   updatedAt?: Date | string;
+
+  // Payment & Payout Fields
+  platform_commission?: number;
+  provider_payout_amount?: number;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  payout_status?: "pending" | "processing" | "paid" | "failed";
 };
 
 export type PopulatedBooking = Omit<Booking, "seeker_id"> & {

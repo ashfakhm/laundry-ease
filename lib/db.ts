@@ -46,6 +46,14 @@ export type Provider = BaseUser & {
   pricingRates?: Record<string, number>;
   free_radius_km?: number;
   capacity?: number; // Max concurrent bookings
+  bankDetails?: {
+    accountNumber: string;
+    ifsc: string;
+    accountHolderName: string;
+    upiId?: string;
+  };
+  razorpay_fund_account_id?: string;
+  razorpay_contact_id?: string;
 };
 
 export type Admin = BaseUser;
@@ -177,9 +185,8 @@ export async function createProvider(data: {
   return { ...provider, _id: res.insertedId };
 }
 
-/**
- * Create a new booking
- */
+// Booking type is imported from @/types/bookings
+
 
 export async function createBooking(data: {
   seeker_id: ObjectId;

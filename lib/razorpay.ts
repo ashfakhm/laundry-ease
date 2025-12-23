@@ -75,3 +75,76 @@ export async function refundRazorpayPayment(
     throw error;
   }
 }
+
+// --- RazorpayX Payouts ---
+
+/**
+ * Create a Contact (for Payouts)
+ */
+export async function createRazorpayContact(data: {
+  name: string;
+  email: string;
+  contact: string; // phone number
+  type: "vendor";
+  reference_id?: string; // e.g., provider ID
+}) {
+  try {
+    // Note: 'fund_account' and 'contacts' are part of RazorpayX (razorpay.payouts.* not directly typed in some SDK versions, checking availability)
+    // The official SDK exposes it via instance.
+    // If typing fails, we might need to cast to any or check SDK version. 
+    // Usually accessible as razorpay.contacts.create(...) if not standard payments instance.
+    // However, node-razorpay usually handles this if configured with X-headers or just supports it.
+    
+    // For safety with TS, we use 'any' cast if properties are missing in standard types, 
+    // but standard razorpay package should have it.
+    const response = await (razorpay as any).contacts.create(data);
+    return response;
+  } catch (error) {
+    console.error("Error creating Razorpay contact:", error);
+    throw error;
+  }
+}
+
+/**
+ * Create a Fund Account (Bank Details)
+ */
+export async function createRazorpayFundAccount(data: {
+  contact_id: string;
+  account_type: "bank_account";
+  bank_account: {
+    name: string;
+    ifsc: string;
+    account_number: string;
+  };
+}) {
+  try {
+    const response = await (razorpay as any).fund_accounts.create(data);
+    return response;
+  } catch (error) {
+    console.error("Error creating Fund Account:", error);
+    throw error;
+  }
+}
+
+/**
+ * Create a Payout
+ */
+export async function createRazorpayPayout(data: {
+  account_number: string; // The specific RazorpayX account number from which money is sent (optional if default)
+  fund_account_id: string;
+  amount: number; // in paise
+  currency: string;
+  mode: "IMPS" | "NEFT" | "RTGS" | "UPI";
+  purpose: "payout";
+  queue_if_low_balance?: boolean;
+  reference_id?: string;
+  narration?: string;
+}) {
+  try {
+    const response = await (razorpay as any).payouts.create(data);
+    return response;
+  } catch (error) {
+    console.error("Error creating Payout:", error);
+    throw error;
+  }
+}

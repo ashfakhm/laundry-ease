@@ -161,9 +161,10 @@ LaundryEase solves these problems by providing:
 
 | Feature                            | Status | Notes                                                                                |
 | ---------------------------------- | ------ | ------------------------------------------------------------------------------------ |
-| Payment Integration (FR-PAY-001)   | ✅     | **Razorpay Integrated**. Seeker pays via `PaymentButton`.                            |
-| Escrow System (FR-PAY-002)         | �     | DB statuses (`held`, `released`) exist. **Auto-release CRON job pending.**           |
+| Payment Integration (FR-PAY-001)   | ✅     | **Razorpay Orders & RazorpayX Payouts**. Admin acts as central escrow. |
+| Escrow System (FR-PAY-002)         | ✅     | **Implemented**. 24h hold. Auto-release via Cron (`/api/cron/process-payouts`). |
 | Late Delivery Penalty (FR-PAY-003) | ✅     | Logic implemented in `status` API (5% deduction rule).                               |
+| Provider Payouts                   | ✅     | **RazorpayX Integrated**. Linked Fund Accounts. 5% Commission Auto-Deducted.         |
 
 **Completion**: 80% (Payment and Penalty logic done, Automated Escrow release pending)  
 **Dependencies**: Razorpay API keys (Configured)
@@ -505,10 +506,10 @@ LaundryEase solves these problems by providing:
 | Field                   | Value                                                                                                                                                                                                                                                     |
 | :---------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Priority**            | P0                                                                                                                                                                                                                                                        |
-| **Required Fields**     | Base service location (geocoded), Max service radius (1-50km), Free delivery distance (0-10km), Extra charge per km (₹0-50), **Booking Price (Minimum Fee)**, **Fixed price list (Record<string, number>)**, Phone (OTP verified), Email (verified)                                             |
-| **Validation Rules**    | All prices must be >₹0; Max radius must be > free delivery distance; Price list must cover standard clothing categories                                                                                                                                   |
+| **Required Fields**     | Base service location (geocoded), Max service radius (1-50km), Free delivery distance (0-10km), Extra charge per km (₹0-50), **Booking Price (Minimum Fee)**, **Fixed price list (Record<string, number>)**, Phone (OTP verified), Email (verified), **Bank Details (Account No, IFSC, Name)**                                             |
+| **Validation Rules**    | All prices must be >₹0; Max radius must be > free delivery distance; Price list must cover standard clothing categories; **Bank details verified via RazorpayX Contact creation**                                                                                                                                   |
 | **Profile Edit Policy** | Providers may edit profile at any time. **Changes apply only to future bookings, not active or confirmed orders.**                                                                                                                                        |
-| **Acceptance Criteria** | 1. Cannot accept bookings until profile 100% complete<br>2. Location validated via Google Places API (or manual coords for MVP)<br>3. All prices used in system are strictly fetched from provider's profile<br>4. Manual price entry NOT allowed except for items marked as "Other" |
+| **Acceptance Criteria** | 1. Cannot accept bookings until profile 100% complete (including Bank Details)<br>2. Location validated via Google Places API (or manual coords for MVP)<br>3. All prices used in system are strictly fetched from provider's profile<br>4. Manual price entry NOT allowed except for items marked as "Other" |
 
 #### FR-AUTH-004: Seeker Profile Setup (Registration)
 
@@ -709,10 +710,11 @@ LaundryEase solves these problems by providing:
 
 | Field                   | Value                                                |
 | :---------------------- | :--------------------------------------------------- |
-| **Priority**            | P0                                                   |
-| **Methods**             | UPI, Cards, Net Banking, Wallet                      |
-| **Gateway**             | Razorpay (primary), Stripe (backup)                  |
-| **Acceptance Criteria** | 1. PCI-DSS compliant<br>2. Failed payment retries 3x |
+| **Priority**            | P0                                                                                      |
+| **Methods**             | UPI, Cards, Net Banking, Wallet (via Razorpay Orders)                                   |
+| **Gateway**             | **Razorpay (Collection)** & **RazorpayX (Payouts)**                                     |
+| **Flow**                | 1. Seeker pays Admin (Razorpay Order) → 2. Money Held → 3. Admin pays Provider (RazorpayX Payout) |
+| **Acceptance Criteria** | 1. All user payments go to Admin first<br>2. Provider payout triggered ONLY after conditions met |
 
 #### FR-PAY-002: Escrow Hold & Complaint Window
 
@@ -721,10 +723,10 @@ LaundryEase solves these problems by providing:
 | **Priority**            | P0                                                                                                                                                                                      |
 | **Hold Period**         | **24 hours** post-delivery confirmation                                                                                                                                                 |
 | **Complaint Window**    | Within this 24h window, seeker may raise complaints for: Late delivery, Damaged items, Missing items, Partial service issues                                                            |
-| **Release Condition**   | If NO complaint raised within 24h window → Payment automatically released to provider                                                                                                   |
+| **Release Condition**   | If NO complaint raised within 24h window → **Cron Job** triggers Payout API → 5% Commission deducted → 95% sent to Provider's Bank Account                                              |
 | **Complaint Impact**    | If complaint raised → Payment is FROZEN until resolution                                                                                                                                |
-| **Provider View**       | Provider sees "Pending" status during escrow hold                                                                                                                                       |
-| **Acceptance Criteria** | 1. Auto-release at exactly 24h mark if no complaints<br>2. Immediate freeze on complaint<br>3. Clear countdown visible to both parties<br>4. Release requires check for open complaints |
+| **Provider View**       | Provider sees "Pending Payout" status during escrow hold                                                                                                                                |
+| **Acceptance Criteria** | 1. Auto-release at exactly 24h mark (via Cron) if clean<br>2. Immediate freeze on complaint<br>3. RazorpayX Fund Account required for release                                           |
 
 #### FR-PAY-003: Late Delivery Penalty
 
