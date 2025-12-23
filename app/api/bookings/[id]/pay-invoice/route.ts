@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getBookingById, createOrder, getUserByEmail } from "@/lib/db";
+import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
 import { calculateDistance } from "@/lib/distance";
@@ -41,19 +42,27 @@ export async function POST(
       );
     }
 
-    // Calculate Total from Invoice Items + Delivery
-    // Note: Delivery logic was in api/orders. We need to reproduce it or trust the invoice total?
-    // Usually Invoice should INCLUDE delivery. But current invoice-form only has items.
-    // Let's assume for now Invoice Total is the base, and we recalculate delivery here to add to it?
-    // Or simpler: Just charge what the Provider put in "Total" in the Invoice Form.
-    // In `invoice-form.tsx`, we saw `total` calculated from items.
+    // Calculate Delivery (Duplicated logic for consistency)
+    const { db } = await getDb();
+    const provider = await db.collection("providers").findOne({ _id: new ObjectId(booking.provider_id) });
+    
+    let delivery_charge = 0;
+    if (booking.seeker_coordinates && provider?.coordinates) {
+      const { calculateDistance } = await import("@/lib/distance");
+      const dist = calculateDistance(booking.seeker_coordinates, provider.coordinates);
+      const freeRadius = provider.free_radius_km || 5;
+      const perKmRate = provider.per_km_rate || 10;
+      const extra = Math.max(0, dist - freeRadius);
+      delivery_charge = Math.round(extra * perKmRate);
+    }
 
-    // Let's stick to the Invoice Total logic for now to match the UI.
-    const amountInRupees = booking.invoice.items.reduce(
+    const itemsTotal = booking.invoice.items.reduce(
       (sum: number, item: any) => sum + item.quantity * item.unitPrice,
       0
     );
-    const amountInPaise = Math.round(amountInRupees * 100);
+    const totalAmount = itemsTotal + delivery_charge;
+    
+    const amountInPaise = Math.round(totalAmount * 100);
 
     const razorpayOrder = await createRazorpayOrder(amountInPaise, id); // id is booking_id
 
@@ -105,6 +114,7 @@ export async function PUT(
     const provider = await db
       .collection("providers")
       .findOne({ _id: new ObjectId(booking.provider_id) });
+      
     let delivery_distance_km = 0;
     let delivery_charge = 0;
     if (booking_coords && provider?.coordinates) {
@@ -132,8 +142,13 @@ export async function PUT(
       processedItems.reduce((acc, item) => acc + item.line_total, 0) +
       delivery_charge;
 
-    // Create Order
-    const order = await createOrder({
+    // Commission Split (5%)
+    const platform_commission = total_price * 0.05;
+    const provider_payout_amount = total_price - platform_commission;
+
+    const now = new Date();
+
+    const orderData: any = {
       booking_id: booking_id,
       seeker_id: new ObjectId(booking.seeker_id.toString()),
       provider_id: new ObjectId(booking.provider_id.toString()),
@@ -142,11 +157,27 @@ export async function PUT(
       delivery_distance_km,
       delivery_charge,
       deadline: booking.deadline ? new Date(booking.deadline) : undefined,
-      payment_status: "paid", // We just verified payment
-      process_status: "processing", // Initial status
-    });
+      
+      // Payment & Escrow
+      payment_status: "paid", 
+      payment_made_at: now,
+      process_status: "invoiced", // Start status
+      
+      escrow_started_at: undefined, // Starts on Delivery? Or Now? User said "After provider completes delivery... Escrow timer starts"
+      // But payment is held NOW. 
+      // We will leave escrow_started_at undefined until delivery.
+      
+      platform_commission,
+      provider_payout_amount,
+      razorpay_order_id,
+      razorpay_payment_id,
+      payout_status: "pending",
+      createdAt: now
+    };
 
-    return NextResponse.json({ success: true, orderId: order._id });
+    const res = await db.collection("orders").insertOne(orderData);
+
+    return NextResponse.json({ success: true, orderId: res.insertedId });
   } catch (error) {
     console.error("Payment verification error:", error);
     return NextResponse.json(

@@ -71,7 +71,32 @@ export async function PATCH(
       );
     }
 
-    const success = await updateBookingStatus(booking_id, "accepted");
+    // Check for Provider Payment Details (Mandatory)
+    if (!provider.razorpay_fund_account_id) {
+      return NextResponse.json(
+        { message: "You must complete your Payment/Bank Details in Profile before accepting bookings." },
+        { status: 400 }
+      );
+    }
+
+    // Commission Calculation
+    const bookingFee = booking.bookingFee || 0;
+    const platform_commission = bookingFee * 0.05; // 5%
+    const provider_payout_amount = bookingFee - platform_commission; // 95%
+
+    const updateRes = await db.collection("bookings").updateOne(
+      { _id: booking_id },
+      { 
+        $set: { 
+          status: "accepted",
+          platform_commission,
+          provider_payout_amount,
+          payout_status: "pending",
+          updatedAt: new Date()
+        } 
+      }
+    );
+    const success = updateRes.modifiedCount > 0;
 
     if (success) {
       return NextResponse.json({ message: "Booking accepted" });

@@ -64,6 +64,7 @@ export type Booking = {
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   payout_status?: "pending" | "processing" | "paid" | "failed";
+  payout_id?: string;
 };
 
 export type PopulatedBooking = Omit<Booking, "seeker_id"> & {

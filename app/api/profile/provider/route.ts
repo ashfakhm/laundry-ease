@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
+import { createRazorpayContact, createRazorpayFundAccount } from "@/lib/razorpay";
+import { Provider } from "@/lib/db";
 
 /**
  * GET /api/profile/provider
@@ -127,6 +129,56 @@ export async function PATCH(req: Request) {
 
       // Remove the direct object assignment to avoid conflict if mixed
       delete updateFields.bankDetails;
+
+      try {
+        const { db } = await getDb();
+        // Fetch current provider to get contact_id if exists, and fallback details
+        const currentProvider = await db.collection<Provider>("providers").findOne({ email: session.user.email });
+        
+        if (currentProvider) {
+          const contactName = (updateFields.name as string) || currentProvider.name || "Provider";
+          const contactEmail = session.user.email;
+          const contactPhone = (updateFields.phone as string) || currentProvider.phone || "";
+          
+          let contactId = currentProvider.razorpay_contact_id;
+
+          // 1. Create/Get Contact
+          if (!contactId && contactPhone) {
+             const contact = await createRazorpayContact({
+               name: contactName,
+               email: contactEmail,
+               contact: contactPhone,
+               type: "vendor",
+               reference_id: currentProvider._id?.toString()
+             });
+             contactId = contact.id;
+             updateFields.razorpay_contact_id = contactId;
+          }
+
+          // 2. Create Fund Account (Bank)
+          // We prioritize Bank Account over UPI for now as per mandatory fields
+          const accName = (updateFields["bankDetails.accountHolderName"] as string) || currentProvider.bankDetails?.accountHolderName;
+          const accNumber = (updateFields["bankDetails.accountNumber"] as string) || currentProvider.bankDetails?.accountNumber;
+          const accIfsc = (updateFields["bankDetails.ifsc"] as string) || currentProvider.bankDetails?.ifsc;
+
+          if (contactId && accName && accNumber && accIfsc) {
+             const fundAccount = await createRazorpayFundAccount({
+               contact_id: contactId,
+               account_type: "bank_account",
+               bank_account: {
+                 name: accName,
+                 account_number: accNumber,
+                 ifsc: accIfsc
+               }
+             });
+             updateFields.razorpay_fund_account_id = fundAccount.id;
+          }
+        }
+      } catch (e) {
+        console.error("Razorpay Sync Error:", e);
+        // We do not block the update, but we log the error. Admin might need to retry or we retry via cron.
+        // For now, let's proceed.
+      }
     }
 
     const { db } = await getDb();

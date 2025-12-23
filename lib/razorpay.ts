@@ -127,6 +127,25 @@ export async function createRazorpayFundAccount(data: {
 }
 
 /**
+ * Create a Fund Account (VPA/UPI)
+ */
+export async function createRazorpayFundAccountVpa(data: {
+  contact_id: string;
+  account_type: "vpa";
+  vpa: {
+    address: string;
+  };
+}) {
+  try {
+    const response = await (razorpay as any).fund_accounts.create(data);
+    return response;
+  } catch (error) {
+    console.error("Error creating VPA Fund Account:", error);
+    throw error;
+  }
+}
+
+/**
  * Create a Payout
  */
 export async function createRazorpayPayout(data: {
