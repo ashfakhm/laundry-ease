@@ -237,7 +237,7 @@ export default function SeekerSignupPage() {
                     <label className="text-sm font-medium">Full Name</label>
                     <input
                       className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
-                      placeholder="John Doe"
+                      placeholder="Enter Your Name"
                       value={form.name}
                       onChange={(e) => set("name", e.target.value)}
                       required
@@ -248,7 +248,7 @@ export default function SeekerSignupPage() {
                     <input
                       type="email"
                       className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
-                      placeholder="john@example.com"
+                      placeholder="Enter Your Email"
                       value={form.email}
                       onChange={(e) => set("email", e.target.value)}
                       required

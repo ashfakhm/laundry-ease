@@ -54,33 +54,59 @@ export async function POST(
     // Let's calculate it when status becomes "delivered".
 
     // OTP Logic
-    const updateData: any = { // Using any to allow dynamic fields like delivery_otp
-        process_status: status,
-        updatedAt: new Date()
+    const updateData: any = {
+      // Using any to allow dynamic fields like delivery_otp
+      process_status: status,
+      updatedAt: new Date(),
     };
 
     if (status === "out_for_delivery") {
-        // Generate OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        updateData.delivery_otp = otp;
-        // In production: await sendSms(order.seeker.phone, `Your delivery OTP is ${otp}`);
-        console.log(`[MOCK SMS] To Order #${id}: Your delivery OTP is ${otp}`);
+      // Generate OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      updateData.delivery_otp = otp;
+      // Send real SMS to seeker
+      const { db } = await getDb();
+      const seeker = await db
+        .collection("seekers")
+        .findOne({ _id: order.seeker_id });
+      if (seeker?.phone) {
+        try {
+          const twilio = require("twilio");
+          const { env } = require("@/lib/env");
+          const smsClient = twilio(
+            env.TWILIO_ACCOUNT_SID,
+            env.TWILIO_AUTH_TOKEN
+          );
+          await smsClient.messages.create({
+            body: `Your LaundryEase delivery OTP is ${otp}. Please share this code with your provider only upon delivery.`,
+            from: env.TWILIO_PHONE_NUMBER,
+            to: seeker.phone,
+          });
+        } catch (err) {
+          console.error("Failed to send delivery OTP SMS:", err);
+        }
+      } else {
+        console.warn("Seeker phone number not found, cannot send OTP SMS.");
+      }
     }
 
     if (status === "delivered") {
-        const { otp } = body;
-        
-        // If order allows "Seeker Confirmation" via checking their own device, we might skip this.
-        // But for "Provider enters OTP" flow:
-        if (!otp) {
-             return NextResponse.json({ message: "OTP required for delivery confirmation" }, { status: 400 });
-        }
+      const { otp } = body;
 
-        if (otp !== order.delivery_otp) {
-             return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
-        }
-        
-        updateData.otp_confirmed_at = new Date();
+      // If order allows "Seeker Confirmation" via checking their own device, we might skip this.
+      // But for "Provider enters OTP" flow:
+      if (!otp) {
+        return NextResponse.json(
+          { message: "OTP required for delivery confirmation" },
+          { status: 400 }
+        );
+      }
+
+      if (otp !== order.delivery_otp) {
+        return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
+      }
+
+      updateData.otp_confirmed_at = new Date();
     }
 
     if (status === "delivered" && order.deadline) {

@@ -18,14 +18,17 @@ export async function GET(req: Request) {
     }
 
     const { db } = await getDb();
-    const providers = await db.collection<Provider>("providers").find({}).toArray();
+    const providers = await db
+      .collection<Provider>("providers")
+      .find({})
+      .toArray();
 
     const seekerLoc = { lat: Number(lat), lng: Number(lng) };
 
     const nearbyProviders = providers
       .map((provider) => {
         // Default coordinates if missing (MVP fallback)
-        const pLoc = provider.coordinates || { lat: 0, lng: 0 }; 
+        const pLoc = provider.coordinates || { lat: 0, lng: 0 };
         const distance = calculateDistance(seekerLoc, pLoc);
 
         // Check if seeker is within provider's radius
@@ -49,12 +52,12 @@ export async function GET(req: Request) {
           location: provider.location,
           distance_km: distance,
           delivery_fee: deliveryFee,
-          rating: 4.8, // Mock rating for now
-          reviewCount: 12, // Mock count
+          rating: provider.rating || 0,
+          reviewCount: provider.reviewCount || 0,
         };
       })
       .filter((p) => p !== null)
-      .sort((a, b) => (a!.distance_km - b!.distance_km));
+      .sort((a, b) => a!.distance_km - b!.distance_km);
 
     return NextResponse.json(nearbyProviders);
   } catch (error) {

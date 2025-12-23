@@ -112,16 +112,24 @@ export async function POST(req: Request) {
       );
     }
 
-    // Integrate with Razorpay for refund if needed (mocked for MVP)
+    // Integrate with Razorpay for refund if needed
     let razorpayResult = null;
     if (action === "refund") {
-      // In production, call Razorpay refund API here
-      // Example: await razorpay.payments.refund(paymentId, { amount });
-      // For MVP, just log and update status
-      razorpayResult = { status: "mocked_refund", amount };
-      await db
-        .collection("orders")
-        .updateOne(
+      // Find paymentId from order
+      const paymentId = order.razorpay_payment_id;
+      if (!paymentId) {
+        return NextResponse.json(
+          { error: "No Razorpay payment ID found for this order" },
+          { status: 400 }
+        );
+      }
+      try {
+        // Refund amount in paise (Razorpay expects smallest currency unit)
+        const refund = await razorpay.payments.refund(paymentId, {
+          amount: Math.round(amount * 100),
+        });
+        razorpayResult = refund;
+        await db.collection("orders").updateOne(
           { _id: new ObjectId(orderId) },
           {
             $set: {
@@ -129,23 +137,28 @@ export async function POST(req: Request) {
               refund_reason: reason,
               refund_amount: amount,
               refund_at: new Date(),
+              razorpay_refund_id: refund.id,
             },
           }
         );
+      } catch (err) {
+        return NextResponse.json(
+          { error: "Razorpay refund failed", details: err?.message || err },
+          { status: 500 }
+        );
+      }
     } else if (action === "penalty") {
       // Apply penalty: update order with penalty, optionally deduct from provider payout
-      await db
-        .collection("orders")
-        .updateOne(
-          { _id: new ObjectId(orderId) },
-          {
-            $set: {
-              latePenalty: amount,
-              penalty_reason: reason,
-              penalty_at: new Date(),
-            },
-          }
-        );
+      await db.collection("orders").updateOne(
+        { _id: new ObjectId(orderId) },
+        {
+          $set: {
+            latePenalty: amount,
+            penalty_reason: reason,
+            penalty_at: new Date(),
+          },
+        }
+      );
       razorpayResult = { status: "penalty_recorded", amount };
     }
 

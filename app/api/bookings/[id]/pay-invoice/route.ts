@@ -24,7 +24,10 @@ export async function POST(
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json({ message: "Booking not found" }, { status: 404 });
+      return NextResponse.json(
+        { message: "Booking not found" },
+        { status: 404 }
+      );
     }
 
     if (booking.seeker_id.toString() !== session.user.id) {
@@ -44,9 +47,12 @@ export async function POST(
     // Let's assume for now Invoice Total is the base, and we recalculate delivery here to add to it?
     // Or simpler: Just charge what the Provider put in "Total" in the Invoice Form.
     // In `invoice-form.tsx`, we saw `total` calculated from items.
-    
+
     // Let's stick to the Invoice Total logic for now to match the UI.
-    const amountInRupees = booking.invoice.items.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0);
+    const amountInRupees = booking.invoice.items.reduce(
+      (sum: number, item: any) => sum + item.quantity * item.unitPrice,
+      0
+    );
     const amountInPaise = Math.round(amountInRupees * 100);
 
     const razorpayOrder = await createRazorpayOrder(amountInPaise, id); // id is booking_id
@@ -95,21 +101,36 @@ export async function PUT(
     // --- LOGIC MOVED FROM api/orders/route.ts ---
     // 1. Calculate Delivery
     const booking_coords = booking.seeker_coordinates;
-    // We need provider data for radius
-    // Since we don't have direct access to getUserByEmail for provider here easily without importing...
-    // Let's assume standard logic or skip complex delivery fee for this "Fix" phase to ensure core flow works.
-    // Ideally, we should fetch Provider.
-    // Note: `getBookingById` returns populated provider? No, strictly Booking usually.
-    // Let's just create the Order with the Item Total for now.
-    
-    const processedItems: OrderItem[] = booking.invoice.items.map((item: any) => ({
+    const { db } = await import("@/lib/mongodb").then((m) => m.getDb());
+    const provider = await db
+      .collection("providers")
+      .findOne({ _id: new ObjectId(booking.provider_id) });
+    let delivery_distance_km = 0;
+    let delivery_charge = 0;
+    if (booking_coords && provider?.coordinates) {
+      const { calculateDistance } = await import("@/lib/distance");
+      delivery_distance_km = calculateDistance(
+        booking_coords,
+        provider.coordinates
+      );
+      const freeRadius = provider.free_radius_km || 5;
+      const perKmRate = provider.per_km_rate || 10;
+      const extraDistance = Math.max(0, delivery_distance_km - freeRadius);
+      delivery_charge = Math.round(extraDistance * perKmRate);
+    }
+
+    const processedItems: OrderItem[] = booking.invoice.items.map(
+      (item: any) => ({
         name: item.itemType, // Mapping 'itemType' from Invoice to 'name' in OrderItem
         quantity: item.quantity,
         unit_price: item.unitPrice,
-        line_total: item.quantity * item.unitPrice
-    }));
+        line_total: item.quantity * item.unitPrice,
+      })
+    );
 
-    const total_price = processedItems.reduce((acc, item) => acc + item.line_total, 0);
+    const total_price =
+      processedItems.reduce((acc, item) => acc + item.line_total, 0) +
+      delivery_charge;
 
     // Create Order
     const order = await createOrder({
@@ -118,15 +139,14 @@ export async function PUT(
       provider_id: new ObjectId(booking.provider_id.toString()),
       items: processedItems,
       total_price,
-      delivery_distance_km: 0, // Placeholder
-      delivery_charge: 0, // Placeholder
+      delivery_distance_km,
+      delivery_charge,
       deadline: booking.deadline ? new Date(booking.deadline) : undefined,
       payment_status: "paid", // We just verified payment
-      process_status: "processing" // Initial status
+      process_status: "processing", // Initial status
     });
 
     return NextResponse.json({ success: true, orderId: order._id });
-
   } catch (error) {
     console.error("Payment verification error:", error);
     return NextResponse.json(

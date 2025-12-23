@@ -12,42 +12,34 @@ type Review = {
   order_id: string;
 };
 
-// Static mock data - in production, this would come from an API
-const MOCK_REVIEWS: Review[] = [
-  {
-    _id: "1",
-    seeker_name: "Rahul Sharma",
-    rating: 5,
-    comment:
-      "Excellent service! Very professional and clothes came back perfectly clean.",
-    createdAt: "2024-12-19T10:00:00.000Z",
-    order_id: "ORD123",
-  },
-  {
-    _id: "2",
-    seeker_name: "Priya Patel",
-    rating: 4,
-    comment: "Good quality work. Delivery was on time. Will use again.",
-    createdAt: "2024-12-16T10:00:00.000Z",
-    order_id: "ORD124",
-  },
-  {
-    _id: "3",
-    seeker_name: "Amit Kumar",
-    rating: 5,
-    comment:
-      "Best laundry service in the area! Very careful with delicate fabrics.",
-    createdAt: "2024-12-11T10:00:00.000Z",
-    order_id: "ORD125",
-  },
-];
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 
+// Fetch reviews from API for the logged-in provider
 export default function ReviewsManagePage() {
-  // In production, this would use SWR/React Query to fetch from API
-  const reviews = MOCK_REVIEWS;
+  const { data: session } = useSession();
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchReviews() {
+      if (!session?.user?.id) return;
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/reviews?provider_id=${session.user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setReviews(data.reviews || []);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchReviews();
+  }, [session?.user?.id]);
 
   const averageRating = useMemo(
-    () => reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length || 0,
+    () => reviews.reduce((sum, r) => sum + r.rating, 0) / (reviews.length || 1),
     [reviews]
   );
 
