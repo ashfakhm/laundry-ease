@@ -187,6 +187,16 @@ export async function createProvider(data: {
 
 // Booking type is imported from @/types/bookings
 
+export type Review = {
+  _id?: ObjectId;
+  order_id: ObjectId;
+  seeker_id: ObjectId;
+  provider_id: ObjectId;
+  rating: number; // 1-5
+  comment?: string;
+  createdAt: Date;
+};
+
 
 export async function createBooking(data: {
   seeker_id: ObjectId;
