@@ -214,63 +214,7 @@ export default function ProviderSignupPage() {
       callbackUrl: "/",
     });
   }
-  <div className="h-px bg-border/50" />;
 
-  {
-    /* Payout Details */
-  }
-  <div className="space-y-6">
-    <div>
-      <h3 className="font-heading text-lg font-bold">Payout (Bank) Details</h3>
-      <p className="text-sm text-muted-foreground">
-        Required to receive payouts. Details must match your bank records.
-      </p>
-    </div>
-    <div className="grid md:grid-cols-2 gap-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Account Holder Name</label>
-        <input
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="As per bank records"
-          value={form.bankAccountHolder}
-          onChange={(e) => set("bankAccountHolder", e.target.value)}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Account Number</label>
-        <input
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="Bank account number"
-          value={form.bankAccountNumber}
-          onChange={(e) => set("bankAccountNumber", e.target.value)}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium">IFSC Code</label>
-        <input
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="e.g. HDFC0001234"
-          value={form.bankIFSC}
-          onChange={(e) => set("bankIFSC", e.target.value.toUpperCase())}
-          required
-          maxLength={11}
-          pattern="^[A-Z]{4}0[A-Z0-9]{6}$"
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium">UPI ID (optional)</label>
-        <input
-          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="yourname@upi (optional)"
-          value={form.upiId}
-          onChange={(e) => set("upiId", e.target.value)}
-          autoComplete="off"
-        />
-      </div>
-    </div>
-  </div>;
 
   return (
     <>
@@ -650,6 +594,62 @@ export default function ProviderSignupPage() {
                         ))}
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div className="h-px bg-border/50" />
+
+              {/* Payout Details */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-heading text-lg font-bold">Payout (Bank) Details</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Required to receive payouts. Details must match your bank records.
+                  </p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Account Holder Name</label>
+                    <input
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="As per bank records"
+                      value={form.bankAccountHolder}
+                      onChange={(e) => set("bankAccountHolder", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Account Number</label>
+                    <input
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="Bank account number"
+                      value={form.bankAccountNumber}
+                      onChange={(e) => set("bankAccountNumber", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">IFSC Code</label>
+                    <input
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="e.g. HDFC0001234"
+                      value={form.bankIFSC}
+                      onChange={(e) => set("bankIFSC", e.target.value.toUpperCase())}
+                      required
+                      maxLength={11}
+                      pattern="^[A-Z]{4}0[A-Z0-9]{6}$"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">UPI ID (optional)</label>
+                    <input
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="yourname@upi (optional)"
+                      value={form.upiId}
+                      onChange={(e) => set("upiId", e.target.value)}
+                      autoComplete="off"
+                    />
+                  </div>
                 </div>
               </div>
 

@@ -62,6 +62,11 @@ const providerProfileSchema = z
         ),
       })
     ),
+    // Bank Details
+    bankAccountHolder: z.string().min(2, "Account holder name is required"),
+    bankAccountNumber: z.string().min(6, "Account number is required"),
+    bankIFSC: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code"),
+    upiId: z.string().optional(),
     // Security
     currentPassword: z.string().optional(),
     newPassword: z.string().optional(),
@@ -118,6 +123,10 @@ type ProviderProfileValues = {
   pricing: number;
   capacity: number;
   items: { name: string; price: number }[];
+  bankAccountHolder?: string;
+  bankAccountNumber?: string;
+  bankIFSC?: string;
+  upiId?: string;
   currentPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
@@ -145,6 +154,10 @@ export default function ProviderEditProfilePage() {
       pricing: 0,
       capacity: 5,
       items: [],
+      bankAccountHolder: "",
+      bankAccountNumber: "",
+      bankIFSC: "",
+      upiId: "",
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
@@ -182,6 +195,10 @@ export default function ProviderEditProfilePage() {
                 price: Number(price),
               }))
             : [],
+          bankAccountHolder: data.bankDetails?.accountHolderName || "",
+          bankAccountNumber: data.bankDetails?.accountNumber || "",
+          bankIFSC: data.bankDetails?.ifsc || "",
+          upiId: data.bankDetails?.upiId || "",
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
@@ -569,6 +586,61 @@ export default function ProviderEditProfilePage() {
             </SpotlightCard>
           </motion.div>
         </div>
+
+        {/* Bank Details */}
+        <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.18, duration: 0.5 }}
+        >
+          <SpotlightCard className="rounded-3xl bg-card border-border p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl font-bold font-heading">Payout (Bank) Details</h2>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Account Holder Name</label>
+                <input
+                   {...form.register("bankAccountHolder")}
+                   className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                   placeholder="As per bank records"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Account Number</label>
+                <input
+                   {...form.register("bankAccountNumber")}
+                   className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                   placeholder="Bank account number"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">IFSC Code</label>
+                <input
+                   {...form.register("bankIFSC")}
+                   className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                   placeholder="e.g. HDFC0001234"
+                   maxLength={11}
+                   onChange={e => {
+                      e.target.value = e.target.value.toUpperCase();
+                      form.setValue("bankIFSC", e.target.value);
+                   }}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">UPI ID (Optional)</label>
+                <input
+                   {...form.register("upiId")}
+                   className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                   placeholder="yourname@upi"
+                />
+              </div>
+            </div>
+          </SpotlightCard>
+        </motion.div>
 
         {/* Security */}
         <motion.div

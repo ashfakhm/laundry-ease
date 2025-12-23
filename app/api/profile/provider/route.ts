@@ -102,6 +102,33 @@ export async function PATCH(req: Request) {
     if (capacity !== undefined) updateFields.capacity = Number(capacity);
     if (phone !== undefined) updateFields.phone = phone;
 
+    // Bank Details Update
+    const { bankAccountHolder, bankAccountNumber, bankIFSC, upiId } = body;
+    if (bankAccountHolder !== undefined || bankAccountNumber !== undefined || bankIFSC !== undefined || upiId !== undefined) {
+      updateFields.bankDetails = {
+         ...(bankAccountHolder ? { accountHolderName: bankAccountHolder } : {}),
+         ...(bankAccountNumber ? { accountNumber: bankAccountNumber } : {}),
+         ...(bankIFSC ? { ifsc: bankIFSC } : {}),
+         ...(upiId ? { upiId } : {})
+      };
+      
+      // If updating partial bank details, we need to merge with existing if not provided? 
+      // Actually, for simplicity, let's assume the frontend sends the whole object or we use dot notation for specific fields if we want partial updates.
+      // But typically React Hook Form sends the whole form. 
+      // Let's use dot notation to be safe and avoid overwriting with nulls if not intended, OR simpler:
+      // constructing the object. However, mongo update with $set replacement of nested object replaces the whole object.
+      // Better to use dot notation for nested fields if we want to support partial updates, OR fetch existing and merge.
+      // Given the form will send all fields, replacing the object is okay, BUT better to use specific fields.
+      
+      if (bankAccountHolder !== undefined) updateFields["bankDetails.accountHolderName"] = bankAccountHolder;
+      if (bankAccountNumber !== undefined) updateFields["bankDetails.accountNumber"] = bankAccountNumber;
+      if (bankIFSC !== undefined) updateFields["bankDetails.ifsc"] = bankIFSC;
+      if (upiId !== undefined) updateFields["bankDetails.upiId"] = upiId;
+
+      // Remove the direct object assignment to avoid conflict if mixed
+      delete updateFields.bankDetails;
+    }
+
     const { db } = await getDb();
 
     // Secure Password Change Logic
