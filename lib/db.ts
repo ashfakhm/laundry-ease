@@ -152,6 +152,12 @@ export async function createProvider(data: {
   free_radius_km?: number;
   per_km_rate?: number;
   capacity?: number;
+  bankDetails: {
+    accountHolderName: string;
+    accountNumber: string;
+    ifsc: string;
+    upiId?: string;
+  };
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -179,6 +185,7 @@ export async function createProvider(data: {
     documents: [],
     createdAt: now,
     capacity: data.capacity ?? 5, // Default to 5 concurrent bookings if not provided
+    bankDetails: data.bankDetails,
   };
 
   const res = await db.collection<Provider>("providers").insertOne(provider);
@@ -196,7 +203,6 @@ export type Review = {
   comment?: string;
   createdAt: Date;
 };
-
 
 export async function createBooking(data: {
   seeker_id: ObjectId;
@@ -468,9 +474,9 @@ export async function getBookingsForProvider(email: string) {
 
   const bookings = await db
     .collection<Booking>("bookings")
-    .find({ 
+    .find({
       provider_id: provider._id,
-      bookingFeeStatus: "paid"
+      bookingFeeStatus: "paid",
     })
     .sort({ createdAt: -1 })
     .toArray();

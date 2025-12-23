@@ -18,9 +18,13 @@ export async function GET(req: Request) {
     }
 
     const { db } = await getDb();
+    // Only show providers with verified payout details
     const providers = await db
       .collection<Provider>("providers")
-      .find({})
+      .find({
+        bankDetails: { $exists: true, $ne: null },
+        razorpay_fund_account_id: { $exists: true, $ne: null },
+      })
       .toArray();
 
     const seekerLoc = { lat: Number(lat), lng: Number(lng) };

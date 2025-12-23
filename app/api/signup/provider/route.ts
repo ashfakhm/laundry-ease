@@ -7,7 +7,10 @@ export async function POST(req: NextRequest) {
   const payload = await req.json();
   const parsed = signupProviderSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid data", details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid data", details: parsed.error.flatten() },
+      { status: 400 }
+    );
   }
   const {
     name,
@@ -23,6 +26,10 @@ export async function POST(req: NextRequest) {
     per_km_rate,
     pricing,
     pricingRates,
+    bankAccountHolder,
+    bankAccountNumber,
+    bankIFSC,
+    upiId,
   } = parsed.data;
 
   // Require verified OTPs for email and phone
@@ -59,6 +66,12 @@ export async function POST(req: NextRequest) {
     radius_km,
     per_km_rate,
     pricing,
+    bankDetails: {
+      accountHolderName: bankAccountHolder,
+      accountNumber: bankAccountNumber,
+      ifsc: bankIFSC,
+      upiId: upiId || undefined,
+    },
   });
 
   return NextResponse.json({ ok: true });

@@ -72,50 +72,7 @@ import {
   Clock,
   CheckCircle2,
   Calendar,
-        <div className="space-y-4">
-          {filteredPayments.map((payment) => (
-            <div
-              key={payment._id}
-              className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur"
-            >
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">
-                          Order #{payment.order_id.slice(-8)}
-                        </h3>
-                        {getStatusBadge(payment.payment_status)}
-                      </div>
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(payment.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {payment.seeker && (
-                      <div className="rounded-xl border bg-background p-3">
-                        <p className="text-xs text-muted-foreground">Seeker</p>
-                        <p className="mt-0.5 text-sm font-medium">
-                          {payment.seeker.name}
-                        </p>
-                      </div>
-                    )}
-                    {payment.provider && (
-                      <div className="rounded-xl border bg-background p-3">
-                        <p className="text-xs text-muted-foreground">
-                          Provider
-                        </p>
-                        <p className="mt-0.5 text-sm font-medium">
-                          {payment.provider.businessName ||
-                            payment.provider.name}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+} from "lucide-react";
 
                   {payment.escrow_release_at && (
                     <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs">

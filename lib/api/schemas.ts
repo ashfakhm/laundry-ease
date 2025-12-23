@@ -119,6 +119,10 @@ export const signupProviderSchema = z.object({
   per_km_rate: z.number().nonnegative().default(10),
   pricing: z.number().nonnegative().default(0), // "Booking Price"
   pricingRates: z.record(z.string(), z.number().nonnegative()).optional(),
+  bankAccountHolder: z.string().min(2, "Account holder name required"),
+  bankAccountNumber: z.string().min(6, "Account number required"),
+  bankIFSC: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code"),
+  upiId: z.string().optional().or(z.literal("")).optional(),
 });
 
 export const otpRequestSchema = z.object({

@@ -62,6 +62,37 @@ export default function UserManagementPage() {
     );
   }
 
+  async function banUser(user: User) {
+    const days = prompt("Ban for how many days? (Enter number)", "7");
+    if (!days || isNaN(Number(days))) return;
+    const until = new Date(
+      Date.now() + Number(days) * 24 * 60 * 60 * 1000
+    ).toISOString();
+    const res = await fetch(`/api/admin/users/${user._id}/ban`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blocked_until: until, role: user.role }),
+    });
+    if (res.ok) fetchUsers();
+    else alert("Failed to ban user");
+  }
+
+  async function deleteUser(user: User) {
+    if (
+      !confirm(
+        `Delete user ${user.name} (${user.email})? This cannot be undone!`
+      )
+    )
+      return;
+    const res = await fetch(`/api/admin/users/${user._id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: user.role }),
+    });
+    if (res.ok) fetchUsers();
+    else alert("Failed to delete user");
+  }
+
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background">
       <div className="mx-auto max-w-7xl px-4 py-6">
@@ -178,6 +209,21 @@ export default function UserManagementPage() {
                   {user.businessName}
                 </p>
               )}
+
+              <div className="mt-3 flex gap-2">
+                <button
+                  className="rounded-lg bg-red-100 text-red-700 px-3 py-1 text-xs font-semibold hover:bg-red-200"
+                  onClick={() => banUser(user)}
+                >
+                  Ban
+                </button>
+                <button
+                  className="rounded-lg bg-gray-100 text-gray-700 px-3 py-1 text-xs font-semibold hover:bg-gray-200"
+                  onClick={() => deleteUser(user)}
+                >
+                  Delete
+                </button>
+              </div>
 
               <div className="mt-4 space-y-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
