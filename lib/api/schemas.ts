@@ -115,6 +115,8 @@ export const signupProviderSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
   location: z.string().min(1, "Service location is required"),
   services: z.array(z.string()).min(1, "At least one service is required"),
+  bio: z.string().optional(),
+  description: z.string().optional(),
   radius_km: z.number().positive().max(50).default(10),
   per_km_rate: z.number().nonnegative().default(10),
   pricing: z.number().nonnegative().default(0), // "Booking Price"

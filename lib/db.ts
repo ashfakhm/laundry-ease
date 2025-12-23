@@ -270,6 +270,8 @@ export async function createOrder(data: {
   delivery_distance_km?: number;
   delivery_charge: number;
   deadline?: Date;
+  platform_commission?: number;
+  provider_payout_amount?: number;
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -282,6 +284,8 @@ export async function createOrder(data: {
     total_price: data.total_price,
     delivery_distance_km: data.delivery_distance_km,
     delivery_charge: data.delivery_charge,
+    platform_commission: data.platform_commission,
+    provider_payout_amount: data.provider_payout_amount,
     payment_status: "unpaid",
     process_status: "invoiced",
     deadline: data.deadline,

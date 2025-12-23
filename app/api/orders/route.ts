@@ -95,6 +95,9 @@ export const POST = withErrorHandling(async (req: Request) => {
     }
   }
 
+  const platform_commission = total_price * 0.05; // 5% of item total
+  const provider_payout_amount = (total_price - platform_commission) + delivery_charge; // (Items - 5%) + 100% Delivery
+
   const order = await createOrder({
     booking_id: new ObjectId(booking_id),
     seeker_id: new ObjectId(booking.seeker_id.toString()),
@@ -103,6 +106,8 @@ export const POST = withErrorHandling(async (req: Request) => {
     total_price,
     delivery_distance_km,
     delivery_charge,
+    platform_commission,
+    provider_payout_amount,
     deadline: booking.deadline ? new Date(booking.deadline) : undefined,
   });
 

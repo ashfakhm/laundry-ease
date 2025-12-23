@@ -42,7 +42,8 @@ export async function GET(req: Request) {
                 }
 
                 // 3. Payout Amount
-                const payoutAmount = order.provider_payout_amount || (order.total_price * 0.95);
+                // Use stored amount if available, otherwise fallback to calculation (ItemTotal * 0.95 + DeliveryCharge)
+                const payoutAmount = order.provider_payout_amount || ((order.total_price * 0.95) + (order.delivery_charge || 0));
                 const amountInPaise = Math.round(payoutAmount * 100);
 
                 // 4. Trigger Razorpay Payout
