@@ -110,6 +110,7 @@ type ProviderProfileValues = {
   bio?: string;
   description?: string;
   location: string;
+  coordinates?: { lat: number; lng: number };
   phone?: string;
   radius_km: number;
   free_radius_km: number;
@@ -185,23 +186,7 @@ export default function ProviderEditProfilePage() {
           newPassword: "",
           confirmPassword: "",
         });
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground">
-            Max Concurrent Bookings (Capacity)
-          </label>
-          <input
-            type="number"
-            {...form.register("capacity", { valueAsNumber: true })}
-            className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-            min={1}
-          />
-          {form.formState.errors.capacity &&
-            typeof form.formState.errors.capacity?.message === "string" && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.capacity.message}
-              </p>
-            )}
-        </div>;
+
       } catch {
         toast.error("Could not load profile");
       } finally {
@@ -326,6 +311,16 @@ export default function ProviderEditProfilePage() {
                       placeholder="e.g. Sparkle Laundry"
                     />
                   </div>
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Mobile Number
+                    </label>
+                    <input
+                      {...form.register("phone")}
+                      className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      placeholder="e.g. +91 9876543210"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -429,6 +424,24 @@ export default function ProviderEditProfilePage() {
                       className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Max Concurrent Bookings (Capacity)
+                  </label>
+                  <input
+                    type="number"
+                    {...form.register("capacity", { valueAsNumber: true })}
+                    className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    min={1}
+                  />
+                  {form.formState.errors.capacity &&
+                    typeof form.formState.errors.capacity?.message === "string" && (
+                      <p className="text-xs text-destructive">
+                        {form.formState.errors.capacity.message}
+                      </p>
+                    )}
                 </div>
 
                 <div className="space-y-2">

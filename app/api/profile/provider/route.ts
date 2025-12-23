@@ -80,7 +80,9 @@ export async function PATCH(req: Request) {
       coordinates,
       pricing,
       currentPassword,
-      newPassword
+      newPassword,
+      capacity,
+      phone
     } = body;
 
     // Build update object with only provided fields
@@ -97,6 +99,8 @@ export async function PATCH(req: Request) {
     if (free_radius_km !== undefined) updateFields.free_radius_km = Number(free_radius_km);
     if (per_km_rate !== undefined) updateFields.per_km_rate = Number(per_km_rate);
     if (coordinates !== undefined) updateFields.coordinates = coordinates;
+    if (capacity !== undefined) updateFields.capacity = Number(capacity);
+    if (phone !== undefined) updateFields.phone = phone;
 
     const { db } = await getDb();
 

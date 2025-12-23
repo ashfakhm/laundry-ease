@@ -2,6 +2,15 @@
 
 import { useState, useEffect } from "react";
 import React from "react";
+import {
+  DollarSign,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
+  Calendar,
+  IndianRupee,
+} from "lucide-react";
+
 type ActionType = "refund" | "penalty";
 
 type ActionState = {
@@ -9,12 +18,55 @@ type ActionState = {
   paymentId: string | null;
   type: ActionType | null;
 };
-  const [action, setAction] = useState<ActionState>({ open: false, paymentId: null, type: null });
+
+type Payment = {
+  _id: string;
+  order_id: string;
+  payment_status: "held" | "released" | "refunded" | "unpaid";
+  total_price: number;
+  delivery_charge: number;
+  createdAt: string;
+  escrow_release_at?: string;
+  seeker?: { name: string };
+  provider?: { name: string; businessName?: string };
+};
+
+export default function AdminPaymentManagementPage() {
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+
+  // Action Modal State
+  const [action, setAction] = useState<ActionState>({
+    open: false,
+    paymentId: null,
+    type: null,
+  });
   const [amount, setAmount] = useState(0);
   const [reason, setReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  async function fetchPayments() {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/admin/payments");
+      if (res.ok) {
+        const data = await res.json();
+        setPayments(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch payments", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchPayments();
+  }, []);
+
   function openActionModal(paymentId: string, type: ActionType) {
     setAction({ open: true, paymentId, type });
     setAmount(0);
@@ -66,116 +118,9 @@ type ActionState = {
       setActionLoading(false);
     }
   }
-import {
-  DollarSign,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  Calendar,
-} from "lucide-react";
 
-                  {payment.escrow_release_at && (
-                    <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs">
-                      <p className="font-medium text-amber-900">
-                        Escrow release: {" "}
-                        {new Date(payment.escrow_release_at).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Refund/Penalty Controls */}
-                  <div className="flex gap-2 mt-2">
-                    {(payment.payment_status === "held" || payment.payment_status === "released") && (
-                      <>
-                        <button
-                          className="btn btn-error btn-sm"
-                          onClick={() => openActionModal(payment._id, "refund")}
-                        >
-                          Refund
-                        </button>
-                        <button
-                          className="btn btn-warning btn-sm"
-                          onClick={() => openActionModal(payment._id, "penalty")}
-                        >
-                          Penalty
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Amount</p>
-                  <div className="mt-1 flex items-baseline justify-end gap-1">
-                    <IndianRupee className="h-5 w-5 text-emerald-600" />
-                    <p className="text-2xl font-bold text-emerald-600">
-                      {(
-                        payment.total_price + payment.delivery_charge
-                      ).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Refund/Penalty Modal */}
-        {action.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-              <h2 className="text-lg font-bold mb-2">
-                {action.type === "refund" ? "Process Refund" : "Apply Penalty"}
-              </h2>
-              <form onSubmit={handleActionSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={amount}
-                    onChange={e => setAmount(Number(e.target.value))}
-                    className="input input-bordered w-full"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Reason
-                  </label>
-                  <input
-                    type="text"
-                    value={reason}
-                    onChange={e => setReason(e.target.value)}
-                    className="input input-bordered w-full"
-                    required
-                  />
-                </div>
-                {actionError && <div className="text-error">{actionError}</div>}
-                {actionSuccess && <div className="text-success">{actionSuccess}</div>}
-                <div className="flex gap-2 justify-end">
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={closeActionModal}
-                    disabled={actionLoading}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? "Processing..." : action.type === "refund" ? "Refund" : "Apply Penalty"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+  const getStatusBadge = (status: string) => {
+    switch (status) {
       case "held":
         return (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
@@ -196,8 +141,27 @@ import {
             Refunded
           </span>
         );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+            {status}
+          </span>
+        );
     }
-  }
+  };
+
+  const filteredPayments =
+    filter === "all"
+      ? payments
+      : payments.filter((p) => p.payment_status === filter);
+
+  const totalRevenue = payments
+    .filter((p) => p.payment_status === "released")
+    .reduce((acc, curr) => acc + curr.total_price + curr.delivery_charge, 0);
+
+  const escrowAmount = payments
+    .filter((p) => p.payment_status === "held")
+    .reduce((acc, curr) => acc + curr.total_price + curr.delivery_charge, 0);
 
   if (loading) {
     return (
@@ -358,6 +322,29 @@ import {
                       </p>
                     </div>
                   )}
+
+                  {/* Refund/Penalty Controls */}
+                  <div className="flex gap-2 mt-2">
+                    {(payment.payment_status === "held" ||
+                      payment.payment_status === "released") && (
+                      <>
+                        <button
+                          className="btn btn-error btn-sm"
+                          onClick={() => openActionModal(payment._id, "refund")}
+                        >
+                          Refund
+                        </button>
+                        <button
+                          className="btn btn-warning btn-sm"
+                          onClick={() =>
+                            openActionModal(payment._id, "penalty")
+                          }
+                        >
+                          Penalty
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="text-right">
@@ -375,6 +362,69 @@ import {
             </div>
           ))}
         </div>
+
+        {/* Refund/Penalty Modal */}
+        {action.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+              <h2 className="text-lg font-bold mb-2">
+                {action.type === "refund" ? "Process Refund" : "Apply Penalty"}
+              </h2>
+              <form onSubmit={handleActionSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={amount}
+                    onChange={(e) => setAmount(Number(e.target.value))}
+                    className="input input-bordered w-full"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Reason
+                  </label>
+                  <input
+                    type="text"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="input input-bordered w-full"
+                    required
+                  />
+                </div>
+                {actionError && <div className="text-error">{actionError}</div>}
+                {actionSuccess && (
+                  <div className="text-success">{actionSuccess}</div>
+                )}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={closeActionModal}
+                    disabled={actionLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={actionLoading}
+                  >
+                    {actionLoading
+                      ? "Processing..."
+                      : action.type === "refund"
+                      ? "Refund"
+                      : "Apply Penalty"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
