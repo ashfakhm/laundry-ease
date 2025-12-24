@@ -94,8 +94,8 @@ export default function AdminPaymentManagementPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentId: action.paymentId,
-          type: action.type,
+          orderId: action.paymentId,
+          action: action.type,
           amount,
           reason,
         }),
@@ -281,7 +281,7 @@ export default function AdminPaymentManagementPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold">
-                          Order #{payment.order_id.slice(-8)}
+                          Order #{(payment.order_id || payment._id || "").toString().slice(-6).toUpperCase()}
                         </h3>
                         {getStatusBadge(payment.payment_status)}
                       </div>

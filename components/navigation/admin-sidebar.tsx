@@ -52,10 +52,6 @@ const navigation: NavGroup[] = [
       { label: "User Management", href: "/admin/User-Management", icon: Users },
     ],
   },
-  {
-    title: "Insights",
-    items: [{ label: "System Logs", href: "/admin/Logs", icon: ScrollText }],
-  },
 ];
 
 interface AdminSidebarProps {

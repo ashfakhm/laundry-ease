@@ -67,6 +67,8 @@ export default function ComplaintsPage() {
 
       if (response.ok) {
         await fetchComplaints();
+        // Automatically switch filter to show the updated complaint
+        setFilter(status);
       }
     } catch (error) {
       console.error("Error updating complaint:", error);
@@ -169,7 +171,7 @@ export default function ComplaintsPage() {
                           onClick={() => resolveComplaint(complaint._id, "release_payout")}
                           className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
                       >
-                          Release Payout (Reject Complaint)
+                          Issue Solved: Release Payout
                       </button>
                        <button
                           onClick={() => resolveComplaint(complaint._id, "refund_full")}
