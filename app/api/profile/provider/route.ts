@@ -174,10 +174,13 @@ export async function PATCH(req: Request) {
              updateFields.razorpay_fund_account_id = fundAccount.id;
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Razorpay Sync Error:", e);
-        // We do not block the update, but we log the error. Admin might need to retry or we retry via cron.
-        // For now, let's proceed.
+        // Fail the request if critical bank details sync fails so user knows
+        return NextResponse.json(
+          { error: `Payment Gateway Error: ${e.message || "Failed to sync bank details"}` },
+          { status: 500 }
+        );
       }
     }
 

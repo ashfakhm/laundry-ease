@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { signIn } from "next-auth/react";
 import { AppHeader } from "@/components/ui/app-header";
 import { motion } from "framer-motion";
@@ -302,12 +303,10 @@ export default function SeekerSignupPage() {
                     <label className="text-sm font-medium">
                       Street Address
                     </label>
-                    <input
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      placeholder="Flat No, Building, Street"
+                    <LocationAutocomplete
                       value={form.address.line1}
-                      onChange={(e) => setAddr("line1", e.target.value)}
-                      required
+                      onChange={(val) => setAddr("line1", val)}
+                      placeholder="Start typing your address..."
                     />
                   </div>
                   <div className="space-y-2">

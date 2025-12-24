@@ -4,22 +4,27 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { redirect } from "next/navigation";
 import Image from "next/image";
-import { 
-    Clock, 
-    CheckCircle2, 
-    Truck, 
-    Package, 
-    MapPin, 
-    Phone, 
-    MessageSquare,
-    IndianRupee,
-    AlertCircle
+import {
+  Clock,
+  CheckCircle2,
+  Truck,
+  Package,
+  MapPin,
+  Phone,
+  MessageSquare,
+  IndianRupee,
+  AlertCircle,
+  HelpCircle,
+  ShieldCheck,
+  ChevronRight,
+  Receipt,
+  Store,
 } from "lucide-react";
 import { PaymentButton } from "@/components/orders/payment-button";
 import Link from "next/link";
-import dynamic from "next/dynamic";
-
-const BookingChat = dynamic(() => import("@/components/chat-interface"), { ssr: false });
+import BookingChat from "@/components/chat-interface";
+import { PostDeliveryActions } from "@/components/orders/post-delivery-actions";
+import { cn } from "@/lib/utils";
 
 export default async function OrderDetailsPage({
   params,
@@ -27,33 +32,42 @@ export default async function OrderDetailsPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.id) {
     redirect("/signin");
   }
 
   const { id } = await params;
   const { db } = await getDb();
-  
+
   // Aggregate to get Provider details
-  const orders = await db.collection("orders").aggregate([
-    { $match: { _id: new ObjectId(id) } },
-    {
-      $lookup: {
-        from: "providers",
-        localField: "provider_id",
-        foreignField: "_id",
-        as: "provider",
+  const orders = await db
+    .collection("orders")
+    .aggregate([
+      { $match: { _id: new ObjectId(id) } },
+      {
+        $lookup: {
+          from: "providers",
+          localField: "provider_id",
+          foreignField: "_id",
+          as: "provider",
+        },
       },
-    },
-    { $unwind: "$provider" },
-  ]).toArray();
+      { $unwind: "$provider" },
+    ])
+    .toArray();
 
   const order = orders[0];
 
   if (!order) {
     redirect("/dashboard/seeker");
   }
+
+  // Check reviewed
+  const existingReview = await db
+    .collection("reviews")
+    .findOne({ order_id: new ObjectId(id) });
+  const hasReviewed = !!existingReview;
 
   if (order.seeker_id.toString() !== session.user.id) {
     redirect("/dashboard/seeker");
@@ -62,203 +76,283 @@ export default async function OrderDetailsPage({
   // Derived Values
   const totalAmount = (order.total_price || 0) + (order.delivery_charge || 0);
 
-  // Status Helper
-  const steps = [
-      { id: "paid", label: "Paid", icon: IndianRupee },
-      { id: "processing", label: "Processing", icon: Package },
-      { id: "ready", label: "Ready", icon: CheckCircle2 },
-      { id: "out_for_delivery", label: "Out for Delivery", icon: Truck },
-      { id: "delivered", label: "Delivered", icon: CheckCircle2 },
+  // Status Logic
+  const isCancelled = !!order.cancellation_status;
+  const processStatus = order.process_status || "invoiced";
+  const isPaid = order.payment_status === "paid";
+  const isDelivered =
+    !!order.otp_confirmed_at || processStatus === "delivered";
+
+  // Tracker Logic
+  const trackerSteps = [
+    { id: "placed", label: "Order Placed", desc: "Order confirmed" },
+    { id: "processing", label: "Processing", desc: "Cleaning in progress" },
+    { id: "ready", label: "Ready", desc: "Prepared for delivery" },
+    { id: "out_for_delivery", label: "Out for Delivery", desc: "Rider is on the way" },
+    { id: "delivered", label: "Delivered", desc: "Successfully delivered" },
   ];
 
-  const currentStepIndex = steps.findIndex(s => s.id === order.process_status);
-  const isCancelled = !!order.cancellation_status;
+  let trackerActiveIndex = 0;
+  if (["processing", "washing", "ironing"].includes(processStatus)) trackerActiveIndex = 1;
+  else if (processStatus === "ready") trackerActiveIndex = 2;
+  else if (processStatus === "out_for_delivery") trackerActiveIndex = 3;
+  else if (processStatus === "delivered" || isDelivered) trackerActiveIndex = 4;
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8 pb-20">
-       {/* Header */}
-       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-           <div>
-               <h1 className="text-3xl font-heading font-bold flex items-center gap-2">
-                   Order #{id.slice(-6)}
-                   {isCancelled && <span className="badge badge-error">Cancelled</span>}
-               </h1>
-               <p className="text-muted-foreground text-sm">
-                   Placed on {new Date(order.createdAt).toLocaleDateString()}
-               </p>
-           </div>
-           
-           {/* Actions */}
-           <div className="flex gap-3">
-               {/* Chat Button */}
-               {/* Note: We will render chat below, but maybe a quick link or indicator here? */}
-           </div>
-       </div>
-
-       {/* Status Stepper (Hidden if Cancelled) */}
-       {!isCancelled && (
-           <div className="w-full bg-card/50 border border-border rounded-2xl p-6 overflow-x-auto">
-               <ul className="steps steps-horizontal w-full min-w-[500px]">
-                   <li className={`step ${order.payment_status === "unpaid" ? "step-primary" : "step-primary"}`}>Created</li>
-                   {steps.map((step, idx) => {
-                       // Simple logic: if payment_status is 'paid', assume step 0 is done.
-                       // Use process_status for others.
-                       // This is rough visualization logic.
-                       let isActive = false;
-                       if(step.id === "paid" && order.payment_status === "paid") isActive = true;
-                       // If process status index >= this step index, it's active?
-                       // Need refined logic based on enum order.
-                       // For MVP, simplistic check:
-                       const processOrder = ["invoiced", "processing", "ready", "out_for_delivery", "delivered"];
-                       const orderIdx = processOrder.indexOf(order.process_status || "invoiced");
-                       const stepIdx = processOrder.indexOf(step.id);
-                       
-                       if(order.payment_status === "paid" && step.id === "paid") isActive = true;
-                       else if(order.payment_status === "paid" && stepIdx <= orderIdx && stepIdx > -1) isActive = true;
-                       
-                       return (
-                           <li key={step.id} className={`step ${isActive ? "step-primary" : ""}`}>
-                               <div className="flex flex-col items-center gap-1">
-                                    <span className="text-xs font-bold">{step.label}</span>
-                               </div>
-                           </li>
-                       )
-                   })}
-               </ul>
-           </div>
-       )}
-
-       <div className="grid md:grid-cols-3 gap-6">
-           {/* Left Column: Details */}
-           <div className="md:col-span-2 space-y-6">
-                {/* Items List */}
-                <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-                    <div className="p-4 bg-muted/30 border-b border-border font-bold">
-                        Items & Charges
-                    </div>
-                    <div className="divide-y divide-border/50">
-                        {order.items.map((item: any, i: number) => (
-                            <div key={i} className="p-4 flex gap-4 items-center hover:bg-muted/10 transition-colors">
-                                <div className="h-16 w-16 bg-muted rounded-xl relative overflow-hidden shrink-0 border border-border">
-                                    {item.photoUrl ? (
-                                        <Image src={item.photoUrl} alt={item.name} fill className="object-cover" />
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No img</div>
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <p className="font-bold">{item.name}</p>
-                                    <p className="text-xs text-muted-foreground">{item.quantity} x ₹{item.unit_price}</p>
-                                </div>
-                                <div className="font-mono font-bold">
-                                    ₹{item.line_total}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="p-4 bg-muted/10 space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Subtotal</span>
-                            <span>₹{order.subtotal}</span>
-                        </div>
-                        {order.delivery_charge > 0 && (
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Delivery</span>
-                                <span>₹{order.delivery_charge}</span>
-                            </div>
-                        )}
-                        {order.discount > 0 && (
-                            <div className="flex justify-between text-green-500">
-                                <span>Discount</span>
-                                <span>-₹{order.discount}</span>
-                            </div>
-                        )}
-                        <div className="flex justify-between font-bold text-lg pt-2 border-t border-border/50">
-                            <span>Total</span>
-                            <span className="text-primary">₹{totalAmount}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Notifications / Alerts */}
-                {order.payment_status === "unpaid" && !isCancelled && (
-                    <div className="alert alert-warning shadow-lg rounded-xl">
-                        <AlertCircle className="stroke-current shrink-0 h-6 w-6" />
-                        <div>
-                            <h3 className="font-bold">Payment Pending</h3>
-                            <div className="text-xs">Please pay to start processing your laundry.</div>
-                        </div>
-                        <div className="flex-none">
-                            <PaymentButton orderId={id} amount={totalAmount} />
-                        </div>
-                    </div>
+    <div className="min-h-screen bg-muted/30 pb-20">
+      {/* Top Banner / Header */}
+      <div className="bg-background border-b border-border sticky top-0 z-30 shadow-sm shadow-black/5 backdrop-blur-xl bg-background/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Link
+                  href="/seeker/orders"
+                  className="text-xs font-bold text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors uppercase tracking-wider"
+                >
+                  <ChevronRight className="w-3 h-3 rotate-180" /> Back to Orders
+                </Link>
+              </div>
+              <h1 className="text-2xl font-heading font-black tracking-tight text-foreground flex items-center gap-2">
+                Order #{order.booking_id?.toString().slice(-6).toUpperCase()}
+                {isPaid && <ShieldCheck className="w-5 h-5 text-emerald-500" />}
+              </h1>
+              <p className="text-sm text-muted-foreground font-medium">
+                Placed on {new Date(order.createdAt).toLocaleDateString(undefined, {
+                  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                })}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border shadow-sm",
+                  isPaid
+                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                    : "bg-amber-500/10 text-amber-600 border-amber-500/20"
                 )}
-                
-                {/* Chat */}
-                <div className="bg-card border border-border rounded-2xl p-6">
-                    <h3 className="font-bold mb-4">Chat with Provider</h3>
-                    <div className="h-[400px]">
-                        <BookingChat bookingId={order.booking_id.toString()} selfRole="seeker" />
+              >
+                {isPaid ? "Paid" : "Payment Pending"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          
+          {/* LEFT COLUMN: Tracker & Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* 1. Status Tracker Card */}
+            {!isCancelled && (
+              <div className="bg-card border border-border/50 rounded-3xl p-6 sm:p-8 shadow-xl shadow-black/5 overflow-hidden relative">
+                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-purple-600 opacity-20" />
+                 <h2 className="text-lg font-bold font-heading mb-8 flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-primary" /> Tracking
+                 </h2>
+                 
+                 <div className="relative">
+                    {/* Desktop Horizontal Line */}
+                    <div className="hidden md:block absolute top-5 left-0 w-full h-1 bg-muted rounded-full overflow-hidden">
+                       <div 
+                          className="h-full bg-primary transition-all duration-1000 ease-out" 
+                          style={{ width: `${(trackerActiveIndex / (trackerSteps.length - 1)) * 100}%` }}
+                       />
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 md:gap-0 relative">
+                       {trackerSteps.map((step, idx) => {
+                          const isCompleted = idx <= trackerActiveIndex;
+                          const isCurrent = idx === trackerActiveIndex;
+                          
+                          return (
+                             <div key={step.id} className="flex md:flex-col items-center md:items-center gap-4 md:gap-3 relative group">
+                                {/* Mobile Vertical Line */}
+                                {idx !== trackerSteps.length - 1 && (
+                                   <div className={cn(
+                                      "md:hidden absolute left-[17px] top-10 bottom-[-24px] w-0.5 z-0",
+                                      isCompleted ? "bg-primary" : "bg-muted"
+                                   )} />
+                                )}
+
+                                <div className={cn(
+                                   "w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-bold border-4 transition-all duration-500 relative z-10",
+                                   isCompleted 
+                                      ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/25 scale-110" 
+                                      : "bg-card border-muted text-muted-foreground"
+                                )}>
+                                   {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : idx + 1}
+                                </div>
+                                <div className="flex-1 md:text-center">
+                                   <p className={cn(
+                                      "text-sm font-bold transition-colors",
+                                      isCurrent ? "text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground"
+                                   )}>{step.label}</p>
+                                   <p className="text-[10px] md:text-xs text-muted-foreground font-medium hidden md:block">{step.desc}</p>
+                                </div>
+                             </div>
+                          );
+                       })}
+                    </div>
+                 </div>
+              </div>
+            )}
+
+            {/* 2. Order Items Card */}
+            <div className="bg-card border border-border/50 rounded-3xl overflow-hidden shadow-sm">
+               <div className="p-6 border-b border-border/50 flex items-center justify-between">
+                  <h2 className="text-lg font-bold font-heading flex items-center gap-2">
+                     <Package className="w-5 h-5 text-primary" /> Order Items
+                  </h2>
+                  <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                     {order.items.length} Items
+                  </span>
+               </div>
+               <div className="divide-y divide-border/50">
+                  {order.items.map((item: any, i: number) => (
+                     <div key={i} className="p-4 sm:p-5 flex items-center gap-4 hover:bg-muted/20 transition-colors">
+                        <div className="h-16 w-16 bg-muted rounded-xl relative overflow-hidden flex-shrink-0 border border-border/50 shadow-sm group">
+                           {item.photoUrl ? (
+                              <Image src={item.photoUrl} alt={item.name} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                           ) : (
+                              <div className="flex items-center justify-center h-full text-muted-foreground/30">
+                                 <Package className="h-6 w-6"/>
+                              </div>
+                           )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                           <p className="font-bold text-base text-foreground truncate">{item.name}</p>
+                           <p className="text-xs text-muted-foreground font-medium mt-0.5">Quantity: {item.quantity}</p>
+                        </div>
+                        <div className="text-right">
+                           <p className="font-bold text-base">₹{item.line_total}</p>
+                           <p className="text-xs text-muted-foreground">{item.quantity} x ₹{item.unit_price}</p>
+                        </div>
+                     </div>
+                  ))}
+               </div>
+            </div>
+
+            {/* 3. Post Delivery Actions (Reviews) */}
+            <div className="bg-transparent">
+              <PostDeliveryActions 
+                  orderId={id}
+                  providerId={order.provider._id.toString()}
+                  seekerId={session.user.id}
+                  deliveredAt={order.otp_confirmed_at}
+                  isDelivered={isDelivered}
+                  hasReviewed={hasReviewed}
+              />
+            </div>
+            
+             {/* 4. Chat Section */}
+             {!isCancelled && (!order.otp_confirmed_at && processStatus !== 'delivered') && (
+               <div className="space-y-4 pt-4">
+                  <h2 className="font-bold text-lg flex items-center gap-2 pl-2">
+                     <MessageSquare className="w-5 h-5 text-primary" /> Chat with {order.provider.businessName || order.provider.name}
+                  </h2>
+                  <p className="text-sm text-muted-foreground pl-9 -mt-3 mb-2">
+                     Directly message the provider for updates or special instructions.
+                  </p>
+                  <div className="h-[500px] border border-border/50 rounded-3xl overflow-hidden shadow-xl shadow-black/5 bg-card">
+                        <BookingChat bookingId={order.booking_id.toString()} selfRole="seeker" />
+                  </div>
+               </div>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN: Summary & Actions (Sticky) */}
+          <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
+             
+             {/* 1. Payment Summary Card */}
+             <div className="bg-card border border-border/50 rounded-3xl p-6 shadow-xl shadow-black/5 relative overflow-hidden">
+                <div className="flex items-center justify-between mb-6">
+                   <h3 className="font-heading font-bold text-lg flex items-center gap-2">
+                      <Receipt className="w-5 h-5 text-primary" /> Summary
+                   </h3>
                 </div>
-           </div>
 
-           {/* Right Column: Info & Actions */}
-           <div className="space-y-6">
-               {/* Provider Card */}
-               <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-                   <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Service Provider</h3>
-                   <div className="flex items-center gap-3">
-                       <div className="avatar placeholder">
-                           <div className="bg-neutral text-neutral-content rounded-full w-12">
-                               <span className="text-lg">{order.provider.businessName?.[0] || "P"}</span>
-                           </div>
-                       </div>
-                       <div>
-                           <p className="font-bold">{order.provider.businessName || order.provider.name}</p>
-                           <p className="text-xs text-muted-foreground flex items-center gap-1">
-                               <MapPin className="w-3 h-3" /> {order.provider.location || "Nearby"}
-                           </p>
-                       </div>
+                <div className="space-y-4 text-sm">
+                   <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span className="font-mono text-foreground font-medium">₹{order.subtotal}</span>
                    </div>
-                   <div className="flex gap-2 text-xs">
-                        {order.provider.phone && (
-                            <a href={`tel:${order.provider.phone}`} className="btn btn-xs btn-outline rounded-lg gap-1">
-                                <Phone className="w-3 h-3" /> Call
-                            </a>
-                        )}
+                   {order.delivery_charge > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                         <span>Delivery Fee</span>
+                         <span className="font-mono text-foreground font-medium">₹{order.delivery_charge}</span>
+                      </div>
+                   )}
+                   {order.discount > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                         <span>Discount</span>
+                         <span className="font-mono font-bold">-₹{order.discount}</span>
+                      </div>
+                   )}
+                   
+                   <div className="pt-4 mt-2 border-t border-dashed border-border flex justify-between items-end">
+                      <span className="font-bold text-foreground">Total Amount</span>
+                      <span className="font-heading font-black text-2xl text-primary">₹{totalAmount}</span>
                    </div>
-               </div>
+                </div>
 
-               {/* Timeline / Dates */}
-               <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-                   <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Timeline</h3>
-                   <div className="space-y-3 text-sm">
-                       <div className="flex justify-between">
-                           <span className="text-muted-foreground">Order Created</span>
-                           <span className="font-mono">{new Date(order.createdAt).toLocaleDateString()}</span>
-                       </div>
-                       {order.deadline && (
-                            <div className="flex justify-between">
-                                <span className="text-red-500 font-medium">Deadline</span>
-                                <span className="font-mono font-bold">{new Date(order.deadline).toLocaleDateString()}</span>
-                            </div>
-                       )}
+                {order.payment_status === 'unpaid' && !isCancelled ? (
+                   <div className="mt-6">
+                      <PaymentButton orderId={id} amount={totalAmount} />
+                      <p className="text-[10px] text-center text-muted-foreground mt-3 flex items-center justify-center gap-1">
+                         <ShieldCheck className="w-3 h-3" /> Secure payment via Razorpay
+                      </p>
                    </div>
-               </div>
+                ) : (
+                   <div className="mt-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center gap-2 text-emerald-700 font-bold text-sm">
+                      <CheckCircle2 className="w-4 h-4" /> Payment Completed
+                   </div>
+                )}
+             </div>
 
-               {/* Actions */}
-               {(order.process_status === "out_for_delivery" || order.process_status === "delivered") && !order.otp_confirmed_at && (
-                   <Link 
-                     href={`/seeker/orders/${id}/confirm-delivery`}
-                     className="btn btn-primary w-full rounded-xl shadow-lg shadow-primary/20 h-14"
-                   >
-                       <CheckCircle2 className="w-5 h-5 mr-2" /> 
-                       Confirm Delivery
-                   </Link>
-               )}
-           </div>
-       </div>
+             {/* 2. Provider Card */}
+             <div className="bg-card border border-border/50 rounded-3xl p-6 shadow-sm">
+                <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                   <Store className="w-4 h-4" /> Service Provider
+                </h3>
+                
+                <div className="flex items-center gap-4 mb-6">
+                   <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-lg font-bold text-white shadow-lg shadow-primary/20">
+                      {order.provider.businessName?.[0] || order.provider.name?.[0] || "P"}
+                   </div>
+                   <div>
+                      <p className="font-bold text-base">{order.provider.businessName || order.provider.name}</p>
+                      <p className="text-xs text-muted-foreground">Verified Partner</p>
+                   </div>
+                </div>
+
+                <div className="space-y-3">
+                   <a href={`tel:${order.provider.phone}`} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer group">
+                      <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                         <Phone className="w-4 h-4 text-foreground" />
+                      </div>
+                      <span className="text-sm font-medium">{order.provider.phone}</span>
+                   </a>
+                   <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40">
+                      <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shadow-sm">
+                         <MapPin className="w-4 h-4 text-foreground" />
+                      </div>
+                      <span className="text-sm font-medium line-clamp-1">{order.provider.location || "Location unavailable"}</span>
+                   </div>
+                </div>
+                
+                <Link href={`/seeker/provider/${order.provider_id}`} className="block mt-4 text-center text-xs font-bold text-primary hover:underline">
+                   View Provider Profile
+                </Link>
+             </div>
+
+
+
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

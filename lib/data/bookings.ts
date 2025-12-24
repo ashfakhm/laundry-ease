@@ -60,6 +60,7 @@ export async function getProviderBookings(): Promise<{
           // But spreading `...booking` keeps it at runtime.
           provider_id: booking.provider_id.toString(),
           createdAt: booking.createdAt.toISOString(), // Serialize dates for Server Components
+          order_id: booking.order_id ? booking.order_id.toString() : undefined,
           deadline: booking.deadline
             ? new Date(booking.deadline).toISOString()
             : undefined,
@@ -145,6 +146,7 @@ export async function getSeekerBookings(): Promise<{
           seeker_id: booking.seeker_id.toString(),
           provider_id: booking.provider_id.toString(), // Kept mostly for ref, omitted in type wrapper if strict
           createdAt: booking.createdAt.toISOString(),
+          order_id: booking.order_id ? booking.order_id.toString() : undefined,
           deadline: booking.deadline
             ? new Date(booking.deadline).toISOString()
             : undefined,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getOrderById } from "@/lib/db";
@@ -6,6 +7,8 @@ import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { Order } from "@/types/orders";
+import { env } from "@/lib/env";
+import twilio from "twilio";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -71,8 +74,17 @@ export async function POST(
         .findOne({ _id: order.seeker_id });
       if (seeker?.phone) {
         try {
-          const twilio = require("twilio");
-          const { env } = require("@/lib/env");
+          // Format phone number to E.164
+          let phone = seeker.phone.trim().replace(/\s+/g, "");
+          if (!phone.startsWith("+")) {
+            // If 10 digits, assume India +91
+            if (phone.length === 10) {
+              phone = `+91${phone}`;
+            } else if (phone.startsWith("0")) {
+                phone = `+91${phone.substring(1)}`;
+            }
+          }
+
           const smsClient = twilio(
             env.TWILIO_ACCOUNT_SID,
             env.TWILIO_AUTH_TOKEN
@@ -80,7 +92,7 @@ export async function POST(
           await smsClient.messages.create({
             body: `Your LaundryEase delivery OTP is ${otp}. Please share this code with your provider only upon delivery.`,
             from: env.TWILIO_PHONE_NUMBER,
-            to: seeker.phone,
+            to: phone,
           });
         } catch (err) {
           console.error("Failed to send delivery OTP SMS:", err);
@@ -127,6 +139,8 @@ export async function POST(
     await db
       .collection("orders")
       .updateOne({ _id: order_id }, { $set: updateData });
+
+    revalidatePath(`/seeker/orders/${id}`);
 
     return NextResponse.json({
       message: "Status updated",

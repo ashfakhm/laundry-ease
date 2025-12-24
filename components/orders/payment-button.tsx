@@ -3,11 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
+import { CreditCard, Lock, Loader2, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface PaymentButtonProps {
   orderId: string;
   amount: number;
   currency?: string;
+  className?: string; // Added to fix lint errors and allow customization
+  fullWidth?: boolean;
 }
 
 declare global {
@@ -16,7 +20,7 @@ declare global {
   }
 }
 
-export function PaymentButton({ orderId, amount, currency = "INR" }: PaymentButtonProps) {
+export function PaymentButton({ orderId, amount, currency = "INR", className, fullWidth = true }: PaymentButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -52,14 +56,14 @@ export function PaymentButton({ orderId, amount, currency = "INR" }: PaymentButt
           });
           
           if (verifyRes.ok) {
-            alert("Payment Successful!");
-            router.refresh();
+            // alert("Payment Successful!"); // Removed alert for smoother flow
+            router.refresh(); // Refresh to update UI to 'Paid'
           } else {
              alert("Payment Verification Failed. Please contact support.");
           }
         },
         prefill: {
-          name: "LaundryEase Customer", // In a real app, pass user email/phone
+          name: "LaundryEase Customer", 
         },
         theme: {
           color: "#7C3AED", // Primary Color
@@ -86,13 +90,35 @@ export function PaymentButton({ orderId, amount, currency = "INR" }: PaymentButt
       <button
         onClick={handlePayment}
         disabled={loading}
-        className="btn btn-primary btn-sm rounded-lg font-bold shadow-lg shadow-primary/25 hover:scale-105 transition-transform"
-      >
-        {loading ? (
-             <span className="loading loading-spinner loading-xs"></span>
-        ) : (
-            `Pay ₹${amount}`
+        className={cn(
+          "group relative overflow-hidden rounded-xl font-bold transition-all duration-300",
+          "bg-gradient-to-r from-primary to-purple-600 text-white shadow-lg shadow-primary/25",
+          "hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0",
+          fullWidth ? "w-full" : "w-auto px-6",
+          "py-3", // Consistent height
+          className
         )}
+      >
+        {/* Shimmer Effect */}
+        <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+        <div className="relative flex items-center justify-center gap-2.5">
+          {loading ? (
+             <>
+               <Loader2 className="w-5 h-5 animate-spin" />
+               <span>Processing...</span>
+             </>
+          ) : (
+             <>
+               <div className="p-1 rounded bg-white/20 backdrop-blur-sm">
+                  <CreditCard className="w-4 h-4 text-white" />
+               </div>
+               <span className="text-sm">Pay Securely</span>
+               <span className="ml-1 text-base font-heading">₹{amount.toLocaleString('en-IN')}</span>
+               <Lock className="w-3.5 h-3.5 text-white/70 ml-1" />
+             </>
+          )}
+        </div>
       </button>
     </>
   );

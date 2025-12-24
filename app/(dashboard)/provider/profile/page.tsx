@@ -1,5 +1,6 @@
 "use client";
 
+import { ReviewsList } from "@/components/provider/reviews-list";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -12,8 +13,12 @@ import {
   Edit,
   CheckCircle2,
   TrendingUp,
+  Package,
+  ShieldCheck,
   Eye,
+  Loader2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Provider = {
   _id: string;
@@ -29,6 +34,8 @@ type Provider = {
   businessName?: string;
   pricingRates?: Record<string, number>;
   createdAt?: string;
+  reviewCount?: number;
+  rating?: number;
 };
 
 export default function ProviderProfilePage() {
@@ -63,10 +70,8 @@ export default function ProviderProfilePage() {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Loading your profile...
-          </p>
+            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground font-medium">Loading your profile...</p>
         </div>
       </div>
     );
@@ -86,215 +91,195 @@ export default function ProviderProfilePage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-6">
-      <div className="mx-auto max-w-6xl">
+    <main className="min-h-[calc(100vh-4rem)] bg-background/50 px-4 py-6 md:py-8">
+      <div className="mx-auto max-w-7xl">
         {/* Header with Actions */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">My Profile</h1>
+            <h1 className="text-2xl font-bold font-heading">My Profile</h1>
             <p className="text-sm text-muted-foreground">
-              This is how seekers see your profile
+              This is exactly how seekers see your profile
             </p>
           </div>
           <button
             onClick={() => router.push("/provider/profile/edit")}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:scale-105 active:scale-95"
           >
             <Edit className="h-4 w-4" />
             Edit Profile
           </button>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-8 lg:grid-cols-3 items-start">
           {/* Left Column - Provider Info */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Header Card */}
-            <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-2xl font-bold text-white">
-                      {provider.name?.charAt(0) || "P"}
+          <div className="lg:col-span-2 space-y-8">
+            
+            {/* 1. Header Card */}
+            <div className="rounded-3xl border border-border bg-card p-6 md:p-8 shadow-sm">
+                <div className="flex flex-col md:flex-row gap-6 items-start">
+                    <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary shadow-inner">
+                        {provider.name?.charAt(0) || "P"}
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-semibold">
-                        {provider.name || "Provider"}
-                      </h2>
-                      {provider.businessName && (
-                        <p className="text-sm text-muted-foreground">
-                          {provider.businessName}
-                        </p>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="mt-4 flex flex-wrap gap-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4" />
-                      <span>{provider.location || "Location not set"}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Star className="h-4 w-4 fill-emerald-500 text-emerald-500" />
-                      <span className="font-medium text-foreground">4.5</span>
-                      <span>(New provider)</span>
-                    </div>
-                    {provider.createdAt && (
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-4 w-4" />
-                        <span>
-                          Member since{" "}
-                          {new Date(provider.createdAt).toLocaleDateString(
-                            "en-US",
-                            { month: "short", year: "numeric" }
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    <div className="flex-1 space-y-2">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h1 className="font-heading text-3xl font-bold">
+                                    {provider.businessName || provider.name}
+                                </h1>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                    <MapPin className="w-4 h-4" />
+                                    {provider.location || "Location not set"}
+                                    <span className="text-border mx-1">|</span>
+                                    <span className="text-primary font-medium flex items-center gap-1">
+                                        <Star className="w-3.5 h-3.5 fill-current" />
+                                        {provider.rating ? provider.rating.toFixed(1) : "New"} Rating
+                                    </span>
+                                </div>
+                            </div>
 
-                {/* Stats */}
-                <div className="flex gap-4 sm:flex-col sm:items-end">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-emerald-600">
-                      ₹{provider.pricing ?? "N/A"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Booking Price
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bio */}
-              {provider.bio && (
-                <div className="mt-6 rounded-xl bg-muted/50 p-4">
-                  <p className="text-sm leading-relaxed">{provider.bio}</p>
-                </div>
-              )}
-            </div>
-
-            {/* About & Description */}
-            <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-              <h3 className="text-lg font-semibold">About</h3>
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                {provider.description ||
-                  "This provider offers professional laundry services with attention to detail and quality."}
-              </p>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border bg-background p-4">
-                  <div className="flex items-center gap-2 text-emerald-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <p className="text-sm font-semibold">Quality Assured</p>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Premium service standards
-                  </p>
-                </div>
-                <div className="rounded-xl border bg-background p-4">
-                  <div className="flex items-center gap-2 text-emerald-600">
-                    <TrendingUp className="h-5 w-5" />
-                    <p className="text-sm font-semibold">Fast Turnaround</p>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    24-48 hour delivery
-                  </p>
-                </div>
-                <div className="rounded-xl border bg-background p-4">
-                  <div className="flex items-center gap-2 text-emerald-600">
-                    <MapPin className="h-5 w-5" />
-                    <p className="text-sm font-semibold">Service Coverage</p>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Up to {provider.radius_km || 10} km radius
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Services Offered */}
-            <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-              <h3 className="text-lg font-semibold">Services Offered</h3>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {provider.services && provider.services.length > 0 ? (
-                  provider.services.map((service, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-3 rounded-xl border bg-background p-4"
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{service}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No services listed
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Pricing Rates */}
-            {provider.pricingRates &&
-              Object.keys(provider.pricingRates).length > 0 && (
-                <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur md:p-8">
-                  <h3 className="text-lg font-semibold">Pricing Details</h3>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {Object.entries(provider.pricingRates).map(
-                      ([item, rate]) => (
-                        <div
-                          key={item}
-                          className="flex items-center justify-between rounded-xl border bg-background p-4"
-                        >
-                          <p className="font-medium capitalize">{item}</p>
-                          <p className="text-lg font-semibold text-emerald-600">
-                            ₹{rate}
-                          </p>
+                            <div className="flex flex-col items-end">
+                                <div className="text-right">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Booking Price
+                                    </p>
+                                    <p className="text-3xl font-bold text-primary">
+                                        ₹{provider.pricing || 0}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                      )
-                    )}
-                  </div>
+
+                        {provider.bio && (
+                            <p className="text-muted-foreground leading-relaxed pt-2">
+                                {provider.bio}
+                            </p>
+                        )}
+                    </div>
                 </div>
-              )}
+
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-8 pt-8 border-t border-border/50">
+                    <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Joined</p>
+                        <p className="text-sm font-semibold flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-primary" />
+                            {provider.createdAt
+                                ? new Date(provider.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })
+                                : "Recently"}
+                        </p>
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Service Radius</p>
+                        <p className="text-sm font-semibold flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-primary" />
+                            {provider.radius_km || 10} km
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* 2. Services & Pricing Grid */}
+            <div className="grid md:grid-cols-2 gap-6">
+                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
+                    <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
+                        <Package className="w-5 h-5 text-primary" />
+                        Services
+                    </h3>
+                    <div className="space-y-3">
+                        {provider.services && provider.services.length > 0 ? (
+                            provider.services.map((service, i) => (
+                                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-colors">
+                                    <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shadow-sm">
+                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                    </div>
+                                    <span className="font-medium text-sm">{service}</span>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground italic">No services listed yet.</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
+                    <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-primary" />
+                        Item Rates
+                    </h3>
+                    <div className="space-y-3">
+                        {provider.pricingRates && Object.keys(provider.pricingRates).length > 0 ? (
+                            Object.entries(provider.pricingRates).map(([item, rate], i) => (
+                                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-colors">
+                                    <span className="font-medium text-sm text-muted-foreground capitalize">{item}</span>
+                                    <span className="font-bold text-foreground">₹{rate}</span>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground italic">No custom rates set.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* 3. Description */}
+            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+              <h3 className="font-heading text-lg font-bold mb-4">
+                About the Business
+              </h3>
+              <p className="text-muted-foreground text-sm leading-7">
+                {provider.description || "No description provided."}
+              </p>
+            </div>
+
+            {/* 4. Reviews Section */}
+            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-6">
+                 <h3 className="font-heading text-lg font-bold">Client Reviews</h3>
+                 {provider.reviewCount ? (
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-bold">
+                        {provider.reviewCount}
+                    </span>
+                 ) : null}
+              </div>
+              <ReviewsList providerId={provider._id} />
+            </div>
           </div>
 
-          {/* Right Column - Contact Info */}
-          <div className="space-y-6">
-            {/* Contact Card */}
-            <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur sticky top-6">
-              <h3 className="text-lg font-semibold">Contact Information</h3>
-              <div className="mt-4 space-y-4">
-                <div className="flex items-center gap-3 rounded-xl border bg-background p-3">
+          {/* Right Column - Contact Info (Static) */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-6 rounded-3xl border border-border bg-card p-6 shadow-xl shadow-black/5">
+              <h3 className="font-heading text-lg font-bold flex items-center gap-2">
+                 Contact Information
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6">Your public contact details</p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 p-4">
                   <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{provider.email}</span>
+                  <span className="text-sm font-medium">{provider.email}</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border bg-background p-3">
+                <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 p-4">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
+                  <span className="text-sm font-medium">
                     {provider.phone || "Not provided"}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border bg-background p-3">
+                <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 p-4">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
+                  <span className="text-sm font-medium">
                     {provider.location || "Location not set"}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-6 rounded-xl bg-emerald-500/10 p-4">
-                <div className="flex items-center gap-2 text-emerald-700">
+              <div className="mt-8 rounded-xl bg-primary/5 p-4 border border-primary/10">
+                <div className="flex items-center gap-2 text-primary">
                   <Eye className="h-4 w-4" />
-                  <p className="text-sm font-semibold">Public View</p>
+                  <p className="text-sm font-bold">Public Preview</p>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  This is exactly how seekers see your profile when searching
-                  for providers.
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                  This page reflects exactly what seekers see when they visit your profile. 
+                  Use the "Edit Profile" button to update any incorrect information.
                 </p>
               </div>
             </div>

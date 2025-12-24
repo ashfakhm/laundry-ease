@@ -15,7 +15,8 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronLeft
+  ChevronLeft,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -43,6 +44,11 @@ const navigation: NavGroup[] = [
         label: "Invoices",
         href: "/provider/invoice-generation",
         icon: FileText,
+      },
+      {
+        label: "Messages",
+        href: "/provider/messages",
+        icon: MessageSquare,
       },
     ],
   },

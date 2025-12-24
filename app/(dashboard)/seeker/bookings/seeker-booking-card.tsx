@@ -382,7 +382,7 @@ function SeekerBookingCardComponent({
             </div>
           ) : booking.status === "rejected" || booking.status === "cancelled" ? (
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide bg-muted px-3 py-1 rounded-lg">
-              Void
+              Cancelled
             </span>
           ) : (
             <button

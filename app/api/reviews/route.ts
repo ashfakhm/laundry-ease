@@ -14,6 +14,12 @@ export async function POST(req: NextRequest) {
 
         const { db } = await getDb();
         
+        // Check duplicate
+        const existing = await db.collection("reviews").findOne({ order_id: new ObjectId(order_id) });
+        if (existing) {
+            return NextResponse.json({ error: "You have already reviewed this order" }, { status: 400 });
+        }
+        
         // Create Review
         const review: Review = {
             order_id: new ObjectId(order_id),
@@ -41,5 +47,34 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error("Review Error:", error);
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    }
+}
+// GET /api/reviews?provider_id=...
+export async function GET(req: NextRequest) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const provider_id = searchParams.get("provider_id");
+
+        if (!provider_id) {
+            return NextResponse.json({ error: "Provider ID required" }, { status: 400 });
+        }
+
+        const { db } = await getDb();
+        const reviews = await db.collection("reviews").aggregate([
+            { $match: { provider_id: new ObjectId(provider_id) } },
+            { $lookup: { from: "seekers", localField: "seeker_id", foreignField: "_id", as: "seeker" } },
+            { $unwind: { path: "$seeker", preserveNullAndEmptyArrays: true } },
+            // Lookup Order
+            { $lookup: { from: "orders", localField: "order_id", foreignField: "_id", as: "order" } },
+            { $unwind: { path: "$order", preserveNullAndEmptyArrays: true } },
+            
+            { $project: { rating: 1, comment: 1, createdAt: 1, order_id: 1, booking_id: "$order.booking_id", "seeker.name": 1 } },
+            { $sort: { createdAt: -1 } }
+        ]).toArray();
+
+        return NextResponse.json(reviews);
+    } catch (error: any) {
+        console.error("Fetch Reviews Error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

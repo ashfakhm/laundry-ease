@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, Tag, Star, Phone, Mail, Loader2, Filter, ArrowRight } from "lucide-react";
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { useToast } from "@/components/ui/toast";
 import { ProviderCardSkeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
@@ -103,11 +104,15 @@ export default function SeekerDashboardPage() {
   }, [searchLocation, searchName, selectedService, toast]);
 
   const popularServices = [
-    "Wash & Fold",
+    "Wash",
+    "Fold",
     "Dry Cleaning",
-    "Iron Only",
-    "Wash & Iron",
-    "Premium Care",
+    "Ironing",
+    "Shoe Cleaning",
+    "Stain Removal",
+    "Bedding & Linen",
+    "Curtains & Drapes",
+    "Premium Laundry",
     "Express Service",
   ];
 
@@ -181,14 +186,11 @@ export default function SeekerDashboardPage() {
         >
           <div className="grid gap-4 md:grid-cols-3">
             {/* Location Search */}
-            <div className="relative group">
-              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <input
-                type="text"
-                placeholder={seekerLocation || "Search by location..."}
-                value={searchLocation}
-                onChange={(e) => setSearchLocation(e.target.value)}
-                className="w-full h-11 rounded-xl border border-input bg-background pl-10 pr-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-muted-foreground/50"
+            <div className="relative group z-20">
+              <LocationAutocomplete
+                 value={searchLocation}
+                 onChange={(val) => setSearchLocation(val)}
+                 placeholder={seekerLocation || "Search by location..."}
               />
             </div>
 

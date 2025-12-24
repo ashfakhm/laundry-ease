@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Loader2, User, MapPin, Lock, Save, Sparkles } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { cn } from "@/lib/utils";
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -209,9 +210,9 @@ export default function SeekerProfilePage() {
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-muted-foreground">Address Line 1</label>
-                            <input 
-                                {...form.register("address.line1")}
-                                className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                            <LocationAutocomplete 
+                                value={form.watch("address.line1")}
+                                onChange={(val) => form.setValue("address.line1", val, { shouldValidate: true })}
                                 placeholder="Wing A, Flat 402, Tech Park"
                             />
                             {form.formState.errors.address?.line1 && <p className="text-xs text-destructive">{form.formState.errors.address.line1.message}</p>}

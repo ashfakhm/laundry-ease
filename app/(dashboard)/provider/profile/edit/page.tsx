@@ -18,10 +18,25 @@ import {
   Plus,
   Trash2,
   Tag,
+  Check,
 } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+
+const LAUNDRY_SERVICES = [
+  "Wash",
+  "Fold",
+  "Dry Cleaning",
+  "Ironing",
+  "Shoe Cleaning",
+  "Stain Removal",
+  "Bedding & Linen",
+  "Curtains & Drapes",
+  "Premium Laundry",
+  "Express Service",
+];
 
 const providerProfileSchema = z
   .object({
@@ -32,6 +47,7 @@ const providerProfileSchema = z
     location: z.string().min(3, "Location is required"),
     coordinates: z.object({ lat: z.number(), lng: z.number() }).optional(),
     phone: z.string().optional(),
+    services: z.array(z.string()).min(1, "Select at least one service"),
     radius_km: z.preprocess(
       (val) => (val === "" ? undefined : Number(val)),
       z.number().min(1, "Minimum radius is 1km")
@@ -117,6 +133,7 @@ type ProviderProfileValues = {
   location: string;
   coordinates?: { lat: number; lng: number };
   phone?: string;
+  services: string[];
   radius_km: number;
   free_radius_km: number;
   per_km_rate: number;
@@ -148,6 +165,7 @@ export default function ProviderEditProfilePage() {
       description: "",
       location: "",
       phone: "",
+      services: [],
       radius_km: 10,
       free_radius_km: 5,
       per_km_rate: 10,
@@ -169,6 +187,8 @@ export default function ProviderEditProfilePage() {
     name: "items",
   });
 
+  const selectedServices = form.watch("services");
+
   useEffect(() => {
     async function loadProfile() {
       try {
@@ -184,6 +204,7 @@ export default function ProviderEditProfilePage() {
           location: data.location || "",
           coordinates: data.coordinates || undefined,
           phone: data.phone || "",
+          services: data.services || [],
           radius_km: data.radius_km || 10,
           free_radius_km: data.free_radius_km || 5,
           per_km_rate: data.per_km_rate || 10,
@@ -261,6 +282,22 @@ export default function ProviderEditProfilePage() {
       setIsSaving(false);
     }
   }
+
+  const toggleService = (service: string) => {
+    const current = form.getValues("services") || [];
+    if (current.includes(service)) {
+      form.setValue(
+        "services",
+        current.filter((s) => s !== service),
+        { shouldValidate: true, shouldDirty: true }
+      );
+    } else {
+      form.setValue("services", [...current, service], {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -394,6 +431,57 @@ export default function ProviderEditProfilePage() {
             </SpotlightCard>
           </motion.div>
 
+          {/* Services Offered - NEW SECTION */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05, duration: 0.5 }}
+          >
+            <SpotlightCard className="h-full rounded-3xl bg-card border-border p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                   <Sparkles className="h-5 w-5" />
+                </div>
+                <h2 className="text-xl font-bold font-heading">
+                  Services Offered
+                </h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">Select the services you provide to customers.</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {LAUNDRY_SERVICES.map((service) => {
+                   const isSelected = selectedServices?.includes(service);
+                   return (
+                      <div
+                        key={service}
+                        onClick={() => toggleService(service)}
+                        className={cn(
+                          "cursor-pointer flex items-center justify-between p-3 rounded-xl border transition-all",
+                          isSelected 
+                            ? "bg-primary/5 border-primary shadow-sm" 
+                            : "bg-muted/20 border-border hover:border-primary/50"
+                        )}
+                      >
+                         <span className={cn("text-sm font-medium", isSelected ? "text-primary" : "text-muted-foreground")}>
+                            {service}
+                         </span>
+                         {isSelected && (
+                            <div className="h-5 w-5 bg-primary rounded-full flex items-center justify-center">
+                               <Check className="h-3 w-3 text-primary-foreground" />
+                            </div>
+                         )}
+                      </div>
+                   )
+                })}
+              </div>
+              {form.formState.errors.services && (
+                  <p className="text-xs text-destructive mt-2">
+                    {form.formState.errors.services.message}
+                  </p>
+               )}
+            </SpotlightCard>
+          </motion.div>
+
           {/* Service & Delivery */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -496,12 +584,11 @@ export default function ProviderEditProfilePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.5 }}
-            className="md:col-span-2"
           >
             <SpotlightCard className="h-full rounded-3xl bg-card border-border p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
                     <Tag className="h-5 w-5" />
                   </div>
                   <div>
@@ -529,7 +616,7 @@ export default function ProviderEditProfilePage() {
                     No items added yet. Add items to automate invoicing.
                   </div>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {fields.map((field, index) => (
                       <div
                         key={field.id}
@@ -595,7 +682,7 @@ export default function ProviderEditProfilePage() {
         >
           <SpotlightCard className="rounded-3xl bg-card border-border p-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+              <div className="h-10 w-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
                 <DollarSign className="h-5 w-5" />
               </div>
               <h2 className="text-xl font-bold font-heading">Payout (Bank) Details</h2>
@@ -650,7 +737,7 @@ export default function ProviderEditProfilePage() {
         >
           <SpotlightCard className="rounded-3xl bg-card border-border p-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-10 w-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+              <div className="h-10 w-10 rounded-xl bg-gray-500/10 flex items-center justify-center text-gray-500">
                 <Lock className="h-5 w-5" />
               </div>
               <h2 className="text-xl font-bold font-heading">Security</h2>

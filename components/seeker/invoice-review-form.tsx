@@ -3,6 +3,13 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 // Define strict types matching the API response
 type InvoiceItem = {
@@ -40,7 +47,14 @@ export default function InvoiceReviewForm({
       : invoice.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
   async function handleDecision(approved: boolean) {
-    if(!confirm(approved ? "Approve invoice and create order?" : "Reject invoice and return clothes?")) return;
+    let rejectionReason = "";
+
+    if (!approved) {
+        if (!confirm("Reject invoice and return clothes?")) return;
+        const input = prompt("Please provide a reason for rejection:");
+        if (input === null) return; // Cancelled
+        rejectionReason = input;
+    }
 
     setLoading(true);
     setError(null);
@@ -49,7 +63,7 @@ export default function InvoiceReviewForm({
       const res = await fetch(`/api/invoices/${bookingId}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approved }),
+        body: JSON.stringify({ approved, reason: rejectionReason }),
       });
 
       const data = await res.json();
@@ -57,12 +71,72 @@ export default function InvoiceReviewForm({
       if (!res.ok) throw new Error(data.error || "Failed to submit decision");
 
       if (approved && data.orderId) {
-        // Success: Redirect to the new Order Page
-        router.push(`/seeker/orders/${data.orderId}`);
+        // Success: Initiate Payment Flow logic
+        try {
+            // 1. Create Order on Backend (Get Razorpay Order ID)
+            const payRes = await fetch(`/api/orders/${data.orderId}/payment`, {
+                method: "POST",
+            });
+            const payData = await payRes.json();
+
+            if (!payRes.ok) throw new Error(payData.error || "Failed to initiate payment");
+
+            // 2. Open Razorpay
+            const options = {
+                key: payData.key,
+                amount: payData.amount,
+                currency: payData.currency,
+                name: "LaundryEase",
+                description: `Payment for Order #${data.orderId.slice(-6)}`,
+                order_id: payData.id,
+                handler: async function (response: any) {
+                    // 3. Verify Payment
+                    const verifyRes = await fetch(`/api/orders/${data.orderId}/payment`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                        }),
+                    });
+                    
+                    if (verifyRes.ok) {
+                        router.push(`/seeker/orders/${data.orderId}`); // Should show "Paid" status
+                    } else {
+                        alert("Payment Verification Failed. Please contact support.");
+                        router.push(`/seeker/orders/${data.orderId}`);
+                    }
+                },
+                prefill: {
+                    name: "LaundryEase Customer", 
+                },
+                theme: {
+                    color: "#7C3AED",
+                },
+                modal: {
+                    ondismiss: function() {
+                        router.push(`/seeker/orders/${data.orderId}`);
+                    }
+                }
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.on("payment.failed", function (response: any) {
+                alert(response.error.description);
+                router.push(`/seeker/orders/${data.orderId}`);
+            });
+            rzp.open();
+
+        } catch (paymentError) {
+            console.error(paymentError);
+            // If payment init fails, just go to order page
+            router.push(`/seeker/orders/${data.orderId}`);
+        }
       } else {
-        // Rejection: Redirect to dashboard or show status
+        // Rejection: Redirect to Invoice List
         router.refresh();
-        router.push("/dashboard/seeker?status=invoice_rejected");
+        router.push("/seeker/invoices"); 
       }
     } catch (err: unknown) {
       let msg = "Unknown error";
@@ -76,6 +150,7 @@ export default function InvoiceReviewForm({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
       {/* Header Card */}
       <div className="bg-card/50 backdrop-blur-md p-6 rounded-2xl border border-border shadow-lg">
         <h2 className="text-xl font-heading font-bold mb-1">Invoice Details</h2>

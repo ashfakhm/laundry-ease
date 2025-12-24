@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 import Image from "next/image";
-import { Search, Calendar, Package, Menu, X, LogOut, Home, User } from "lucide-react";
+import { Search, Calendar, Package, Menu, X, LogOut, Home, User, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,6 +19,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { label: "Find Providers", href: "/seeker", icon: Search },
   { label: "My Bookings", href: "/seeker/bookings", icon: Calendar },
+  { label: "Invoices", href: "/seeker/invoices", icon: Receipt },
   { label: "Orders", href: "/seeker/view-orders", icon: Package },
   { label: "Profile", href: "/seeker/profile", icon: User },
 ];

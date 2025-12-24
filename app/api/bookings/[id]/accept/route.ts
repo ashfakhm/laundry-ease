@@ -5,6 +5,7 @@ import { getBookingById, updateBookingStatus } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { createRazorpayContact, createRazorpayFundAccount } from "@/lib/razorpay";
 
 export async function PATCH(
   req: Request,
@@ -73,10 +74,53 @@ export async function PATCH(
 
     // Check for Provider Payment Details (Mandatory)
     if (!provider.razorpay_fund_account_id) {
-      return NextResponse.json(
-        { message: "You must complete your Payment/Bank Details in Profile before accepting bookings." },
-        { status: 400 }
-      );
+       // Attempt to sync on-the-fly if details exist locally
+       const { accountHolderName, accountNumber, ifsc } = provider.bankDetails || {};
+       
+       if (accountHolderName && accountNumber && ifsc) {
+          try {
+             // 1. Create Contact
+             const contact = await createRazorpayContact({
+                name: provider.name || provider.businessName || "Provider",
+                email: provider.email,
+                contact: provider.phone || "",
+                type: "vendor",
+                reference_id: provider._id.toString(),
+             });
+
+             // 2. Create Fund Account
+             const fundAccount = await createRazorpayFundAccount({
+                contact_id: contact.id,
+                account_type: "bank_account",
+                bank_account: {
+                   name: accountHolderName,
+                   account_number: accountNumber,
+                   ifsc: ifsc
+                }
+             });
+
+             // 3. Update Provider
+             await db.collection("providers").updateOne(
+                { _id: provider._id },
+                { $set: { 
+                    razorpay_contact_id: contact.id,
+                    razorpay_fund_account_id: fundAccount.id 
+                }}
+             );
+             // Proceed with acceptance
+          } catch (err: any) {
+             console.error("Auto-sync Razorpay failed:", err);
+             return NextResponse.json(
+                { message: `Payment Setup Failed: ${err.message || "Invalid Bank Details/API Keys"}` },
+                { status: 400 }
+             );
+          }
+       } else {
+          return NextResponse.json(
+            { message: "You must complete your Payment/Bank Details in Profile before accepting bookings." },
+            { status: 400 }
+          );
+       }
     }
 
     // Commission Calculation

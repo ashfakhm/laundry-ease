@@ -76,7 +76,32 @@ export async function refundRazorpayPayment(
   }
 }
 
-// --- RazorpayX Payouts ---
+// --- RazorpayX Payouts (Direct Fetch Implementation for Robustness) ---
+
+const KEY_ID = process.env.RAZORPAY_KEY_ID;
+const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const AUTH = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
+
+async function razorpayFetch(endpoint: string, method: string, body?: any) {
+  if (!KEY_ID || !KEY_SECRET) {
+      throw new Error("Razorpay API Keys are missing in environment variables.");
+  }
+
+  const res = await fetch(`https://api.razorpay.com/v1${endpoint}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${AUTH}`,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: { description: res.statusText } }));
+    throw new Error(err.error?.description || "Razorpay API Error");
+  }
+  return res.json();
+}
 
 /**
  * Create a Contact (for Payouts)
@@ -89,16 +114,7 @@ export async function createRazorpayContact(data: {
   reference_id?: string; // e.g., provider ID
 }) {
   try {
-    // Note: 'fund_account' and 'contacts' are part of RazorpayX (razorpay.payouts.* not directly typed in some SDK versions, checking availability)
-    // The official SDK exposes it via instance.
-    // If typing fails, we might need to cast to any or check SDK version. 
-    // Usually accessible as razorpay.contacts.create(...) if not standard payments instance.
-    // However, node-razorpay usually handles this if configured with X-headers or just supports it.
-    
-    // For safety with TS, we use 'any' cast if properties are missing in standard types, 
-    // but standard razorpay package should have it.
-    const response = await (razorpay as any).contacts.create(data);
-    return response;
+     return await razorpayFetch("/contacts", "POST", data);
   } catch (error) {
     console.error("Error creating Razorpay contact:", error);
     throw error;
@@ -118,8 +134,7 @@ export async function createRazorpayFundAccount(data: {
   };
 }) {
   try {
-    const response = await (razorpay as any).fund_accounts.create(data);
-    return response;
+    return await razorpayFetch("/fund_accounts", "POST", data);
   } catch (error) {
     console.error("Error creating Fund Account:", error);
     throw error;
@@ -137,8 +152,7 @@ export async function createRazorpayFundAccountVpa(data: {
   };
 }) {
   try {
-    const response = await (razorpay as any).fund_accounts.create(data);
-    return response;
+    return await razorpayFetch("/fund_accounts", "POST", data);
   } catch (error) {
     console.error("Error creating VPA Fund Account:", error);
     throw error;

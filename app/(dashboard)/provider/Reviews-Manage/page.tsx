@@ -5,11 +5,12 @@ import { Star, MessageSquare, Calendar } from "lucide-react";
 
 type Review = {
   _id: string;
-  seeker_name: string;
+  seeker?: { name: string };
   rating: number;
   comment: string;
   createdAt: string;
   order_id: string;
+  booking_id?: string;
 };
 
 import { useSession } from "next-auth/react";
@@ -29,8 +30,11 @@ export default function ReviewsManagePage() {
         const res = await fetch(`/api/reviews?provider_id=${session.user.id}`);
         if (res.ok) {
           const data = await res.json();
-          setReviews(data.reviews || []);
+          setReviews(Array.isArray(data) ? data : []);
         }
+      } catch (error) {
+        console.error("Failed to fetch reviews", error);
+        setReviews([]);
       } finally {
         setLoading(false);
       }
@@ -39,9 +43,12 @@ export default function ReviewsManagePage() {
   }, [session?.user?.id]);
 
   const averageRating = useMemo(
-    () => reviews.reduce((sum, r) => sum + r.rating, 0) / (reviews.length || 1),
+    () => reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) : 0,
     [reviews]
   );
+  
+  const fiveStarCount = reviews.filter((r) => r.rating === 5).length;
+  const fiveStarPercentage = reviews.length > 0 ? (fiveStarCount / reviews.length) * 100 : 0;
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background">
@@ -79,15 +86,10 @@ export default function ReviewsManagePage() {
               <p className="text-sm font-semibold">5-Star Reviews</p>
             </div>
             <p className="mt-2 text-3xl font-bold">
-              {reviews.filter((r) => r.rating === 5).length}
+              {fiveStarCount}
             </p>
             <p className="text-xs text-muted-foreground">
-              {(
-                (reviews.filter((r) => r.rating === 5).length /
-                  reviews.length) *
-                100
-              ).toFixed(0)}
-              % of total
+              {fiveStarPercentage.toFixed(0)}% of total
             </p>
           </div>
         </div>
@@ -113,11 +115,11 @@ export default function ReviewsManagePage() {
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
                         <span className="font-semibold text-emerald-700">
-                          {review.seeker_name.charAt(0)}
+                          {review.seeker?.name?.charAt(0) || "U"}
                         </span>
                       </div>
                       <div>
-                        <p className="font-semibold">{review.seeker_name}</p>
+                        <p className="font-semibold">{review.seeker?.name || "LaundryEase User"}</p>
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-0.5">
                             {[...Array(5)].map((_, i) => (
@@ -145,7 +147,7 @@ export default function ReviewsManagePage() {
                       {review.comment}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Order #{review.order_id}
+                      Order #{review.booking_id ? String(review.booking_id).slice(-6).toUpperCase() : (review.order_id ? String(review.order_id).slice(-6).toUpperCase() : "N/A")}
                     </p>
                   </div>
                 </div>

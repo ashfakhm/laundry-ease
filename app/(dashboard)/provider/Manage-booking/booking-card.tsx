@@ -52,7 +52,7 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
         const data = await res.json();
         toast({
           title: "Action failed",
-          description: data.error || "Please try again",
+          description: data.error || data.message || "Please try again",
           type: "error",
         });
       }
@@ -97,7 +97,7 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
         const data = await res.json();
         toast({
           title: "Failed to propose slot",
-          description: data.error || "Please try again",
+          description: data.error || data.message || "Please try again",
           type: "error",
         });
       }

@@ -117,8 +117,17 @@ export default function BookingChat({
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full bg-card relative">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-full bg-background/50 relative">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+        {messages.length === 0 && !loading && (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 space-y-2">
+                <div className="p-3 bg-muted rounded-full">
+                     <Send className="w-5 h-5" />
+                </div>
+                <p className="text-sm font-medium">Start the conversation</p>
+            </div>
+        )}
+
         {messages.map((msg, i) => (
           <div
             key={msg._id || i}
@@ -127,14 +136,14 @@ export default function BookingChat({
             }`}
           >
             <div
-              className={`rounded-2xl px-4 py-2 max-w-[80%] text-sm shadow-sm ${
+              className={`rounded-2xl px-4 py-2.5 max-w-[85%] text-sm shadow-sm transition-all ${
                 msg.sender_role === selfRole
-                  ? "bg-primary text-primary-foreground rounded-tr-none"
-                  : "bg-muted text-foreground rounded-tl-none"
+                  ? "bg-primary text-primary-foreground rounded-br-sm"
+                  : "bg-background border border-border rounded-bl-sm"
               }`}
             >
-              {msg.message}
-              <div className={`text-[10px] mt-1 text-right opacity-70`}>
+              <p>{msg.message}</p>
+              <div className={`text-[10px] mt-1 text-right opacity-60 leading-none`}>
                 {new Date(msg.createdAt).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -147,46 +156,46 @@ export default function BookingChat({
       </div>
       
       {/* Input Area */}
-      <form onSubmit={sendMessage} className="flex gap-2 p-3 border-t bg-card/50 backdrop-blur-sm">
+      <form onSubmit={sendMessage} className="flex gap-2 p-3 border-t bg-card/80 backdrop-blur-sm">
         <button
           type="button"
-          className="btn btn-square btn-ghost btn-sm text-warning"
+          className="p-2.5 text-amber-500 hover:bg-amber-500/10 rounded-full transition-colors"
           title="Raise Dispute"
           onClick={() => setDispute((d) => ({ ...d, open: true }))}
         >
           <AlertTriangle className="w-5 h-5" />
         </button>
         <input
-          className="input input-bordered input-sm flex-1 rounded-full"
+          className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
           disabled={loading}
         />
         <button
-          className="btn btn-circle btn-primary btn-sm"
+          className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
           type="submit"
           disabled={loading || !input.trim()}
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-4 h-4 ml-0.5" />
         </button>
       </form>
       
-      {error && <div className="text-error text-xs p-2 text-center">{error}</div>}
+      {error && <div className="text-destructive text-xs p-2 text-center bg-destructive/5 font-medium">{error}</div>}
 
       {/* Dispute Modal */}
       {dispute.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-card rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+          <div className="bg-card rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200 border border-border">
             <h2 className="text-xl font-heading font-bold mb-4 flex items-center gap-2">
-                 <AlertTriangle className="w-6 h-6 text-warning" /> Rate Dispute
+                 <AlertTriangle className="w-5 h-5 text-amber-500" /> Report an Issue
             </h2>
             <form onSubmit={handleDisputeSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Reason</label>
+                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Reason</label>
                 <input
                   type="text"
-                  className="input input-bordered w-full"
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                   value={dispute.reason}
                   onChange={(e) =>
                     setDispute((d) => ({ ...d, reason: e.target.value }))
@@ -196,11 +205,9 @@ export default function BookingChat({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Details
-                </label>
+                 <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Details</label>
                 <textarea
-                  className="textarea textarea-bordered w-full min-h-[100px]"
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                   value={dispute.details}
                   onChange={(e) =>
                     setDispute((d) => ({ ...d, details: e.target.value }))
@@ -211,7 +218,7 @@ export default function BookingChat({
               </div>
               
               {(dispute.error || dispute.success) && (
-                 <div className={`p-3 rounded-xl text-sm ${dispute.error ? "bg-error/10 text-error" : "bg-success/10 text-success"}`}>
+                 <div className={`p-3 rounded-xl text-sm font-medium ${dispute.error ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"}`}>
                      {dispute.error || dispute.success}
                  </div>
               )}
@@ -219,7 +226,7 @@ export default function BookingChat({
               <div className="flex gap-3 justify-end pt-2">
                 <button
                   type="button"
-                  className="btn btn-ghost"
+                  className="px-4 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
                   onClick={() =>
                     setDispute((d) => ({
                       ...d,
@@ -234,10 +241,10 @@ export default function BookingChat({
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-warning"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-amber-500/20"
                   disabled={dispute.loading}
                 >
-                  {dispute.loading ? <span className="loading loading-spinner loading-sm"></span> : "Submit Dispute"}
+                  {dispute.loading ? "Submitting..." : "Submit Report"}
                 </button>
               </div>
             </form>

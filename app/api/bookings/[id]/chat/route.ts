@@ -10,8 +10,9 @@ import { ObjectId } from "mongodb";
  */
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,7 +20,7 @@ export async function GET(
   const { db } = await getDb();
   const booking = await db
     .collection("bookings")
-    .findOne({ _id: new ObjectId(params.id) });
+    .findOne({ _id: new ObjectId(id) });
   if (!booking)
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   // Only allow seeker or provider
@@ -31,7 +32,7 @@ export async function GET(
   }
   const messages = await db
     .collection("chats")
-    .find({ booking_id: new ObjectId(params.id) })
+    .find({ booking_id: new ObjectId(id) })
     .sort({ createdAt: 1 })
     .toArray();
   return NextResponse.json(messages);
@@ -44,8 +45,9 @@ export async function GET(
  */
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,7 +59,7 @@ export async function POST(
   }
   const booking = await db
     .collection("bookings")
-    .findOne({ _id: new ObjectId(params.id) });
+    .findOne({ _id: new ObjectId(id) });
   if (!booking)
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   // Only allow seeker or provider
@@ -69,7 +71,7 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const chatMsg = {
-    booking_id: new ObjectId(params.id),
+    booking_id: new ObjectId(id),
     sender_id: session.user.id,
     sender_role: senderRole,
     message,

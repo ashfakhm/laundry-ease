@@ -70,27 +70,31 @@ export async function POST(
     }
 
     // Invoice structure: items, notes, photos, discount, subtotal, total
+    // Helper to generic safe parse numbers
+    const safeNum = (val: any) => {
+      const n = Number(val);
+      return isNaN(n) ? 0 : n;
+    };
+
+    const cleanDiscount = safeNum(discount);
+    // Recalculate subtotal from items if missing/invalid
+    const calculatedSubtotal = items.reduce((sum: any, it: any) => sum + (safeNum(it.quantity) * safeNum(it.unitPrice)), 0);
+    const cleanSubtotal = subtotal !== undefined ? safeNum(subtotal) : calculatedSubtotal;
+    
+    // Recalculate total if missing
+    // Default total is subtotal - discount
+    let cleanTotal = body.total !== undefined ? safeNum(body.total) : Math.max(0, cleanSubtotal - cleanDiscount);
+    // Ensure total is never negative
+    cleanTotal = Math.max(0, cleanTotal);
+
+    // Invoice structure: items, notes, photos, discount, subtotal, total
     const invoice = {
       items,
       notes: notes || "",
       photos: photos || [],
-      discount: typeof discount === "number" ? discount : 0,
-      subtotal:
-        typeof subtotal === "number"
-          ? subtotal
-          : items.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0),
-      total:
-        typeof total === "number"
-          ? total
-          : Math.max(
-              0,
-              (typeof subtotal === "number"
-                ? subtotal
-                : items.reduce(
-                    (sum, it) => sum + it.quantity * it.unitPrice,
-                    0
-                  )) - (typeof discount === "number" ? discount : 0)
-            ),
+      discount: cleanDiscount,
+      subtotal: cleanSubtotal,
+      total: cleanTotal,
       createdAt: new Date(),
     };
 

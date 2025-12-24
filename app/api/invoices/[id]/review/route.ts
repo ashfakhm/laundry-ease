@@ -27,7 +27,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { approved } = await req.json();
+    const { approved, reason } = await req.json();
 
     const { db } = await getDb();
     const bookingId = new ObjectId(id);
@@ -45,7 +45,7 @@ export async function POST(
 
     if (booking.status !== "invoice_created") {
         // Allow idempotency if already converted
-        if(booking.status === "completed" || booking.status === "confirmed") { // "converted_to_order" isn't a status in type definition yet, using "completed" or check existence
+        if(booking.status === "completed" || booking.status === "confirmed") { 
              const existing = await db.collection("orders").findOne({ booking_id: bookingId });
              if(existing) return NextResponse.json({ success: true, orderId: existing._id });
         }
@@ -60,7 +60,8 @@ export async function POST(
         { _id: bookingId },
         { 
             $set: { 
-                status: "invoice_rejected", // Note: Add this to BookingStatus type if strictly typed, else string
+                status: "invoice_rejected", 
+                rejection_reason: reason || "No reason provided",
                 updatedAt: new Date(),
                 bookingFeeStatus: "forfeited"
             } 

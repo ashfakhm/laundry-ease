@@ -38,7 +38,7 @@ type Provider = {
 
 type Review = {
   _id: string;
-  seeker_name: string;
+  seeker?: { name: string };
   rating: number;
   comment: string;
   createdAt: string;
@@ -83,7 +83,7 @@ export default function ProviderDetailPage() {
         const res = await fetch(`/api/reviews?provider_id=${providerId}`);
         if (res.ok) {
           const data = await res.json();
-          setReviews(data.reviews || []);
+          setReviews(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         setReviews([]);
@@ -242,7 +242,7 @@ export default function ProviderDetailPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-border/50">
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mt-8 pt-8 border-t border-border/50">
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">Joined</p>
                   <p className="text-sm font-semibold flex items-center gap-2">
@@ -253,20 +253,6 @@ export default function ProviderDetailPage() {
                           { month: "short", year: "numeric" }
                         )
                       : "Recently"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Response Time</p>
-                  <p className="text-sm font-semibold flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-green-500" />
-                    &lt; 1 Hour
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Completed</p>
-                  <p className="text-sm font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-primary" />
-                    120+ Orders
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -367,11 +353,11 @@ export default function ProviderDetailPage() {
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                          {review.seeker_name.charAt(0)}
+                          {review.seeker?.name?.charAt(0) || "U"}
                         </div>
                         <div>
                           <p className="text-sm font-bold">
-                            {review.seeker_name}
+                            {review.seeker?.name || "User"}
                           </p>
                           <div className="flex gap-0.5">
                             {[...Array(5)].map((_, i) => (
@@ -397,6 +383,9 @@ export default function ProviderDetailPage() {
                     </p>
                   </div>
                 ))}
+                {reviews.length === 0 && (
+                   <p className="text-sm text-muted-foreground text-center py-4">No reviews yet.</p>
+                )}
               </div>
             </div>
           </motion.div>

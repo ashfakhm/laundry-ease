@@ -20,6 +20,20 @@ import {
 } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { cn } from "@/lib/utils";
+import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
+
+const LAUNDRY_SERVICES = [
+  "Wash",
+  "Fold",
+  "Dry Cleaning",
+  "Ironing",
+  "Shoe Cleaning",
+  "Stain Removal",
+  "Bedding & Linen",
+  "Curtains & Drapes",
+  "Premium Laundry",
+  "Express Service",
+];
 
 async function postJSON(url: string, body: Record<string, unknown>) {
   const res = await fetch(url, {
@@ -41,7 +55,7 @@ export default function ProviderSignupPage() {
     bio: "",
     description: "",
     location: "",
-    tags: "",
+    services: [] as string[],
     radius_km: "10",
     free_radius_km: "5",
     price_per_km: "0",
@@ -82,8 +96,17 @@ export default function ProviderSignupPage() {
     return raw.startsWith("+") ? raw : `+${digits || raw}`;
   }
 
-  function set<K extends keyof typeof form>(k: K, v: string) {
+  function set<K extends keyof typeof form>(k: K, v: any) {
     setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  function toggleService(service: string) {
+    setForm((prev) => {
+      const services = prev.services.includes(service)
+        ? prev.services.filter((s) => s !== service)
+        : [...prev.services, service];
+      return { ...prev, services };
+    });
   }
 
   function updateRate(index: number, field: "item" | "rate", value: string) {
@@ -190,10 +213,7 @@ export default function ProviderSignupPage() {
       bio: form.bio,
       description: form.description,
       pricingRates: ratesObj,
-      tags: form.tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
+      services: form.services,
       location: form.location,
       radius_km: Number(form.radius_km) || 10,
       free_radius_km: Number(form.free_radius_km) || 0,
@@ -401,18 +421,11 @@ export default function ProviderSignupPage() {
                     <label className="text-sm font-medium">
                       Service Area (Location)
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-50">
-                        <MapPin className="w-4 h-4" />
-                      </span>
-                      <input
-                        className="flex h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        placeholder="e.g. Koramangala"
-                        value={form.location}
-                        onChange={(e) => set("location", e.target.value)}
-                        required
-                      />
-                    </div>
+                    <LocationAutocomplete
+                      value={form.location}
+                      onChange={(val) => set("location", val)}
+                      placeholder="e.g. Koramangala"
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -563,37 +576,43 @@ export default function ProviderSignupPage() {
                   </button>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <label className="text-sm font-medium">
-                    Tags (comma separated)
+                    Services Offered
                   </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-50">
-                      <Tag className="w-4 h-4" />
-                    </span>
-                    <input
-                      className="flex h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
-                      placeholder="Ironing, Dry Cleaning, 24h Service..."
-                      value={form.tags}
-                      onChange={(e) => set("tags", e.target.value)}
-                    />
-                  </div>
-                  {form.tags && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {form.tags
-                        .split(",")
-                        .map((t) => t.trim())
-                        .filter(Boolean)
-                        .map((t, i) => (
+                  <div className="grid grid-cols-2 gap-3">
+                    {LAUNDRY_SERVICES.map((service) => {
+                      const isSelected = form.services.includes(service);
+                      return (
+                        <div
+                          key={service}
+                          onClick={() => toggleService(service)}
+                          className={cn(
+                            "cursor-pointer flex items-center justify-between p-3 rounded-lg border transition-all",
+                            isSelected
+                              ? "bg-primary/5 border-primary shadow-sm"
+                              : "bg-muted/20 border-border hover:border-primary/50"
+                          )}
+                        >
                           <span
-                            key={i}
-                            className="px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium border border-border/50"
+                            className={cn(
+                              "text-xs font-medium",
+                              isSelected
+                                ? "text-primary"
+                                : "text-muted-foreground"
+                            )}
                           >
-                            #{t}
+                            {service}
                           </span>
-                        ))}
-                    </div>
-                  )}
+                          {isSelected && (
+                            <div className="h-4 w-4 bg-primary rounded-full flex items-center justify-center">
+                              <CheckCircle2 className="h-2.5 w-2.5 text-primary-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

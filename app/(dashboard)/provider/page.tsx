@@ -1,35 +1,74 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowUpRight, ArrowDownRight, Package, Truck, Wallet, Clock } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Package, Truck, Wallet, Clock, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 export default function ProviderDashboardPage() {
-  const stats = [
+  const { data: session } = useSession();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+     revenue: 0,
+     deliveriesDue: 0,
+     pendingPickups: 0,
+     activeProcessing: 0
+  });
+
+  useEffect(() => {
+     async function fetchStats() {
+        try {
+           const res = await fetch("/api/provider/dashboard-stats");
+           if (res.ok) {
+              const data = await res.json();
+              setStats(data);
+           }
+        } catch (error) {
+           console.error("Failed to fetch dashboard stats", error);
+        } finally {
+           setLoading(false);
+        }
+     }
+     
+     if (session) {
+        fetchStats();
+     }
+  }, [session]);
+
+  const statCards = [
     {
-       label: "Pickups Today",
-       value: "12",
-       trend: "+12.5%",
-       trendUp: true,
+       label: "Pending Pickups",
+       value: stats.pendingPickups.toString(),
+       // trend: "+12.5%", // Removed false trends for now
+       // trendUp: true,
        icon: Package,
-       description: "Scheduled pickups for today"
+       description: "New booking requests"
     },
     {
        label: "Deliveries Due",
-       value: "8",
-       trend: "-2.4%",
-       trendUp: false,
+       value: stats.deliveriesDue.toString(),
+       // trend: "-2.4%",
+       // trendUp: false,
        icon: Truck,
-       description: "Orders due before midnight"
+       description: "Orders ready for dispatch"
     },
     {
        label: "Total Revenue",
-       value: "₹24,500",
-       trend: "+8.2%",
-       trendUp: true,
+       value: `₹${stats.revenue.toLocaleString('en-IN')}`,
+       // trend: "+8.2%",
+       // trendUp: true,
        icon: Wallet,
-       description: "Earnings this month"
+       description: "Total earnings to date"
     }
   ];
+
+  if (loading) {
+     return (
+        <div className="flex min-h-screen items-center justify-center">
+           <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+     )
+  }
 
   return (
     <main className="min-h-screen bg-background/50 p-6 space-y-8">
@@ -55,7 +94,7 @@ export default function ProviderDashboardPage() {
 
         {/* Stats Grid */}
         <section className="grid gap-6 md:grid-cols-3">
-           {stats.map((stat, i) => (
+           {statCards.map((stat, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
@@ -67,10 +106,13 @@ export default function ProviderDashboardPage() {
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                        <stat.icon className="w-5 h-5" />
                     </div>
+                    {/* Trend Indicator (Optional - hidden for now as we don't calculate history yet) */}
+                    {/* 
                     <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${stat.trendUp ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
                        {stat.trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                        {stat.trend}
-                    </div>
+                    </div> 
+                    */}
                  </div>
                  
                  <div className="space-y-1">
@@ -95,8 +137,8 @@ export default function ProviderDashboardPage() {
            >
               <div className="mb-6 flex items-center justify-between">
                 <div>
-                   <h2 className="font-heading text-lg font-bold">Today's Queue</h2>
-                   <p className="text-xs text-muted-foreground">Orders pending action</p>
+                   <h2 className="font-heading text-lg font-bold">Processing Orders</h2>
+                   <p className="text-xs text-muted-foreground">Currently being cleaned ({stats.activeProcessing})</p>
                 </div>
                 <button className="text-xs font-bold text-primary hover:underline">
                   View All
@@ -107,7 +149,9 @@ export default function ProviderDashboardPage() {
                 <div className="space-y-2">
                    <Clock className="w-8 h-8 text-muted-foreground/40 mx-auto" />
                    <p className="text-sm font-medium text-muted-foreground">
-                     All caught up! No scheduled tasks right now.
+                     {stats.activeProcessing > 0 
+                        ? `${stats.activeProcessing} orders are currently in processing.` 
+                        : "No orders are currently in the washing/ironing stage."}
                    </p>
                 </div>
               </div>

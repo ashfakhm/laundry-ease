@@ -12,6 +12,7 @@ import {
   User,
   TruckIcon,
   ShieldCheck,
+  Send,
 } from "lucide-react";
 
 type OrderItem = {
@@ -422,6 +423,20 @@ export default function OrderStatusPage() {
                     <p className="text-sm text-muted-foreground mb-4">
                         Please enter the OTP provided by the customer to confirm delivery.
                     </p>
+
+                    <button
+                        type="button"
+                        disabled={!!updating}
+                        onClick={() => {
+                            if(selectedOrderForOtp) {
+                                updateStatus(selectedOrderForOtp, "out_for_delivery");
+                                alert("OTP Resent to Customer!");
+                            }
+                        }}
+                        className="mb-4 text-xs text-primary font-bold hover:underline flex items-center justify-center gap-1 mx-auto"
+                    >
+                        <Send className="w-3 h-3" /> Resend OTP Code
+                    </button>
                     
                     <form onSubmit={handleOtpSubmit} className="space-y-4">
                          <input
