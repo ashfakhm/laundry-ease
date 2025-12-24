@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { uploadInvoicePhoto } from "@/lib/s3";
+import { uploadInvoicePhoto } from "@/lib/cloudinary";
 
 export const runtime = "nodejs";
 

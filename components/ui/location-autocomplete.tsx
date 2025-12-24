@@ -1,5 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { APIProvider, useMapsLibrary, useMap } from "@vis.gl/react-google-maps";
+import { Loader2, MapPin } from "lucide-react";
+
+interface NominatimResult {
+  place_id: number;
+  lat: string;
+  lon: string;
+  display_name: string;
+}
 
 interface LocationAutocompleteProps {
   value: string;
@@ -12,85 +19,106 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
   onChange,
   placeholder,
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const placesLib = useMapsLibrary("places");
-  const [autocompleteService, setAutocompleteService] = useState<any>(null);
-  const [geocoder, setGeocoder] = useState<any>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (placesLib) {
-      setAutocompleteService(new placesLib.AutocompleteService());
-      setGeocoder(new placesLib.Geocoder());
-    }
-  }, [placesLib]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const handleInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const fetchSuggestions = async (input: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          input
+        )}&addressdetails=1&limit=5`,
+        {
+          headers: {
+            "Accept-Language": "en",
+            "User-Agent": "LaundryEase/1.0",
+          },
+        }
+      );
+      if (!res.ok) throw new Error("Search failed");
+      const data: NominatimResult[] = await res.json();
+      setSuggestions(data || []);
+      if (data && data.length > 0) setShowDropdown(true);
+    } catch (error) {
+      console.error("Nominatim fetch error:", error);
+      setSuggestions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     onChange(input);
-    if (!autocompleteService || !input) {
+
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
+    if (!input || input.length < 3) {
       setSuggestions([]);
       setShowDropdown(false);
       return;
     }
-    setLoading(true);
-    autocompleteService.getPlacePredictions({ input }, (predictions: any[]) => {
-      setSuggestions(predictions || []);
-      setShowDropdown(true);
-      setLoading(false);
-    });
+
+    timeoutRef.current = setTimeout(() => {
+      fetchSuggestions(input);
+    }, 800);
   };
 
-  const handleSelect = (suggestion: any) => {
-    if (!geocoder) return;
-    geocoder.geocode(
-      { placeId: suggestion.place_id },
-      (results: any[], status: string) => {
-        if (status === "OK" && results[0]) {
-          const loc = results[0].geometry.location;
-          onChange(results[0].formatted_address, {
-            lat: loc.lat(),
-            lng: loc.lng(),
-          });
-        } else {
-          onChange(suggestion.description);
-        }
-      }
-    );
+  const handleSelect = (item: NominatimResult) => {
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lon);
+    onChange(item.display_name, { lat, lng });
     setShowDropdown(false);
+    setSuggestions([]);
   };
 
   return (
-    <div style={{ position: "relative" }}>
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={handleInput}
-        placeholder={placeholder || "Enter a location"}
-        className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-        autoComplete="off"
-        onFocus={() => value && suggestions.length > 0 && setShowDropdown(true)}
-        onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-      />
+    <div ref={wrapperRef} className="relative w-full">
+      <div className="relative">
+        <input
+          value={value}
+          onChange={handleInput}
+          placeholder={placeholder || "Search location..."}
+          className="w-full h-11 rounded-lg border border-input bg-background pl-10 pr-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-sm"
+          autoComplete="off"
+        />
+        <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        {loading && (
+          <div className="absolute right-3 top-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
       {showDropdown && suggestions.length > 0 && (
-        <ul className="absolute z-10 w-full bg-white border border-border rounded-lg shadow-lg mt-1 max-h-60 overflow-auto">
-          {suggestions.map((s) => (
+        <ul className="absolute z-50 w-full bg-popover text-popover-foreground border border-border rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto overflow-x-hidden">
+          {suggestions.map((s, i) => (
             <li
-              key={s.place_id}
-              className="px-4 py-2 cursor-pointer hover:bg-muted"
-              onMouseDown={() => handleSelect(s)}
+              key={s.place_id || i}
+              className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0 text-sm"
+              onClick={() => handleSelect(s)}
             >
-              {s.description}
+              <div className="font-medium truncate">{s.display_name.split(",")[0]}</div>
+              <div className="text-xs text-muted-foreground truncate opacity-70">
+                {s.display_name}
+              </div>
             </li>
           ))}
         </ul>
-      )}
-      {loading && (
-        <div className="absolute right-3 top-3 text-xs text-muted-foreground">
-          Loading...
-        </div>
       )}
     </div>
   );
