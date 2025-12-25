@@ -232,7 +232,7 @@ laundry-ease/
 
 | Layer | Technology |
 |-------|------------|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Language | TypeScript 5 |
 | Styling | Tailwind CSS 4 |
 | UI Components | Shadcn/UI |
