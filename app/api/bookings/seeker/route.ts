@@ -23,7 +23,7 @@ export async function GET() {
         { $match: { seeker_id: new ObjectId(session.user.id) } },
         {
              $lookup: {
-                 from: "users",
+                 from: "providers",
                  localField: "provider_id",
                  foreignField: "_id",
                  as: "provider"

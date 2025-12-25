@@ -141,9 +141,9 @@ export async function POST(req: Request) {
             },
           }
         );
-      } catch (err) {
+      } catch (err: any) {
         return NextResponse.json(
-          { error: "Razorpay refund failed", details: err?.message || err },
+          { error: "Razorpay refund failed", details: err?.message || String(err) },
           { status: 500 }
         );
       }

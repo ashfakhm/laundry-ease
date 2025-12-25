@@ -77,6 +77,9 @@ export interface ProviderDetails {
   email: string;
   phone: string;
   address?: string; // Provider might have a shop address or base location
+  businessName?: string;
+  profilePicture?: string;
+  bannerImage?: string;
 }
 
 // Booking populated with Provider details (for Seeker view)

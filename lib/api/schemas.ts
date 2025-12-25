@@ -125,6 +125,8 @@ export const signupProviderSchema = z.object({
   bankAccountNumber: z.string().min(6, "Account number required"),
   bankIFSC: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code"),
   upiId: z.string().optional().or(z.literal("")).optional(),
+  profilePicture: z.string().optional(),
+  bannerImage: z.string().optional(),
 });
 
 export const otpRequestSchema = z.object({

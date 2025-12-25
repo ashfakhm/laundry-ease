@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Send,
 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 type OrderItem = {
   name: string;
@@ -68,6 +69,7 @@ export default function OrderStatusPage() {
   const [selectedOrderForOtp, setSelectedOrderForOtp] = useState<string | null>(null);
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function updateStatus(orderId: string, newStatus: string, otp?: string) {
     if (newStatus === "delivered" && !otp) {
@@ -106,7 +108,7 @@ export default function OrderStatusPage() {
         if(otpModalOpen) setOtpModalOpen(false);
       } else {
           if(otp) setOtpError(data.message || "Failed to verify OTP");
-          else alert(data.message || "Failed to update status");
+          else toast.error(data.message || "Failed to update status");
       }
     } catch (e) {
       console.error(e);

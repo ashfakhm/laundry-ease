@@ -9,6 +9,8 @@ import {
   Package,
   Calendar,
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 
 type Complaint = {
   _id: string;
@@ -35,6 +37,13 @@ export default function ComplaintsPage() {
   const [filter, setFilter] = useState<
     "all" | "open" | "in_progress" | "resolved"
   >("open");
+  const toast = useToast();
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    complaintId: string;
+    resolution: "refund_full" | "refund_partial" | "release_payout";
+    refundAmount?: number;
+  }>({ isOpen: false, complaintId: "", resolution: "release_payout" });
 
   useEffect(() => {
     fetchComplaints();
@@ -125,8 +134,6 @@ export default function ComplaintsPage() {
     resolution: "refund_full" | "refund_partial" | "release_payout",
     refundAmount?: number
   ) {
-    if(!confirm(`Are you sure you want to proceed with: ${resolution}?`)) return;
-
     try {
       const response = await fetch(`/api/admin/complaints/${complaintId}/resolve`, {
         method: "POST",
@@ -137,14 +144,14 @@ export default function ComplaintsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert("Success: " + data.message);
+        toast.success(data.message || "Complaint resolved successfully");
         await fetchComplaints();
       } else {
-        alert("Error: " + data.error);
+        toast.error(data.error || "Failed to resolve complaint");
       }
     } catch (error) {
       console.error("Error resolving complaint:", error);
-      alert("Failed to resolve complaint.");
+      toast.error("Failed to resolve complaint. Please try again.");
     }
   }
 
@@ -168,13 +175,21 @@ export default function ComplaintsPage() {
               {complaint.status === "in_progress" && (
                   <>
                       <button
-                          onClick={() => resolveComplaint(complaint._id, "release_payout")}
+                          onClick={() => setConfirmDialog({
+                            isOpen: true,
+                            complaintId: complaint._id,
+                            resolution: "release_payout"
+                          })}
                           className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
                       >
                           Issue Solved: Release Payout
                       </button>
                        <button
-                          onClick={() => resolveComplaint(complaint._id, "refund_full")}
+                          onClick={() => setConfirmDialog({
+                            isOpen: true,
+                            complaintId: complaint._id,
+                            resolution: "refund_full"
+                          })}
                           className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
                       >
                           Full Refund
@@ -280,6 +295,25 @@ export default function ComplaintsPage() {
           </div>
         )}
       </div>
+      
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={async () => {
+          await resolveComplaint(
+            confirmDialog.complaintId,
+            confirmDialog.resolution,
+            confirmDialog.refundAmount
+          );
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+        }}
+        title={`Confirm ${confirmDialog.resolution === "release_payout" ? "Payout Release" : "Refund"}`}
+        message={`Are you sure you want to proceed with: ${confirmDialog.resolution.replace(/_/g, " ")}?`}
+        confirmText="Proceed"
+        cancelText="Cancel"
+        variant={confirmDialog.resolution === "refund_full" ? "danger" : "warning"}
+      />
     </main>
   );
 }

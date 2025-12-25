@@ -6,7 +6,7 @@
 **Author:** Ashfakh M  
 **Implementation Status:** ✅ Feature Complete / MVP Ready (All core flows including payment & escrow verified)
 
-> **Latest Update (2025-12-23)**: Payment & Escrow systems fully implemented and verified. Fixed Provider Signup Razorpay sync and Split Payment logic (Commission/Delivery formulation). System is now feature-complete for MVP.
+> **Latest Update (2025-12-25)**: **Major UX & Stability Polish.** Integrated **Cloudinary** for high-performance Provider Profile & Banner images. Resolved critical persistent data display issues in Seeker Dashboard (Business Name priority, Image consistency). Fixed `Chat.tsx` state logic and `getSeekerBookings` data validation. System logic is now fully consistent across all roles.
 
 ---
 
@@ -81,7 +81,7 @@ LaundryEase solves these problems by providing:
 
 | Feature                              | Status | Notes                                                                                |
 | ------------------------------------ | ------ | ------------------------------------------------------------------------------------ |
-| Provider Profile Setup (FR-AUTH-003) | ✅     | Fixed price list (`pricingRates`), service radius, delivery charges fully functional |
+| Provider Profile Setup (FR-AUTH-003) | ✅     | Fixed price list, service radius, **Cloudinary Profile/Banner Image Uploads** |
 | Provider Profile Edit                | ✅     | Dynamic item management, validation, persistence working                             |
 | Seeker Profile Setup (FR-AUTH-004)   | ✅     | Basic registration complete                                                          |
 | Database Models                      | ✅     | All core types defined: `Seeker`, `Provider`, `Booking`, `Order`, `Complaint`        |
@@ -96,7 +96,7 @@ LaundryEase solves these problems by providing:
 | --------------------------------- | ------ | ------------------------------------------------------------ |
 | Provider Search API (FR-DISC-001) | ✅     | `/api/providers/search` with distance filtering              |
 | Search Page                       | ✅     | `/seeker/search` with manual lat/lng input (MVP)             |
-| Provider Cards                    | ✅     | Display rating, distance, delivery fee, base price           |
+| Provider Cards                    | ✅     | Display rating, distance, fees. **Prioritizes Business Name & Real Photos**. |
 | Booking Creation (FR-BOOK-001)    | ✅     | `/api/bookings` POST endpoint, Dynamic Booking Price support |
 | Booking Modal                     | ✅     | Deadline selection, fee display, booking request             |
 

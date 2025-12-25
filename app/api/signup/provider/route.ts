@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
     bankAccountNumber,
     bankIFSC,
     upiId,
+    profilePicture,
+    bannerImage,
   } = parsed.data;
 
   // Require verified OTPs for email and phone
@@ -69,6 +71,8 @@ export async function POST(req: NextRequest) {
     radius_km,
     per_km_rate,
     pricing,
+    profilePicture,
+    bannerImage,
     bankDetails: {
       accountHolderName: bankAccountHolder,
       accountNumber: bankAccountNumber,

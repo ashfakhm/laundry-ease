@@ -54,6 +54,8 @@ export type Provider = BaseUser & {
   };
   razorpay_fund_account_id?: string;
   razorpay_contact_id?: string;
+  profilePicture?: string;
+  bannerImage?: string;
 };
 
 export type Admin = BaseUser;
@@ -158,6 +160,8 @@ export async function createProvider(data: {
     ifsc: string;
     upiId?: string;
   };
+  profilePicture?: string;
+  bannerImage?: string;
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -186,6 +190,8 @@ export async function createProvider(data: {
     createdAt: now,
     capacity: data.capacity ?? 5, // Default to 5 concurrent bookings if not provided
     bankDetails: data.bankDetails,
+    profilePicture: data.profilePicture,
+    bannerImage: data.bannerImage,
   };
 
   const res = await db.collection<Provider>("providers").insertOne(provider);

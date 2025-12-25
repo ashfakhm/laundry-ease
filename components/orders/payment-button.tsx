@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { CreditCard, Lock, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 
 interface PaymentButtonProps {
   orderId: string;
@@ -23,6 +24,7 @@ declare global {
 export function PaymentButton({ orderId, amount, currency = "INR", className, fullWidth = true }: PaymentButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   async function handlePayment() {
     setLoading(true);
@@ -56,10 +58,10 @@ export function PaymentButton({ orderId, amount, currency = "INR", className, fu
           });
           
           if (verifyRes.ok) {
-            // alert("Payment Successful!"); // Removed alert for smoother flow
+            toast.success("Payment Successful!");
             router.refresh(); // Refresh to update UI to 'Paid'
           } else {
-             alert("Payment Verification Failed. Please contact support.");
+             toast.error("Payment Verification Failed. Please contact support.");
           }
         },
         prefill: {
@@ -72,13 +74,13 @@ export function PaymentButton({ orderId, amount, currency = "INR", className, fu
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", function (response: any) {
-        alert(response.error.description);
+        toast.error(response.error.description || "Payment failed. Please try again.");
       });
       rzp.open();
 
     } catch (error) {
       console.error(error);
-      alert("Something went wrong");
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }

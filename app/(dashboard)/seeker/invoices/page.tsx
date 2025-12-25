@@ -112,7 +112,7 @@ function InvoiceCard({ booking, isPending }: { booking: any, isPending: boolean 
     )}>
        <div className="flex justify-between items-start mb-4">
           <div>
-             <h3 className="font-bold text-lg">{booking.provider?.name || "Provider"}</h3>
+             <h3 className="font-bold text-lg">{booking.provider?.businessName || booking.provider?.name || "Provider"}</h3>
              <p className="text-xs text-muted-foreground">Booking ID: {booking._id.slice(-6).toUpperCase()}</p>
           </div>
           <div className={cn("px-3 py-1 rounded-full text-xs font-bold capitalize", 

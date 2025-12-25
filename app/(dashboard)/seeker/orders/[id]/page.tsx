@@ -319,8 +319,18 @@ export default async function OrderDetailsPage({
                 </h3>
                 
                 <div className="flex items-center gap-4 mb-6">
-                   <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-lg font-bold text-white shadow-lg shadow-primary/20">
-                      {order.provider.businessName?.[0] || order.provider.name?.[0] || "P"}
+                   <div className="h-12 w-12 rounded-full overflow-hidden border-2 border-border bg-muted shadow-lg flex-shrink-0">
+                     {order.provider.profilePicture ? (
+                       <img
+                         src={order.provider.profilePicture}
+                         alt={order.provider.businessName || order.provider.name}
+                         className="h-full w-full object-cover"
+                       />
+                     ) : (
+                       <div className="h-full w-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-lg font-bold text-white">
+                         {order.provider.businessName?.[0] || order.provider.name?.[0] || "P"}
+                       </div>
+                     )}
                    </div>
                    <div>
                       <p className="font-bold text-base">{order.provider.businessName || order.provider.name}</p>

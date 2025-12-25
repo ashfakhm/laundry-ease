@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 type Provider = {
   _id: string;
   name: string;
+  businessName?: string;
   email: string;
   phone: string;
   location: string;
@@ -20,6 +21,8 @@ type Provider = {
   pricing: number;
   radius_km?: number;
   per_km_rate?: number;
+  profilePicture?: string;
+  bannerImage?: string;
 };
 
 export default function SeekerDashboardPage() {
@@ -285,17 +288,34 @@ export default function SeekerDashboardPage() {
                     onClick={() => router.push(`/seeker/provider/${provider._id}`)}
                     className="cursor-pointer space-y-6"
                   >
-                    <div className="flex justify-between items-start">
-                       <div>
-                          <h3 className="font-heading text-xl font-bold text-foreground group-hover:text-primary transition-colors">
-                            {provider.name || "Provider"}
-                          </h3>
-                          <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
-                             <MapPin className="w-3.5 h-3.5" />
-                             {provider.location || "Location not set"}
-                          </div>
+                    <div className="flex justify-between items-start gap-4">
+                       <div className="flex items-start gap-3 flex-1">
+                         {/* Profile Picture */}
+                         <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted flex-shrink-0">
+                           {provider.profilePicture ? (
+                             <img
+                               src={provider.profilePicture}
+                               alt={provider.name}
+                               className="h-full w-full object-cover"
+                             />
+                           ) : (
+                             <div className="h-full w-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
+                               {provider.businessName?.charAt(0) || provider.name?.charAt(0) || "P"}
+                             </div>
+                           )}
+                         </div>
+                         
+                         <div className="flex-1 min-w-0">
+                           <h3 className="font-heading text-xl font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                             {provider.businessName || provider.name || "Provider"}
+                           </h3>
+                           <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
+                              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="truncate">{provider.location || "Location not set"}</span>
+                           </div>
+                         </div>
                        </div>
-                       <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-bold ring-1 ring-amber-500/20">
+                       <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-bold ring-1 ring-amber-500/20 flex-shrink-0">
                           <Star className="w-3.5 h-3.5 fill-current" />
                           4.5
                        </div>

@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 
 declare global {
   interface Window {
@@ -39,6 +41,9 @@ export default function InvoiceReviewForm({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   // Calculate generic total if missing
   const displayedTotal =
@@ -46,16 +51,7 @@ export default function InvoiceReviewForm({
       ? invoice.total
       : invoice.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
-  async function handleDecision(approved: boolean) {
-    let rejectionReason = "";
-
-    if (!approved) {
-        if (!confirm("Reject invoice and return clothes?")) return;
-        const input = prompt("Please provide a reason for rejection:");
-        if (input === null) return; // Cancelled
-        rejectionReason = input;
-    }
-
+  async function handleDecision(approved: boolean, reason?: string) {
     setLoading(true);
     setError(null);
 
@@ -63,7 +59,7 @@ export default function InvoiceReviewForm({
       const res = await fetch(`/api/invoices/${bookingId}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approved, reason: rejectionReason }),
+        body: JSON.stringify({ approved, reason: reason || "" }),
       });
 
       const data = await res.json();
@@ -102,9 +98,10 @@ export default function InvoiceReviewForm({
                     });
                     
                     if (verifyRes.ok) {
+                        toast.success("Payment Successful!");
                         router.push(`/seeker/orders/${data.orderId}`); // Should show "Paid" status
                     } else {
-                        alert("Payment Verification Failed. Please contact support.");
+                        toast.error("Payment Verification Failed. Please contact support.");
                         router.push(`/seeker/orders/${data.orderId}`);
                     }
                 },
@@ -123,7 +120,7 @@ export default function InvoiceReviewForm({
 
             const rzp = new window.Razorpay(options);
             rzp.on("payment.failed", function (response: any) {
-                alert(response.error.description);
+                toast.error(response.error.description || "Payment failed. Please try again.");
                 router.push(`/seeker/orders/${data.orderId}`);
             });
             rzp.open();
@@ -235,10 +232,9 @@ export default function InvoiceReviewForm({
         </div>
       )}
 
-      {/* Actions */}
-      <div className="grid grid-cols-2 gap-4 pt-2">
+       <div className="grid grid-cols-2 gap-4 pt-2">
          <button
-          onClick={() => handleDecision(false)}
+          onClick={() => setShowRejectDialog(true)}
           disabled={loading}
           className="btn btn-outline btn-error h-14 rounded-xl font-bold border-2 hover:bg-error hover:text-white transition-all disabled:opacity-50"
          >
@@ -257,6 +253,37 @@ export default function InvoiceReviewForm({
       <p className="text-xs text-center text-muted-foreground mt-4">
           By approving, you agree to the total amount and condition of items shown.
       </p>
+
+      {/* Rejection Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showRejectDialog}
+        onClose={() => {
+          setShowRejectDialog(false);
+          setRejectionReason("");
+        }}
+        onConfirm={async () => {
+          if (!rejectionReason.trim()) {
+            toast.error("Please provide a reason for rejection");
+            return;
+          }
+          setShowRejectDialog(false);
+          await handleDecision(false, rejectionReason);
+          setRejectionReason("");
+        }}
+        title="Reject Invoice?"
+        message="This will return the clothes to the provider. Please provide a reason for rejection:"
+        confirmText="Reject Invoice"
+        cancelText="Cancel"
+        variant="danger"
+      >
+        <textarea
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+          placeholder="Enter reason for rejection..."
+          className="w-full mt-4 rounded-lg border border-border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          rows={3}
+        />
+      </ConfirmDialog>
     </div>
   );
 }

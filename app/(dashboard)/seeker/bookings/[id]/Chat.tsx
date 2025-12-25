@@ -8,46 +8,7 @@ interface DisputeState {
   error: string | null;
   success: string | null;
 }
-const [dispute, setDispute] = useState<DisputeState>({
-  open: false,
-  reason: "",
-  details: "",
-  loading: false,
-  error: null,
-  success: null,
-});
-async function handleDisputeSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  setDispute((d) => ({ ...d, loading: true, error: null, success: null }));
-  try {
-    const res = await fetch(`/api/bookings/${bookingId}/dispute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reason: dispute.reason,
-        details: dispute.details,
-      }),
-    });
-    if (!res.ok) throw new Error("Failed to raise dispute");
-    setDispute((d) => ({
-      ...d,
-      loading: false,
-      success: "Dispute raised successfully!",
-      reason: "",
-      details: "",
-    }));
-    setTimeout(
-      () => setDispute((d) => ({ ...d, open: false, success: null })),
-      1200
-    );
-  } catch (err) {
-    setDispute((d) => ({
-      ...d,
-      loading: false,
-      error: "Could not raise dispute",
-    }));
-  }
-}
+
 
 interface ChatMessage {
   _id?: string;
@@ -69,6 +30,48 @@ export default function BookingChat({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [dispute, setDispute] = useState<DisputeState>({
+    open: false,
+    reason: "",
+    details: "",
+    loading: false,
+    error: null,
+    success: null,
+  });
+
+  async function handleDisputeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setDispute((d) => ({ ...d, loading: true, error: null, success: null }));
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/dispute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: dispute.reason,
+          details: dispute.details,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to raise dispute");
+      setDispute((d) => ({
+        ...d,
+        loading: false,
+        success: "Dispute raised successfully!",
+        reason: "",
+        details: "",
+      }));
+      setTimeout(
+        () => setDispute((d) => ({ ...d, open: false, success: null })),
+        1200
+      );
+    } catch (err) {
+      setDispute((d) => ({
+        ...d,
+        loading: false,
+        error: "Could not raise dispute",
+      }));
+    }
+  }
 
   useEffect(() => {
     fetchMessages();

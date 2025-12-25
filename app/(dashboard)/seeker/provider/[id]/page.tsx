@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ProviderHeader } from "@/components/provider/provider-header";
 
 type Provider = {
   _id: string;
@@ -34,6 +35,8 @@ type Provider = {
   businessName?: string;
   pricingRates?: Record<string, number>;
   createdAt?: string;
+  profilePicture?: string;
+  bannerImage?: string;
 };
 
 type Review = {
@@ -198,12 +201,13 @@ export default function ProviderDetailPage() {
             animate={{ opacity: 1, y: 0 }}
             className="lg:col-span-2 space-y-8"
           >
+            {/* Banner & Profile Picture */}
+            <ProviderHeader provider={provider} />
+            
             {/* Header Card */}
             <div className="rounded-3xl border border-border bg-card p-6 md:p-8 shadow-sm">
               <div className="flex flex-col md:flex-row gap-6 items-start">
-                <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary shadow-inner">
-                  {provider.name?.charAt(0) || "P"}
-                </div>
+                {/* Avatar removed - now using ProviderHeader */}
 
                 <div className="flex-1 space-y-2">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

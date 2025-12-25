@@ -1,5 +1,6 @@
 "use client";
 
+// re-compile trigger
 import { memo, useState } from "react";
 import { PopulatedSeekerBooking } from "@/types/bookings";
 import { BookingStatusBadge } from "../../provider/Manage-booking/booking-status-badge";
@@ -290,12 +291,23 @@ function SeekerBookingCardComponent({
         {/* Header Section */}
         <div className="space-y-4 flex-1">
           <div className="flex items-center gap-5">
-             <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center font-bold text-primary-foreground shadow-lg shadow-primary/30 text-xl">
-                {booking.provider.name.charAt(0)}
+             {/* Provider Profile Picture */}
+             <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted shadow-lg flex-shrink-0">
+               {booking.provider.profilePicture ? (
+                 <img
+                   src={booking.provider.profilePicture}
+                   alt={booking.provider.name}
+                   className="h-full w-full object-cover"
+                 />
+               ) : (
+                 <div className="h-full w-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center font-bold text-primary-foreground text-xl">
+                   {booking.provider.businessName?.charAt(0) || booking.provider.name.charAt(0)}
+                 </div>
+               )}
              </div>
              <div>
                 <h3 className="font-heading font-bold text-xl text-foreground flex items-center gap-3">
-                  <span className="tracking-tight">{booking.provider.name}</span>
+                  <span className="tracking-tight">{booking.provider.businessName || booking.provider.name}</span>
                    <BookingStatusBadge status={booking.status} />
                 </h3>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1.5 font-medium">

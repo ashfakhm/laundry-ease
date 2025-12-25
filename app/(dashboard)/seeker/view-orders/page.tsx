@@ -52,6 +52,8 @@ type Order = {
     businessName?: string;
     phone?: string;
     email?: string;
+    profilePicture?: string;
+    bannerImage?: string;
   } | null;
 };
 
@@ -292,8 +294,19 @@ export default function ViewOrdersPage() {
                             
                             {/* Provider Mini-Card */}
                             <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 flex items-start gap-4">
-                                <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg font-bold text-primary shadow-sm border border-border/50 shrink-0">
-                                    {order.provider?.businessName?.[0] || order.provider?.name?.[0] || "P"}
+                                {/* Provider Profile Picture */}
+                                <div className="h-10 w-10 rounded-full overflow-hidden border border-border/50 bg-background shadow-sm shrink-0">
+                                  {order.provider?.profilePicture ? (
+                                    <img
+                                      src={order.provider.profilePicture}
+                                      alt={order.provider.name}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="h-full w-full bg-background flex items-center justify-center text-lg font-bold text-primary">
+                                      {order.provider?.businessName?.[0] || order.provider?.name?.[0] || "P"}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Provider</p>

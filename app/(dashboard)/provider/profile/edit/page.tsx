@@ -24,6 +24,7 @@ import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 const LAUNDRY_SERVICES = [
   "Wash",
@@ -83,6 +84,9 @@ const providerProfileSchema = z
     bankAccountNumber: z.string().min(6, "Account number is required"),
     bankIFSC: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code"),
     upiId: z.string().optional(),
+    // Images
+    profilePicture: z.string().optional(),
+    bannerImage: z.string().optional(),
     // Security
     currentPassword: z.string().optional(),
     newPassword: z.string().optional(),
@@ -426,6 +430,30 @@ export default function ProviderEditProfilePage() {
                     className="w-full min-h-25 rounded-lg border border-input bg-background p-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                     placeholder="Describe your services, equipment, and expertise..."
                   />
+                </div>
+
+                {/* Profile Images */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground">Profile Images</h3>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <ImageUpload
+                      label="Profile Picture"
+                      value={form.watch("profilePicture") || ""}
+                      onChange={(val) => form.setValue("profilePicture", val)}
+                      variant="profile"
+                    />
+                    <div className="md:col-span-2">
+                      <ImageUpload
+                        label="Banner Image"
+                        value={form.watch("bannerImage") || ""}
+                        onChange={(val) => form.setValue("bannerImage", val)}
+                        variant="banner"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    These images will be displayed on your public profile.
+                  </p>
                 </div>
               </div>
             </SpotlightCard>

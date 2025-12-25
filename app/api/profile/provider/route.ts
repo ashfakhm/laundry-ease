@@ -84,7 +84,9 @@ export async function PATCH(req: Request) {
       currentPassword,
       newPassword,
       capacity,
-      phone
+      phone,
+      profilePicture,
+      bannerImage
     } = body;
 
     // Build update object with only provided fields
@@ -103,6 +105,8 @@ export async function PATCH(req: Request) {
     if (coordinates !== undefined) updateFields.coordinates = coordinates;
     if (capacity !== undefined) updateFields.capacity = Number(capacity);
     if (phone !== undefined) updateFields.phone = phone;
+    if (profilePicture !== undefined) updateFields.profilePicture = profilePicture;
+    if (bannerImage !== undefined) updateFields.bannerImage = bannerImage;
 
     // Bank Details Update
     const { bankAccountHolder, bankAccountNumber, bankIFSC, upiId } = body;

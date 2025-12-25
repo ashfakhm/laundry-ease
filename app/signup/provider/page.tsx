@@ -21,6 +21,7 @@ import {
 import { PasswordInput } from "@/components/ui/password-input";
 import { cn } from "@/lib/utils";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 const LAUNDRY_SERVICES = [
   "Wash",
@@ -64,6 +65,8 @@ export default function ProviderSignupPage() {
     bankAccountNumber: "",
     bankIFSC: "",
     upiId: "",
+    profilePicture: "",
+    bannerImage: "",
   });
   const [pricingRates, setPricingRates] = useState<
     { item: string; rate: string }[]
@@ -415,6 +418,29 @@ export default function ProviderSignupPage() {
                       rows={3}
                       required
                     />
+                  </div>
+
+                  {/* Profile Picture & Banner */}
+                  <div className="md:col-span-2 space-y-4">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <ImageUpload
+                        label="Profile Picture"
+                        value={form.profilePicture}
+                        onChange={(val) => set("profilePicture", val)}
+                        variant="profile"
+                      />
+                      <div className="md:col-span-2">
+                        <ImageUpload
+                          label="Banner Image"
+                          value={form.bannerImage}
+                          onChange={(val) => set("bannerImage", val)}
+                          variant="banner"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      These images will be displayed on your public profile to attract customers.
+                    </p>
                   </div>
 
                   <div className="space-y-2">

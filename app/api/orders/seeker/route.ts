@@ -40,7 +40,7 @@ export async function GET() {
           .collection("providers")
           .findOne(
             { _id: new ObjectId(order.provider_id) },
-            { projection: { name: 1, businessName: 1, phone: 1, email: 1 } }
+            { projection: { name: 1, businessName: 1, phone: 1, email: 1, profilePicture: 1, bannerImage: 1 } }
           );
 
         return {

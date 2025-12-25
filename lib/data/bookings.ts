@@ -133,9 +133,12 @@ export async function getSeekerBookings(): Promise<{
             projection: {
               _id: 1,
               name: 1,
+              businessName: 1,
               email: 1,
               phone: 1,
               address: 1,
+              profilePicture: 1,
+              bannerImage: 1,
             },
           }
         );
@@ -165,6 +168,9 @@ export async function getSeekerBookings(): Promise<{
             email: provider?.email || "No email",
             phone: provider?.phone || "No phone",
             address: provider?.address || "",
+            businessName: provider?.businessName,
+            profilePicture: provider?.profilePicture,
+            bannerImage: provider?.bannerImage,
           },
         } as unknown as PopulatedSeekerBooking;
       })

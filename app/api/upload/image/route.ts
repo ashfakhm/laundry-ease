@@ -1,0 +1,102 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import cloudinary from "cloudinary";
+
+// Check if Cloudinary is configured
+const isCloudinaryConfigured = !!(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+// Configure Cloudinary only if credentials exist
+if (isCloudinaryConfigured) {
+  cloudinary.v2.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+    const folder = (formData.get("folder") as string) || "provider-images";
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: "Invalid file type. Only JPG, PNG, and WebP are allowed." },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: "File too large. Maximum size is 5MB." },
+        { status: 400 }
+      );
+    }
+
+    // Convert file to buffer
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Use Cloudinary if configured, otherwise fallback to base64
+    let imageUrl: string;
+
+    if (isCloudinaryConfigured) {
+      // Upload to Cloudinary
+      imageUrl = await new Promise<string>((resolve, reject) => {
+        cloudinary.v2.uploader
+          .upload_stream(
+            {
+              folder,
+              public_id: `${Date.now()}-${file.name.replace(/\.[^/.]+$/, "")}`,
+              resource_type: "auto",
+              transformation: [
+                { width: 1200, height: 1200, crop: "limit" },
+                { quality: "auto:good" },
+                { fetch_format: "auto" },
+              ],
+            },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result?.secure_url || "");
+            }
+          )
+          .end(buffer);
+      });
+    } else {
+      // Fallback to base64 encoding
+      console.warn(
+        "Cloudinary not configured. Using base64 encoding as fallback. " +
+          "For production, please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in .env.local"
+      );
+      const base64 = buffer.toString("base64");
+      imageUrl = `data:${file.type};base64,${base64}`;
+    }
+
+    return NextResponse.json({ url: imageUrl }, { status: 200 });
+  } catch (error: any) {
+    console.error("Image upload error:", error);
+    return NextResponse.json(
+      { error: "Failed to upload image", details: error.message },
+      { status: 500 }
+    );
+  }
+}
