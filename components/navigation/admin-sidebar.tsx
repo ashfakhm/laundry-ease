@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
   LayoutDashboard,
@@ -31,14 +31,14 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const navigation: NavGroup[] = [
+const baseNavigation: NavGroup[] = [
   {
     items: [{ label: "Dashboard", href: "/admin", icon: LayoutDashboard }],
   },
   {
     title: "Operations",
     items: [
-      { label: "Complaints", href: "/admin/Complaints", icon: AlertTriangle },
+      { label: "Complaints", href: "/admin/complaints", icon: AlertTriangle },
       {
         label: "Payments",
         href: "/admin/payment-management",
@@ -61,6 +61,39 @@ interface AdminSidebarProps {
 export function AdminSidebar({ className }: AdminSidebarProps) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [activeComplaintsCount, setActiveComplaintsCount] = useState(0);
+
+  useEffect(() => {
+    const fetchActiveComplaints = async () => {
+      try {
+        const res = await fetch("/api/admin/complaints");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            // Count only active complaints (open, under_review)
+            const activeCount = data.filter(
+              (c: any) => c.status === "open" || c.status === "under_review"
+            ).length;
+            setActiveComplaintsCount(activeCount);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch complaints:", error);
+      }
+    };
+    fetchActiveComplaints();
+  }, []);
+
+  // Build dynamic navigation with badge
+  const navigation: NavGroup[] = baseNavigation.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      if (item.href === "/admin/complaints" && activeComplaintsCount > 0) {
+        return { ...item, badge: activeComplaintsCount };
+      }
+      return item;
+    }),
+  }));
 
   return (
     <aside
@@ -180,6 +213,38 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
 export function AdminMobileNav() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [activeComplaintsCount, setActiveComplaintsCount] = useState(0);
+
+  useEffect(() => {
+    const fetchActiveComplaints = async () => {
+      try {
+        const res = await fetch("/api/admin/complaints");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const activeCount = data.filter(
+              (c: any) => c.status === "open" || c.status === "under_review"
+            ).length;
+            setActiveComplaintsCount(activeCount);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch complaints:", error);
+      }
+    };
+    fetchActiveComplaints();
+  }, []);
+
+  // Build dynamic navigation with badge
+  const navigation: NavGroup[] = baseNavigation.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      if (item.href === "/admin/complaints" && activeComplaintsCount > 0) {
+        return { ...item, badge: activeComplaintsCount };
+      }
+      return item;
+    }),
+  }));
 
   return (
     <>
@@ -255,6 +320,11 @@ export function AdminMobileNav() {
                           >
                             <Icon className="h-5 w-5 shrink-0" />
                             <span>{item.label}</span>
+                            {item.badge !== undefined && item.badge > 0 && (
+                              <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                {item.badge}
+                              </span>
+                            )}
                           </Link>
                         </li>
                       );
