@@ -2,12 +2,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Send, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { EvidenceUpload } from "@/components/ui/evidence-upload";
 
 interface DisputeState {
   open: boolean;
   title: string;
   reason: string;
   details: string;
+  photos: string[];
   loading: boolean;
   error: string | null;
   success: string | null;
@@ -49,6 +51,7 @@ export default function BookingChat({
     title: "",
     reason: "late_delivery",
     details: "",
+    photos: [],
     loading: false,
     error: null,
     success: null,
@@ -105,7 +108,7 @@ export default function BookingChat({
           title: dispute.title,
           complaint_type: dispute.reason,
           description: dispute.details,
-          photos: [] // TODO: Add photo upload
+          photos: dispute.photos
         }),
       });
 
@@ -115,7 +118,6 @@ export default function BookingChat({
       }
       
       const data = await res.json();
-      // data is the created complaint object
       
       setDispute((d) => ({
         ...d,
@@ -124,10 +126,7 @@ export default function BookingChat({
       }));
       
       setTimeout(() => {
-          router.push(`/seeker/disputes/${data.data?._id || data._id}`); // data might be wrapped in { data: ... } by response helper? 
-          // successResponse returns payload directly or wrapped?
-          // lib/api/response says: return NextResponse.json(data, { status });
-          // So it is the object directly.
+          router.push(`/seeker/disputes/${data.data?._id || data._id}`); 
       }, 1000);
       
     } catch (err: any) {
@@ -212,8 +211,8 @@ export default function BookingChat({
 
       {/* Dispute Modal */}
       {dispute.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-card rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200 border border-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-card rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200 border border-border my-auto">
             <h2 className="text-xl font-heading font-bold mb-4 flex items-center gap-2">
                  <AlertTriangle className="w-5 h-5 text-amber-500" /> Report an Issue
             </h2>
@@ -261,6 +260,14 @@ export default function BookingChat({
                   placeholder="Describe the issue in detail..."
                   minLength={10}
                 />
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Evidence (Optional)</label>
+                  <EvidenceUpload
+                      value={dispute.photos}
+                      onChange={(urls) => setDispute(d => ({ ...d, photos: urls }))}
+                  />
               </div>
               
               {(dispute.error || dispute.success) && (

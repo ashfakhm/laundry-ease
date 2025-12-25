@@ -18,7 +18,7 @@ export async function POST(
 
     // Verify Admin
     const dbUser = await getUserByEmail(session.user.email);
-    if (dbUser?.role !== "admin") {
+    if (!dbUser || dbUser.role !== "admin") {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -75,7 +75,7 @@ export async function POST(
         // Manual Intervention Needed
         await db.collection("complaint_messages").insertOne({
             complaint_id: complaintId,
-            sender_id: new ObjectId(session.user.id),
+            sender_id: dbUser!._id as ObjectId, // Assert
             sender_role: "system",
             message_type: "SYSTEM",
             content: `Error executing financial action: ${finError.message}. Please check Dashboard.`,
@@ -87,7 +87,7 @@ export async function POST(
     // 3. System Message (Success)
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
         complaint_id: complaintId,
-        sender_id: new ObjectId(session.user.id),
+        sender_id: dbUser!._id as ObjectId, // Assert
         sender_role: "system",
         message_type: "SYSTEM",
         content: `Dispute ${dbStatus}. Outcome: ${outcome}.`,
