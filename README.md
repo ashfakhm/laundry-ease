@@ -77,7 +77,7 @@ SENDGRID_API_KEY=...
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        FRONTEND                             │
-│  Next.js 15 (App Router) + React + Tailwind CSS + Shadcn   │
+│  Next.js 16 (App Router) + React + Tailwind CSS + Shadcn   │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
