@@ -5,7 +5,18 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Search, Calendar, Package, Menu, X, LogOut, Home, User, Receipt, AlertCircle } from "lucide-react";
+import {
+  Search,
+  Calendar,
+  Package,
+  Menu,
+  X,
+  LogOut,
+  Home,
+  User,
+  Receipt,
+  AlertCircle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,9 +59,13 @@ export function SeekerTopNav() {
 
   const dynamicNavigation = [...navigation];
   if (activeDisputes > 0) {
-      if (!dynamicNavigation.find(i => i.href === "/seeker/disputes")) {
-        dynamicNavigation.push({ label: `Disputes (${activeDisputes})`, href: "/seeker/disputes", icon: AlertCircle });
-      }
+    if (!dynamicNavigation.find((i) => i.href === "/seeker/disputes")) {
+      dynamicNavigation.push({
+        label: `Disputes (${activeDisputes})`,
+        href: "/seeker/disputes",
+        icon: AlertCircle,
+      });
+    }
   }
 
   return (
@@ -61,14 +76,17 @@ export function SeekerTopNav() {
           <div className="flex items-center gap-8">
             <Link href="/seeker" className="flex items-center gap-2 group">
               <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                <Image 
-                  src="/laundryease-logo.png" 
-                  alt="LaundryEase" 
-                  fill
+                <Image
+                  src="/laundryease-logo.png"
+                  alt="LaundryEase logo"
+                  width={32}
+                  height={32}
                   className="object-cover"
                 />
               </div>
-              <span className="font-heading font-semibold text-lg tracking-tight">LaundryEase</span>
+              <span className="font-heading font-semibold text-lg tracking-tight">
+                LaundryEase
+              </span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-6">
@@ -80,7 +98,9 @@ export function SeekerTopNav() {
                     href={item.href}
                     className={cn(
                       "text-sm font-medium transition-colors relative py-1",
-                      isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                      isActive
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {item.label}
@@ -109,7 +129,11 @@ export function SeekerTopNav() {
               onClick={() => setIsOpen(!isOpen)}
               className="md:hidden p-2 -mr-2 text-muted-foreground hover:text-foreground"
             >
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
             </button>
           </div>
         </div>
@@ -126,21 +150,23 @@ export function SeekerTopNav() {
           >
             <nav className="flex flex-col gap-4">
               {dynamicNavigation.map((item) => {
-                 const isActive = pathname === item.href;
-                 return (
+                const isActive = pathname === item.href;
+                return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setIsOpen(false)}
                     className={cn(
                       "flex items-center gap-4 text-lg font-medium p-2 rounded-lg transition-colors",
-                      isActive ? "bg-secondary text-foreground" : "text-muted-foreground"
+                      isActive
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground"
                     )}
                   >
                     <item.icon className="w-5 h-5" />
                     {item.label}
                   </Link>
-                 )
+                );
               })}
             </nav>
             <div className="mt-auto border-t border-border pt-6">
@@ -155,9 +181,9 @@ export function SeekerTopNav() {
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       {/* Spacer to prevent content overlap */}
-      <div className="h-16" /> 
+      <div className="h-16" />
     </>
   );
 }

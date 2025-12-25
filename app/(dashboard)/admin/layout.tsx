@@ -16,15 +16,18 @@ export default function AdminLayout({
 }) {
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile Navigation */}
-      <AdminMobileNav />
-
+      <header className="lg:hidden" role="banner">
+        <AdminMobileNav />
+      </header>
       <div className="flex">
-        {/* Desktop Sidebar */}
-        <AdminSidebar className="sticky top-0 h-screen" />
-
-        {/* Main Content */}
-        <main className="flex-1 min-w-0 pb-20 lg:pb-0">
+        <nav className="hidden lg:block" aria-label="Admin sidebar navigation">
+          <AdminSidebar className="sticky top-0 h-screen" />
+        </nav>
+        <main
+          className="flex-1 min-w-0 pb-20 lg:pb-0"
+          role="main"
+          aria-label="Admin main content"
+        >
           <div className="container mx-auto px-4 py-6 lg:px-8">{children}</div>
         </main>
       </div>

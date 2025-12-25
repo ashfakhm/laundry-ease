@@ -15,10 +15,11 @@ export function AppHeader({ showAuth = true }: AppHeaderProps) {
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2 group">
           <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-            <Image 
-              src="/laundryease-logo.png" 
-              alt="LaundryEase" 
-              fill
+            <Image
+              src="/laundryease-logo.png"
+              alt="LaundryEase logo"
+              width={32}
+              height={32}
               className="object-cover"
             />
           </div>
@@ -32,9 +33,9 @@ export function AppHeader({ showAuth = true }: AppHeaderProps) {
           {showAuth && (
             <div className="flex items-center gap-4">
               <Link href="/auth">
-                 <button className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
-                   Sign In
-                 </button>
+                <button className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
+                  Sign In
+                </button>
               </Link>
               <Link href="/choose-role">
                 <button className="h-9 px-4 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.1)] hover:translate-y-[-1px]">

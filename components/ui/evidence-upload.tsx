@@ -27,8 +27,8 @@ export function EvidenceUpload({
     if (!files || files.length === 0) return;
 
     if (value.length + files.length > maxFiles) {
-        setError(`Maximum ${maxFiles} photos allowed`);
-        return;
+      setError(`Maximum ${maxFiles} photos allowed`);
+      return;
     }
 
     setError(null);
@@ -37,34 +37,35 @@ export function EvidenceUpload({
 
     // Upload files sequentially or parallel
     try {
-       const uploadPromises = Array.from(files).map(async (file) => {
-           // Validate
-           if (file.size > 5 * 1024 * 1024) throw new Error(`File ${file.name} is too large (max 5MB)`);
-           if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error(`File ${file.name} format not supported`);
+      const uploadPromises = Array.from(files).map(async (file) => {
+        // Validate
+        if (file.size > 5 * 1024 * 1024)
+          throw new Error(`File ${file.name} is too large (max 5MB)`);
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+          throw new Error(`File ${file.name} format not supported`);
 
-           const formData = new FormData();
-           formData.append("file", file);
-           formData.append("folder", "complaint-evidence");
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("folder", "complaint-evidence");
 
-           const res = await fetch("/api/upload/image", {
-               method: "POST",
-               body: formData
-           });
-           
-           if (!res.ok) throw new Error("Upload failed");
-           const data = await res.json();
-           return data.url;
-       });
+        const res = await fetch("/api/upload/image", {
+          method: "POST",
+          body: formData,
+        });
 
-       const uploadedUrls = await Promise.all(uploadPromises);
-       onChange([...value, ...uploadedUrls]);
-       
+        if (!res.ok) throw new Error("Upload failed");
+        const data = await res.json();
+        return data.url;
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      onChange([...value, ...uploadedUrls]);
     } catch (err: any) {
-        console.error("Upload Error:", err);
-        setError(err.message || "Failed to upload some images");
+      console.error("Upload Error:", err);
+      setError(err.message || "Failed to upload some images");
     } finally {
-        setUploading(false);
-        if (inputRef.current) inputRef.current.value = "";
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
   };
 
@@ -76,57 +77,67 @@ export function EvidenceUpload({
     <div className="space-y-4">
       {/* Grid of Images */}
       {value.length > 0 && (
-         <div className="grid grid-cols-3 gap-2">
-            {value.map((url, i) => (
-                <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
-                    <Image src={url} alt="Evidence" fill className="object-cover" />
-                    <button
-                        type="button" 
-                        onClick={() => handleRemove(url)}
-                        className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        disabled={disabled}
-                    >
-                        <X className="w-3 h-3" />
-                    </button>
-                </div>
-            ))}
-         </div>
+        <div className="grid grid-cols-3 gap-2">
+          {value.map((url, i) => (
+            <div
+              key={i}
+              className="relative aspect-square rounded-lg overflow-hidden border border-border group"
+            >
+              <Image
+                src={url}
+                alt="Uploaded evidence image"
+                width={128}
+                height={128}
+                className="object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => handleRemove(url)}
+                className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                disabled={disabled}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Upload Button */}
       {value.length < maxFiles && (
         <div>
-            <input
-                ref={inputRef}
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleFileSelect}
-                disabled={disabled || uploading}
-            />
-            <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={disabled || uploading}
-                className={cn(
-                    "flex items-center justify-center gap-2 w-full py-4 border-2 border-dashed border-border/60 rounded-xl hover:bg-muted/50 hover:border-primary/50 transition-all text-sm font-medium text-muted-foreground",
-                    uploading && "opacity-50 cursor-not-allowed"
-                )}
-            >
-                {uploading ? (
-                    <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Uploading...
-                    </>
-                ) : (
-                    <>
-                        <ImagePlus className="w-4 h-4" /> Add Evidence Photos ({value.length}/{maxFiles})
-                    </>
-                )}
-            </button>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleFileSelect}
+            disabled={disabled || uploading}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={disabled || uploading}
+            className={cn(
+              "flex items-center justify-center gap-2 w-full py-4 border-2 border-dashed border-border/60 rounded-xl hover:bg-muted/50 hover:border-primary/50 transition-all text-sm font-medium text-muted-foreground",
+              uploading && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Uploading...
+              </>
+            ) : (
+              <>
+                <ImagePlus className="w-4 h-4" /> Add Evidence Photos (
+                {value.length}/{maxFiles})
+              </>
+            )}
+          </button>
         </div>
       )}
-      
+
       {error && <p className="text-xs text-destructive font-medium">{error}</p>}
     </div>
   );

@@ -2,15 +2,25 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background">
+    <main
+      className="min-h-screen bg-background"
+      role="main"
+      aria-label="LaundryEase marketing home"
+    >
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col items-center justify-center gap-10 px-4 py-16 md:flex-row md:items-stretch">
-        <section className="flex flex-1 flex-col justify-center gap-8">
+        <section
+          className="flex flex-1 flex-col justify-center gap-8"
+          aria-labelledby="intro-title"
+        >
           <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Upfront payments with 24‑hour escrow protection
           </div>
           <div className="space-y-4">
-            <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
+            <h1
+              id="intro-title"
+              className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl"
+            >
               Laundry, handled{" "}
               <span className="text-emerald-600">end‑to‑end</span>.
             </h1>
@@ -20,8 +30,10 @@ export default function Home() {
               escrow and dispute resolution.
             </p>
           </div>
-
-          <nav className="flex flex-wrap items-center gap-3">
+          <nav
+            className="flex flex-wrap items-center gap-3"
+            aria-label="Primary"
+          >
             <Link
               href="/choose-role"
               className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
@@ -38,7 +50,6 @@ export default function Home() {
               No subscription. Pay only for completed orders.
             </p>
           </nav>
-
           <div className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
             <div className="rounded-2xl border bg-card px-4 py-3 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-600">
@@ -67,20 +78,24 @@ export default function Home() {
             </div>
           </div>
         </section>
-
-        <aside className="flex flex-1 items-center justify-center">
+        <aside
+          className="flex flex-1 items-center justify-center"
+          aria-labelledby="workflow-title"
+        >
           <div className="relative h-full w-full max-w-md">
             <div className="absolute inset-0 -z-10 rounded-[2.5rem] bg-linear-to-br from-emerald-500/15 via-sky-500/10 to-emerald-600/15 blur-3xl" />
             <div className="relative h-full rounded-[2rem] border bg-card/80 p-5 shadow-xl backdrop-blur-sm">
               <header className="mb-4">
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                <h2
+                  id="workflow-title"
+                  className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground"
+                >
                   How LaundryEase works
-                </p>
+                </h2>
                 <p className="mt-1 text-sm font-medium text-foreground">
                   A protected flow from pickup to payout.
                 </p>
               </header>
-
               <ol className="space-y-3 text-xs">
                 <li className="flex gap-3 rounded-xl border bg-background px-3 py-2">
                   <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-500/30">

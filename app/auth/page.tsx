@@ -84,59 +84,78 @@ export default function AuthPage() {
   return (
     <>
       <AppHeader showAuth={false} />
-      <main className="min-h-screen bg-background flex items-center justify-center p-4 md:p-8">
+      <main
+        className="min-h-screen bg-background flex items-center justify-center p-4 md:p-8"
+        role="main"
+        aria-label="Sign in to LaundryEase"
+      >
         <div className="w-full max-w-5xl flex flex-col md:flex-row gap-12 items-center">
-          
           {/* Left Side - Brand Promise */}
-          <motion.section 
+          <motion.section
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
             className="flex-1 space-y-8 hidden md:block"
+            aria-labelledby="auth-brand-title"
           >
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary text-secondary-foreground border border-border/50 text-xs font-medium">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
               <span>Bank-grade security</span>
             </div>
-            
             <div className="space-y-4">
-              <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground leading-[1.1]">
-                Welcome back to <br/> <span className="text-primary">LaundryEase</span>
+              <h1
+                id="auth-brand-title"
+                className="font-heading text-4xl font-bold tracking-tight text-foreground leading-[1.1]"
+              >
+                Welcome back to <br />{" "}
+                <span className="text-primary">LaundryEase</span>
               </h1>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                Manage your premium laundry services. Track orders in real-time, approve detailed invoices, and pay securely via escrow.
+                Manage your premium laundry services. Track orders in real-time,
+                approve detailed invoices, and pay securely via escrow.
               </p>
             </div>
-
             <div className="grid grid-cols-2 gap-6 pt-4">
               <div className="p-4 rounded-xl bg-card border border-border/50">
-                <div className="text-2xl font-bold text-foreground mb-1">24h</div>
-                <div className="text-sm text-muted-foreground">Escrow Protection</div>
+                <div className="text-2xl font-bold text-foreground mb-1">
+                  24h
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Escrow Protection
+                </div>
               </div>
               <div className="p-4 rounded-xl bg-card border border-border/50">
-                <div className="text-2xl font-bold text-foreground mb-1">100%</div>
-                <div className="text-sm text-muted-foreground">Deadline Guarantee</div>
+                <div className="text-2xl font-bold text-foreground mb-1">
+                  100%
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Deadline Guarantee
+                </div>
               </div>
             </div>
           </motion.section>
-
           {/* Right Side - Auth Form */}
-          <motion.section 
+          <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
             className="flex-1 w-full max-w-md"
+            aria-labelledby="auth-form-title"
           >
             <div className="bg-card border border-border/50 shadow-xl shadow-primary/5 rounded-2xl p-6 md:p-8 backdrop-blur-sm">
               {!showForgotPassword ? (
                 <>
-                  <div className="mb-8 text-center md:text-left">
-                    <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
+                  <header className="mb-8 text-center md:text-left">
+                    <h2
+                      id="auth-form-title"
+                      className="text-2xl font-semibold tracking-tight"
+                    >
+                      Sign in
+                    </h2>
                     <p className="text-sm text-muted-foreground mt-2">
-                       Enter your credentials to access your account
+                      Enter your credentials to access your account
                     </p>
-                  </div>
-
+                  </header>
                   <button
                     className="w-full h-11 flex items-center justify-center gap-2 rounded-lg border border-border bg-background hover:bg-secondary transition-colors text-sm font-medium"
                     onClick={() => signIn("google", { callbackUrl: "/" })}
@@ -166,19 +185,25 @@ export default function AuthPage() {
                     </svg>
                     Continue with Google
                   </button>
-
                   <div className="relative my-8">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t border-border" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Or with email</span>
+                      <span className="bg-card px-2 text-muted-foreground">
+                        Or with email
+                      </span>
                     </div>
                   </div>
-
-                  <form onSubmit={onCredentials} className="space-y-5">
+                  <form
+                    onSubmit={onCredentials}
+                    className="space-y-5"
+                    aria-label="Sign in form"
+                  >
                     <div className="space-y-2">
-                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Email</label>
+                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Email
+                      </label>
                       <input
                         type="email"
                         placeholder="name@example.com"
@@ -188,9 +213,8 @@ export default function AuthPage() {
                         required
                       />
                     </div>
-                    
                     <div className="space-y-2">
-                       <PasswordInput
+                      <PasswordInput
                         id="password"
                         placeholder="Enter your password"
                         value={password}
@@ -198,7 +222,6 @@ export default function AuthPage() {
                         required
                       />
                     </div>
-
                     <div className="flex items-center justify-end">
                       <button
                         type="button"
@@ -208,14 +231,12 @@ export default function AuthPage() {
                         Forgot password?
                       </button>
                     </div>
-
                     {error && (
                       <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
                         {error}
                       </div>
                     )}
-
                     <button
                       type="submit"
                       disabled={loading}
@@ -225,34 +246,42 @@ export default function AuthPage() {
                       {loading ? "Signing in..." : "Sign in"}
                     </button>
                   </form>
-
                   <div className="mt-6 text-center text-sm text-muted-foreground">
                     Don&apos;t have an account?{" "}
-                    <a href="/choose-role" className="font-medium text-primary hover:underline">
+                    <a
+                      href="/choose-role"
+                      className="font-medium text-primary hover:underline"
+                    >
                       Create account
                     </a>
                   </div>
                 </>
               ) : (
                 <>
-                  <button 
+                  <button
                     onClick={() => setShowForgotPassword(false)}
                     className="mb-6 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     Back
                   </button>
-
-                  <div className="mb-6">
-                     <h2 className="text-2xl font-semibold tracking-tight">Reset Password</h2>
-                     <p className="text-sm text-muted-foreground mt-2">
-                       We'll email you instructions to reset your password.
-                     </p>
-                  </div>
-
-                  <form onSubmit={handleForgotPassword} className="space-y-5">
+                  <header className="mb-6">
+                    <h2 className="text-2xl font-semibold tracking-tight">
+                      Reset Password
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      We'll email you instructions to reset your password.
+                    </p>
+                  </header>
+                  <form
+                    onSubmit={handleForgotPassword}
+                    className="space-y-5"
+                    aria-label="Reset password form"
+                  >
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Email address</label>
+                      <label className="text-sm font-medium">
+                        Email address
+                      </label>
                       <input
                         type="email"
                         placeholder="name@example.com"
@@ -262,26 +291,25 @@ export default function AuthPage() {
                         required
                       />
                     </div>
-
                     {forgotSuccess && (
                       <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-600 flex items-center gap-2">
-                         <CheckCircle2 className="w-4 h-4" />
-                         Check email for instructions.
+                        <CheckCircle2 className="w-4 h-4" />
+                        Check email for instructions.
                       </div>
                     )}
-
                     {error && (
                       <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                         {error}
                       </div>
                     )}
-
                     <button
                       type="submit"
                       disabled={forgotLoading}
-                       className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      {forgotLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {forgotLoading && (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      )}
                       {forgotLoading ? "Sending..." : "Send Reset Link"}
                     </button>
                   </form>
@@ -296,21 +324,21 @@ export default function AuthPage() {
 }
 
 function CheckCircle2(props: any) {
-    return (
-        <svg
-        {...props}
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        >
-        <circle cx="12" cy="12" r="10" />
-        <path d="m9 12 2 2 4-4" />
-        </svg>
-    )
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
 }

@@ -7,8 +7,12 @@ export default function RootMarketingLayout({
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <AppHeader showAuth={true} />
-      <main>{children}</main>
+      <header role="banner">
+        <AppHeader showAuth={true} />
+      </header>
+      <main role="main" aria-label="Marketing main content">
+        {children}
+      </main>
     </div>
   );
 }

@@ -102,23 +102,41 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-  params: { [key: string]: string | string[] | undefined }; // Fix for Next.js 15 type strictness if needed, or keep simple
+  params: { [key: string]: string | string[] | undefined };
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`min-h-screen w-full antialiased ${inter.variable} overflow-x-hidden selection:bg-primary/20 selection:text-primary`}>
+      <body
+        className={`min-h-screen w-full antialiased ${inter.variable} overflow-x-hidden selection:bg-primary/20 selection:text-primary`}
+      >
         <SessionProvider>
           <ThemeProvider
             attribute="class"
-            defaultTheme="dark" 
+            defaultTheme="dark"
             enableSystem={false}
             disableTransitionOnChange
           >
             {/* Global High-Tech Background */}
             <InteractiveGridPattern />
-            
             <div className="relative z-10 w-full min-h-screen flex flex-col">
-               <ToastProvider>{children}</ToastProvider>
+              <header role="banner" className="sr-only">
+                {/* Main site header is rendered in individual pages for flexibility */}
+                LaundryEase
+              </header>
+              <main
+                id="main-content"
+                role="main"
+                className="flex-1 flex flex-col"
+              >
+                <ToastProvider>{children}</ToastProvider>
+              </main>
+              <footer
+                role="contentinfo"
+                className="w-full py-4 px-6 border-t border-border bg-background text-center text-xs text-muted-foreground"
+              >
+                &copy; {new Date().getFullYear()} LaundryEase Inc. All rights
+                reserved.
+              </footer>
             </div>
           </ThemeProvider>
         </SessionProvider>

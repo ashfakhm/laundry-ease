@@ -17,7 +17,7 @@ import {
   LogOut,
   ChevronLeft,
   MessageSquare,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -91,23 +91,25 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
   }, []);
 
   // Clone navigation to avoid mutating static global
-  const dynamicNavigation = navigation.map(group => ({
-      ...group,
-      items: group.items.map(item => ({ ...item })) // Deep clone items too
+  const dynamicNavigation = navigation.map((group) => ({
+    ...group,
+    items: group.items.map((item) => ({ ...item })), // Deep clone items too
   }));
 
   // Logic: "only admin clicks something add provider ... then provider will also have a menu ... after fixing ... removed"
   if (activeDisputes > 0) {
-      // Inject into the first group (Main)
-      // Check if already exists to prevent dupe if re-render (though cloning prevents it)
-      if (!dynamicNavigation[0].items.find(i => i.href === "/provider/disputes")) {
-          dynamicNavigation[0].items.push({
-              label: "Disputes",
-              href: "/provider/disputes",
-              icon: AlertCircle,
-              badge: activeDisputes
-          });
-      }
+    // Inject into the first group (Main)
+    // Check if already exists to prevent dupe if re-render (though cloning prevents it)
+    if (
+      !dynamicNavigation[0].items.find((i) => i.href === "/provider/disputes")
+    ) {
+      dynamicNavigation[0].items.push({
+        label: "Disputes",
+        href: "/provider/disputes",
+        icon: AlertCircle,
+        badge: activeDisputes,
+      });
+    }
   }
 
   return (
@@ -123,16 +125,21 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
         {!isCollapsed && (
           <Link href="/provider" className="flex items-center gap-3 group">
             <div className="relative h-9 w-9 rounded-xl overflow-hidden flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-              <Image 
-                src="/laundryease-logo.png" 
-                alt="LaundryEase" 
-                fill
+              <Image
+                src="/laundryease-logo.png"
+                alt="LaundryEase logo"
+                width={36}
+                height={36}
                 className="object-cover"
               />
             </div>
             <div className="flex flex-col">
-               <span className="font-heading font-bold text-base leading-none">LaundryEase</span>
-               <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium mt-1">Provider</span>
+              <span className="font-heading font-bold text-base leading-none">
+                LaundryEase
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium mt-1">
+                Provider
+              </span>
             </div>
           </Link>
         )}
@@ -179,15 +186,17 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
                       title={isCollapsed ? item.label : undefined}
                     >
                       {isActive && (
-                         <motion.div
-                           layoutId="activeSidebar"
-                           className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-primary"
-                         />
+                        <motion.div
+                          layoutId="activeSidebar"
+                          className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-primary"
+                        />
                       )}
                       <Icon
                         className={cn(
                           "h-5 w-5 shrink-0 transition-colors",
-                          isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                          isActive
+                            ? "text-primary"
+                            : "text-muted-foreground group-hover:text-foreground"
                         )}
                       />
                       {!isCollapsed && (
@@ -211,18 +220,23 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
 
       {/* Footer */}
       <div className="border-t border-border/50 p-4 bg-muted/20">
-        <div className={cn("flex items-center gap-2", isCollapsed ? "flex-col" : "justify-between")}>
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            isCollapsed ? "flex-col" : "justify-between"
+          )}
+        >
           <ThemeToggle />
           <button
-             onClick={() => signOut({ callbackUrl: "/" })}
-             className={cn(
-               "flex items-center gap-2 rounded-lg p-2 text-sm font-medium text-muted-foreground hover:text-destructive transition-colors",
-               isCollapsed && "mt-2"
-             )}
-             title="Sign Out"
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className={cn(
+              "flex items-center gap-2 rounded-lg p-2 text-sm font-medium text-muted-foreground hover:text-destructive transition-colors",
+              isCollapsed && "mt-2"
+            )}
+            title="Sign Out"
           >
-             <LogOut className="h-5 w-5" />
-             {!isCollapsed && <span>Sign Out</span>}
+            <LogOut className="h-5 w-5" />
+            {!isCollapsed && <span>Sign Out</span>}
           </button>
         </div>
       </div>
@@ -241,14 +255,16 @@ export function ProviderMobileNav() {
       <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/50 bg-background/80 backdrop-blur-md px-4">
         <Link href="/provider" className="flex items-center gap-2">
           <div className="relative h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center">
-             <Image 
-                src="/laundryease-logo.png" 
-                alt="LaundryEase" 
-                fill
-                className="object-cover"
-              />
+            <Image
+              src="/laundryease-logo.png"
+              alt="LaundryEase"
+              fill
+              className="object-cover"
+            />
           </div>
-          <span className="font-heading font-semibold text-lg tracking-tight">Provider</span>
+          <span className="font-heading font-semibold text-lg tracking-tight">
+            Provider
+          </span>
         </Link>
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -262,14 +278,14 @@ export function ProviderMobileNav() {
       </header>
 
       <AnimatePresence>
-      {isOpen && (
-        <motion.div
+        {isOpen && (
+          <motion.div
             initial={{ opacity: 0, x: "100%" }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed inset-0 z-50 bg-background lg:hidden flex flex-col"
-        >
+          >
             <div className="flex h-16 items-center justify-between border-b px-4">
               <span className="font-heading font-semibold text-lg">Menu</span>
               <button
@@ -279,7 +295,7 @@ export function ProviderMobileNav() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
+
             <nav className="flex-1 overflow-y-auto p-6 space-y-8">
               {navigation.map((group, groupIndex) => (
                 <div key={groupIndex}>
@@ -314,16 +330,16 @@ export function ProviderMobileNav() {
             </nav>
 
             <div className="p-6 border-t border-border/50">
-               <button
+              <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="flex items-center gap-3 w-full p-4 rounded-xl bg-destructive/5 text-destructive font-medium hover:bg-destructive/10 transition-colors"
-               >
-                 <LogOut className="h-5 w-5" />
-                 Sign Out
-               </button>
+              >
+                <LogOut className="h-5 w-5" />
+                Sign Out
+              </button>
             </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/50 bg-background/80 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
@@ -343,7 +359,9 @@ export function ProviderMobileNav() {
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Icon className={cn("h-5 w-5", isActive && "fill-current/20")} />
+                <Icon
+                  className={cn("h-5 w-5", isActive && "fill-current/20")}
+                />
                 <span className="text-[10px] font-medium">{item.label}</span>
               </Link>
             );

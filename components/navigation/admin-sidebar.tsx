@@ -108,10 +108,11 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
         {!isCollapsed && (
           <Link href="/admin" className="flex items-center gap-2">
             <div className="relative h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm">
-              <Image 
-                src="/laundryease-logo.png" 
-                alt="LaundryEase Admin" 
-                fill
+              <Image
+                src="/laundryease-logo.png"
+                alt="LaundryEase Admin logo"
+                width={32}
+                height={32}
                 className="object-cover"
               />
             </div>
@@ -252,12 +253,12 @@ export function AdminMobileNav() {
       <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-card/95 backdrop-blur-sm px-4">
         <Link href="/admin" className="flex items-center gap-2">
           <div className="relative h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm">
-             <Image 
-                src="/laundryease-logo.png" 
-                alt="LaundryEase Admin" 
-                fill
-                className="object-cover"
-              />
+            <Image
+              src="/laundryease-logo.png"
+              alt="LaundryEase Admin"
+              fill
+              className="object-cover"
+            />
           </div>
           <span className="font-semibold text-foreground">Admin</span>
         </Link>

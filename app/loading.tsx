@@ -1,10 +1,14 @@
 export default function Loading() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center">
+    <main
+      className="min-h-screen w-full flex items-center justify-center"
+      role="status"
+      aria-label="Loading"
+    >
       <span
         className="loading loading-ring loading-xl"
         aria-label="Loading"
       ></span>
-    </div>
+    </main>
   );
 }
