@@ -1,5 +1,53 @@
 "use client";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "LaundryEase – Premium Laundry Service ",
+  description:
+    "LaundryEase is a premium laundry SaaS platform offering doorstep pickup, deadline-guaranteed delivery, and secure escrow payments for urban professionals in New York and San Francisco.",
+  openGraph: {
+    title: "LaundryEase – Premium Laundry Service ",
+    description:
+      "LaundryEase is a premium laundry SaaS platform offering doorstep pickup, deadline-guaranteed delivery, and secure escrow payments for urban professionals .",
+    url: "https://laundryease.com",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "LaundryEase - Laundry handled end-to-end",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LaundryEase – Premium Laundry Service ",
+    description:
+      "LaundryEase is a premium laundry SaaS platform offering doorstep pickup, deadline-guaranteed delivery, and secure escrow payments for urban professionals .",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: "https://laundryease.com",
+    languages: {
+      "en-US": "https://laundryease.com/en-US",
+      "en-IN": "https://laundryease.com/en-IN",
+    },
+  },
+};
+
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, MapPin, ShieldCheck, Clock } from "lucide-react";
@@ -7,7 +55,7 @@ import { motion } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
-import { JsonLdScript } from "next-seo";
+import { JsonLdScript, FAQJsonLd, ReviewJsonLd } from "next-seo";
 
 export default function LandingPage() {
   return (
@@ -36,6 +84,42 @@ export default function LandingPage() {
           url: "https://laundryease.com",
         }}
         scriptKey="service-landing"
+      />
+
+      {/* FAQ Structured Data for SEO Rich Results */}
+      <FAQJsonLd
+        questions={[
+          {
+            question: "How does LaundryEase work?",
+            answer:
+              "Book a pickup, our provider collects your laundry, processes it, and delivers it back to your doorstep. Payment is only released after you confirm delivery.",
+          },
+          {
+            question: "Is my payment secure?",
+            answer:
+              "Yes, your payment is held in escrow and only released to the provider after you verify delivery with an OTP.",
+          },
+          {
+            question: "Where is LaundryEase available?",
+            answer: "Currently, we serve New York and San Francisco.",
+          },
+          {
+            question: "What if my order is late?",
+            answer:
+              "If we miss your deadline, your order is free as per our guarantee.",
+          },
+        ]}
+      />
+
+      {/* Review Structured Data for SEO Rich Results */}
+      <ReviewJsonLd
+        author="Jane Doe"
+        reviewRating={{ ratingValue: 5, bestRating: 5 }}
+        itemReviewed="LaundryEase"
+        reviewBody="LaundryEase made my laundry experience seamless and stress-free. The pickup and delivery were on time, and I only paid after verifying the delivery. Highly recommended!"
+        datePublished="2025-12-25"
+        publisher="LaundryEase Reviews"
+        url="https://laundryease.com"
       />
       <div className="flex flex-col min-h-screen bg-background text-foreground selection:bg-primary/10 selection:text-primary overflow-x-hidden">
         {/* Navbar */}
