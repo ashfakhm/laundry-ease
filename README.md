@@ -13,13 +13,13 @@
 
 LaundryEase connects busy professionals with verified laundry service providers. No shop visits, no missed deadlines, no payment disputes.
 
-| Problem | Solution |
-|---------|----------|
-| 2-4 hours/week wasted on laundry runs | Doorstep pickup & delivery |
-| Missed deadlines for urgent clothes | Deadline-guaranteed matching |
-| Unclear pricing, surprise charges | Transparent fixed-price lists |
-| No accountability for damage/loss | Photo evidence + Admin mediation |
-| Payment disputes | Escrow-protected payments |
+| Problem                               | Solution                         |
+| ------------------------------------- | -------------------------------- |
+| 2-4 hours/week wasted on laundry runs | Doorstep pickup & delivery       |
+| Missed deadlines for urgent clothes   | Deadline-guaranteed matching     |
+| Unclear pricing, surprise charges     | Transparent fixed-price lists    |
+| No accountability for damage/loss     | Photo evidence + Admin mediation |
+| Payment disputes                      | Escrow-protected payments        |
 
 ---
 
@@ -64,10 +64,13 @@ CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
 
-# Optional: SMS & Email
+# SMS (OTP via Twilio)
 TWILIO_ACCOUNT_SID=...
 TWILIO_AUTH_TOKEN=...
-SENDGRID_API_KEY=...
+TWILIO_PHONE_NUMBER=...
+# Email (Nodemailer via Gmail SMTP)
+EMAIL_USER=your-gmail-address@gmail.com
+EMAIL_PASS=your-gmail-app-password
 ```
 
 ---
@@ -98,11 +101,11 @@ SENDGRID_API_KEY=...
 
 ## User Roles
 
-| Role | Description |
-|------|-------------|
-| **Seeker** | Customer who books laundry services |
+| Role         | Description                              |
+| ------------ | ---------------------------------------- |
+| **Seeker**   | Customer who books laundry services      |
 | **Provider** | Laundry professional who fulfills orders |
-| **Admin** | Platform operator who manages disputes |
+| **Admin**    | Platform operator who manages disputes   |
 
 ---
 
@@ -131,17 +134,20 @@ Complaint Raised → Admin Reviews → Chat Opened → Resolution Applied
 ## Key Features
 
 ### For Seekers
+
 - **Find Providers** — Search by location, view ratings & prices
 - **Book & Pay** — Secure booking with upfront pricing
 - **Track Orders** — Real-time status updates
 - **Raise Disputes** — Photo evidence + Admin mediation
 
 ### For Providers
+
 - **Manage Bookings** — Accept/reject with one click
 - **Generate Invoices** — Photo-based itemization
 - **Get Paid** — Automatic payouts after delivery
 
 ### For Admins
+
 - **Resolve Disputes** — Three-way chat, refund controls
 - **Manage Users** — Suspend, ban, or warn accounts
 - **Monitor Payments** — Track escrow and payouts
@@ -176,39 +182,45 @@ laundry-ease/
 ## API Reference
 
 ### Authentication
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/[...nextauth]` | ALL | NextAuth handlers |
-| `/api/verify-phone` | POST | Send/verify OTP |
-| `/api/verify-email` | POST | Magic link verification |
+
+| Endpoint                    | Method | Description                        |
+| --------------------------- | ------ | ---------------------------------- |
+| `/api/auth/[...nextauth]`   | ALL    | NextAuth handlers                  |
+| `/api/otp/request`          | POST   | Send OTP (email/SMS)               |
+| `/api/otp/verify`           | POST   | Verify OTP (email/SMS)             |
+| `/api/auth/send-magic-link` | POST   | Send email verification magic link |
 
 ### Bookings
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/bookings` | GET, POST | List/create bookings |
-| `/api/bookings/[id]` | GET, PATCH | Get/update booking |
-| `/api/bookings/[id]/accept` | POST | Provider accepts |
+
+| Endpoint                    | Method     | Description          |
+| --------------------------- | ---------- | -------------------- |
+| `/api/bookings`             | GET, POST  | List/create bookings |
+| `/api/bookings/[id]`        | GET, PATCH | Get/update booking   |
+| `/api/bookings/[id]/accept` | POST       | Provider accepts     |
 
 ### Orders
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/orders` | GET | List orders |
-| `/api/orders/[id]/status` | PATCH | Update status |
-| `/api/orders/[id]/pay` | POST | Process payment |
-| `/api/orders/[id]/confirm-delivery` | POST | OTP verification |
+
+| Endpoint                            | Method | Description      |
+| ----------------------------------- | ------ | ---------------- |
+| `/api/orders`                       | GET    | List orders      |
+| `/api/orders/[id]/status`           | PATCH  | Update status    |
+| `/api/orders/[id]/pay`              | POST   | Process payment  |
+| `/api/orders/[id]/confirm-delivery` | POST   | OTP verification |
 
 ### Complaints
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/complaints` | GET, POST | List/create complaints |
-| `/api/complaints/[id]/messages` | GET, POST | Chat messages |
-| `/api/admin/complaints/[id]/resolve` | POST | Admin resolution |
+
+| Endpoint                             | Method    | Description            |
+| ------------------------------------ | --------- | ---------------------- |
+| `/api/complaints`                    | GET, POST | List/create complaints |
+| `/api/complaints/[id]/messages`      | GET, POST | Chat messages          |
+| `/api/admin/complaints/[id]/resolve` | POST      | Admin resolution       |
 
 ---
 
 ## Business Rules
 
 ### Booking Fee
+
 - Provider sets their own booking fee
 - Fee is paid upfront to confirm booking
 - Fee is deducted from final invoice if order completes
@@ -216,12 +228,14 @@ laundry-ease/
 - Fee is forfeited if seeker cancels after acceptance
 
 ### Escrow System
+
 - Payment held for 24 hours after delivery
 - Seeker can raise complaint within this window
 - If no complaint, funds auto-release to provider
 - 5% platform commission deducted from payouts
 
 ### One Complaint Per Order
+
 - Each order can only have one active complaint
 - Complaints lock escrow until resolved
 - Admin controls all resolutions
@@ -230,18 +244,18 @@ laundry-ease/
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5 |
-| Styling | Tailwind CSS 4 |
-| UI Components | Shadcn/UI |
-| Database | MongoDB Atlas |
-| Auth | NextAuth.js |
-| Payments | Razorpay + RazorpayX |
-| Images | Cloudinary |
-| SMS | Twilio |
-| Email | SendGrid |
+| Layer         | Technology              |
+| ------------- | ----------------------- |
+| Framework     | Next.js 16 (App Router) |
+| Language      | TypeScript 5            |
+| Styling       | Tailwind CSS 4          |
+| UI Components | Shadcn/UI               |
+| Database      | MongoDB Atlas           |
+| Auth          | NextAuth.js             |
+| Payments      | Razorpay + RazorpayX    |
+| Images        | Cloudinary              |
+| SMS           | Twilio                  |
+| Email         | Nodemailer (Gmail SMTP) |
 
 ---
 
