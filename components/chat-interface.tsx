@@ -1,9 +1,11 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { Send, AlertTriangle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface DisputeState {
   open: boolean;
+  title: string;
   reason: string;
   details: string;
   loading: boolean;
@@ -19,6 +21,15 @@ interface ChatMessage {
   createdAt: string;
 }
 
+const COMPLAINT_TYPES = [
+  { value: "late_delivery", label: "Late Delivery" },
+  { value: "damaged_item", label: "Damaged Item" },
+  { value: "missing_item", label: "Missing Item" },
+  { value: "quality_issue", label: "Quality Issue" },
+  { value: "partial_service", label: "Partial Service" },
+  { value: "other", label: "Other" },
+];
+
 export default function BookingChat({
   bookingId,
   selfRole,
@@ -26,6 +37,7 @@ export default function BookingChat({
   bookingId: string;
   selfRole: "seeker" | "provider";
 }) {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +46,8 @@ export default function BookingChat({
 
   const [dispute, setDispute] = useState<DisputeState>({
     open: false,
-    reason: "",
+    title: "",
+    reason: "late_delivery",
     details: "",
     loading: false,
     error: null,
@@ -83,31 +96,45 @@ export default function BookingChat({
     e.preventDefault();
     setDispute((d) => ({ ...d, loading: true, error: null, success: null }));
     try {
-      const res = await fetch(`/api/bookings/${bookingId}/dispute`, {
+      // Use new API: POST /api/complaints
+      const res = await fetch(`/api/complaints`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reason: dispute.reason,
-          details: dispute.details,
+          booking_id: bookingId, // Pass bookingId, API resolves order
+          title: dispute.title,
+          complaint_type: dispute.reason,
+          description: dispute.details,
+          photos: [] // TODO: Add photo upload
         }),
       });
-      if (!res.ok) throw new Error("Failed to raise dispute");
+
+      if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Failed to raise dispute");
+      }
+      
+      const data = await res.json();
+      // data is the created complaint object
+      
       setDispute((d) => ({
         ...d,
         loading: false,
-        success: "Dispute raised successfully!",
-        reason: "",
-        details: "",
+        success: "Dispute raised! Redirecting...",
       }));
-      setTimeout(
-        () => setDispute((d) => ({ ...d, open: false, success: null })),
-        1200
-      );
-    } catch (err) {
+      
+      setTimeout(() => {
+          router.push(`/seeker/disputes/${data.data?._id || data._id}`); // data might be wrapped in { data: ... } by response helper? 
+          // successResponse returns payload directly or wrapped?
+          // lib/api/response says: return NextResponse.json(data, { status });
+          // So it is the object directly.
+      }, 1000);
+      
+    } catch (err: any) {
       setDispute((d) => ({
         ...d,
         loading: false,
-        error: "Could not raise dispute",
+        error: err.message || "Could not raise dispute",
       }));
     }
   }
@@ -192,20 +219,38 @@ export default function BookingChat({
             </h2>
             <form onSubmit={handleDisputeSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Reason</label>
+                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Issue Title</label>
                 <input
                   type="text"
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  value={dispute.title}
+                  onChange={(e) =>
+                    setDispute((d) => ({ ...d, title: e.target.value }))
+                  }
+                  required
+                  placeholder="Summarize the problem"
+                  minLength={5}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Category</label>
+                <select
                   className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                   value={dispute.reason}
                   onChange={(e) =>
                     setDispute((d) => ({ ...d, reason: e.target.value }))
                   }
                   required
-                  placeholder="e.g., Damaged item, Late delivery"
-                />
+                >
+                    {COMPLAINT_TYPES.map(type => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                </select>
               </div>
+
               <div>
-                 <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Details</label>
+                 <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Description</label>
                 <textarea
                   className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                   value={dispute.details}
@@ -213,7 +258,8 @@ export default function BookingChat({
                     setDispute((d) => ({ ...d, details: e.target.value }))
                   }
                   required
-                  placeholder="Describe the issue..."
+                  placeholder="Describe the issue in detail..."
+                  minLength={10}
                 />
               </div>
               

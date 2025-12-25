@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Search, Calendar, Package, Menu, X, LogOut, Home, User, Receipt } from "lucide-react";
+import { Search, Calendar, Package, Menu, X, LogOut, Home, User, Receipt, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,6 +27,31 @@ const navigation: NavItem[] = [
 export function SeekerTopNav() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [activeDisputes, setActiveDisputes] = useState(0);
+
+  useEffect(() => {
+    const fetchDisputes = async () => {
+      try {
+        const res = await fetch("/api/complaints");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setActiveDisputes(data.length);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch disputes:", error);
+      }
+    };
+    fetchDisputes();
+  }, []);
+
+  const dynamicNavigation = [...navigation];
+  if (activeDisputes > 0) {
+      if (!dynamicNavigation.find(i => i.href === "/seeker/disputes")) {
+        dynamicNavigation.push({ label: `Disputes (${activeDisputes})`, href: "/seeker/disputes", icon: AlertCircle });
+      }
+  }
 
   return (
     <>
@@ -47,7 +72,7 @@ export function SeekerTopNav() {
             </Link>
 
             <nav className="hidden md:flex items-center gap-6">
-              {navigation.map((item) => {
+              {dynamicNavigation.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
@@ -100,7 +125,7 @@ export function SeekerTopNav() {
             className="fixed inset-0 top-16 z-40 bg-background border-t border-border/50 p-6 md:hidden flex flex-col gap-6"
           >
             <nav className="flex flex-col gap-4">
-              {navigation.map((item) => {
+              {dynamicNavigation.map((item) => {
                  const isActive = pathname === item.href;
                  return (
                   <Link

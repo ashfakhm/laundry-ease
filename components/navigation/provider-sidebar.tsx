@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
   LayoutDashboard,
@@ -16,7 +16,8 @@ import {
   X,
   LogOut,
   ChevronLeft,
-  MessageSquare
+  MessageSquare,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -69,6 +70,45 @@ interface ProviderSidebarProps {
 export function ProviderSidebar({ className }: ProviderSidebarProps) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [activeDisputes, setActiveDisputes] = useState(0);
+
+  useEffect(() => {
+    const fetchDisputes = async () => {
+      try {
+        const res = await fetch("/api/complaints");
+        if (res.ok) {
+          const data = await res.json();
+          // We only care about active ones, which GET /api/complaints returns by default based on my implementation
+          if (Array.isArray(data)) {
+            setActiveDisputes(data.length);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch disputes:", error);
+      }
+    };
+    fetchDisputes();
+  }, []);
+
+  // Clone navigation to avoid mutating static global
+  const dynamicNavigation = navigation.map(group => ({
+      ...group,
+      items: group.items.map(item => ({ ...item })) // Deep clone items too
+  }));
+
+  // Logic: "only admin clicks something add provider ... then provider will also have a menu ... after fixing ... removed"
+  if (activeDisputes > 0) {
+      // Inject into the first group (Main)
+      // Check if already exists to prevent dupe if re-render (though cloning prevents it)
+      if (!dynamicNavigation[0].items.find(i => i.href === "/provider/disputes")) {
+          dynamicNavigation[0].items.push({
+              label: "Disputes",
+              href: "/provider/disputes",
+              icon: AlertCircle,
+              badge: activeDisputes
+          });
+      }
+  }
 
   return (
     <aside
@@ -111,7 +151,7 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8">
-        {navigation.map((group, groupIndex) => (
+        {dynamicNavigation.map((group, groupIndex) => (
           <div key={groupIndex}>
             {group.title && !isCollapsed && (
               <h3 className="px-4 mb-3 text-[11px] font-bold text-muted-foreground/60 uppercase tracking-widest">

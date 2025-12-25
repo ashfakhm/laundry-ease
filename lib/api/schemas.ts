@@ -60,13 +60,18 @@ export const complaintCategorySchema = z.enum([
 ]);
 
 export const createComplaintSchema = z.object({
-  order_id: objectIdSchema,
+  order_id: objectIdSchema.optional(),
+  booking_id: objectIdSchema.optional(),
   complaint_type: complaintCategorySchema,
+  title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   photos: z
     .array(z.string().url())
     .max(5, "Maximum 5 photos allowed")
     .optional(),
+}).refine(data => data.order_id || data.booking_id, {
+    message: "Either order_id or booking_id is required",
+    path: ["order_id"]
 });
 
 // Provider search schema

@@ -1,127 +1,105 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getOrderById, releaseEscrowPayment, getUserByEmail } from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
-import { Order } from "@/types/orders";
-import { Complaint } from "@/types/complaints";
-import { refundRazorpayPayment, createRazorpayPayout } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
-import { Provider } from "@/lib/db";
+import { ComplaintMessage } from "@/types/complaints";
+import { refundRazorpayPayment } from "@/lib/razorpay";
 
-// POST /api/admin/complaints/[id]/resolve
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    try {
-        const { id } = await params;
-        const { resolution, refundAmount } = await req.json(); // resolution: 'refund_full', 'refund_partial', 'release_payout', 'no_action'
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        if (!id || !resolution) {
-            return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-        }
-
-        const { db } = await getDb();
-        const complaint = await db.collection<Complaint>("complaints").findOne({ _id: new ObjectId(id) });
-
-        if (!complaint) {
-            return NextResponse.json({ error: "Complaint not found" }, { status: 404 });
-        }
-
-        const order = await db.collection<Order>("orders").findOne({ _id: new ObjectId(complaint.order_id) });
-
-        if (!order) {
-            return NextResponse.json({ error: "Order not found" }, { status: 404 });
-        }
-
-        if (order.payment_status === "released" || order.payment_status === "refunded") {
-             return NextResponse.json({ error: "Order already processed" }, { status: 400 });
-        }
-
-        let actionResult = "";
-
-        if (resolution === 'refund_full') {
-            if (!order.razorpay_payment_id) throw new Error("No payment ID on order");
-            
-            await refundRazorpayPayment(order.razorpay_payment_id);
-            
-            await db.collection<Order>("orders").updateOne(
-                { _id: order._id },
-                { $set: { payment_status: "refunded" } }
-            );
-            actionResult = "Full refund issued";
-
-        } else if (resolution === 'refund_partial') {
-            if (!refundAmount) throw new Error("Refund amount required for partial refund");
-            if (!order.razorpay_payment_id) throw new Error("No payment ID on order");
-
-            // Refund specific amount
-            await refundRazorpayPayment(order.razorpay_payment_id, refundAmount * 100); // Amount in paise
-            
-            // For partial refunds, we usually assume the rest goes to provider or stays with platform. 
-            // In this simplistic model, if we refund partial, do we release the rest?
-            // Let's assume 'refund_partial' implies ONLY the refund happens now, and maybe payout happens later 
-            // OR we split it now. 
-            // For MVP simplicity: Partial Refund -> Remainder is payout.
-            
-            const remainingAmount = order.total_price - refundAmount;
-            if (remainingAmount > 0) {
-                 // Trigger Payout Logic for remainder (minus commission on remainder? or commission on original? 
-                 // Usually commission is on successful transaction volume. Let's take 5% of remainder.)
-                 
-                 const provider = await db.collection<Provider>("providers").findOne({ _id: order.provider_id });
-                 if (provider && provider.razorpay_fund_account_id) {
-                     const commission = Math.round(remainingAmount * 0.05 * 100) / 100;
-                     const payoutAmount = remainingAmount - commission;
-                     
-                     await createRazorpayPayout({
-                        account_number: process.env.RAZORPAYX_ACCOUNT_NUMBER || "7878780080316316",
-                        fund_account_id: provider.razorpay_fund_account_id,
-                        amount: Math.round(payoutAmount * 100),
-                        currency: "INR",
-                        mode: "IMPS",
-                        purpose: "payout",
-                        narration: `Partial Setl Order #${order._id}`
-                     });
-                 }
-            }
-
-            await db.collection<Order>("orders").updateOne(
-                { _id: order._id },
-                { $set: { payment_status: "released" } } // Marked as released/settled
-            );
-            actionResult = `Partial refund of ${refundAmount} issued`;
-
-        } else if (resolution === 'release_payout' || resolution === 'reject_complaint') {
-             // Treat as normal release
-             const provider = await db.collection<Provider>("providers").findOne({ _id: order.provider_id });
-             if (!provider || !provider.razorpay_fund_account_id) throw new Error("Provider has no fund account");
-
-             const commission = Math.round(order.total_price * 0.05 * 100) / 100;
-             const payoutAmount = order.total_price - commission;
-
-             await createRazorpayPayout({
-                account_number: process.env.RAZORPAYX_ACCOUNT_NUMBER || "7878780080316316",
-                fund_account_id: provider.razorpay_fund_account_id,
-                amount: Math.round(payoutAmount * 100),
-                currency: "INR",
-                mode: "IMPS",
-                purpose: "payout",
-                narration: `Payout Order #${order._id}`
-             });
-
-             await db.collection<Order>("orders").updateOne(
-                { _id: order._id },
-                { $set: { payment_status: "released" } }
-            );
-            actionResult = "Complaint rejected, payout released";
-        }
-
-        // Close Complaint
-        await db.collection<Complaint>("complaints").updateOne(
-            { _id: new ObjectId(id) },
-            { $set: { status: "resolved", resolution_note: `Admin Action: ${resolution}. Result: ${actionResult}`, resolvedAt: new Date() } }
-       );
-
-       return NextResponse.json({ success: true, message: actionResult });
-
-    } catch (error: any) {
-        console.error("Admin Resolution Error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    // Verify Admin
+    const dbUser = await getUserByEmail(session.user.email);
+    if (dbUser?.role !== "admin") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const { outcome } = await req.json(); // refund_full, release_payout, reject
+    const { db } = await getDb();
+    const complaintId = new ObjectId(id);
+
+    const complaint = await db.collection("complaints").findOne({ _id: complaintId });
+    if (!complaint) return NextResponse.json({ error: "Not Found" }, { status: 404 });
+
+    const orderId = complaint.order_id;
+    const order = await getOrderById(orderId);
+    if (!order) return NextResponse.json({ error: "Order Not Found" }, { status: 404 });
+
+    // 1. Update Complaint Status FIRST (to unblock payout check)
+    const newStatus = outcome === "reject" ? "rejected" : "resolved"; 
+    
+    let dbOutcome = outcome;
+    let dbStatus = "resolved";
+
+    if (outcome === "reject") {
+        dbStatus = "rejected";
+        dbOutcome = "no_action"; 
+    }
+
+    await db.collection("complaints").updateOne(
+        { _id: complaintId },
+        { 
+            $set: { 
+                status: dbStatus,
+                resolution_outcome: dbOutcome,
+                resolvedAt: new Date()
+            } 
+        }
+    );
+
+    // 2. Execute Financial Action
+    try {
+        if (outcome === "refund_full") {
+             // Refund via Razorpay
+             if (order.razorpay_payment_id) {
+                 await refundRazorpayPayment(order.razorpay_payment_id); // Full refund
+                 // Update Order status
+                 await db.collection("orders").updateOne({ _id: orderId }, { $set: { status: "cancelled", payment_status: "refunded" } });
+             }
+        } else if (outcome === "release_payout" || outcome === "reject") {
+             // Release Escrow
+             // This calls helper which checks for complaints. 
+             // We just set status to resolved/rejected, so check will pass.
+             await releaseEscrowPayment(orderId);
+        }
+    } catch (finError: any) {
+        console.error("Financial Action Failed:", finError);
+        // Manual Intervention Needed
+        await db.collection("complaint_messages").insertOne({
+            complaint_id: complaintId,
+            sender_id: new ObjectId(session.user.id),
+            sender_role: "system",
+            message_type: "SYSTEM",
+            content: `Error executing financial action: ${finError.message}. Please check Dashboard.`,
+            createdAt: new Date()
+        });
+        return NextResponse.json({ error: "Financial Action Failed", details: finError.message }, { status: 500 });
+    }
+
+    // 3. System Message (Success)
+    const systemMsg: Omit<ComplaintMessage, "_id"> = {
+        complaint_id: complaintId,
+        sender_id: new ObjectId(session.user.id),
+        sender_role: "system",
+        message_type: "SYSTEM",
+        content: `Dispute ${dbStatus}. Outcome: ${outcome}.`,
+        createdAt: new Date()
+    };
+    
+    await db.collection("complaint_messages").insertOne(systemMsg);
+
+    return NextResponse.json({ success: true });
+
+  } catch (error) {
+    console.error("Error resolving dispute:", error);
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+  }
 }

@@ -375,9 +375,10 @@ export async function releaseEscrowPayment(order_id: ObjectId) {
   const { db } = await getDb();
 
   // VALIDATION: Check for active complaints before releasing
+  // FAANG Requirement: Block if ANY complaint is not fully resolved/rejected.
   const openComplaint = await db.collection("complaints").findOne({
     order_id: new ObjectId(order_id),
-    status: { $in: ["open", "in_progress"] },
+    status: { $nin: ["resolved", "rejected"] },
   });
 
   if (openComplaint) {
@@ -430,9 +431,11 @@ export async function cancelOrder(
  */
 export async function createComplaint(data: {
   order_id: ObjectId;
+  booking_id: ObjectId;
   seeker_id: ObjectId;
   provider_id: ObjectId;
   complaint_type: string;
+  title: string;
   description: string;
   photos?: string[];
 }) {
@@ -441,12 +444,16 @@ export async function createComplaint(data: {
 
   const complaint: Omit<Complaint, "_id"> = {
     order_id: data.order_id,
+    booking_id: data.booking_id,
     seeker_id: data.seeker_id,
     provider_id: data.provider_id,
     complaint_type: data.complaint_type,
+    title: data.title,
     description: data.description,
     photos: data.photos,
     status: "open",
+    participants: [data.seeker_id], // Initially just seeker (and implicit admin)
+    provider_access_granted: false,
     createdAt: now,
   };
 
