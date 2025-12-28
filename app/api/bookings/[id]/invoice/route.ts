@@ -7,21 +7,13 @@ import { ObjectId } from "mongodb";
 // POST: Provider creates invoice for a confirmed booking
 export async function POST(
   req: Request,
-  context: { params: { id: string } } | { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Support both sync and async params (Promise or object)
-    let id: string;
-    if (
-      typeof (context.params as unknown as Promise<unknown>).then === "function"
-    ) {
-      id = ((await context.params) as { id: string }).id;
-    } else {
-      id = (context.params as { id: string }).id;
-    }
+    const { id } = await params;
 
     // Always use ObjectId for MongoDB queries
-    let bookingQuery;
+    let bookingQuery: any;
     try {
       bookingQuery = { _id: new ObjectId(id) };
     } catch {
@@ -78,12 +70,19 @@ export async function POST(
 
     const cleanDiscount = safeNum(discount);
     // Recalculate subtotal from items if missing/invalid
-    const calculatedSubtotal = items.reduce((sum: any, it: any) => sum + (safeNum(it.quantity) * safeNum(it.unitPrice)), 0);
-    const cleanSubtotal = subtotal !== undefined ? safeNum(subtotal) : calculatedSubtotal;
-    
+    const calculatedSubtotal = items.reduce(
+      (sum: any, it: any) => sum + safeNum(it.quantity) * safeNum(it.unitPrice),
+      0
+    );
+    const cleanSubtotal =
+      subtotal !== undefined ? safeNum(subtotal) : calculatedSubtotal;
+
     // Recalculate total if missing
     // Default total is subtotal - discount
-    let cleanTotal = body.total !== undefined ? safeNum(body.total) : Math.max(0, cleanSubtotal - cleanDiscount);
+    let cleanTotal =
+      body.total !== undefined
+        ? safeNum(body.total)
+        : Math.max(0, cleanSubtotal - cleanDiscount);
     // Ensure total is never negative
     cleanTotal = Math.max(0, cleanTotal);
 

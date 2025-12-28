@@ -56,6 +56,8 @@ export type Provider = BaseUser & {
   razorpay_contact_id?: string;
   profilePicture?: string;
   bannerImage?: string;
+  rating?: number;
+  reviewCount?: number;
 };
 
 export type Admin = BaseUser;
@@ -113,6 +115,14 @@ export async function createSeeker(data: {
   name?: string | null;
   password?: string;
   phone?: string | null;
+  address?: {
+    line1: string;
+    city: string;
+    state: string;
+    country: string;
+    postalCode: string;
+    landmark?: string;
+  } | null;
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -127,7 +137,7 @@ export async function createSeeker(data: {
     passwordHash,
     emailVerified: false,
     phoneVerified: false,
-    address: null,
+    address: data.address ?? null,
     createdAt: now,
   };
 

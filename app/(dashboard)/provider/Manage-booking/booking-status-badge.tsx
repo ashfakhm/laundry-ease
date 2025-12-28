@@ -59,6 +59,12 @@ const STATUS_CONFIG: Record<
     className:
       "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 shadow-gray-100/50 dark:shadow-gray-900/20",
   },
+  invoice_created: {
+    label: "Invoiced",
+    icon: PackageCheck,
+    className:
+      "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800 shadow-teal-100/50 dark:shadow-teal-900/20",
+  },
   completed: {
     label: "Completed",
     icon: PackageCheck,

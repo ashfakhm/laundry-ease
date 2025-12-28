@@ -11,7 +11,7 @@ import { ObjectId } from "mongodb";
  */
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -20,10 +20,11 @@ export async function POST(
 
   const { db } = await getDb();
   const { items, total, notes } = await req.json();
+  const { id } = await params;
 
   // Save invoice to DB (can be in 'invoices' collection or embedded in order)
   const invoice = {
-    booking_id: new ObjectId(params.id),
+    booking_id: new ObjectId(id),
     provider_id: session.user.id,
     items,
     total,

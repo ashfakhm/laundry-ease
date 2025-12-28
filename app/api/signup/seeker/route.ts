@@ -3,10 +3,14 @@ import { emailExists, createSeeker } from "@/lib/db";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 import { signupSeekerSchema } from "@/lib/api/schemas";
 
+export async function POST(req: NextRequest) {
   const payload = await req.json();
   const parsed = signupSeekerSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid data", details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid data", details: parsed.error.flatten() },
+      { status: 400 }
+    );
   }
   const { name, email, password, phone, address } = parsed.data;
 

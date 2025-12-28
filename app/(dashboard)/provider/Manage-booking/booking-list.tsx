@@ -112,16 +112,16 @@ export function BookingList({ initialBookings }: BookingListProps) {
               >
                 <span>{tab.label}</span>
                 {count > 0 && (
-                   <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {count}
-                </span>
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {count}
+                  </span>
                 )}
               </button>
             );
@@ -134,14 +134,14 @@ export function BookingList({ initialBookings }: BookingListProps) {
         <EmptyState filter={filter} onReset={() => setFilter("all")} />
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
-           <AnimatePresence>
-          {filteredBookings.map((booking) => (
-            <BookingCard
-              key={booking._id.toString()}
-              booking={booking}
-              onRefresh={() => router.refresh()}
-            />
-          ))}
+          <AnimatePresence>
+            {filteredBookings.map((booking) => (
+              <BookingCard
+                key={booking._id.toString()}
+                booking={booking}
+                onRefresh={() => router.refresh()}
+              />
+            ))}
           </AnimatePresence>
         </div>
       )}
@@ -189,6 +189,10 @@ function EmptyState({
       title: "No active bookings",
       description: "You have no bookings in progress.",
     },
+    invoice_created: {
+      title: "No invoiced bookings",
+      description: "Bookings with invoices pending approval or payment.",
+    },
     all: {
       title: "No bookings yet",
       description: "When customers book your services, they'll appear here.",
@@ -198,7 +202,7 @@ function EmptyState({
   const { title, description } = messages[filter] || messages.all;
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center"

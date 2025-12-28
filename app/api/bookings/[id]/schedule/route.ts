@@ -6,15 +6,10 @@ import { ObjectId } from "mongodb";
 
 export async function POST(
   req: Request,
-  context: { params: { id: string } } | { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Support both sync and async params (Promise or object)
-    const params =
-      typeof (context.params as any).then === "function"
-        ? await context.params
-        : context.params;
-    const { id } = params;
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -24,7 +19,7 @@ export async function POST(
     const { dateTime, action } = body;
 
     const { db } = await getDb();
-    let bookingQuery;
+    let bookingQuery: any;
     // Try to use ObjectId if valid, else fallback to string
     try {
       bookingQuery = { _id: new ObjectId(id) };

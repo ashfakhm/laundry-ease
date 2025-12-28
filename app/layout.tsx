@@ -98,11 +98,10 @@ import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
 
 // ...
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-  params: { [key: string]: string | string[] | undefined };
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>

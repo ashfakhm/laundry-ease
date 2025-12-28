@@ -22,8 +22,8 @@ export async function GET(req: Request) {
     const providers = await db
       .collection<Provider>("providers")
       .find({
-        bankDetails: { $exists: true, $ne: null },
-        razorpay_fund_account_id: { $exists: true, $ne: null },
+        bankDetails: { $exists: true, $ne: null } as any,
+        razorpay_fund_account_id: { $exists: true, $ne: null } as any,
       })
       .toArray();
 

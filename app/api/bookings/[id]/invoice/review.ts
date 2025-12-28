@@ -5,9 +5,12 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 // POST: Seeker reviews invoice (approve/reject)
-export async function POST(req: Request, context: { params: { id: string } }) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { id } = context.params;
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

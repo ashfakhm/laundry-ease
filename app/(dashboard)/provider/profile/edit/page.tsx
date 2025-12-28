@@ -148,6 +148,8 @@ type ProviderProfileValues = {
   bankAccountNumber?: string;
   bankIFSC?: string;
   upiId?: string;
+  profilePicture?: string;
+  bannerImage?: string;
   currentPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
@@ -228,7 +230,6 @@ export default function ProviderEditProfilePage() {
           newPassword: "",
           confirmPassword: "",
         });
-
       } catch {
         toast.error("Could not load profile");
       } finally {
@@ -434,18 +435,25 @@ export default function ProviderEditProfilePage() {
 
                 {/* Profile Images */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-foreground">Profile Images</h3>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Profile Images
+                  </h3>
                   <div className="grid md:grid-cols-2 gap-6">
                     <ImageUpload
                       label="Profile Picture"
-                      value={form.watch("profilePicture") || ""}
+                      value={
+                        (form.watch("profilePicture") as unknown as string) ||
+                        ""
+                      }
                       onChange={(val) => form.setValue("profilePicture", val)}
                       variant="profile"
                     />
                     <div className="md:col-span-2">
                       <ImageUpload
                         label="Banner Image"
-                        value={form.watch("bannerImage") || ""}
+                        value={
+                          (form.watch("bannerImage") as unknown as string) || ""
+                        }
                         onChange={(val) => form.setValue("bannerImage", val)}
                         variant="banner"
                       />
@@ -468,45 +476,52 @@ export default function ProviderEditProfilePage() {
             <SpotlightCard className="h-full rounded-3xl bg-card border-border p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-                   <Sparkles className="h-5 w-5" />
+                  <Sparkles className="h-5 w-5" />
                 </div>
                 <h2 className="text-xl font-bold font-heading">
                   Services Offered
                 </h2>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">Select the services you provide to customers.</p>
-              
+              <p className="text-sm text-muted-foreground mb-4">
+                Select the services you provide to customers.
+              </p>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {LAUNDRY_SERVICES.map((service) => {
-                   const isSelected = selectedServices?.includes(service);
-                   return (
-                      <div
-                        key={service}
-                        onClick={() => toggleService(service)}
+                  const isSelected = selectedServices?.includes(service);
+                  return (
+                    <div
+                      key={service}
+                      onClick={() => toggleService(service)}
+                      className={cn(
+                        "cursor-pointer flex items-center justify-between p-3 rounded-xl border transition-all",
+                        isSelected
+                          ? "bg-primary/5 border-primary shadow-sm"
+                          : "bg-muted/20 border-border hover:border-primary/50"
+                      )}
+                    >
+                      <span
                         className={cn(
-                          "cursor-pointer flex items-center justify-between p-3 rounded-xl border transition-all",
-                          isSelected 
-                            ? "bg-primary/5 border-primary shadow-sm" 
-                            : "bg-muted/20 border-border hover:border-primary/50"
+                          "text-sm font-medium",
+                          isSelected ? "text-primary" : "text-muted-foreground"
                         )}
                       >
-                         <span className={cn("text-sm font-medium", isSelected ? "text-primary" : "text-muted-foreground")}>
-                            {service}
-                         </span>
-                         {isSelected && (
-                            <div className="h-5 w-5 bg-primary rounded-full flex items-center justify-center">
-                               <Check className="h-3 w-3 text-primary-foreground" />
-                            </div>
-                         )}
-                      </div>
-                   )
+                        {service}
+                      </span>
+                      {isSelected && (
+                        <div className="h-5 w-5 bg-primary rounded-full flex items-center justify-center">
+                          <Check className="h-3 w-3 text-primary-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  );
                 })}
               </div>
               {form.formState.errors.services && (
-                  <p className="text-xs text-destructive mt-2">
-                    {form.formState.errors.services.message}
-                  </p>
-               )}
+                <p className="text-xs text-destructive mt-2">
+                  {form.formState.errors.services.message}
+                </p>
+              )}
             </SpotlightCard>
           </motion.div>
 
@@ -570,7 +585,8 @@ export default function ProviderEditProfilePage() {
                     min={1}
                   />
                   {form.formState.errors.capacity &&
-                    typeof form.formState.errors.capacity?.message === "string" && (
+                    typeof form.formState.errors.capacity?.message ===
+                      "string" && (
                       <p className="text-xs text-destructive">
                         {form.formState.errors.capacity.message}
                       </p>
@@ -590,7 +606,8 @@ export default function ProviderEditProfilePage() {
 
                 <div className="p-4 bg-muted/30 rounded-xl border border-border/50">
                   <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-emerald-500" /> Booking Pricing
+                    <DollarSign className="h-4 w-4 text-emerald-500" /> Booking
+                    Pricing
                   </h4>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">
@@ -704,53 +721,63 @@ export default function ProviderEditProfilePage() {
 
         {/* Bank Details */}
         <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ delay: 0.18, duration: 0.5 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18, duration: 0.5 }}
         >
           <SpotlightCard className="rounded-3xl bg-card border-border p-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="h-10 w-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
                 <DollarSign className="h-5 w-5" />
               </div>
-              <h2 className="text-xl font-bold font-heading">Payout (Bank) Details</h2>
+              <h2 className="text-xl font-bold font-heading">
+                Payout (Bank) Details
+              </h2>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Account Holder Name</label>
+                <label className="text-sm font-medium text-muted-foreground">
+                  Account Holder Name
+                </label>
                 <input
-                   {...form.register("bankAccountHolder")}
-                   className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                   placeholder="As per bank records"
+                  {...form.register("bankAccountHolder")}
+                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="As per bank records"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Account Number</label>
+                <label className="text-sm font-medium text-muted-foreground">
+                  Account Number
+                </label>
                 <input
-                   {...form.register("bankAccountNumber")}
-                   className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                   placeholder="Bank account number"
+                  {...form.register("bankAccountNumber")}
+                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Bank account number"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">IFSC Code</label>
+                <label className="text-sm font-medium text-muted-foreground">
+                  IFSC Code
+                </label>
                 <input
-                   {...form.register("bankIFSC")}
-                   className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                   placeholder="e.g. HDFC0001234"
-                   maxLength={11}
-                   onChange={e => {
-                      e.target.value = e.target.value.toUpperCase();
-                      form.setValue("bankIFSC", e.target.value);
-                   }}
+                  {...form.register("bankIFSC")}
+                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="e.g. HDFC0001234"
+                  maxLength={11}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.toUpperCase();
+                    form.setValue("bankIFSC", e.target.value);
+                  }}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">UPI ID (Optional)</label>
+                <label className="text-sm font-medium text-muted-foreground">
+                  UPI ID (Optional)
+                </label>
                 <input
-                   {...form.register("upiId")}
-                   className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                   placeholder="yourname@upi"
+                  {...form.register("upiId")}
+                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="yourname@upi"
                 />
               </div>
             </div>

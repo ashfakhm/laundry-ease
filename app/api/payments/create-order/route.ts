@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       amount,
       currency,
       receipt: bookingId,
-      payment_capture: 1,
+      payment_capture: true,
     });
     return NextResponse.json({
       orderId: order.id,

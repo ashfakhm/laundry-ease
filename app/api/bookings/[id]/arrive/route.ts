@@ -7,16 +7,10 @@ import { ObjectId } from "mongodb";
 // POST: Provider marks themselves as arrived at pickup location
 export async function POST(
   req: Request,
-  context: { params: { id: string } } | { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Support both sync and async params
-    const params =
-      typeof (context.params as any).then === "function"
-        ? await context.params
-        : context.params;
-        
-    const { id } = params;
+    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -24,7 +18,7 @@ export async function POST(
     }
 
     const { db } = await getDb();
-    let bookingQuery;
+    let bookingQuery: any;
     try {
       bookingQuery = { _id: new ObjectId(id) };
     } catch {
