@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+// removed unused useRouter
 import React from "react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { AppHeader } from "@/components/ui/app-header";
@@ -18,7 +18,7 @@ export default function AuthPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
-  const router = useRouter();
+  // removed const router = useRouter();
 
   async function onCredentials(e: React.FormEvent) {
     e.preventDefault();
@@ -30,7 +30,8 @@ export default function AuthPage() {
       redirect: false,
     });
     if (res?.ok) {
-      router.push("/");
+      // Force a full page reload to ensure the session cookie is recognized by server components
+      window.location.href = "/";
     } else {
       if (res?.error === "NO_ACCOUNT") {
         setError(
@@ -270,7 +271,7 @@ export default function AuthPage() {
                       Reset Password
                     </h2>
                     <p className="text-sm text-muted-foreground mt-2">
-                      We'll email you instructions to reset your password.
+                      We&apos;ll email you instructions to reset your password.
                     </p>
                   </header>
                   <form
@@ -323,7 +324,7 @@ export default function AuthPage() {
   );
 }
 
-function CheckCircle2(props: any) {
+function CheckCircle2(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}
