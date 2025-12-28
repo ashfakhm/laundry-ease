@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useTransition, useState } from "react";
 import { PopulatedBooking } from "@/types/bookings";
 import { BookingStatusBadge } from "./booking-status-badge";
 import {
@@ -12,14 +12,16 @@ import {
   XCircle,
   Send,
   Sparkles,
-  ArrowRight,
   User,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  updateBookingStatus,
+  proposePickupSlot,
+  markProviderArrived,
+} from "@/app/actions/booking-actions";
 
 interface BookingCardProps {
   booking: PopulatedBooking;
@@ -27,48 +29,36 @@ interface BookingCardProps {
 }
 
 function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
-  const [processing, setProcessing] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  // We keep local loading state to block UI immediately, though useTransition handles the mutation pending.
+  // Combining them for best UX.
   const [slotDate, setSlotDate] = useState("");
   const { toast } = useToast();
-  const router = useRouter();
 
-  async function handleAction(action: "accept" | "reject") {
-    setProcessing(true);
-    try {
-      const res = await fetch(`/api/bookings/${booking._id}/${action}`, {
-        method: "PATCH",
-      });
-      if (res.ok) {
+  const handleAction = (action: "accept" | "reject") => {
+    startTransition(async () => {
+      const result = await updateBookingStatus(booking._id.toString(), action);
+      if (result.success) {
         toast({
           title: action === "accept" ? "Booking accepted" : "Booking rejected",
-          description:
-            action === "accept"
-              ? "You can now propose a pickup slot"
-              : "The seeker will be notified",
+          description: result.message,
           type: action === "accept" ? "success" : "info",
         });
+        // onRefresh not strictly needed if revalidatePath works, but keeps parent synced explicitly if needed
+        // but revalidatePath in action should trigger router refresh automatically in server components
+        // onRefresh -> router.refresh() might be double, but safe.
         onRefresh();
       } else {
-        const data = await res.json();
         toast({
           title: "Action failed",
-          description: data.error || data.message || "Please try again",
+          description: result.error || "Please try again",
           type: "error",
         });
       }
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: "Something went wrong",
-        description: "Network error. Please try again.",
-        type: "error",
-      });
-    } finally {
-      setProcessing(false);
-    }
-  }
+    });
+  };
 
-  async function handleProposeSlot() {
+  const handleProposeSlot = () => {
     if (!slotDate) {
       toast({
         title: "Select a date",
@@ -78,40 +68,46 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
       return;
     }
 
-    setProcessing(true);
-    try {
-      const res = await fetch(`/api/bookings/${booking._id}/schedule`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dateTime: slotDate, action: "propose" }),
-      });
-
-      if (res.ok) {
+    startTransition(async () => {
+      const result = await proposePickupSlot(booking._id.toString(), slotDate);
+      if (result.success) {
         toast({
           title: "Slot proposed",
-          description: "Waiting for seeker confirmation",
+          description: result.message,
           type: "success",
         });
         onRefresh();
       } else {
-        const data = await res.json();
         toast({
           title: "Failed to propose slot",
-          description: data.error || data.message || "Please try again",
+          description: result.error || "Please try again",
           type: "error",
         });
       }
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: "Failed to propose slot",
-        description: "Network error. Please try again.",
-        type: "error",
-      });
-    } finally {
-      setProcessing(false);
-    }
-  }
+    });
+  };
+
+  const handleArrive = () => {
+    startTransition(async () => {
+      const result = await markProviderArrived(booking._id.toString());
+      if (result.success) {
+        toast({
+          title: "Arrival Confirmed",
+          description: result.message,
+          type: "success",
+        });
+        onRefresh();
+      } else {
+        toast({
+          title: "Failed to mark arrival",
+          description: result.error,
+          type: "error",
+        });
+      }
+    });
+  };
+
+  const loading = isPending;
 
   return (
     <motion.article
@@ -200,19 +196,19 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
           <div className="flex gap-3">
             <button
               onClick={() => handleAction("accept")}
-              disabled={processing}
+              disabled={loading}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all"
             >
               <CheckCircle2 className="h-4 w-4" />
-              {processing ? "Accepting..." : "Accept"}
+              {loading ? "Accepting..." : "Accept"}
             </button>
             <button
               onClick={() => handleAction("reject")}
-              disabled={processing}
+              disabled={loading}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-input bg-background px-4 py-2.5 text-sm font-bold text-foreground hover:bg-muted disabled:opacity-50 transition-all"
             >
               <XCircle className="h-4 w-4" />
-              {processing ? "..." : "Decline"}
+              {loading ? "..." : "Decline"}
             </button>
           </div>
         )}
@@ -234,11 +230,11 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
               />
               <button
                 onClick={handleProposeSlot}
-                disabled={processing || !slotDate}
+                disabled={loading || !slotDate}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 <div className="flex items-center gap-2">
-                  {processing ? "Sending..." : "Send Proposal"}{" "}
+                  {loading ? "Sending..." : "Send Proposal"}{" "}
                   <Send className="h-3.5 w-3.5" />
                 </div>
               </button>
@@ -278,38 +274,12 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
             <div className="mt-4 space-y-3">
               {!booking.arrivedAt ? (
                 <button
-                onClick={async () => {
-                  setProcessing(true);
-                  try {
-                    const res = await fetch(`/api/bookings/${booking._id}/arrive`, {
-                      method: "POST",
-                    });
-                    if (res.ok) {
-                      toast({
-                        title: "Arrival Confirmed",
-                        description: "You can now create an invoice.",
-                        type: "success",
-                      });
-                      onRefresh();
-                    } else {
-                      const data = await res.json();
-                      toast({
-                         title: "Failed to mark arrival",
-                         description: data.error,
-                         type: "error"
-                      });
-                    }
-                  } catch (e) {
-                     toast({ title: "Error", description: "Network error", type: "error" });
-                  } finally {
-                    setProcessing(false);
-                  }
-                }}
-                disabled={processing}
-                className="flex items-center justify-center gap-2 w-full h-11 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  onClick={handleArrive}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 w-full h-11 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
                   <MapPin className="h-4 w-4" />
-                  {processing ? "Confirming..." : "I Have Arrived"}
+                  {loading ? "Confirming..." : "I Have Arrived"}
                 </button>
               ) : (
                 <Link
