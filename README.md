@@ -2,16 +2,17 @@
 
 > **Laundry, solved.** A premium on-demand laundry marketplace for busy professionals.
 
-[![Next.js](https://img.shields.io/badge/Next.js%2015-black?logo=next.js)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js%2016-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Razorpay](https://img.shields.io/badge/Razorpay-blue?logo=razorpay&logoColor=white)](https://razorpay.com)
-[![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?logo=cloudinary&logoColor=white)](https://cloudinary.com)
+[![Build Status](https://img.shields.io/badge/Build-Passing-Success)](https://github.com/your-org/laundry-ease/actions)
+[![Context7](https://img.shields.io/badge/Verified%20with-Context7-purple)](https://context7.com)
 
 ---
 
 ## What is LaundryEase?
 
-LaundryEase connects busy professionals with verified laundry service providers. No shop visits, no missed deadlines, no payment disputes.
+LaundryEase is a **production-ready** laundry marketplace connecting busy professionals with verified service providers. It features a robust, type-safe architecture designed for reliability and scale.
 
 | Problem                               | Solution                         |
 | ------------------------------------- | -------------------------------- |
@@ -80,7 +81,7 @@ EMAIL_PASS=your-gmail-app-password
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        FRONTEND                             │
-│  Next.js 16 (App Router) + React + Tailwind CSS + Shadcn   │
+│  Next.js 16 (App Router + Server Actions) + React + Tailwind CSS + Shadcn   │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -244,18 +245,19 @@ laundry-ease/
 
 ## Tech Stack
 
-| Layer         | Technology              |
-| ------------- | ----------------------- |
-| Framework     | Next.js 16 (App Router) |
-| Language      | TypeScript 5            |
-| Styling       | Tailwind CSS 4          |
-| UI Components | Shadcn/UI               |
-| Database      | MongoDB Atlas           |
-| Auth          | NextAuth.js             |
-| Payments      | Razorpay + RazorpayX    |
-| Images        | Cloudinary              |
-| SMS           | Twilio                  |
-| Email         | Nodemailer (Gmail SMTP) |
+| Layer         | Technology                                              |
+| ------------- | ------------------------------------------------------- |
+| Framework     | Next.js 16 (App Router + Server Actions)                |
+| Language      | TypeScript 5 (Strict Mode + Type Safety)                |
+| Styling       | Tailwind CSS 4                                          |
+| UI Components | Shadcn/UI                                               |
+| Database      | MongoDB Atlas                                           |
+| Auth          | NextAuth.js (Role-Based Access Control)                 |
+| Payments      | Razorpay Orders + RazorpayX Payouts (Validation Sealed) |
+| Images        | Cloudinary (Signed Uploads)                             |
+| Documentation | Context7-Verified API Contracts                         |
+| SMS           | Twilio                                                  |
+| Email         | Nodemailer (Gmail SMTP)                                 |
 
 ---
 

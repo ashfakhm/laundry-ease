@@ -41,27 +41,31 @@ type ProviderProfile = {
   services?: Array<{ name: string; pricePerKg: number }>;
 };
 
+import { getProviderOrders } from "@/app/actions/order-actions";
+import { getProviderProfile } from "@/app/actions/profile-actions";
+
 export default function InvoiceGenerationPage() {
   const { data: session } = useSession();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<any[]>([]); // Use appropriate type if possible, or any for now to match action return
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [ordersRes, profileRes] = await Promise.all([
-          fetch("/api/orders/provider"),
-          fetch("/api/profile/provider"),
+        const [ordersData, profileData] = await Promise.all([
+          getProviderOrders(),
+          getProviderProfile(),
         ]);
 
-        if (ordersRes.ok) {
-          const ordersData = await ordersRes.json();
-          setOrders(ordersData.filter((o: Order) => o.otp_confirmed_at));
+        // Filter for delivered orders (otp_confirmed_at is set)
+        // The server action returns data where otp_confirmed_at is either string or null.
+        // We ensure TS knows it's an array.
+        if (Array.isArray(ordersData)) {
+          setOrders((ordersData as Order[]).filter((o) => o.otp_confirmed_at));
         }
 
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
+        if (profileData) {
           setProvider(profileData);
         }
       } catch (error) {

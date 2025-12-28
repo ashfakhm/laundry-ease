@@ -5,6 +5,7 @@ import Credentials from "next-auth/providers/credentials";
 import { getUserByEmail } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { env } from "@/lib/env";
+import { Role } from "@/types/enums";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -80,10 +81,13 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
+
     async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user) {
-        session.user.role = token.role ?? null;
-        (session.user as Record<string, unknown>).id = token.id as string;
+        // Safe assignment using Role definition
+        session.user.role = (token.role as Role) ?? null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (session.user as any).id = token.id as string;
       }
       return session;
     },

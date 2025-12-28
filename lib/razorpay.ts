@@ -8,6 +8,67 @@ export const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET || "dummy_secret",
 });
 
+interface RazorpayOrderOptions {
+  amount: string | number;
+  currency: string;
+  receipt: string;
+  notes?: Record<string, string>;
+}
+
+interface RazorpayContact {
+  id: string;
+  entity: string;
+  name?: string;
+  email?: string;
+  contact?: string;
+  reference_id?: string;
+  batch_id?: string;
+  active?: boolean;
+  notes?: Record<string, string>;
+  created_at?: number;
+}
+
+interface RazorpayFundAccount {
+  id: string;
+  entity: string;
+  contact_id: string;
+  account_type: "bank_account" | "vpa";
+  bank_account?: {
+    name: string;
+    account_number: string;
+    ifsc: string;
+    bank_name: string;
+  };
+  vpa?: {
+    address: string;
+  };
+  active?: boolean;
+  created_at?: number;
+}
+
+interface RazorpayPayout {
+  id: string;
+  entity: string;
+  fund_account_id: string;
+  amount: number;
+  currency: string;
+  notes?: Record<string, string>;
+  fees?: number;
+  tax?: number;
+  status: string;
+  utr?: string;
+  mode: string;
+  reference_id?: string;
+  created_at?: number;
+}
+
+interface RazorpayPayouts {
+  create: (data: Record<string, unknown>) => Promise<RazorpayPayout>;
+}
+
+// Extend default Razorpay instance type if needed, or just cast usage
+type RazorpayInstance = Razorpay & { payouts: RazorpayPayouts };
+
 /**
  * Create a Razorpay Order
  * @param amount Amount in smallest currency unit (paise)
@@ -19,7 +80,7 @@ export async function createRazorpayOrder(
   receipt: string,
   currency: string = "INR"
 ) {
-  const options = {
+  const options: RazorpayOrderOptions = {
     amount: amount.toString(),
     currency,
     receipt,
@@ -65,7 +126,7 @@ export async function refundRazorpayPayment(
   notes?: Record<string, string>
 ) {
   try {
-    const params: any = {};
+    const params: { amount?: number; notes?: Record<string, string> } = {};
     if (amount) params.amount = amount;
     if (notes) params.notes = notes;
     const refund = await razorpay.payments.refund(paymentId, params);
@@ -82,9 +143,9 @@ const KEY_ID = process.env.RAZORPAY_KEY_ID;
 const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 const AUTH = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
 
-async function razorpayFetch(endpoint: string, method: string, body?: any) {
+async function razorpayFetch(endpoint: string, method: string, body?: unknown) {
   if (!KEY_ID || !KEY_SECRET) {
-      throw new Error("Razorpay API Keys are missing in environment variables.");
+    throw new Error("Razorpay API Keys are missing in environment variables.");
   }
 
   const res = await fetch(`https://api.razorpay.com/v1${endpoint}`, {
@@ -97,8 +158,13 @@ async function razorpayFetch(endpoint: string, method: string, body?: any) {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: { description: res.statusText } }));
-    throw new Error(err.error?.description || "Razorpay API Error");
+    const err = await res
+      .json()
+      .catch(() => ({ error: { description: res.statusText } }));
+    throw new Error(
+      (err as { error?: { description?: string } }).error?.description ||
+        "Razorpay API Error"
+    );
   }
   return res.json();
 }
@@ -114,7 +180,8 @@ export async function createRazorpayContact(data: {
   reference_id?: string; // e.g., provider ID
 }) {
   try {
-     return await razorpayFetch("/contacts", "POST", data);
+    const result = await razorpayFetch("/contacts", "POST", data);
+    return result as unknown as RazorpayContact;
   } catch (error) {
     console.error("Error creating Razorpay contact:", error);
     throw error;
@@ -134,7 +201,8 @@ export async function createRazorpayFundAccount(data: {
   };
 }) {
   try {
-    return await razorpayFetch("/fund_accounts", "POST", data);
+    const result = await razorpayFetch("/fund_accounts", "POST", data);
+    return result as unknown as RazorpayFundAccount;
   } catch (error) {
     console.error("Error creating Fund Account:", error);
     throw error;
@@ -152,7 +220,8 @@ export async function createRazorpayFundAccountVpa(data: {
   };
 }) {
   try {
-    return await razorpayFetch("/fund_accounts", "POST", data);
+    const result = await razorpayFetch("/fund_accounts", "POST", data);
+    return result as unknown as RazorpayFundAccount;
   } catch (error) {
     console.error("Error creating VPA Fund Account:", error);
     throw error;
@@ -172,9 +241,12 @@ export async function createRazorpayPayout(data: {
   queue_if_low_balance?: boolean;
   reference_id?: string;
   narration?: string;
-}) {
+}): Promise<RazorpayPayout> {
   try {
-    const response = await (razorpay as any).payouts.create(data);
+    // Cast strict typed razorpay to local type with payouts
+    const response = await (
+      razorpay as unknown as RazorpayInstance
+    ).payouts.create(data);
     return response;
   } catch (error) {
     console.error("Error creating Payout:", error);
