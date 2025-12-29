@@ -13,7 +13,7 @@ export async function POST(
     const { id } = await params;
 
     // Always use ObjectId for MongoDB queries
-    let bookingQuery: any;
+    let bookingQuery: { _id: ObjectId };
     try {
       bookingQuery = { _id: new ObjectId(id) };
     } catch {
@@ -63,7 +63,7 @@ export async function POST(
 
     // Invoice structure: items, notes, photos, discount, subtotal, total
     // Helper to generic safe parse numbers
-    const safeNum = (val: any) => {
+    const safeNum = (val: unknown) => {
       const n = Number(val);
       return isNaN(n) ? 0 : n;
     };
@@ -71,7 +71,8 @@ export async function POST(
     const cleanDiscount = safeNum(discount);
     // Recalculate subtotal from items if missing/invalid
     const calculatedSubtotal = items.reduce(
-      (sum: any, it: any) => sum + safeNum(it.quantity) * safeNum(it.unitPrice),
+      (sum: number, it: { quantity: unknown; unitPrice: unknown }) =>
+        sum + safeNum(it.quantity) * safeNum(it.unitPrice),
       0
     );
     const cleanSubtotal =

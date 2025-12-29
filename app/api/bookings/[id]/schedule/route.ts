@@ -96,7 +96,7 @@ export async function POST(
     const now = new Date();
     const slotTime = new Date(dateTime);
     const minTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
-    let deadline = booking.deadline ? new Date(booking.deadline) : null;
+    const deadline = booking.deadline ? new Date(booking.deadline) : null;
     if (slotTime < minTime) {
       return NextResponse.json(
         { error: "Pickup must be at least 2 hours from now" },

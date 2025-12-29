@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
-import { CreditCard, Lock, Loader2, Sparkles } from "lucide-react";
+import { CreditCard, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 
@@ -15,13 +15,37 @@ interface PaymentButtonProps {
   fullWidth?: boolean;
 }
 
+interface RazorpayResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayError {
+  error: {
+    description: string;
+  };
+}
+
+interface RazorpayInstance {
+  open(): void;
+  on(event: string, callback: (response: RazorpayError) => void): void;
+}
+
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Razorpay: any;
   }
 }
 
-export function PaymentButton({ orderId, amount, currency = "INR", className, fullWidth = true }: PaymentButtonProps) {
+export function PaymentButton({
+  orderId,
+  amount,
+  currency = "INR",
+  className,
+  fullWidth = true,
+}: PaymentButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const toast = useToast();
@@ -45,7 +69,7 @@ export function PaymentButton({ orderId, amount, currency = "INR", className, fu
         name: "LaundryEase",
         description: `Payment for Order #${orderId.slice(-6)}`,
         order_id: data.id,
-        handler: async function (response: any) {
+        handler: async function (response: RazorpayResponse) {
           // 3. Verify Payment
           const verifyRes = await fetch(`/api/orders/${orderId}/payment`, {
             method: "PUT",
@@ -56,16 +80,16 @@ export function PaymentButton({ orderId, amount, currency = "INR", className, fu
               razorpay_signature: response.razorpay_signature,
             }),
           });
-          
+
           if (verifyRes.ok) {
             toast.success("Payment Successful!");
             router.refresh(); // Refresh to update UI to 'Paid'
           } else {
-             toast.error("Payment Verification Failed. Please contact support.");
+            toast.error("Payment Verification Failed. Please contact support.");
           }
         },
         prefill: {
-          name: "LaundryEase Customer", 
+          name: "LaundryEase Customer",
         },
         theme: {
           color: "#7C3AED", // Primary Color
@@ -73,11 +97,12 @@ export function PaymentButton({ orderId, amount, currency = "INR", className, fu
       };
 
       const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", function (response: any) {
-        toast.error(response.error.description || "Payment failed. Please try again.");
+      rzp.on("payment.failed", function (response: RazorpayError) {
+        toast.error(
+          response.error.description || "Payment failed. Please try again."
+        );
       });
       rzp.open();
-
     } catch (error) {
       console.error(error);
       toast.error("Something went wrong. Please try again.");
@@ -106,19 +131,21 @@ export function PaymentButton({ orderId, amount, currency = "INR", className, fu
 
         <div className="relative flex items-center justify-center gap-2.5">
           {loading ? (
-             <>
-               <Loader2 className="w-5 h-5 animate-spin" />
-               <span>Processing...</span>
-             </>
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Processing...</span>
+            </>
           ) : (
-             <>
-               <div className="p-1 rounded bg-white/20 backdrop-blur-sm">
-                  <CreditCard className="w-4 h-4 text-white" />
-               </div>
-               <span className="text-sm">Pay Securely</span>
-               <span className="ml-1 text-base font-heading">₹{amount.toLocaleString('en-IN')}</span>
-               <Lock className="w-3.5 h-3.5 text-white/70 ml-1" />
-             </>
+            <>
+              <div className="p-1 rounded bg-white/20 backdrop-blur-sm">
+                <CreditCard className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm">Pay Securely</span>
+              <span className="ml-1 text-base font-heading">
+                ₹{amount.toLocaleString("en-IN")}
+              </span>
+              <Lock className="w-3.5 h-3.5 text-white/70 ml-1" />
+            </>
           )}
         </div>
       </button>

@@ -34,7 +34,7 @@ export function PickupScheduler({
     }
     const dateTime = new Date(`${date}T${time}`);
     const minDateTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    let maxDateTime = deadline
+    const maxDateTime = deadline
       ? new Date(deadline)
       : new Date(now.getTime() + 48 * 60 * 60 * 1000);
     if (dateTime < minDateTime) {
