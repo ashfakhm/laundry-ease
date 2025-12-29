@@ -1,8 +1,17 @@
 import { getSeekerBookings } from "@/lib/data/bookings";
 import { SeekerBookingList } from "./seeker-booking-list";
 import { Metadata } from "next";
-import { ClipboardList, Calendar, Clock, CheckCircle2, ShieldAlert } from "lucide-react";
+import {
+  ClipboardList,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  ShieldAlert,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Force dynamic rendering - this page uses getServerSession which requires headers()
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "My Bookings | LaundryEase",
@@ -34,7 +43,9 @@ export default async function SeekerBookingsPage() {
   const stats = {
     pending: result.data.filter((b) => b.status === "requested").length,
     active: result.data.filter((b) =>
-      ["accepted", "pickup_proposed", "confirmed", "in_progress"].includes(b.status)
+      ["accepted", "pickup_proposed", "confirmed", "in_progress"].includes(
+        b.status
+      )
     ).length,
     completed: result.data.filter((b) => b.status === "completed").length,
     total: result.data.length,
@@ -110,8 +121,10 @@ function StatCard({
     >
       <div className="flex items-start justify-between">
         <div>
-           <p className="text-3xl font-bold font-heading">{value}</p>
-           <p className="text-xs font-semibold uppercase tracking-wider opacity-70 mt-1">{label}</p>
+          <p className="text-3xl font-bold font-heading">{value}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider opacity-70 mt-1">
+            {label}
+          </p>
         </div>
         <div className="rounded-xl bg-background/50 p-2.5 shadow-sm">
           <Icon className="h-5 w-5 opacity-80" />
