@@ -21,3 +21,28 @@ export function calculateDistance(
 function deg2rad(deg: number) {
   return deg * (Math.PI / 180);
 }
+
+/**
+ * Convert coordinates from { lat, lng } to GeoJSON Point format
+ * GeoJSON uses [longitude, latitude] order
+ */
+export function toGeoJSON(coord: { lat: number; lng: number }): {
+  type: "Point";
+  coordinates: [number, number];
+} {
+  return {
+    type: "Point",
+    coordinates: [coord.lng, coord.lat], // GeoJSON: [lng, lat]
+  };
+}
+
+/**
+ * Convert GeoJSON Point to { lat, lng } format
+ */
+export function fromGeoJSON(
+  geoJson: { type: "Point"; coordinates: [number, number] } | undefined
+): { lat: number; lng: number } | undefined {
+  if (!geoJson || geoJson.type !== "Point") return undefined;
+  const [lng, lat] = geoJson.coordinates;
+  return { lat, lng };
+}

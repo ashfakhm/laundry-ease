@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, ArrowRight } from "lucide-react";
 import { ProviderSearchResult } from "@/types/provider";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -90,9 +90,10 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="w-full h-11 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/25"
+        className="w-full h-11 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/25 flex items-center justify-center gap-2"
       >
         Book Now
+        <ArrowRight className="h-4 w-4" />
       </button>
     );
   }

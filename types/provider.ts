@@ -12,6 +12,9 @@ export type ProviderSearchResult = {
   radius_km?: number;
   per_km_rate?: number;
   covers_beyond_radius?: boolean;
+  services?: string[];
+  profilePicture?: string;
+  bannerImage?: string;
 };
 
 export type Provider = {
