@@ -3,7 +3,15 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Search, MapPin, Tag, Star, Phone, Mail, Loader2, Filter, ArrowRight } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  Star,
+  Loader2,
+  Filter,
+  ArrowRight,
+} from "lucide-react";
+
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { useToast } from "@/components/ui/toast";
 import { ProviderCardSkeleton } from "@/components/ui/skeleton";
@@ -23,6 +31,8 @@ type Provider = {
   per_km_rate?: number;
   profilePicture?: string;
   bannerImage?: string;
+  rating?: number;
+  reviewCount?: number;
 };
 
 export default function SeekerDashboardPage() {
@@ -165,7 +175,7 @@ export default function SeekerDashboardPage() {
     <main className="min-h-screen bg-background/50 p-6 space-y-8">
       <div className="mx-auto max-w-7xl space-y-8">
         {/* Header */}
-        <motion.header 
+        <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between"
@@ -175,25 +185,26 @@ export default function SeekerDashboardPage() {
               Find Laundry Providers
             </h1>
             <p className="mt-2 text-lg text-muted-foreground max-w-2xl">
-              Discover trusted professionals near you for all your garment care needs.
+              Discover trusted professionals near you for all your garment care
+              needs.
             </p>
           </div>
         </motion.header>
 
         {/* Search & Filters */}
-        <motion.div 
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ delay: 0.1 }}
-           className="bg-card border border-border/50 rounded-2xl p-4 md:p-6 shadow-sm space-y-4"
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-card border border-border/50 rounded-2xl p-4 md:p-6 shadow-sm space-y-4"
         >
           <div className="grid gap-4 md:grid-cols-3">
             {/* Location Search */}
             <div className="relative group z-20">
               <LocationAutocomplete
-                 value={searchLocation}
-                 onChange={(val) => setSearchLocation(val)}
-                 placeholder={seekerLocation || "Search by location..."}
+                value={searchLocation}
+                onChange={(val) => setSearchLocation(val)}
+                placeholder={seekerLocation || "Search by location..."}
               />
             </div>
 
@@ -255,127 +266,157 @@ export default function SeekerDashboardPage() {
           {loading ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                 <ProviderCardSkeleton key={i} />
+                <ProviderCardSkeleton key={i} />
               ))}
             </div>
           ) : providers.length === 0 ? (
-            <motion.div 
-               initial={{ opacity: 0, scale: 0.95 }}
-               animate={{ opacity: 1, scale: 1 }}
-               className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border py-24 text-center"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border py-24 text-center"
             >
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted/50 mb-6">
                 <Search className="h-10 w-10 text-muted-foreground/50" />
               </div>
-              <h3 className="text-xl font-bold text-foreground">No providers found</h3>
+              <h3 className="text-xl font-bold text-foreground">
+                No providers found
+              </h3>
               <p className="mt-2 text-muted-foreground max-w-sm">
-                We couldn't find any providers matching your search filters. Try adjusting your location or service type.
+                We couldn't find any providers matching your search filters. Try
+                adjusting your location or service type.
               </p>
             </motion.div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               <AnimatePresence>
-              {providers.map((provider, i) => (
-                <motion.article
-                  key={provider._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="group relative flex flex-col justify-between rounded-3xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20"
-                >
-                  {/* Card Content */}
-                  <div
-                    onClick={() => router.push(`/seeker/provider/${provider._id}`)}
-                    className="cursor-pointer space-y-6"
+                {providers.map((provider, i) => (
+                  <motion.article
+                    key={provider._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="group relative flex flex-col justify-between rounded-3xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20"
                   >
-                    <div className="flex justify-between items-start gap-4">
-                       <div className="flex items-start gap-3 flex-1">
-                         {/* Profile Picture */}
-                         <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted flex-shrink-0">
-                           {provider.profilePicture ? (
-                             <img
-                               src={provider.profilePicture}
-                               alt={provider.name}
-                               className="h-full w-full object-cover"
-                             />
-                           ) : (
-                             <div className="h-full w-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-                               {provider.businessName?.charAt(0) || provider.name?.charAt(0) || "P"}
-                             </div>
-                           )}
-                         </div>
-                         
-                         <div className="flex-1 min-w-0">
-                           <h3 className="font-heading text-xl font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                             {provider.businessName || provider.name || "Provider"}
-                           </h3>
-                           <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
+                    {/* Card Content */}
+                    <div
+                      onClick={() =>
+                        router.push(`/seeker/provider/${provider._id}`)
+                      }
+                      className="cursor-pointer space-y-6"
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex items-start gap-3 flex-1">
+                          {/* Profile Picture */}
+                          <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted flex-shrink-0">
+                            {provider.profilePicture ? (
+                              <img
+                                src={provider.profilePicture}
+                                alt={provider.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-full w-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
+                                {provider.businessName?.charAt(0) ||
+                                  provider.name?.charAt(0) ||
+                                  "P"}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-heading text-xl font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                              {provider.businessName ||
+                                provider.name ||
+                                "Provider"}
+                            </h3>
+                            <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
                               <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                              <span className="truncate">{provider.location || "Location not set"}</span>
-                           </div>
-                         </div>
-                       </div>
-                       <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-bold ring-1 ring-amber-500/20 flex-shrink-0">
-                          <Star className="w-3.5 h-3.5 fill-current" />
-                          4.5
-                       </div>
-                    </div>
+                              <span className="truncate">
+                                {provider.location || "Location not set"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {provider.rating &&
+                        provider.reviewCount &&
+                        provider.reviewCount > 0 ? (
+                          <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-bold ring-1 ring-amber-500/20 flex-shrink-0">
+                            <Star className="w-3.5 h-3.5 fill-current" />
+                            {provider.rating.toFixed(1)}
+                          </div>
+                        ) : null}
+                      </div>
 
-                    <div className="space-y-3">
-                       <div className="flex flex-wrap gap-2">
-                          {provider.services?.slice(0, 3).map((service, idx) => (
-                             <span key={idx} className="px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
-                               {service}
-                             </span>
-                          ))}
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          {provider.services
+                            ?.slice(0, 3)
+                            .map((service, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground text-xs font-medium"
+                              >
+                                {service}
+                              </span>
+                            ))}
                           {provider.services?.length > 3 && (
-                             <span className="px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs font-medium">
-                               +{provider.services.length - 3} more
-                             </span>
+                            <span className="px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs font-medium">
+                              +{provider.services.length - 3} more
+                            </span>
                           )}
-                       </div>
-                       
-                       <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="bg-muted/30 p-3 rounded-xl">
-                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Base Price</p>
-                             <p className="text-base font-bold text-foreground mt-0.5">₹{provider.pricing || 0}</p>
-                          </div>
-                           <div className="bg-muted/30 p-3 rounded-xl">
-                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Radius</p>
-                             <p className="text-base font-bold text-foreground mt-0.5">{provider.radius_km || 10} km</p>
-                          </div>
-                       </div>
-                    </div>
-                  </div>
+                        </div>
 
-                  {/* Actions */}
-                  <div className="mt-6 flex items-center gap-3">
-                    <button
-                      onClick={(e) => {
-                         e.stopPropagation();
-                         router.push(`/seeker/provider/${provider._id}`);
-                      }}
-                      className="flex-1 h-10 rounded-xl border border-input bg-background font-medium text-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      View Details
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBookProvider(provider._id);
-                      }}
-                      disabled={bookingInProgress === provider._id}
-                      className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-primary/30 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
-                    >
-                       {bookingInProgress === provider._id ? (
-                           <Loader2 className="w-4 h-4 animate-spin" />
-                       ) : (
-                           <>Book Now <ArrowRight className="w-4 h-4" /></>
-                       )}
-                    </button>
-                  </div>
-                </motion.article>
-              ))}
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="bg-muted/30 p-3 rounded-xl">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                              Base Price
+                            </p>
+                            <p className="text-base font-bold text-foreground mt-0.5">
+                              ₹{provider.pricing || 0}
+                            </p>
+                          </div>
+                          <div className="bg-muted/30 p-3 rounded-xl">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                              Radius
+                            </p>
+                            <p className="text-base font-bold text-foreground mt-0.5">
+                              {provider.radius_km || 10} km
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-6 flex items-center gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/seeker/provider/${provider._id}`);
+                        }}
+                        className="flex-1 h-10 rounded-xl border border-input bg-background font-medium text-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBookProvider(provider._id);
+                        }}
+                        disabled={bookingInProgress === provider._id}
+                        className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-primary/30 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                      >
+                        {bookingInProgress === provider._id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            Book Now <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </motion.article>
+                ))}
               </AnimatePresence>
             </div>
           )}
