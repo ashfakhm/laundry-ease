@@ -27,7 +27,10 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target as Node)
+      ) {
         setShowDropdown(false);
       }
     };
@@ -96,7 +99,7 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
           className="w-full h-11 rounded-lg border border-input bg-background pl-10 pr-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-sm"
           autoComplete="off"
         />
-        <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         {loading && (
           <div className="absolute right-3 top-3">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -112,7 +115,9 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
               className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0 text-sm"
               onClick={() => handleSelect(s)}
             >
-              <div className="font-medium truncate">{s.display_name.split(",")[0]}</div>
+              <div className="font-medium truncate">
+                {s.display_name.split(",")[0]}
+              </div>
               <div className="text-xs text-muted-foreground truncate opacity-70">
                 {s.display_name}
               </div>

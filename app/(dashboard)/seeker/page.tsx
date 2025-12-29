@@ -282,8 +282,8 @@ export default function SeekerDashboardPage() {
                 No providers found
               </h3>
               <p className="mt-2 text-muted-foreground max-w-sm">
-                We couldn't find any providers matching your search filters. Try
-                adjusting your location or service type.
+                We couldn&apos;t find any providers matching your search
+                filters. Try adjusting your location or service type.
               </p>
             </motion.div>
           ) : (
@@ -295,7 +295,7 @@ export default function SeekerDashboardPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="group relative flex flex-col justify-between rounded-3xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20"
+                    className="group relative flex flex-col justify-between rounded-3xl border border-border bg-card p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20 overflow-hidden"
                   >
                     {/* Card Content */}
                     <div
