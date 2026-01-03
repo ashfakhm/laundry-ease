@@ -24,10 +24,43 @@ export const POST = withErrorHandling(async (req: Request) => {
   const providerOid = new ObjectId(provider_id);
 
   const { db } = await getDb();
-  const provider = await db.collection("providers").findOne({ _id: providerOid });
-  
+  const provider = await db
+    .collection("providers")
+    .findOne({ _id: providerOid });
+
   if (!provider) {
     throw Errors.notFound("Provider not found");
+  }
+
+  // **Capacity Check (Race Condition Mitigation)**
+  const activeBookings = await db.collection("bookings").countDocuments({
+    provider_id: providerOid,
+    status: {
+      $in: ["requested", "accepted", "pickup_proposed", "confirmed"],
+    },
+  });
+
+  const activeOrders = await db.collection("orders").countDocuments({
+    provider_id: providerOid,
+    process_status: {
+      $in: [
+        "invoiced",
+        "processing",
+        "washing",
+        "ironing",
+        "ready",
+        "out_for_delivery",
+      ],
+    },
+  });
+
+  const capacity = provider.capacity || 5;
+  if (activeBookings + activeOrders >= capacity) {
+    throw Errors.conflict(
+      `Provider is currently at full capacity (${
+        activeBookings + activeOrders
+      }/${capacity}). Please try again later or choose another provider.`
+    );
   }
 
   const booking = await createBooking({

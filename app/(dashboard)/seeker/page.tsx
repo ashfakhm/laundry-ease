@@ -51,6 +51,11 @@ export default function SeekerDashboardPage() {
   const [coordinates, setCoordinates] = useState<
     { lat: number; lng: number } | undefined
   >(undefined);
+  const [deadline, setDeadline] = useState(() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 24);
+    return d.toISOString().slice(0, 16);
+  });
 
   // FAANG Practice: Get User Coordinates
   useEffect(() => {
@@ -95,6 +100,7 @@ export default function SeekerDashboardPage() {
         if (searchLocation) params.append("location", searchLocation);
         if (searchName) params.append("name", searchName);
         if (selectedService) params.append("service", selectedService);
+        if (deadline) params.append("deadline", deadline);
 
         const response = await fetch(`/api/providers?${params.toString()}`);
         if (response.ok) {
@@ -114,7 +120,7 @@ export default function SeekerDashboardPage() {
     }
 
     fetchProviders();
-  }, [searchLocation, searchName, selectedService, toast]);
+  }, [searchLocation, searchName, selectedService, deadline, toast]);
 
   const popularServices = [
     "Wash",
@@ -198,7 +204,7 @@ export default function SeekerDashboardPage() {
           transition={{ delay: 0.1 }}
           className="bg-card border border-border/50 rounded-2xl p-4 md:p-6 shadow-sm space-y-4"
         >
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             {/* Location Search */}
             <div className="relative group z-20">
               <LocationAutocomplete
@@ -235,6 +241,16 @@ export default function SeekerDashboardPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            {/* Deadline Input */}
+            <div className="relative group">
+              <input
+                type="datetime-local"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+                className="w-full h-11 rounded-xl border border-input bg-background px-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
+              />
             </div>
           </div>
 
