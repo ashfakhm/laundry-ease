@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { maskBankDetails } from "@/lib/utils";
 import { getDb } from "@/lib/mongodb";
-import { createRazorpayContact, createRazorpayFundAccount } from "@/lib/razorpay";
+import {
+  createRazorpayContact,
+  createRazorpayFundAccount,
+} from "@/lib/razorpay";
 import { Provider } from "@/lib/db";
 
 /**
@@ -36,7 +40,22 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json(provider, { status: 200 });
+    // Mask bank details before returning by creating a safe copy for the response
+    const safeProvider = {
+      ...provider,
+      bankDetails: provider.bankDetails
+        ? maskBankDetails(
+            provider.bankDetails as {
+              accountNumber?: string;
+              ifsc?: string;
+              upiId?: string;
+              accountHolderName?: string;
+            }
+          )
+        : undefined,
+    } as unknown;
+
+    return NextResponse.json(safeProvider, { status: 200 });
   } catch (error) {
     console.error("Error fetching provider profile:", error);
     return NextResponse.json(
@@ -86,7 +105,7 @@ export async function PATCH(req: Request) {
       capacity,
       phone,
       profilePicture,
-      bannerImage
+      bannerImage,
     } = body;
 
     // Build update object with only provided fields
@@ -100,34 +119,44 @@ export async function PATCH(req: Request) {
     if (pricing !== undefined) updateFields.pricing = Number(pricing);
     if (pricingRates !== undefined) updateFields.pricingRates = pricingRates;
     if (radius_km !== undefined) updateFields.radius_km = Number(radius_km);
-    if (free_radius_km !== undefined) updateFields.free_radius_km = Number(free_radius_km);
-    if (per_km_rate !== undefined) updateFields.per_km_rate = Number(per_km_rate);
+    if (free_radius_km !== undefined)
+      updateFields.free_radius_km = Number(free_radius_km);
+    if (per_km_rate !== undefined)
+      updateFields.per_km_rate = Number(per_km_rate);
     if (coordinates !== undefined) updateFields.coordinates = coordinates;
     if (capacity !== undefined) updateFields.capacity = Number(capacity);
     if (phone !== undefined) updateFields.phone = phone;
-    if (profilePicture !== undefined) updateFields.profilePicture = profilePicture;
+    if (profilePicture !== undefined)
+      updateFields.profilePicture = profilePicture;
     if (bannerImage !== undefined) updateFields.bannerImage = bannerImage;
 
     // Bank Details Update
     const { bankAccountHolder, bankAccountNumber, bankIFSC, upiId } = body;
-    if (bankAccountHolder !== undefined || bankAccountNumber !== undefined || bankIFSC !== undefined || upiId !== undefined) {
+    if (
+      bankAccountHolder !== undefined ||
+      bankAccountNumber !== undefined ||
+      bankIFSC !== undefined ||
+      upiId !== undefined
+    ) {
       updateFields.bankDetails = {
-         ...(bankAccountHolder ? { accountHolderName: bankAccountHolder } : {}),
-         ...(bankAccountNumber ? { accountNumber: bankAccountNumber } : {}),
-         ...(bankIFSC ? { ifsc: bankIFSC } : {}),
-         ...(upiId ? { upiId } : {})
+        ...(bankAccountHolder ? { accountHolderName: bankAccountHolder } : {}),
+        ...(bankAccountNumber ? { accountNumber: bankAccountNumber } : {}),
+        ...(bankIFSC ? { ifsc: bankIFSC } : {}),
+        ...(upiId ? { upiId } : {}),
       };
-      
-      // If updating partial bank details, we need to merge with existing if not provided? 
+
+      // If updating partial bank details, we need to merge with existing if not provided?
       // Actually, for simplicity, let's assume the frontend sends the whole object or we use dot notation for specific fields if we want partial updates.
-      // But typically React Hook Form sends the whole form. 
+      // But typically React Hook Form sends the whole form.
       // Let's use dot notation to be safe and avoid overwriting with nulls if not intended, OR simpler:
       // constructing the object. However, mongo update with $set replacement of nested object replaces the whole object.
       // Better to use dot notation for nested fields if we want to support partial updates, OR fetch existing and merge.
       // Given the form will send all fields, replacing the object is okay, BUT better to use specific fields.
-      
-      if (bankAccountHolder !== undefined) updateFields["bankDetails.accountHolderName"] = bankAccountHolder;
-      if (bankAccountNumber !== undefined) updateFields["bankDetails.accountNumber"] = bankAccountNumber;
+
+      if (bankAccountHolder !== undefined)
+        updateFields["bankDetails.accountHolderName"] = bankAccountHolder;
+      if (bankAccountNumber !== undefined)
+        updateFields["bankDetails.accountNumber"] = bankAccountNumber;
       if (bankIFSC !== undefined) updateFields["bankDetails.ifsc"] = bankIFSC;
       if (upiId !== undefined) updateFields["bankDetails.upiId"] = upiId;
 
@@ -137,52 +166,67 @@ export async function PATCH(req: Request) {
       try {
         const { db } = await getDb();
         // Fetch current provider to get contact_id if exists, and fallback details
-        const currentProvider = await db.collection<Provider>("providers").findOne({ email: session.user.email });
-        
+        const currentProvider = await db
+          .collection<Provider>("providers")
+          .findOne({ email: session.user.email });
+
         if (currentProvider) {
-          const contactName = (updateFields.name as string) || currentProvider.name || "Provider";
+          const contactName =
+            (updateFields.name as string) || currentProvider.name || "Provider";
           const contactEmail = session.user.email;
-          const contactPhone = (updateFields.phone as string) || currentProvider.phone || "";
-          
+          const contactPhone =
+            (updateFields.phone as string) || currentProvider.phone || "";
+
           let contactId = currentProvider.razorpay_contact_id;
 
           // 1. Create/Get Contact
           if (!contactId && contactPhone) {
-             const contact = await createRazorpayContact({
-               name: contactName,
-               email: contactEmail,
-               contact: contactPhone,
-               type: "vendor",
-               reference_id: currentProvider._id?.toString()
-             });
-             contactId = contact.id;
-             updateFields.razorpay_contact_id = contactId;
+            const contact = await createRazorpayContact({
+              name: contactName,
+              email: contactEmail,
+              contact: contactPhone,
+              type: "vendor",
+              reference_id: currentProvider._id?.toString(),
+            });
+            contactId = contact.id;
+            updateFields.razorpay_contact_id = contactId;
           }
 
           // 2. Create Fund Account (Bank)
           // We prioritize Bank Account over UPI for now as per mandatory fields
-          const accName = (updateFields["bankDetails.accountHolderName"] as string) || currentProvider.bankDetails?.accountHolderName;
-          const accNumber = (updateFields["bankDetails.accountNumber"] as string) || currentProvider.bankDetails?.accountNumber;
-          const accIfsc = (updateFields["bankDetails.ifsc"] as string) || currentProvider.bankDetails?.ifsc;
+          const accName =
+            (updateFields["bankDetails.accountHolderName"] as string) ||
+            currentProvider.bankDetails?.accountHolderName;
+          const accNumber =
+            (updateFields["bankDetails.accountNumber"] as string) ||
+            currentProvider.bankDetails?.accountNumber;
+          const accIfsc =
+            (updateFields["bankDetails.ifsc"] as string) ||
+            currentProvider.bankDetails?.ifsc;
 
           if (contactId && accName && accNumber && accIfsc) {
-             const fundAccount = await createRazorpayFundAccount({
-               contact_id: contactId,
-               account_type: "bank_account",
-               bank_account: {
-                 name: accName,
-                 account_number: accNumber,
-                 ifsc: accIfsc
-               }
-             });
-             updateFields.razorpay_fund_account_id = fundAccount.id;
+            const fundAccount = await createRazorpayFundAccount({
+              contact_id: contactId,
+              account_type: "bank_account",
+              bank_account: {
+                name: accName,
+                account_number: accNumber,
+                ifsc: accIfsc,
+              },
+            });
+            updateFields.razorpay_fund_account_id = fundAccount.id;
           }
         }
-      } catch (e: any) {
-        console.error("Razorpay Sync Error:", e);
+      } catch (e: unknown) {
+        const err = e as Error;
+        console.error("Razorpay Sync Error:", err);
         // Fail the request if critical bank details sync fails so user knows
         return NextResponse.json(
-          { error: `Payment Gateway Error: ${e.message || "Failed to sync bank details"}` },
+          {
+            error: `Payment Gateway Error: ${
+              err?.message || "Failed to sync bank details"
+            }`,
+          },
           { status: 500 }
         );
       }
@@ -192,25 +236,39 @@ export async function PATCH(req: Request) {
 
     // Secure Password Change Logic
     if (newPassword) {
-        if (!currentPassword) {
-            return NextResponse.json({ error: "Current password is required to set a new password" }, { status: 400 });
-        }
+      if (!currentPassword) {
+        return NextResponse.json(
+          { error: "Current password is required to set a new password" },
+          { status: 400 }
+        );
+      }
 
-        const provider = await db.collection("providers").findOne(
-            { email: session.user.email },
-            { projection: { passwordHash: 1 } }
+      const provider = await db
+        .collection("providers")
+        .findOne(
+          { email: session.user.email },
+          { projection: { passwordHash: 1 } }
         );
 
-        if (!provider || !provider.passwordHash) {
-             return NextResponse.json({ error: "Provider not found or no password set" }, { status: 404 });
-        }
+      if (!provider || !provider.passwordHash) {
+        return NextResponse.json(
+          { error: "Provider not found or no password set" },
+          { status: 404 }
+        );
+      }
 
-        const isMatch = await bcrypt.compare(currentPassword, provider.passwordHash);
-        if (!isMatch) {
-            return NextResponse.json({ error: "Incorrect current password" }, { status: 401 });
-        }
+      const isMatch = await bcrypt.compare(
+        currentPassword,
+        provider.passwordHash
+      );
+      if (!isMatch) {
+        return NextResponse.json(
+          { error: "Incorrect current password" },
+          { status: 401 }
+        );
+      }
 
-        updateFields.passwordHash = await bcrypt.hash(newPassword, 10);
+      updateFields.passwordHash = await bcrypt.hash(newPassword, 10);
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -235,7 +293,25 @@ export async function PATCH(req: Request) {
       );
     }
 
-    return NextResponse.json(result, { status: 200 });
+    // findOneAndUpdate returns an object with 'value' containing the updated doc
+    const updated =
+      (result as { value?: Provider }).value || (result as Provider);
+
+    const safeUpdated = {
+      ...updated,
+      bankDetails: (updated as Provider).bankDetails
+        ? maskBankDetails(
+            (updated as Provider).bankDetails as {
+              accountNumber?: string;
+              ifsc?: string;
+              upiId?: string;
+              accountHolderName?: string;
+            }
+          )
+        : undefined,
+    } as unknown;
+
+    return NextResponse.json(safeUpdated, { status: 200 });
   } catch (error) {
     console.error("Error updating provider profile:", error);
     return NextResponse.json(

@@ -486,6 +486,19 @@ export async function freezeEscrow(order_id: ObjectId) {
   // but we could. For now, we rely on the complaint check in releaseEscrowPayment.
   // Optionally, we can log this action.
   console.log(`[ESCROW] Frozen for order ${order_id.toString()}`);
+
+  // Persist an explicit flag to make the freeze auditable and queryable.
+  try {
+    const { db } = await getDb();
+    await db
+      .collection<Order>("orders")
+      .updateOne(
+        { _id: order_id },
+        { $set: { escrow_frozen: true, escrow_frozen_at: new Date() } }
+      );
+  } catch (err) {
+    console.error("Failed to persist escrow_frozen flag:", err);
+  }
 }
 
 /**

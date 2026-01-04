@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         emailVerified: 0,
         phoneVerified: 0,
         documents: 0,
+        bankDetails: 0, // never expose bank details in listing responses
       })
       .toArray();
 
