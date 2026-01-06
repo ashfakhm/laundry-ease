@@ -3,13 +3,17 @@ import { getDb } from "@/lib/mongodb";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { Order } from "@/types/orders";
 import { Provider } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   try {
     // Authorization check - CRITICAL for production security
     const authHeader = req.headers.get("authorization");
     if (!process.env.CRON_SECRET) {
-      console.error("CRON_SECRET not configured - cron endpoint disabled");
+      logger.error(
+        "CRON",
+        "CRON_SECRET not configured - cron endpoint disabled"
+      );
       return NextResponse.json(
         { error: "Cron endpoint not configured" },
         { status: 503 }
@@ -55,7 +59,8 @@ export async function GET(req: NextRequest) {
 
       if (!provider || !provider.razorpay_fund_account_id) {
         // Log error: Provider has no bank details
-        console.error(
+        logger.error(
+          "CRON",
           `Provider ${order.provider_id} has no fund account linked. Payout failed for Order ${order._id}`
         );
         results.push({ orderId: order._id, status: "failed_no_fund_account" });
@@ -107,7 +112,7 @@ export async function GET(req: NextRequest) {
       } catch (err: unknown) {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error";
-        console.error(`Payout error for Order ${order._id}:`, err);
+        logger.error("CRON", `Payout error for Order ${order._id}`, err);
         results.push({
           orderId: order._id,
           status: "failed_razorpay_error",
@@ -124,7 +129,7 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Internal Server Error";
-    console.error("Cron Error:", error);
+    logger.error("CRON", "Process payouts cron error", error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { getHeldOrdersPastEscrowDate, releaseEscrowPayment } from "@/lib/db";
 import { createRazorpayPayout } from "@/lib/razorpay";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic"; // Ensure not cached
 
@@ -9,7 +10,7 @@ export async function GET(req: Request) {
   // Verify Cron Secret - CRITICAL for production security
   const authHeader = req.headers.get("authorization");
   if (!process.env.CRON_SECRET) {
-    console.error("CRON_SECRET not configured - cron endpoint disabled");
+    logger.error("CRON", "CRON_SECRET not configured - cron endpoint disabled");
     return NextResponse.json(
       { error: "Cron endpoint not configured" },
       { status: 503 }
@@ -95,8 +96,9 @@ export async function GET(req: Request) {
       } catch (innerError: unknown) {
         const errorMessage =
           innerError instanceof Error ? innerError.message : "Unknown error";
-        console.error(
-          `Error processing payout for order ${order._id}:`,
+        logger.error(
+          "CRON",
+          `Error processing payout for order ${order._id}`,
           innerError
         );
         results.push({
@@ -115,7 +117,7 @@ export async function GET(req: Request) {
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Internal Server Error";
-    console.error("Cron payout error:", error);
+    logger.error("CRON", "Cron payout error", error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

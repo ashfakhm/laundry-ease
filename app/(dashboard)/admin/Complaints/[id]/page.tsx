@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, UserPlus, CheckCircle, Ban } from "lucide-react";
 import Link from "next/link";
 import ComplaintChat from "@/components/complaint-chat";
 import { toast } from "sonner";
 
-export default function AdminComplaintDetailPage({ params }: { params: { id: string } }) {
+type Params = Promise<{ id: string }>;
+
+export default function AdminComplaintDetailPage({ params }: { params: Params }) {
+  const { id } = use(params);
   const router = useRouter();
   const [complaint, setComplaint] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -15,11 +18,11 @@ export default function AdminComplaintDetailPage({ params }: { params: { id: str
 
   useEffect(() => {
     fetchComplaint();
-  }, [params.id]);
+  }, [id]);
 
   async function fetchComplaint() {
     try {
-      const res = await fetch(`/api/complaints/${params.id}`);
+      const res = await fetch(`/api/complaints/${id}`);
       if (res.ok) {
         const data = await res.json();
         setComplaint(data);
@@ -37,7 +40,7 @@ export default function AdminComplaintDetailPage({ params }: { params: { id: str
   async function handleAddProvider() {
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/admin/complaints/${params.id}/add-provider`, {
+      const res = await fetch(`/api/admin/complaints/${id}/add-provider`, {
         method: "POST",
       });
 
@@ -61,7 +64,7 @@ export default function AdminComplaintDetailPage({ params }: { params: { id: str
 
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/admin/complaints/${params.id}/resolve`, {
+      const res = await fetch(`/api/admin/complaints/${id}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ outcome }),
@@ -196,8 +199,8 @@ export default function AdminComplaintDetailPage({ params }: { params: { id: str
               {providerAdded ? "3-way chat (Admin, Seeker, Provider)" : "2-way chat (Admin, Seeker)"}
             </p>
           </div>
-          <div className="h-[600px]">
-            <ComplaintChat complaintId={params.id} selfRole="admin" />
+          <div className="h-150">
+            <ComplaintChat complaintId={id} selfRole="admin" />
           </div>
         </div>
       </div>

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
+import { logger } from "@/lib/logger";
 
 // GET /api/cron/monitor-abuse
 export async function GET(req: NextRequest) {
   // Verify Cron Secret - CRITICAL for production security
   const authHeader = req.headers.get("authorization");
   if (!process.env.CRON_SECRET) {
-    console.error("CRON_SECRET not configured - cron endpoint disabled");
+    logger.error("CRON", "CRON_SECRET not configured - cron endpoint disabled");
     return NextResponse.json(
       { error: "Cron endpoint not configured" },
       { status: 503 }
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    console.error("Abuse Monitor Error:", error);
+    logger.error("CRON", "Abuse monitor error", error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

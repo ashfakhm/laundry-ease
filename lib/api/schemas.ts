@@ -3,14 +3,15 @@ import { z } from "zod";
 /**
  * Centralized validation schemas for API requests
  * FAANG Practice: Single source of truth for all input validation
+ * Updated for Zod v4 - using top-level type validators
  */
 
-// Common validators
+// Common validators (Zod v4 top-level APIs)
 const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ID format");
 const phoneSchema = z
   .string()
   .regex(/^\+?[1-9]\d{9,14}$/, "Invalid phone number");
-const emailSchema = z.string().email("Invalid email address");
+const emailSchema = z.email("Invalid email address");
 
 // Booking schemas
 export const createBookingSchema = z.object({
@@ -35,7 +36,7 @@ export const createOrderItemSchema = z.object({
   quantity: z.number().int().positive("Quantity must be positive"),
   unit_price: z.number().nonnegative("Price cannot be negative"),
   notes: z.string().optional(),
-  photo_url: z.string().url().optional(),
+  photo_url: z.url().optional(),
 });
 
 export const createOrderSchema = z.object({
@@ -68,10 +69,7 @@ export const createComplaintSchema = z
     description: z
       .string()
       .min(10, "Description must be at least 10 characters"),
-    photos: z
-      .array(z.string().url())
-      .max(5, "Maximum 5 photos allowed")
-      .optional(),
+    photos: z.array(z.url()).max(5, "Maximum 5 photos allowed").optional(),
   })
   .refine((data) => data.order_id || data.booking_id, {
     message: "Either order_id or booking_id is required",
