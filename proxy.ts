@@ -35,9 +35,9 @@ const isAdminRoute = createRouteMatcher(["/admin"]);
 const isProviderRoute = createRouteMatcher(["/provider"]);
 const isSeekerRoute = createRouteMatcher(["/seeker"]);
 
-/* ================= MIDDLEWARE ================= */
+/* ================= PROXY (Next.js 16+) ================= */
 
-export default async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const token = (await getToken({ req })) as JWT | null;
 
