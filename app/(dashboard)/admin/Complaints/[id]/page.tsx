@@ -9,7 +9,11 @@ import { toast } from "sonner";
 
 type Params = Promise<{ id: string }>;
 
-export default function AdminComplaintDetailPage({ params }: { params: Params }) {
+export default function AdminComplaintDetailPage({
+  params,
+}: {
+  params: Params;
+}) {
   const { id } = use(params);
   const router = useRouter();
   const [complaint, setComplaint] = useState<any>(null);
@@ -59,8 +63,11 @@ export default function AdminComplaintDetailPage({ params }: { params: Params })
     }
   }
 
-  async function handleResolve(outcome: "release_payout" | "refund_full" | "reject") {
-    if (!confirm(`Are you sure you want to ${outcome.replace(/_/g, " ")}?`)) return;
+  async function handleResolve(
+    outcome: "release_payout" | "refund_full" | "reject"
+  ) {
+    if (!confirm(`Are you sure you want to ${outcome.replace(/_/g, " ")}?`))
+      return;
 
     setActionLoading(true);
     try {
@@ -90,7 +97,9 @@ export default function AdminComplaintDetailPage({ params }: { params: Params })
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="mt-4 text-sm text-muted-foreground">Loading complaint...</p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Loading complaint...
+          </p>
         </div>
       </div>
     );
@@ -101,7 +110,10 @@ export default function AdminComplaintDetailPage({ params }: { params: Params })
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <p className="text-lg font-semibold">Complaint not found</p>
-          <Link href="/admin/complaints" className="mt-4 inline-block text-primary hover:underline">
+          <Link
+            href="/admin/complaints"
+            className="mt-4 inline-block text-primary hover:underline"
+          >
             Back to complaints
           </Link>
         </div>
@@ -109,7 +121,8 @@ export default function AdminComplaintDetailPage({ params }: { params: Params })
     );
   }
 
-  const isResolved = complaint.status === "resolved" || complaint.status === "rejected";
+  const isResolved =
+    complaint.status === "resolved" || complaint.status === "rejected";
   const providerAdded = complaint.provider_access_granted;
 
   return (
@@ -117,12 +130,19 @@ export default function AdminComplaintDetailPage({ params }: { params: Params })
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Link href="/admin/complaints" className="p-2 hover:bg-muted rounded-full transition-colors">
+          <Link
+            href="/admin/complaints"
+            className="p-2 hover:bg-muted rounded-full transition-colors"
+          >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">Complaint #{complaint._id.slice(-8).toUpperCase()}</h1>
-            <p className="text-sm text-muted-foreground">Order: #{complaint.order_id.slice(-6)}</p>
+            <h1 className="text-2xl font-bold">
+              Complaint #{complaint._id.slice(-8).toUpperCase()}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Order: #{complaint.order_id.slice(-6)}
+            </p>
           </div>
           <StatusBadge status={complaint.status} />
         </div>
@@ -131,17 +151,27 @@ export default function AdminComplaintDetailPage({ params }: { params: Params })
         <div className="bg-card rounded-2xl border p-6 space-y-4">
           <div>
             <h2 className="text-lg font-bold">{complaint.title}</h2>
-            <p className="text-sm text-muted-foreground mt-1">{complaint.description}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {complaint.description}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4 border-t">
             <div>
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Type</p>
-              <p className="text-sm font-medium mt-1">{complaint.complaint_type.replace(/_/g, " ")}</p>
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                Type
+              </p>
+              <p className="text-sm font-medium mt-1">
+                {complaint.complaint_type.replace(/_/g, " ")}
+              </p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Created</p>
-              <p className="text-sm font-medium mt-1">{new Date(complaint.createdAt).toLocaleString()}</p>
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                Created
+              </p>
+              <p className="text-sm font-medium mt-1">
+                {new Date(complaint.createdAt).toLocaleString()}
+              </p>
             </div>
           </div>
         </div>
@@ -149,8 +179,10 @@ export default function AdminComplaintDetailPage({ params }: { params: Params })
         {/* Action Buttons */}
         {!isResolved && (
           <div className="bg-card rounded-2xl border p-6 space-y-3">
-            <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Admin Actions</h3>
-            
+            <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">
+              Admin Actions
+            </h3>
+
             <div className="flex flex-wrap gap-3">
               {!providerAdded && (
                 <button
@@ -196,7 +228,9 @@ export default function AdminComplaintDetailPage({ params }: { params: Params })
           <div className="p-4 border-b bg-muted/30">
             <h3 className="font-bold">Conversation</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {providerAdded ? "3-way chat (Admin, Seeker, Provider)" : "2-way chat (Admin, Seeker)"}
+              {providerAdded
+                ? "3-way chat (Admin, Seeker, Provider)"
+                : "2-way chat (Admin, Seeker)"}
             </p>
           </div>
           <div className="h-150">
@@ -217,7 +251,11 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${colors[status as keyof typeof colors]}`}>
+    <span
+      className={`px-3 py-1 rounded-full text-xs font-bold border ${
+        colors[status as keyof typeof colors]
+      }`}
+    >
       {status.replace("_", " ").toUpperCase()}
     </span>
   );
