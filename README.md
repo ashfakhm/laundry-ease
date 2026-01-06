@@ -1,386 +1,730 @@
-# LaundryEase# LaundryEase
+# LaundryEase# LaundryEase# LaundryEase
 
-**The laundry problem, engineered away.**> **Laundry, solved.** A premium on-demand laundry marketplace for busy professionals.
+**The laundry problem, engineered away.\*\***The laundry problem, engineered away.**> **Laundry, solved.\*\* A premium on-demand laundry marketplace for busy professionals.
 
-LaundryEase is a production-grade marketplace that connects urban professionals with verified laundry providers. It eliminates the 2-4 hours per week that busy people lose to laundry logistics—pickup, tracking, delays, and disputes—by providing doorstep service with escrow-protected payments, photo-documented handoffs, and guaranteed deadlines.[![Next.js](https://img.shields.io/badge/Next.js%2016-black?logo=next.js)](https://nextjs.org)
+LaundryEase is a production-grade marketplace connecting urban professionals with verified laundry providers. It eliminates the 2-4 hours per week that busy people lose to laundry logistics—pickup, tracking, delays, and disputes—through doorstep service with escrow-protected payments, photo-documented handoffs, and guaranteed deadlines.LaundryEase is a production-grade marketplace that connects urban professionals with verified laundry providers. It eliminates the 2-4 hours per week that busy people lose to laundry logistics—pickup, tracking, delays, and disputes—by providing doorstep service with escrow-protected payments, photo-documented handoffs, and guaranteed deadlines.[![Next.js](https://img.shields.io/badge/Next.js%2016-black?logo=next.js)](https://nextjs.org)
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![Next.js](https://img.shields.io/badge/Next.js%2016-black?logo=next.js)](https://nextjs.org)[![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white)](https://typescriptlang.org)
 
-This is not another gig-economy prototype. Every state transition is defined. Every edge case has a handler. Every failure mode has a recovery path.[![Razorpay](https://img.shields.io/badge/Razorpay-blue?logo=razorpay&logoColor=white)](https://razorpay.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript%205-blue?logo=typescript&logoColor=white)](https://typescriptlang.org)
 
-[![Build Status](https://img.shields.io/badge/Build-Passing-Success)](https://github.com/your-org/laundry-ease/actions)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS%204-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)This is not another gig-economy prototype. Every state transition is defined. Every edge case has a handler. Every failure mode has a recovery path.[![Razorpay](https://img.shields.io/badge/Razorpay-blue?logo=razorpay&logoColor=white)](https://razorpay.com)
 
----[![Context7](https://img.shields.io/badge/Verified%20with-Context7-purple)](https://context7.com)
+[![MongoDB](https://img.shields.io/badge/MongoDB%20Atlas-47A248?logo=mongodb&logoColor=white)](https://mongodb.com)
 
-## The Problem---
+[![Razorpay](https://img.shields.io/badge/Razorpay-528FF0?logo=razorpay&logoColor=white)](https://razorpay.com)[![Build Status](https://img.shields.io/badge/Build-Passing-Success)](https://github.com/your-org/laundry-ease/actions)
 
-Traditional laundry services fail knowledge workers in predictable ways:## What is LaundryEase?
+------[![Context7](https://img.shields.io/badge/Verified%20with-Context7-purple)](https://context7.com)
 
-| Failure Mode | Business Impact |LaundryEase is a **production-ready** laundry marketplace connecting busy professionals with verified service providers. It features a robust, type-safe architecture designed for reliability and scale.
+## The Problem## The Problem---
 
-|-------------|-----------------|
+Traditional laundry services fail knowledge workers in predictable ways:Traditional laundry services fail knowledge workers in predictable ways:## What is LaundryEase?
 
-| Physical shop visits | 2-4 hours/week of high-value time lost || Problem | Solution |
+| Failure Mode | Business Impact || Failure Mode | Business Impact |LaundryEase is a **production-ready** laundry marketplace connecting busy professionals with verified service providers. It features a robust, type-safe architecture designed for reliability and scale.
 
-| No deadline guarantees | Missed presentations, events, interviews || ------------------------------------- | -------------------------------- |
+|--------------|-----------------|
 
-| Opaque pricing | Budget uncertainty, surprise charges || 2-4 hours/week wasted on laundry runs | Doorstep pickup & delivery |
+| Physical shop visits | 2-4 hours/week of high-value time lost ||-------------|-----------------|
 
-| Zero accountability | Damaged/lost items with no recourse || Missed deadlines for urgent clothes | Deadline-guaranteed matching |
+| No deadline guarantees | Missed presentations, events, interviews |
 
-| Cash-only operations | Security risk, inconvenience || Unclear pricing, surprise charges | Transparent fixed-price lists |
+| Opaque pricing | Budget uncertainty, surprise charges || Physical shop visits | 2-4 hours/week of high-value time lost || Problem | Solution |
 
-| No accountability for damage/loss | Photo evidence + Admin mediation |
+| Zero accountability | Damaged/lost items with no recourse |
 
-These aren't minor annoyances—they're systematic friction that scales with urbanization.| Payment disputes | Escrow-protected payments |
+| Cash-only operations | Security risk, inconvenience || No deadline guarantees | Missed presentations, events, interviews || ------------------------------------- | -------------------------------- |
 
-## The Solution---
+These aren't minor annoyances—they're systematic friction that scales with urbanization.| Opaque pricing | Budget uncertainty, surprise charges || 2-4 hours/week wasted on laundry runs | Doorstep pickup & delivery |
 
-LaundryEase addresses each failure mode with an engineered countermeasure:## Quick Start
+## The Solution| Zero accountability | Damaged/lost items with no recourse || Missed deadlines for urgent clothes | Deadline-guaranteed matching |
 
-- **Doorstep pickup/delivery** eliminates travel entirely```bash
+LaundryEase addresses each failure mode with an engineered countermeasure:| Cash-only operations | Security risk, inconvenience || Unclear pricing, surprise charges | Transparent fixed-price lists |
 
-- **Escrow-protected payments** hold funds for 24h post-delivery, releasing only after the complaint window closes# 1. Clone and install
+- **Doorstep pickup/delivery** eliminates travel entirely| No accountability for damage/loss | Photo evidence + Admin mediation |
 
-- **Photo-documented handoffs** create irrefutable evidence for dispute resolutiongit clone https://github.com/your-org/laundry-ease.git
+- **Escrow-protected payments** hold funds for 24h post-delivery, releasing only after the complaint window closes
 
-- **Provider-set booking fees** filter unserious customers while compensating providers for no-showscd laundry-ease
+- **Photo-documented handoffs** create irrefutable evidence for dispute resolutionThese aren't minor annoyances—they're systematic friction that scales with urbanization.| Payment disputes | Escrow-protected payments |
 
-- **Admin-mediated three-way chat** resolves disputes with full contextnpm install
+- **Provider-set booking fees** filter unserious customers while compensating providers for no-shows
 
----# 2. Configure environment
+- **Admin-mediated three-way chat** resolves disputes with full context## The Solution---
+
+---LaundryEase addresses each failure mode with an engineered countermeasure:## Quick Start
+
+## Quick Start- **Doorstep pickup/delivery** eliminates travel entirely```bash
+
+`````bash- **Escrow-protected payments** hold funds for 24h post-delivery, releasing only after the complaint window closes# 1. Clone and install
+
+# 1. Clone and install
+
+git clone https://github.com/your-org/laundry-ease.git- **Photo-documented handoffs** create irrefutable evidence for dispute resolutiongit clone https://github.com/your-org/laundry-ease.git
+
+cd laundry-ease
+
+npm install- **Provider-set booking fees** filter unserious customers while compensating providers for no-showscd laundry-ease
+
+
+
+# 2. Configure environment- **Admin-mediated three-way chat** resolves disputes with full contextnpm install
 
 cp .env.example .env.local
 
+# Add your API keys (see Environment Variables below)---# 2. Configure environment
+
+
+
+# 3. Run development servercp .env.example .env.local
+
+npm run dev
+
 ## Architecture# Add your API keys (see Environment Variables below)
 
-````# 3. Run development server
+# 4. Build for production
+
+npm run build````# 3. Run development server
+
+`````
 
 ┌─────────────────────────────────────────────────────────────────┐npm run dev
 
-│                         FRONTEND                                │
+Open [http://localhost:3000](http://localhost:3000)
 
-│     Next.js 16 (App Router) + React 19 + Tailwind CSS 4        │# 4. Build for production
-
-│     Server Components • Server Actions • Streaming SSR          │npm run build
-
-└─────────────────────────────────────────────────────────────────┘```
-
-                              │
-
-                              ▼Open [http://localhost:3000](http://localhost:3000)
-
-┌─────────────────────────────────────────────────────────────────┐
-
-│                        API LAYER                                │---
-
-│   Route Handlers • NextAuth v4 • Zod v4 Validation • RBAC      │
-
-└─────────────────────────────────────────────────────────────────┘## Environment Variables
-
-                              │
-
-          ┌───────────────────┼───────────────────┐Create a `.env.local` file with:
-
-          ▼                   ▼                   ▼
-
-   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐```env
-
-   │  MongoDB    │     │  Razorpay   │     │ Cloudinary  │# Database
-
-   │  Atlas      │     │  + RazorpayX│     │  (Images)   │MONGODB_URI=mongodb+srv://...
-
-   │  (Primary)  │     │  (Payments) │     │             │
-
-   └─────────────┘     └─────────────┘     └─────────────┘# Authentication
-
-          │NEXTAUTH_SECRET=your-secret-here
-
-          ▼NEXTAUTH_URL=http://localhost:3000
-
-   ┌─────────────┐
-
-   │   Cron      │# Razorpay (Payments)
-
-   │   Jobs      │RAZORPAY_KEY_ID=rzp_test_...
-
-   │  (Escrow)   │RAZORPAY_KEY_SECRET=...
-
-   └─────────────┘NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_...
-
-````
-
-# Cloudinary (Image Storage)
-
-### Key Architectural DecisionsCLOUDINARY_CLOUD_NAME=...
-
-CLOUDINARY_API_KEY=...
-
-| Decision | Rationale |CLOUDINARY_API_SECRET=...
-
-|----------|-----------|
-
-| **Next.js 16 App Router** | Server Components reduce client bundle; Server Actions eliminate API boilerplate for mutations |# SMS (OTP via Twilio)
-
-| **MongoDB over Postgres** | Flexible schema for evolving order items; native geospatial queries for provider discovery |TWILIO_ACCOUNT_SID=...
-
-| **Razorpay + RazorpayX** | Single vendor for collection (Orders API) and disbursement (Payouts API); native UPI support for India |TWILIO_AUTH_TOKEN=...
-
-| **24h Escrow Window** | Balances seeker protection with provider cash flow; industry-standard for marketplace trust |TWILIO_PHONE_NUMBER=...
-
-| **Cron-based Auto-release** | Deterministic, auditable payout triggers; no complex event-driven architecture needed for MVP |
-
-# Email (Nodemailer via Gmail SMTP)
-
----EMAIL_USER=your-gmail-address@gmail.com
-
-EMAIL_PASS=your-gmail-app-password
-
-## Tech Stack
-
-# Cron Jobs
-
-| Layer | Technology | Version | Why |CRON_SECRET=your-secure-secret
-
-|-------|-----------|---------|-----|```
-
-| Framework | Next.js | 16.1.1 | App Router, Server Actions, React 19 support |
-
-| Language | TypeScript | 5.x | Strict mode enabled; Zod for runtime validation |**⚠️ Important**: Razorpay credentials are now **required** (no fallback values). The app will show warnings if credentials are missing.
-
-| Styling | Tailwind CSS | 4.x | CSS-first config, @theme inline directive |
-
-| UI | shadcn/ui | Latest | Accessible, composable, zero vendor lock-in |---
-
-| Database | MongoDB Atlas | 6.x | Geospatial indexes, flexible documents |
-
-| Auth | NextAuth.js | 4.24 | Google OAuth + Credentials; JWT sessions |## Architecture
-
-| Payments | Razorpay | — | Orders API (collection) + RazorpayX (payouts) |
-
-| Storage | Cloudinary | — | Signed uploads, automatic optimization |```
-
-| SMS | Twilio | — | OTP delivery, transactional alerts |┌─────────────────────────────────────────────────────────────┐
-
-| Email | Nodemailer | — | Magic links, order confirmations |│ FRONTEND │
-
-│ Next.js 16 (App Router + Server Actions) + React + Tailwind CSS + Shadcn │
-
----└─────────────────────────────────────────────────────────────┘
-
-                              │
-
-## Core Workflows ▼
-
-┌─────────────────────────────────────────────────────────────┐
-
-### Booking → Order Lifecycle│ API LAYER │
-
-│ Route Handlers (/app/api/\*) + NextAuth + Zod Validation │
-
-````└─────────────────────────────────────────────────────────────┘
-
-SEEKER                          PROVIDER                         SYSTEM                              │
-
-───────────────────────────────────────────────────────────────────────────          ┌───────────────────┼───────────────────┐
-
-Search providers by location          ▼                   ▼                   ▼
-
-        │   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-
-        ▼   │  MongoDB    │     │  Razorpay   │     │ Cloudinary  │
-
-Book + pay booking fee ─────────► Notification received   │  (Database) │     │  (Payments) │     │  (Images)   │
-
-                                         │   └─────────────┘     └─────────────┘     └─────────────┘
-
-                                         ▼```
-
-                                 Accept (2h SLA) ◄───── Auto-reject if timeout
-
-                                         │---
-
-                                         ▼
-
-                                 Propose pickup time## User Roles
-
-        │
-
-        ▼| Role         | Description                              |
-
-Confirm availability| ------------ | ---------------------------------------- |
-
-        │| **Seeker**   | Customer who books laundry services      |
-
-        ▼| **Provider** | Laundry professional who fulfills orders |
-
-Present at pickup ◄──────────── Arrive + GPS verify ◄─── No-show detection| **Admin**    | Platform operator who manages disputes   |
-
-        │                                │
-
-        ▼                                ▼---
-
-Review invoice ◄───────────────  Create itemized invoice
-
-        │                        (photo per item)## Core Workflows
-
-        ▼
-
-Approve invoice ─────────────────────────────────────► Order created### 1. Booking Flow
-
-        │
-
-        ▼```
-
-Pay order total ─────────────────────────────────────► Funds collectedSeeker Books → Provider Accepts → Pickup Scheduled → Invoice Created → Order Paid
-
-        │```
-
-        ▼
-
-Track status ◄───────────────── Update: WASHING → IRONING → READY### 2. Order Flow
-
-        │
-
-        ▼```
-
-Confirm delivery (OTP) ◄──────── Deliver + capture proof ──► Escrow starts (24h)Picked Up → Processing → Ready → Delivered → OTP Verified → Escrow Released
-
-        │```
-
-        ├─── Raise complaint ──────────────────────────────► Escrow frozen
-
-        │         │### 3. Dispute Flow
-
-        │         ▼
-
-        │    Admin resolution ─────────────────────────────► Refund OR Release```
-
-        │Complaint Raised → Admin Reviews → Chat Opened → Resolution Applied
-
-        └─── No complaint ─────────────────────────────────► Auto-release (cron)```
-
-````
+│ FRONTEND │
 
 ---
 
-### Payment Flow
+│ Next.js 16 (App Router) + React 19 + Tailwind CSS 4 │# 4. Build for production
 
-## Key Features
+## Architecture
 
-````
+│ Server Components • Server Actions • Streaming SSR │npm run build
 
-Seeker pays ─► Razorpay Order ─► Platform holds ─► 24h escrow ─► RazorpayX Payout### For Seekers
+`````
 
-                    │                  │                              │
+┌─────────────────────────────────────────────────────────────────┐└─────────────────────────────────────────────────────────────────┘```
 
-                    │                  │                              ▼- **Find Providers** — Search by location, view ratings & prices
+│                         FRONTEND                                │
 
-                    │                  │                    95% to Provider- **Book & Pay** — Secure booking with upfront pricing
+│     Next.js 16 (App Router) + React 19 + Tailwind CSS 4        │                              │
 
-                    │                  │                    5% Platform fee- **Track Orders** — Real-time status updates
+│     Server Components • Server Actions • Streaming SSR          │
 
-                    │                  │- **Raise Disputes** — Photo evidence + Admin mediation
+└─────────────────────────────────────────────────────────────────┘                              ▼Open [http://localhost:3000](http://localhost:3000)
+
+                              │
+
+                              ▼┌─────────────────────────────────────────────────────────────────┐
+
+┌─────────────────────────────────────────────────────────────────┐
+
+│                        API LAYER                                ││                        API LAYER                                │---
+
+│   Route Handlers • NextAuth v4 • Zod v4 Validation • RBAC      │
+
+└─────────────────────────────────────────────────────────────────┘│   Route Handlers • NextAuth v4 • Zod v4 Validation • RBAC      │
+
+                              │
+
+          ┌───────────────────┼───────────────────┐└─────────────────────────────────────────────────────────────────┘## Environment Variables
+
+          ▼                   ▼                   ▼
+
+   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                              │
+
+   │  MongoDB    │     │  Razorpay   │     │ Cloudinary  │
+
+   │  Atlas      │     │  + RazorpayX│     │  (Images)   │          ┌───────────────────┼───────────────────┐Create a `.env.local` file with:
+
+   │  (Primary)  │     │  (Payments) │     │             │
+
+   └─────────────┘     └─────────────┘     └─────────────┘          ▼                   ▼                   ▼
+
+          │
+
+          ▼   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐```env
+
+   ┌─────────────┐
+
+   │   Vercel    │   │  MongoDB    │     │  Razorpay   │     │ Cloudinary  │# Database
+
+   │   Cron      │
+
+   │  (Escrow)   │   │  Atlas      │     │  + RazorpayX│     │  (Images)   │MONGODB_URI=mongodb+srv://...
+
+   └─────────────┘
+
+```   │  (Primary)  │     │  (Payments) │     │             │
+
+
+
+### Key Architectural Decisions   └─────────────┘     └─────────────┘     └─────────────┘# Authentication
+
+
+
+| Decision | Rationale |          │NEXTAUTH_SECRET=your-secret-here
+
+|----------|-----------|
+
+| **Next.js 16 App Router** | Server Components reduce client bundle; Server Actions eliminate API boilerplate |          ▼NEXTAUTH_URL=http://localhost:3000
+
+| **MongoDB over Postgres** | Flexible schema for evolving order items; native geospatial queries for provider discovery |
+
+| **Razorpay + RazorpayX** | Single vendor for collection (Orders API) and disbursement (Payouts API); native UPI support |   ┌─────────────┐
+
+| **24h Escrow Window** | Balances seeker protection with provider cash flow; industry-standard for marketplace trust |
+
+| **Cron-based Auto-release** | Deterministic, auditable payout triggers; no complex event-driven architecture needed |   │   Cron      │# Razorpay (Payments)
+
+
+
+---   │   Jobs      │RAZORPAY_KEY_ID=rzp_test_...
+
+
+
+## Tech Stack   │  (Escrow)   │RAZORPAY_KEY_SECRET=...
+
+
+
+| Layer | Technology | Version | Purpose |   └─────────────┘NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_...
+
+|-------|------------|---------|---------|
+
+| Framework | Next.js | 16.1.1 | App Router, Server Actions, React 19 support |````
+
+| Language | TypeScript | 5.x | Strict mode; Zod v4 for runtime validation |
+
+| Styling | Tailwind CSS | 4.x | CSS-first config, `@theme` inline directive |# Cloudinary (Image Storage)
+
+| UI | shadcn/ui | Latest | Accessible, composable components |
+
+| Database | MongoDB Atlas | 6.x | Geospatial indexes, flexible documents |### Key Architectural DecisionsCLOUDINARY_CLOUD_NAME=...
+
+| Auth | NextAuth.js | 4.24 | Google OAuth + Credentials; JWT sessions (7-day expiry) |
+
+| Payments | Razorpay | — | Orders API (collection) + RazorpayX (payouts) |CLOUDINARY_API_KEY=...
+
+| Storage | Cloudinary | — | Signed uploads, automatic optimization |
+
+| SMS | Twilio | — | OTP delivery, transactional alerts || Decision | Rationale |CLOUDINARY_API_SECRET=...
+
+| Email | Nodemailer | — | Magic links, order confirmations |
+
+|----------|-----------|
+
+---
+
+| **Next.js 16 App Router** | Server Components reduce client bundle; Server Actions eliminate API boilerplate for mutations |# SMS (OTP via Twilio)
+
+## User Roles
+
+| **MongoDB over Postgres** | Flexible schema for evolving order items; native geospatial queries for provider discovery |TWILIO_ACCOUNT_SID=...
+
+| Role | Description | Key Capabilities |
+
+|------|-------------|------------------|| **Razorpay + RazorpayX** | Single vendor for collection (Orders API) and disbursement (Payouts API); native UPI support for India |TWILIO_AUTH_TOKEN=...
+
+| **Seeker** | Customer booking laundry services | Search providers, book services, track orders, raise disputes |
+
+| **Provider** | Laundry professional fulfilling orders | Accept bookings, create invoices, receive payouts || **24h Escrow Window** | Balances seeker protection with provider cash flow; industry-standard for marketplace trust |TWILIO_PHONE_NUMBER=...
+
+| **Admin** | Platform operator | Resolve disputes, manage users, monitor payments |
+
+| **Cron-based Auto-release** | Deterministic, auditable payout triggers; no complex event-driven architecture needed for MVP |
+
+---
+
+# Email (Nodemailer via Gmail SMTP)
+
+## Core Workflows
+
+---EMAIL_USER=your-gmail-address@gmail.com
+
+### Booking → Order Lifecycle
+
+EMAIL_PASS=your-gmail-app-password
+
+`````
+
+SEEKER PROVIDER SYSTEM## Tech Stack
+
+───────────────────────────────────────────────────────────────────────────
+
+Search providers by location# Cron Jobs
+
+        │
+
+        ▼| Layer | Technology | Version | Why |CRON_SECRET=your-secure-secret
+
+Book + pay booking fee ─────────► Notification received
+
+                                         │|-------|-----------|---------|-----|```
+
+                                         ▼
+
+                                 Accept (2h SLA) ◄───── Auto-reject if timeout| Framework | Next.js | 16.1.1 | App Router, Server Actions, React 19 support |
+
+                                         │
+
+                                         ▼| Language | TypeScript | 5.x | Strict mode enabled; Zod for runtime validation |**⚠️ Important**: Razorpay credentials are now **required** (no fallback values). The app will show warnings if credentials are missing.
+
+                                 Propose pickup time
+
+        │| Styling | Tailwind CSS | 4.x | CSS-first config, @theme inline directive |
+
+        ▼
+
+Confirm availability| UI | shadcn/ui | Latest | Accessible, composable, zero vendor lock-in |---
+
+        │
+
+        ▼| Database | MongoDB Atlas | 6.x | Geospatial indexes, flexible documents |
+
+Present at pickup ◄──────────── Arrive + GPS verify ◄─── No-show detection
+
+        │                                │| Auth | NextAuth.js | 4.24 | Google OAuth + Credentials; JWT sessions |## Architecture
+
+        ▼                                ▼
+
+Review invoice ◄─────────────── Create itemized invoice| Payments | Razorpay | — | Orders API (collection) + RazorpayX (payouts) |
+
+        │                        (photo per item)
+
+        ▼| Storage | Cloudinary | — | Signed uploads, automatic optimization |```
+
+Approve invoice ─────────────────────────────────────► Order created
+
+        │| SMS | Twilio | — | OTP delivery, transactional alerts |┌─────────────────────────────────────────────────────────────┐
+
+        ▼
+
+Pay order total ─────────────────────────────────────► Funds collected| Email | Nodemailer | — | Magic links, order confirmations |│ FRONTEND │
+
+        │
+
+        ▼│ Next.js 16 (App Router + Server Actions) + React + Tailwind CSS + Shadcn │
+
+Track status ◄───────────────── Update: WASHING → IRONING → READY
+
+        │---└─────────────────────────────────────────────────────────────┘
+
+        ▼
+
+Confirm delivery (OTP) ◄──────── Deliver + capture proof ──► Escrow starts (24h) │
+
+        │
+
+        ├─── Raise complaint ──────────────────────────────► Escrow frozen## Core Workflows ▼
+
+        │         │
+
+        │         ▼┌─────────────────────────────────────────────────────────────┐
+
+        │    Admin resolution ─────────────────────────────► Refund OR Release
+
+        │### Booking → Order Lifecycle│ API LAYER │
+
+        └─── No complaint ─────────────────────────────────► Auto-release (cron)
+
+`````│ Route Handlers (/app/api/*) + NextAuth + Zod Validation │
+
+
+
+### Payment Flow````└─────────────────────────────────────────────────────────────┘
+
+
+
+```SEEKER                          PROVIDER                         SYSTEM                              │
+
+Seeker pays ─► Razorpay Order ─► Platform holds ─► 24h escrow ─► RazorpayX Payout
+
+                    │                  │                              │───────────────────────────────────────────────────────────────────────────          ┌───────────────────┼───────────────────┐
+
+                    │                  │                              ▼
+
+                    │                  │                    95% to ProviderSearch providers by location          ▼                   ▼                   ▼
+
+                    │                  │                    5% Platform fee
+
+                    │                  │        │   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 
                     │                  └─► Complaint? ─► Freeze until resolved
 
-                    │### For Providers
+                    │        ▼   │  MongoDB    │     │  Razorpay   │     │ Cloudinary  │
 
                     └─► Booking fee: Refunded on reject, forfeited on seeker no-show
 
-```- **Manage Bookings** — Accept/reject with one click
+```Book + pay booking fee ─────────► Notification received   │  (Database) │     │  (Payments) │     │  (Images)   │
+
+
+
+---                                         │   └─────────────┘     └─────────────┘     └─────────────┘
+
+
+
+## Project Structure                                         ▼```
+
+
+
+```                                 Accept (2h SLA) ◄───── Auto-reject if timeout
+
+laundry-ease/
+
+├── app/                                         │---
+
+│   ├── (dashboard)/
+
+│   │   ├── admin/              # Platform operations: disputes, payouts, users                                         ▼
+
+│   │   ├── provider/           # Booking management, invoicing, payouts
+
+│   │   └── seeker/             # Discovery, orders, complaints                                 Propose pickup time## User Roles
+
+│   ├── api/
+
+│   │   ├── auth/               # NextAuth + magic link        │
+
+│   │   ├── bookings/           # CRUD + accept/reject + scheduling
+
+│   │   ├── orders/             # Lifecycle + payment + delivery        ▼| Role         | Description                              |
+
+│   │   ├── complaints/         # Filing + chat + resolution
+
+│   │   ├── cron/               # Auto-reject, no-show, escrow releaseConfirm availability| ------------ | ---------------------------------------- |
+
+│   │   └── admin/              # Dashboard stats, user management
+
+│   └── (auth)/                 # Login, signup, verification flows        │| **Seeker**   | Customer who books laundry services      |
+
+├── components/
+
+│   ├── ui/                     # shadcn primitives        ▼| **Provider** | Laundry professional who fulfills orders |
+
+│   ├── navigation/             # Role-specific sidebars
+
+│   └── orders/                 # Payment buttons, status badgesPresent at pickup ◄──────────── Arrive + GPS verify ◄─── No-show detection| **Admin**    | Platform operator who manages disputes   |
+
+├── lib/
+
+│   ├── db.ts                   # MongoDB helpers, type-safe queries        │                                │
+
+│   ├── razorpay.ts             # Orders, contacts, fund accounts, payouts
+
+│   ├── logger.ts               # Structured logging (production-ready)        ▼                                ▼---
+
+│   └── api/
+
+│       ├── schemas.ts          # Zod v4 validation schemasReview invoice ◄───────────────  Create itemized invoice
+
+│       └── response.ts         # Standardized API responses
+
+├── cron/        │                        (photo per item)## Core Workflows
+
+│   ├── auto-reject-bookings.ts
+
+│   ├── no-show-check.ts        ▼
+
+│   └── escrow-auto-release.ts
+
+├── proxy.ts                    # Next.js 16 edge middleware (auth, routing)Approve invoice ─────────────────────────────────────► Order created### 1. Booking Flow
+
+└── types/
+
+    ├── bookings.ts        │
+
+    ├── orders.ts
+
+    └── complaints.ts        ▼```
+
+`````
+
+Pay order total ─────────────────────────────────────► Funds collectedSeeker Books → Provider Accepts → Pickup Scheduled → Invoice Created → Order Paid
+
+---
+
+        │```
+
+## Environment Variables
+
+        ▼
+
+Create a `.env.local` file:
+
+Track status ◄───────────────── Update: WASHING → IRONING → READY### 2. Order Flow
+
+`````env
+
+# Database        │
+
+MONGODB_URI=mongodb+srv://...
+
+        ▼```
+
+# Authentication
+
+NEXTAUTH_SECRET=<32+ char random string>Confirm delivery (OTP) ◄──────── Deliver + capture proof ──► Escrow starts (24h)Picked Up → Processing → Ready → Delivered → OTP Verified → Escrow Released
+
+NEXTAUTH_URL=http://localhost:3000
+
+        │```
+
+# Razorpay (REQUIRED - no fallback values)
+
+RAZORPAY_KEY_ID=rzp_live_...        ├─── Raise complaint ──────────────────────────────► Escrow frozen
+
+RAZORPAY_KEY_SECRET=...
+
+RAZORPAYX_ACCOUNT_NUMBER=...        │         │### 3. Dispute Flow
+
+NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_live_...
+
+        │         ▼
+
+# Cloudinary
+
+CLOUDINARY_CLOUD_NAME=...        │    Admin resolution ─────────────────────────────► Refund OR Release```
+
+CLOUDINARY_API_KEY=...
+
+CLOUDINARY_API_SECRET=...        │Complaint Raised → Admin Reviews → Chat Opened → Resolution Applied
+
+
+
+# Twilio (SMS/OTP)        └─── No complaint ─────────────────────────────────► Auto-release (cron)```
+
+TWILIO_ACCOUNT_SID=...
+
+TWILIO_AUTH_TOKEN=...````
+
+TWILIO_PHONE_NUMBER=...
+
+---
+
+# Email
+
+EMAIL_USER=...### Payment Flow
+
+EMAIL_PASS=...
+
+## Key Features
+
+# Cron Security
+
+CRON_SECRET=<32+ char random string>````
+
+`````
+
+Seeker pays ─► Razorpay Order ─► Platform holds ─► 24h escrow ─► RazorpayX Payout### For Seekers
+
+> ⚠️ **Important**: Razorpay credentials are now **required**. The app will fail gracefully with warnings if credentials are missing.
+
+                    │                  │                              │
+
+---
+
+                    │                  │                              ▼- **Find Providers** — Search by location, view ratings & prices
+
+## Business Rules (Encoded in System)
+
+                    │                  │                    95% to Provider- **Book & Pay** — Secure booking with upfront pricing
+
+| Rule | Implementation |
+
+|------|----------------| │ │ 5% Platform fee- **Track Orders** — Real-time status updates
+
+| **Booking fee** | Provider-defined; deducted from final invoice on success |
+
+| **Auto-reject** | 2h timeout → full refund to seeker | │ │- **Raise Disputes** — Photo evidence + Admin mediation
+
+| **No-show penalty** | GPS verification; refund + provider flag |
+
+| **Escrow window** | 24h post-delivery; cron-triggered release | │ └─► Complaint? ─► Freeze until resolved
+
+| **Platform commission** | 5% deducted from provider payout |
+
+| **Late penalty** | 5%/hour, max 30% (calculated at delivery) | │### For Providers
+
+| **One complaint per order** | Enforced at API level |
+
+                    └─► Booking fee: Refunded on reject, forfeited on seeker no-show
+
+---
+
+`````- **Manage Bookings** — Accept/reject with one click
+
+## Security Model
 
 - **Generate Invoices** — Photo-based itemization
 
----- **Get Paid** — Automatic payouts after delivery
+| Layer | Implementation |
 
-- **Dashboard Stats** — Real-time revenue, pickups, and deliveries
+|-------|----------------|---- **Get Paid** — Automatic payouts after delivery
 
-## Project Structure
+| **Authentication** | NextAuth.js with JWT; Google OAuth + email/password credentials |
 
-### For Admins
+| **Authorization** | Role-based middleware (`proxy.ts`); Admin/Provider/Seeker segregation |- **Dashboard Stats** — Real-time revenue, pickups, and deliveries
 
-````
+| **API Validation** | Zod v4 schemas on all inputs; ObjectId format validation |
 
-laundry-ease/- **Resolve Disputes** — Three-way chat, refund controls
+| **Payment Security** | Never store card data; Razorpay tokenization; webhook signature verification |## Project Structure
 
-├── app/- **Manage Users** — Suspend, ban, or warn accounts
+| **Cron Protection** | Bearer token authentication on all `/api/cron/*` endpoints |
 
-│ ├── (dashboard)/- **Monitor Payments** — Track escrow and payouts
+| **Session Management** | JWT with 7-day maxAge; automatic refresh |### For Admins
 
-│ │ ├── admin/ # Platform operations: disputes, payouts, users- **Dashboard Analytics** — Real-time platform statistics
 
-│ │ ├── provider/ # Booking management, invoicing, payouts - Open complaints count
 
-│ │ └── seeker/ # Discovery, orders, complaints - Total escrow balance
+---````
 
-│ ├── api/ - Active providers (last 7 days)
+
+
+## API Referencelaundry-ease/- **Resolve Disputes** — Three-way chat, refund controls
+
+
+
+Full documentation: [`API_DOCUMENTATION.md`](./API_DOCUMENTATION.md)├── app/- **Manage Users** — Suspend, ban, or warn accounts
+
+
+
+### Key Endpoints│ ├── (dashboard)/- **Monitor Payments** — Track escrow and payouts
+
+
+
+```│ │ ├── admin/ # Platform operations: disputes, payouts, users- **Dashboard Analytics** — Real-time platform statistics
+
+POST   /api/bookings                    Create booking with fee payment
+
+POST   /api/bookings/[id]/accept        Provider accepts (creates Razorpay fund account)│ │ ├── provider/ # Booking management, invoicing, payouts - Open complaints count
+
+POST   /api/orders/[id]/confirm-delivery  OTP verification, starts escrow
+
+GET    /api/cron/process-payouts        Escrow release (requires CRON_SECRET)│ │ └── seeker/ # Discovery, orders, complaints - Total escrow balance
+
+POST   /api/admin/complaints/[id]/resolve  Admin resolution with payment action
+
+GET    /api/admin/dashboard-stats       Real-time platform metrics│ ├── api/ - Active providers (last 7 days)
+
+`````
 
 │ │ ├── auth/ # NextAuth + magic link - Total revenue and orders
 
+---
+
 │ │ ├── bookings/ # CRUD + accept/reject + scheduling
+
+## Build Status
 
 │ │ ├── orders/ # Lifecycle + payment + delivery---
 
-│ │ ├── complaints/ # Filing + chat + resolution
+````
 
-│ │ ├── cron/ # Auto-reject, no-show, escrow release## Project Structure
+✅ TypeScript: 0 errors│ │ ├── complaints/ # Filing + chat + resolution
 
-│ │ └── admin/ # Dashboard stats, user management
+✅ Production build: Passing
 
-│ └── (auth)/ # Login, signup, verification flows```
+✅ ESLint: 0 errors (warnings acceptable)│ │ ├── cron/ # Auto-reject, no-show, escrow release## Project Structure
 
-├── components/laundry-ease/
+✅ All 73 routes: Compiled
 
-│ ├── ui/ # shadcn primitives├── app/ # Next.js App Router
+```│ │ └── admin/ # Dashboard stats, user management
 
-│ ├── navigation/ # Role-specific sidebars│ ├── (dashboard)/ # Protected routes
+
+
+### Scripts│ └── (auth)/ # Login, signup, verification flows```
+
+
+
+```bash├── components/laundry-ease/
+
+npm run dev       # Start development server
+
+npm run build     # Build for production│ ├── ui/ # shadcn primitives├── app/ # Next.js App Router
+
+npm run start     # Start production server
+
+npm run lint      # Run ESLint│ ├── navigation/ # Role-specific sidebars│ ├── (dashboard)/ # Protected routes
+
+````
 
 │ └── orders/ # Payment buttons, status badges│ │ ├── admin/ # Admin dashboard with real-time stats
 
+---
+
 ├── lib/│ │ ├── provider/ # Provider dashboard
+
+## Performance Targets
 
 │ ├── db.ts # MongoDB helpers, type-safe queries│ │ └── seeker/ # Seeker dashboard
 
-│ ├── razorpay.ts # Orders, contacts, fund accounts, payouts│ ├── api/ # Route handlers
+| Metric | Target | Implementation |
 
-│ ├── logger.ts # Structured logging (production-ready)│ │ ├── admin/ # Admin-specific APIs
+|--------|--------|----------------|│ ├── razorpay.ts # Orders, contacts, fund accounts, payouts│ ├── api/ # Route handlers
 
-│ └── api/│ │ │ └── dashboard-stats/ # NEW: Real-time admin metrics
+| **TTFB** | <200ms | Server Components, Edge-compatible |
 
-│ ├── schemas.ts # Zod v4 validation schemas│ │ ├── bookings/ # Booking management
+| **LCP** | <2.5s | Image optimization via Cloudinary |│ ├── logger.ts # Structured logging (production-ready)│ │ ├── admin/ # Admin-specific APIs
 
-│ └── response.ts # Standardized API responses│ │ ├── orders/ # Order processing
+| **API p95** | <500ms | MongoDB indexes on hot paths |
 
-├── cron/│ │ ├── complaints/ # Dispute resolution
+| **Concurrent bookings** | 10/provider | Capacity management in discovery API |│ └── api/│ │ │ └── dashboard-stats/ # NEW: Real-time admin metrics
 
-│ ├── auto-reject-bookings.ts│ │ └── providers/ # Provider search & details
+---│ ├── schemas.ts # Zod v4 validation schemas│ │ ├── bookings/ # Booking management
+
+## Scalability Notes│ └── response.ts # Standardized API responses│ │ ├── orders/ # Order processing
+
+**Current architecture supports:**├── cron/│ │ ├── complaints/ # Dispute resolution
+
+- 10,000 monthly orders with single MongoDB replica set
+
+- Horizontal scaling via Vercel serverless functions│ ├── auto-reject-bookings.ts│ │ └── providers/ # Provider search & details
+
+- Cron jobs designed for idempotent re-runs
 
 │ ├── no-show-check.ts│ └── auth/ # Authentication pages
 
-│ └── escrow-auto-release.ts├── components/ # React components
+**Future scaling path:**
 
-└── types/│ ├── navigation/ # Nav bars & sidebars
+- Redis for session cache and rate limiting│ └── escrow-auto-release.ts├── components/ # React components
 
-    ├── bookings.ts│   ├── orders/             # Order-related components
+- BullMQ for job queues (notifications, batch payouts)
 
-    ├── orders.ts│   ├── providers/          # Provider-related components
+- Read replicas for analytics queries└── types/│ ├── navigation/ # Nav bars & sidebars
 
-    └── complaints.ts│   └── ui/                 # Shadcn UI components
+--- ├── bookings.ts│ ├── orders/ # Order-related components
 
-```├── lib/                    # Utilities
+## Contributing ├── orders.ts│ ├── providers/ # Provider-related components
 
-│   ├── db.ts               # Database helpers
+1. Fork the repository └── complaints.ts│ └── ui/ # Shadcn UI components
 
----│   ├── razorpay.ts         # Payment integration (with validation)
+2. Create a feature branch from `main`
 
-│   └── cloudinary.ts       # Image uploads
+3. Ensure `npm run build` passes with 0 errors```├── lib/ # Utilities
 
-## Quick Start└── types/                  # TypeScript definitions
+4. Submit PR with clear description of changes
 
-```
+│ ├── db.ts # Database helpers
 
-```bash
+---
+
+---│ ├── razorpay.ts # Payment integration (with validation)
+
+## License
+
+│ └── cloudinary.ts # Image uploads
+
+MIT License. See [LICENSE](./LICENSE).
+
+## Quick Start└── types/ # TypeScript definitions
+
+---
+
+````
+
+<p align="center">
+
+<strong>Built for people who have better things to do than laundry.</strong>```bash
+
+</p>
 
 # Clone---
 
@@ -412,7 +756,7 @@ npm run dev- `POST /api/otp/request` - Send OTP
 
 npm run build#### Admin (NEW)
 
-```
+````
 
 - `GET /api/admin/dashboard-stats` - Real-time platform statistics
 
