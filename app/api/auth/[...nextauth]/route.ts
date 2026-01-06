@@ -55,7 +55,10 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: 7 * 24 * 60 * 60, // 7 days - matches PRD NFR-4 security requirement
+  },
   callbacks: {
     async signIn({ user, account }) {
       // For Google OAuth, check if user exists in database

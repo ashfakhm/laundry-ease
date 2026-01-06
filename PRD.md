@@ -240,8 +240,10 @@ This product succeeds if:
 | FR-3.3 | Provider accept/reject with 2h SLA                             | P0       | ✅ Implemented |
 | FR-3.4 | Auto-reject on timeout with full refund                        | P0       | ✅ Implemented |
 | FR-3.5 | Pickup scheduling (propose → confirm)                          | P0       | ✅ Implemented |
-| FR-3.6 | No-show detection via GPS verification (200m radius)           | P0       | ✅ Implemented |
+| FR-3.6 | No-show detection via GPS verification (200m radius)           | P0       | ⚠️ Deferred    |
 | FR-3.7 | Seeker cancellation (pre-accept: refund; post-accept: forfeit) | P0       | ✅ Implemented |
+
+> **FR-3.6 Deferral Note:** GPS verification requires browser Geolocation API with user permission. Implementation deferred to post-MVP due to: (1) indoor GPS accuracy typically ±50m, making 200m radius unreliable; (2) user permission denial handling complexity; (3) GPS spoofing detection requires device attestation. For MVP, provider self-reports arrival and seeker confirms via app notification. Manual dispute resolution handles no-show claims with photo evidence.
 
 ### FR-4: Invoice & Order
 
@@ -262,6 +264,16 @@ This product succeeds if:
 | FR-5.2 | Delivery scheduling (propose → confirm)                                  | P0       | ✅ Implemented |
 | FR-5.3 | Delivery confirmation via OTP                                            | P0       | ✅ Implemented |
 | FR-5.4 | Late delivery penalty: 5% per hour, max 30%                              | P1       | ✅ Implemented |
+
+> **FR-5.4 Late Delivery Penalty Specification:**
+>
+> - **Deadline Definition:** Provider-committed delivery date/time set during pickup scheduling
+> - **Penalty Application:** Deducted from provider payout (not refunded to seeker)
+> - **Calculation:** 5% of order total per hour late, capped at 30%
+> - **Edge Cases:**
+>   - If no deadline explicitly set: No penalty applies (encourage deadline setting in future)
+>   - If seeker unavailable at delivery: Clock pauses until new slot confirmed
+>   - 24h escrow window starts from actual delivery time, not original deadline
 
 ### FR-6: Payment & Escrow
 
@@ -365,11 +377,13 @@ This product succeeds if:
 
 ### Delivery Stage
 
-| Scenario                     | System Behavior                          | Rationale                |
-| ---------------------------- | ---------------------------------------- | ------------------------ |
-| Late delivery                | 5% penalty per hour, max 30%             | Automatic accountability |
-| Seeker doesn't confirm in 2h | Auto-confirm (unless complaint raised)   | Prevents indefinite hold |
-| Payment gateway down         | 3 retries, SMS fallback link, 24h to pay | Ensures completion       |
+| Scenario                      | System Behavior                                                             | Rationale                                           |
+| ----------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------- |
+| Late delivery                 | 5% penalty per hour, max 30%                                                | Automatic accountability                            |
+| Seeker doesn't confirm in 24h | Auto-confirm (unless complaint raised)                                      | Aligns with escrow window; prevents indefinite hold |
+| Payment gateway down          | 3 retries (exponential backoff: 1s, 5s, 25s), SMS fallback link, 24h to pay | Ensures completion                                  |
+
+> **Auto-Confirm Rationale:** Changed from 2h to 24h to align with escrow window. If seeker doesn't confirm within 24h and hasn't filed a complaint, the delivery is auto-confirmed. This matches the escrow release timeline and gives seekers adequate time to inspect items.
 
 ### Dispute Stage
 
@@ -495,7 +509,18 @@ Seeker 1──────N Booking N──────1 Provider
 | POST   | `/api/orders/[id]/confirm-delivery`  | OTP confirmation       | Seeker   |
 | POST   | `/api/complaints`                    | File complaint         | Seeker   |
 | POST   | `/api/admin/complaints/[id]/resolve` | Resolve dispute        | Admin    |
-| GET    | `/api/cron/process-payouts`          | Auto-release escrow    | Cron     |
+
+### Cron Endpoints
+
+All cron endpoints require `Authorization: Bearer <CRON_SECRET>` header.
+
+| Method | Endpoint                         | Schedule     | Description                             |
+| ------ | -------------------------------- | ------------ | --------------------------------------- |
+| GET    | `/api/cron/auto-reject-bookings` | Every 5 min  | Reject bookings >2h without response    |
+| GET    | `/api/cron/no-show`              | Every 5 min  | Flag providers who missed pickup window |
+| GET    | `/api/cron/release-payouts`      | Every 15 min | Release escrow 24h after delivery       |
+| GET    | `/api/cron/process-payouts`      | Every 15 min | Execute RazorpayX payouts to providers  |
+| GET    | `/api/cron/monitor-abuse`        | Daily 2 AM   | Flag users with suspicious patterns     |
 
 ### Response Codes
 

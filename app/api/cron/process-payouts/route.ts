@@ -24,6 +24,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // CRITICAL: Require RAZORPAYX_ACCOUNT_NUMBER - never use hardcoded fallback
+    if (!process.env.RAZORPAYX_ACCOUNT_NUMBER) {
+      logger.error(
+        "CRON",
+        "RAZORPAYX_ACCOUNT_NUMBER not configured - payout endpoint disabled"
+      );
+      return NextResponse.json(
+        { error: "Payout configuration missing" },
+        { status: 503 }
+      );
+    }
+
     const { db } = await getDb();
     const now = new Date();
 
@@ -41,6 +53,16 @@ export async function GET(req: NextRequest) {
     const results = [];
 
     for (const order of eligibleOrders) {
+      // IDEMPOTENCY CHECK: Skip if payout already exists for this order
+      if (order.payout_id) {
+        results.push({
+          orderId: order._id,
+          status: "skipped_payout_exists",
+          existingPayoutId: order.payout_id,
+        });
+        continue;
+      }
+
       // Check for complaints (Safety Check)
       const openComplaint = await db.collection("complaints").findOne({
         order_id: order._id,
@@ -79,8 +101,7 @@ export async function GET(req: NextRequest) {
       try {
         // Initiate Payout
         const payout = await createRazorpayPayout({
-          account_number:
-            process.env.RAZORPAYX_ACCOUNT_NUMBER || "7878780080316316", // Specific account if multiple, or from env
+          account_number: process.env.RAZORPAYX_ACCOUNT_NUMBER!, // Validated at top of function
           fund_account_id: provider.razorpay_fund_account_id,
           amount: payoutAmountPaise,
           currency: "INR",

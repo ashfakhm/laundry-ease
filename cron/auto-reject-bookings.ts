@@ -8,10 +8,17 @@ import { logger } from "@/lib/logger";
 /**
  * Auto-rejects bookings not accepted by provider within 2 hours
  * To be called by a cron runner (e.g., every 10 minutes)
+ * @returns Summary of processed bookings
  */
-export async function autoRejectStaleBookings() {
+export async function autoRejectStaleBookings(): Promise<{
+  processed: number;
+  refunded: number;
+  failed: number;
+}> {
   const { db } = await getDb();
   const now = new Date();
+  let refunded = 0;
+  let failed = 0;
   const bufferTime = 2 * 60 * 60 * 1000; // 2 hours
 
   // Find bookings in 'requested' state older than 2 hours
@@ -47,10 +54,12 @@ export async function autoRejectStaleBookings() {
         logger.info("AUTO-REJECT", `Booking fee refunded`, {
           bookingId: booking._id.toString(),
         });
+        refunded++;
       } catch (err) {
         logger.error("AUTO-REJECT", `Failed to refund booking fee`, err, {
           bookingId: booking._id.toString(),
         });
+        failed++;
       }
     }
     await db.collection("bookings").updateOne(
@@ -72,4 +81,10 @@ export async function autoRejectStaleBookings() {
       bookingId: booking._id.toString(),
     });
   }
+
+  return {
+    processed: staleBookings.length,
+    refunded,
+    failed,
+  };
 }

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/auto-reject-bookings",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/no-show",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/release-payouts",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-payouts",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/monitor-abuse",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}
