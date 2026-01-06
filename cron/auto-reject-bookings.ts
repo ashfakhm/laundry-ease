@@ -48,7 +48,8 @@ export async function autoRejectStaleBookings() {
         );
       } catch (err) {
         console.error(
-          `[AUTO-REJECT] Failed to refund booking fee for booking ${booking._id}:`,
+          `[AUTO-REJECT] Failed to refund booking fee for booking:`,
+          booking._id,
           err
         );
       }

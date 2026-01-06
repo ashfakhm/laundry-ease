@@ -66,7 +66,7 @@ export async function requestOtp(
       console.log(`[OTP] SMS sent successfully to ${target}`);
     }
   } catch (error) {
-    console.error(`[OTP] Failed to send OTP to ${target}:`, error);
+    console.error(`[OTP] Failed to send OTP to target:`, target, error);
     return { ok: false, error: "Failed to send OTP" };
   }
 
