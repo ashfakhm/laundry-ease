@@ -1,10 +1,26 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getHeldOrdersPastEscrowDate, releaseEscrowPayment } from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
 import { Order } from "@/types/orders";
 import { ObjectId } from "mongodb";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  // Verify Cron Secret - This endpoint should only be called by cron jobs
+  const authHeader = req.headers.get("authorization");
+  if (!process.env.CRON_SECRET) {
+    console.error(
+      "CRON_SECRET not configured - escrow release endpoint disabled"
+    );
+    return NextResponse.json(
+      { error: "Endpoint not configured" },
+      { status: 503 }
+    );
+  }
+
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const ordersToRelease = await getHeldOrdersPastEscrowDate();
 
@@ -21,11 +37,13 @@ export async function POST() {
       // Check for open complaints before releasing payment
       const activeComplaint = await db.collection("complaints").findOne({
         order_id: new ObjectId(order._id),
-        status: { $in: ["open", "investigating", "escalated"] }
+        status: { $in: ["open", "investigating", "escalated"] },
       });
 
       if (activeComplaint) {
-        console.log(`Escrow release skipped for order ${order._id} due to active complaint`);
+        console.log(
+          `Escrow release skipped for order ${order._id} due to active complaint`
+        );
         continue;
       }
       const success = await releaseEscrowPayment(order._id);
