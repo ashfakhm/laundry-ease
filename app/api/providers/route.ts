@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     const lngParam = searchParams.get("lng");
     const name = searchParams.get("name");
     const service = searchParams.get("service");
+    const deadline = searchParams.get("deadline");
     const limit = parseInt(searchParams.get("limit") || "50");
 
     const { db } = await getDb();
@@ -114,6 +115,27 @@ export async function GET(req: NextRequest) {
 
       if (activeBookingsCount + activeOrdersCount >= CAPACITY_LIMIT) {
         continue;
+      }
+
+      // Deadline Filtering (PRD Requirement)
+      if (deadline) {
+        const seekerDeadline = new Date(deadline);
+        const now = new Date();
+
+        // Estimate completion time: Now + (Active Load * 24 hours) + 24 hours buffer for this job
+        // This is a heuristic since we don't have precise service times per item yet.
+        const estimatedHoursToStart =
+          (activeBookingsCount + activeOrdersCount) * 24;
+        const estimatedExecutionTime = 24; // Assume 24h for the job itself
+        const estimatedCompletionTime = new Date(
+          now.getTime() +
+            (estimatedHoursToStart + estimatedExecutionTime) * 60 * 60 * 1000
+        );
+
+        if (estimatedCompletionTime > seekerDeadline) {
+          // Provider cannot meet the deadline
+          continue;
+        }
       }
 
       // Distance Filtering & Logic

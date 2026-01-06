@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { GoogleMapsProvider } from "@/components/providers/google-maps-provider";
+import JsonLd from "@/components/seo/json-ld";
 import "./globals.css";
 
 const inter = Inter({
@@ -109,35 +111,38 @@ export default async function RootLayout({
         className={`min-h-screen w-full antialiased ${inter.variable} overflow-x-hidden selection:bg-primary/20 selection:text-primary`}
       >
         <SessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem={false}
-            disableTransitionOnChange
-          >
-            {/* Global High-Tech Background */}
-            <InteractiveGridPattern />
-            <div className="relative z-10 w-full min-h-screen flex flex-col">
-              <header role="banner" className="sr-only">
-                {/* Main site header is rendered in individual pages for flexibility */}
-                LaundryEase
-              </header>
-              <main
-                id="main-content"
-                role="main"
-                className="flex-1 flex flex-col"
-              >
-                <ToastProvider>{children}</ToastProvider>
-              </main>
-              <footer
-                role="contentinfo"
-                className="w-full py-4 px-6 border-t border-border bg-background text-center text-xs text-muted-foreground"
-              >
-                &copy; {new Date().getFullYear()} LaundryEase Inc. All rights
-                reserved.
-              </footer>
-            </div>
-          </ThemeProvider>
+          <GoogleMapsProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="dark"
+              enableSystem={false}
+              disableTransitionOnChange
+            >
+              {/* Global High-Tech Background */}
+              <InteractiveGridPattern />
+              <div className="relative z-10 w-full min-h-screen flex flex-col">
+                <header role="banner" className="sr-only">
+                  {/* Main site header is rendered in individual pages for flexibility */}
+                  LaundryEase
+                </header>
+                <main
+                  id="main-content"
+                  role="main"
+                  className="flex-1 flex flex-col"
+                >
+                  <ToastProvider>{children}</ToastProvider>
+                </main>
+                <footer
+                  role="contentinfo"
+                  className="w-full py-4 px-6 border-t border-border bg-background text-center text-xs text-muted-foreground"
+                >
+                  &copy; {new Date().getFullYear()} LaundryEase Inc. All rights
+                  reserved.
+                </footer>
+              </div>
+              <JsonLd />
+            </ThemeProvider>
+          </GoogleMapsProvider>
         </SessionProvider>
       </body>
     </html>

@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import { GoogleMap, useLoadScript, MarkerF } from "@react-google-maps/api";
-import { Loader2 } from "lucide-react";
+import { GoogleMap, MarkerF } from "@react-google-maps/api";
 
 interface MapViewProps {
   center: { lat: number; lng: number };
@@ -17,19 +16,12 @@ const containerStyle = {
   borderRadius: "0.5rem",
 };
 
-const libraries: ("places" | "geometry")[] = ["places", "geometry"];
-
 export const MapView: React.FC<MapViewProps> = ({
   center,
   zoom = 15,
   markers = [],
   className = "h-64 w-full",
 }) => {
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-    libraries,
-  });
-
   /* eslint-disable @typescript-eslint/no-unused-vars */
   const [map, setMap] = useState<google.maps.Map | null>(null);
 
@@ -57,15 +49,9 @@ export const MapView: React.FC<MapViewProps> = ({
     []
   );
 
-  if (!isLoaded) {
-    return (
-      <div
-        className={`flex items-center justify-center bg-muted ${className} rounded-lg`}
-      >
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  // Since script is loaded globally in layout, we just check for window.google
+  // but usually components inside the provider are only rendered when script is loaded.
+  // We can add a safety check if needed, but usually redundant.
 
   return (
     <div className={className}>
