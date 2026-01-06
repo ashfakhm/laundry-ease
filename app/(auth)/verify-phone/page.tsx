@@ -33,8 +33,10 @@ export default function VerifyPhonePage() {
 
       toast.success("OTP sent to your phone!");
       setStep("otp");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to send OTP");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to send OTP";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -62,15 +64,17 @@ export default function VerifyPhonePage() {
       toast.success("Phone verified successfully!");
       router.push("/dashboard");
       router.refresh();
-    } catch (error: any) {
-      toast.error(error.message || "Verification failed");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Verification failed";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-linear-to-br from-primary/5 via-background to-secondary/5">
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-2xl shadow-2xl p-8">
           <h1 className="text-2xl font-bold text-foreground mb-2">
@@ -116,7 +120,9 @@ export default function VerifyPhonePage() {
                 <input
                   type="text"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
                   placeholder="123456"
                   className="w-full h-12 px-4 rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all text-center text-2xl tracking-widest font-mono"
                   disabled={isLoading}
