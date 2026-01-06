@@ -1,56 +1,97 @@
 # LaundryEase
 
-Laundry is an act of trust. You hand your most personal possessions to a stranger, hoping they return clean. Often, they don’t in time. Providers do the work, incurring costs, hoping to get paid. Often, they aren’t. This friction breaks the local service economy. LaundryEase exists to solve this specific "Trust Gap" by replacing handshake agreements with deterministic state and escrow-backed security.
+## 1. Title
 
-## What This Product Is
+LaundryEase
 
-A double-blind logistics and escrow operating system for independent laundry providers.
+## 2. One-Paragraph Product Story
 
-## The Problem
+Laundry runs on informal promises: “I’ll pick it up,” “I’ll start tonight,” “I’ll pay when it’s delivered.” Those promises break because neither side can prove what happened and neither side wants to take the first risk. Customers hand over personal clothing with no visibility. Providers spend time, water, electricity, and labor with no payment guarantee. Existing marketplaces paper over the gap with reviews and chat, but the failure happens mid-transaction, not after it. LaundryEase exists because local services need a contract you can see: money committed before work starts, progress tracked as facts, and delivery verified before settlement.
 
-- **Asymmetric Risk**: Seekers risk damaged/lost clothes; Providers risk non-payment for completed labor.
-- **State Ambiguity**: "Dropped off" is not a workflow. Without granular states (`Washing`, `Ironing`), users panic and call providers, killing productivity.
-- **Logistics Blindness**: Distance is not just geometry; it is cost. Existing tools ignore the delivery margin.
-- **Trust Failure**: Reviews are retroactive. We need safety _during_ the transaction.
+## 3. What This Product Is
 
-## Core Principles
+LaundryEase is an escrow-backed workflow system that turns a local laundry job into a verifiable sequence of states from booking to delivery.
 
-1.  **Escrow is Truth**: Financial commitment precedes physical work. Payment is held in neutral custody until the cycle completes.
-2.  **State is Law**: If it isn't in the system, it didn't happen. Every physical action (Pickup, Wash, Fold, Deliver) must have a digital twin.
-3.  **Proximity is Economics**: We only match parties where the unit economics of delivery work. We do not show providers who cannot afford to drive to you.
-4.  **No Hidden Magic**: We do not "optimize" routing with AI. We give Providers explicit controls over their radius and pricing.
+## 4. Core Principles
 
-## How the System Works (Mental Model)
+1. **Commitment before labor**
+   We lock payment in escrow only after the provider inspects items and issues an invoice. Providers don’t work on a maybe.
 
-The system operates in five rigid stages. It does not allow skipping.
+2. **Every physical step has a recorded state**
+   “In progress” creates panic and phone calls. We use explicit lifecycle states so both sides share the same reality.
 
-1.  **Geospatial Discovery**: The Seeker's location is indexed. We query a geospatial grid to find Providers whose service radius explicitly covers that coordinate.
-2.  **Negotiation & Booking**: The Seeker requests a slot. The Provider accepts or rejects. This is a handshake. No money moves yet.
-3.  **Invoicing & Escrow**: The Provider assesses the clothes and generates an `Invoice`. The Seeker pays. The system holds the funds (Escrow). The contract is now live.
-4.  **Execution Lifecycle**: The Provider pushes the Booking through granular states: `Processing` → `Washing` → `Ironing` → `Ready`.
-5.  **Release & Settlement**: Delivery is authenticated via OTP. The system releases the Escrow funds to the Provider.
+3. **Distance must make economic sense**
+   Availability depends on radius, not hope. We only show providers who deliberately cover the seeker’s location.
 
-## Key Capabilities
+4. **Humans keep control**
+   Providers set their own radius, pricing, and acceptance decisions. The platform enforces the contract; it doesn’t run their business.
 
-- **Geospatial Indexing**: MongoDB `$geoWithin` queries for precise service availability.
-- **Escrow-Based Payments**: Razorpay integration that holds funds in a suspense account until delivery OTP verification.
-- **Granular Lifecycle Tracking**: 7-stage state machine for transparent order progress.
-- **Role-Based Workspaces**: Strict separation of concerns between `Seeker`, `Provider`, and `Admin`.
+## 5. How the System Works (Mental Model)
 
-## What This Product Refuses to Do
+Picture LaundryEase as three linked tracks that move in lockstep: **Location**, **State**, and **Money**.
 
-- **We do not set prices**: We are not a gig-economy algo. Providers are independent businesses; they set their own rates and fees.
-- **We do not mediate disputes with AI**: Conflict resolution is a human admin function. We build the evidence log; humans render the verdict.
-- **We do not hide the provider**: This is not "Uber for Laundry". You know exactly who is washing your clothes.
+1. **Location chooses who can even participate**
+   The seeker shares a point on the map. The system returns only providers whose service radius covers that point.
 
-## Who This Is For / Not For
+2. **State creates the shared timeline**
+   A seeker requests a booking. A provider accepts. After inspection and invoicing, the job advances through a fixed lifecycle (washing → ironing → ready → out for delivery → delivered). Nobody “says” it’s done; the system records it.
 
-- **For**: Professional local laundry businesses and serious independent operators who value payment security and workflow clarity.
-- **For**: Busy Seekers who are tired of chasing vendors for status updates.
-- **Not For**: Gig-workers looking for "instant jobs". This requires a business setup.
-- **Not For**: Users expecting "instant on-demand" pickup in 10 minutes. This is scheduled service.
+3. **Money follows state, not messaging**
+   The seeker pays the invoice. The system holds funds in escrow while the provider executes. Delivery completes only when the seeker confirms with an OTP. That confirmation triggers settlement.
 
-## Project Status & Direction
+## 6. Key Capabilities
 
-The Core functionality (Auth, Geospatial Search, Booking Flow, Escrow) is **Stable**.
-The focus is now on hardening the "Edge Cases" (Dispute Resolution, Cancellation flows) and improving the mobile responsive experience for Providers in the field.
+- **Radius-true discovery**
+  Seekers stop calling providers who don’t actually serve their area. The system filters by coverage before the first message.
+
+- **Invoice then escrow**
+  Providers stop debating price after pickup. They issue a precise invoice and get a locked commitment before they spend time and supplies.
+
+- **Deterministic order tracking**
+  Seekers stop chasing updates. Providers stop answering the same question all day. The job tells its own story through state.
+
+- **Delivery authentication**
+  Providers stop fearing “delivered but unpaid.” Seekers stop fearing “paid but not delivered.” OTP ties the final handoff to a recorded confirmation.
+
+## 7. Who This Is For
+
+- **For** local laundry businesses and serious independent providers who run scheduled work and want payment certainty.
+- **For** customers who want predictable timelines and proof, not reassurance.
+
+Not for:
+
+- **Not for** “instant gig” pickup models where speed beats verification.
+- **Not for** platforms that want algorithmic pricing or anonymous providers.
+- **Not for** operations that require the platform to supply delivery riders.
+
+## 8. Why This Architecture
+
+LaundryEase treats a laundry order like a small contract.
+
+- We separate the **handshake** (booking) from the **commitment** (paid invoice) so neither side gets trapped by assumptions.
+- We keep the system strict about **state transitions** because ambiguity costs more than friction.
+- We use escrow and OTP as the minimum mechanism that closes the trust gap without turning the platform into an arbitrator-by-default.
+
+Tradeoff: the flow rejects “fast but fuzzy” transactions. It favors clarity over impulse.
+
+## 9. Getting Started
+
+1. Install dependencies.
+2. Configure environment variables for the database and payments.
+3. Run the development server.
+
+If you need exact variable names or scripts, check `package.json` and `lib/env.ts`.
+
+## 10. Project Status & Direction
+
+Stable:
+
+- Role-based flows (seeker/provider/admin)
+- Location-based provider discovery
+- Booking → invoicing → escrow → delivery confirmation loop
+
+Intentionally not finished yet:
+
+- Full dispute resolution experience (evidence capture exists; policy and tooling need hardening)
+- Cancellation and no-show handling that enforces penalties consistently
+- Provider field UX polish (mobile-first ergonomics)
