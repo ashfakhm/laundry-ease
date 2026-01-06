@@ -3,6 +3,7 @@
 
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 /**
  * Auto-rejects bookings not accepted by provider within 2 hours
@@ -43,15 +44,13 @@ export async function autoRejectStaleBookings() {
             },
           }
         );
-        console.log(
-          `[AUTO-REJECT] Booking fee refunded for booking ${booking._id}`
-        );
+        logger.info("AUTO-REJECT", `Booking fee refunded`, {
+          bookingId: booking._id.toString(),
+        });
       } catch (err) {
-        console.error(
-          `[AUTO-REJECT] Failed to refund booking fee for booking:`,
-          booking._id,
-          err
-        );
+        logger.error("AUTO-REJECT", `Failed to refund booking fee`, err, {
+          bookingId: booking._id.toString(),
+        });
       }
     }
     await db.collection("bookings").updateOne(
@@ -69,6 +68,8 @@ export async function autoRejectStaleBookings() {
         },
       }
     );
-    console.log(`[AUTO-REJECT] Booking ${booking._id} auto-rejected.`);
+    logger.info("AUTO-REJECT", `Booking auto-rejected`, {
+      bookingId: booking._id.toString(),
+    });
   }
 }

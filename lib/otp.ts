@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
 import twilio from "twilio";
 import { env } from "./env";
+import { logger } from "./logger";
 
 type OtpType = "email" | "phone";
 
@@ -28,7 +29,9 @@ export async function requestOtp(
   type: OtpType,
   ttlMinutes = 10
 ) {
-  console.log(`[OTP] Request initiated for ${type} to ${target}`);
+  logger.info("OTP", `Request initiated for ${type}`, {
+    target: target.substring(0, 4) + "***",
+  });
   const { db } = await getDb();
   const code = generateCode();
   const hash = await bcrypt.hash(code, 10);
@@ -48,29 +51,41 @@ export async function requestOtp(
 
   try {
     if (type === "email") {
-      console.log(`[OTP] Sending email to ${target}`);
+      logger.debug("OTP", `Sending email`, {
+        target: target.substring(0, 4) + "***",
+      });
       await emailTransporter.sendMail({
         from: env.EMAIL_USER,
         to: target,
         subject: "Your OTP Code",
         text: `Your OTP code is ${code}. It will expire in ${ttlMinutes} minutes.`,
       });
-      console.log(`[OTP] Email sent successfully to ${target}`);
+      logger.info("OTP", `Email sent successfully`, {
+        target: target.substring(0, 4) + "***",
+      });
     } else if (type === "phone") {
-      console.log(`[OTP] Sending SMS to ${target}`);
+      logger.debug("OTP", `Sending SMS`, {
+        target: target.substring(0, 4) + "***",
+      });
       await smsClient.messages.create({
         body: `Your OTP code is ${code}. It will expire in ${ttlMinutes} minutes.`,
         from: env.TWILIO_PHONE_NUMBER,
         to: target,
       });
-      console.log(`[OTP] SMS sent successfully to ${target}`);
+      logger.info("OTP", `SMS sent successfully`, {
+        target: target.substring(0, 4) + "***",
+      });
     }
   } catch (error) {
-    console.error(`[OTP] Failed to send OTP to target:`, target, error);
+    logger.error("OTP", `Failed to send OTP`, error, {
+      target: target.substring(0, 4) + "***",
+    });
     return { ok: false, error: "Failed to send OTP" };
   }
 
-  console.log(`[OTP] Request completed for ${type} to ${target}`);
+  logger.info("OTP", `Request completed for ${type}`, {
+    target: target.substring(0, 4) + "***",
+  });
   return {
     ok: true,
   };
@@ -112,9 +127,10 @@ export async function isOtpVerifiedRecently(
   type: OtpType,
   minutes = 30
 ) {
-  console.log(
-    `[OTP] Verifying if ${type} for ${target} was verified in the last ${minutes} minutes.`
-  );
+  logger.debug("OTP", `Checking if ${type} was verified recently`, {
+    target: target.substring(0, 4) + "***",
+    minutes,
+  });
   const { db } = await getDb();
   const col = db.collection<OtpRecord>("otp_codes");
   const since = new Date(Date.now() - minutes * 60_000);
@@ -127,9 +143,13 @@ export async function isOtpVerifiedRecently(
   });
 
   if (doc) {
-    console.log(`[OTP] Verified OTP found for ${type} to ${target}.`);
+    logger.debug("OTP", `Verified OTP found for ${type}`, {
+      target: target.substring(0, 4) + "***",
+    });
   } else {
-    console.log(`[OTP] No verified OTP found for ${type} to ${target}.`);
+    logger.debug("OTP", `No verified OTP found for ${type}`, {
+      target: target.substring(0, 4) + "***",
+    });
   }
 
   return !!doc;

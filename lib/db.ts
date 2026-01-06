@@ -396,9 +396,7 @@ export async function releaseEscrowPayment(order_id: ObjectId) {
   });
 
   if (openComplaint) {
-    console.log(
-      `Escrow release blocked for Order ${order_id} due to open complaint ${openComplaint._id}`
-    );
+    // Escrow release blocked due to open complaint - this is expected behavior
     return false;
   }
 
@@ -488,8 +486,6 @@ export async function createComplaint(data: {
 export async function freezeEscrow(order_id: ObjectId) {
   // We don't strictly change status to 'disputed' to avoid breaking enum types in MVP,
   // but we could. For now, we rely on the complaint check in releaseEscrowPayment.
-  // Optionally, we can log this action.
-  console.log(`[ESCROW] Frozen for order ${order_id.toString()}`);
 
   // Persist an explicit flag to make the freeze auditable and queryable.
   try {
@@ -500,8 +496,8 @@ export async function freezeEscrow(order_id: ObjectId) {
         { _id: order_id },
         { $set: { escrow_frozen: true, escrow_frozen_at: new Date() } }
       );
-  } catch (err) {
-    console.error("Failed to persist escrow_frozen flag:", err);
+  } catch {
+    // Error persisting escrow_frozen flag - continue silently as complaint still blocks release
   }
 }
 

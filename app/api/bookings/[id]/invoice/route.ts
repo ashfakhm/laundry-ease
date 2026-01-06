@@ -106,7 +106,7 @@ export async function POST(
       },
     });
 
-    // TODO: Notify seeker to review invoice
+    // NOTE: Seeker notification for invoice review could be added here using existing Twilio/email infrastructure
 
     return NextResponse.json({ success: true });
   } catch (error) {

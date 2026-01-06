@@ -3,12 +3,14 @@ import { getHeldOrdersPastEscrowDate, releaseEscrowPayment } from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
 import { Order } from "@/types/orders";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   // Verify Cron Secret - This endpoint should only be called by cron jobs
   const authHeader = req.headers.get("authorization");
   if (!process.env.CRON_SECRET) {
-    console.error(
+    logger.error(
+      "ESCROW",
       "CRON_SECRET not configured - escrow release endpoint disabled"
     );
     return NextResponse.json(
@@ -41,9 +43,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (activeComplaint) {
-        console.log(
-          `Escrow release skipped for order ${order._id} due to active complaint`
-        );
+        // Escrow release skipped due to active complaint - expected behavior
         continue;
       }
       const success = await releaseEscrowPayment(order._id);

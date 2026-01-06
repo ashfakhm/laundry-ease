@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/mongodb";
 import { Booking } from "@/types/bookings";
+import { logger } from "@/lib/logger";
 
 /**
  * SIMULATED CRON JOB
@@ -55,7 +56,9 @@ export async function checkNoShows() {
         }
       );
       results.push(`Marked Booking ${booking._id} as No-Show`);
-      console.log(`[NO-SHOW] Booking ${booking._id} marked as No-Show.`);
+      logger.info("NO-SHOW", `Booking marked as No-Show`, {
+        bookingId: booking._id.toString(),
+      });
     }
   }
 

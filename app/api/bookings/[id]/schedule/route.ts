@@ -60,7 +60,7 @@ export async function POST(
           "pickupSlot.confirmedAt": new Date(),
         },
       });
-      // TODO: Notify provider
+      // NOTE: Provider notification on slot confirmation could be added here using existing Twilio/email infrastructure
       return NextResponse.json({ success: true });
     }
 
@@ -120,7 +120,7 @@ export async function POST(
       },
     });
 
-    // TODO: Send notification to seeker
+    // NOTE: Seeker notification on new pickup proposal could be added here using existing Twilio/email infrastructure
 
     return NextResponse.json({ success: true });
   } catch (error) {
