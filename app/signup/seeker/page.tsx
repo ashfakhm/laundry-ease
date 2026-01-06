@@ -31,6 +31,7 @@ export default function SeekerSignupPage() {
       postalCode: "",
       landmark: "",
     },
+    coordinates: undefined as { lat: number; lng: number } | undefined,
   });
   const [emailOtpSent, setEmailOtpSent] = useState<string | null>(null);
   const [phoneOtpSent, setPhoneOtpSent] = useState<string | null>(null);
@@ -147,6 +148,7 @@ export default function SeekerSignupPage() {
     const { ok, data } = await postJSON("/api/signup/seeker", {
       ...form,
       phone: normalizePhone(form.phone),
+      coordinates: form.coordinates,
     });
     setLoading(false);
     if (!ok) {
@@ -305,7 +307,22 @@ export default function SeekerSignupPage() {
                     </label>
                     <LocationAutocomplete
                       value={form.address.line1}
-                      onChange={(val) => setAddr("line1", val)}
+                      onChange={(address, coords) => {
+                        setAddr("line1", address);
+                        if (coords) {
+                          setForm((prev) => ({
+                            ...prev,
+                            coordinates: { lat: coords.lat, lng: coords.lng },
+                            address: {
+                              ...prev.address,
+                              line1: address,
+                              city: coords.city || prev.address.city,
+                              postalCode:
+                                coords.pincode || prev.address.postalCode,
+                            },
+                          }));
+                        }
+                      }}
                       placeholder="Start typing your address..."
                     />
                   </div>

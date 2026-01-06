@@ -11,6 +11,7 @@ import {
   Filter,
   ArrowRight,
 } from "lucide-react";
+import Image from "next/image";
 
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { useToast } from "@/components/ui/toast";
@@ -45,6 +46,9 @@ export default function SeekerDashboardPage() {
     null
   );
   const [searchLocation, setSearchLocation] = useState("");
+  const [searchCoordinates, setSearchCoordinates] = useState<
+    { lat: number; lng: number } | undefined
+  >(undefined);
   const [searchName, setSearchName] = useState("");
   const [selectedService, setSelectedService] = useState("");
   const [seekerLocation, setSeekerLocation] = useState("");
@@ -98,6 +102,10 @@ export default function SeekerDashboardPage() {
       try {
         const params = new URLSearchParams();
         if (searchLocation) params.append("location", searchLocation);
+        if (searchCoordinates) {
+          params.append("lat", searchCoordinates.lat.toString());
+          params.append("lng", searchCoordinates.lng.toString());
+        }
         if (searchName) params.append("name", searchName);
         if (selectedService) params.append("service", selectedService);
         if (deadline) params.append("deadline", deadline);
@@ -120,7 +128,14 @@ export default function SeekerDashboardPage() {
     }
 
     fetchProviders();
-  }, [searchLocation, searchName, selectedService, deadline, toast]);
+  }, [
+    searchLocation,
+    searchCoordinates,
+    searchName,
+    selectedService,
+    deadline,
+    toast,
+  ]);
 
   const popularServices = [
     "Wash",
@@ -209,7 +224,14 @@ export default function SeekerDashboardPage() {
             <div className="relative group z-20">
               <LocationAutocomplete
                 value={searchLocation}
-                onChange={(val) => setSearchLocation(val)}
+                onChange={(val, coords) => {
+                  setSearchLocation(val);
+                  if (coords) {
+                    setSearchCoordinates({ lat: coords.lat, lng: coords.lng });
+                  } else {
+                    setSearchCoordinates(undefined);
+                  }
+                }}
                 placeholder={seekerLocation || "Search by location..."}
               />
             </div>
@@ -325,9 +347,11 @@ export default function SeekerDashboardPage() {
                           {/* Profile Picture */}
                           <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted flex-shrink-0">
                             {provider.profilePicture ? (
-                              <img
+                              <Image
                                 src={provider.profilePicture}
                                 alt={provider.name}
+                                width={56}
+                                height={56}
                                 className="h-full w-full object-cover"
                               />
                             ) : (

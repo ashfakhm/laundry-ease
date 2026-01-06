@@ -123,6 +123,7 @@ export async function createSeeker(data: {
     postalCode: string;
     landmark?: string;
   } | null;
+  coordinates?: { lat: number; lng: number };
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -138,6 +139,7 @@ export async function createSeeker(data: {
     emailVerified: false,
     phoneVerified: false,
     address: data.address ?? null,
+    coordinates: data.coordinates,
     createdAt: now,
   };
 
@@ -172,6 +174,7 @@ export async function createProvider(data: {
   };
   profilePicture?: string;
   bannerImage?: string;
+  coordinates?: { lat: number; lng: number };
 }) {
   const { db } = await getDb();
   const now = new Date();
@@ -202,6 +205,7 @@ export async function createProvider(data: {
     bankDetails: data.bankDetails,
     profilePicture: data.profilePicture,
     bannerImage: data.bannerImage,
+    coordinates: data.coordinates,
   };
 
   const res = await db.collection<Provider>("providers").insertOne(provider);

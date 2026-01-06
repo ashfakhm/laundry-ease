@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { name, email, password, phone, address } = parsed.data;
+  const { name, email, password, phone, address, coordinates } = parsed.data;
 
   // Require verified OTPs for email and phone
   const emailOk = await isOtpVerifiedRecently(email, "email");
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     phone,
     password,
     address,
+    coordinates,
   });
 
   return NextResponse.json({ ok: true });

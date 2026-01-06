@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { emailExists, createProvider } from "@/lib/db";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 import { signupProviderSchema } from "@/lib/api/schemas";
-import { createRazorpayContact, createRazorpayFundAccount } from "@/lib/razorpay";
+import {
+  createRazorpayContact,
+  createRazorpayFundAccount,
+} from "@/lib/razorpay";
 import { Provider } from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
 
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
     upiId,
     profilePicture,
     bannerImage,
+    coordinates,
   } = parsed.data;
 
   // Require verified OTPs for email and phone
@@ -71,6 +75,7 @@ export async function POST(req: NextRequest) {
     radius_km,
     per_km_rate,
     pricing,
+    coordinates,
     profilePicture,
     bannerImage,
     bankDetails: {
@@ -84,7 +89,9 @@ export async function POST(req: NextRequest) {
   // --- Razorpay Sync ---
   try {
     const { db } = await getDb();
-    const newProvider = await db.collection<Provider>("providers").findOne({ email });
+    const newProvider = await db
+      .collection<Provider>("providers")
+      .findOne({ email });
 
     if (newProvider) {
       // 1. Create Contact
@@ -115,21 +122,21 @@ export async function POST(req: NextRequest) {
 
         // 3. Update Provider with Razorpay IDs
         if (fundAccountId) {
-            await db.collection("providers").updateOne(
-                { email },
-                { 
-                    $set: { 
-                        razorpay_contact_id: contact.id,
-                        razorpay_fund_account_id: fundAccountId
-                    } 
-                }
-            );
+          await db.collection("providers").updateOne(
+            { email },
+            {
+              $set: {
+                razorpay_contact_id: contact.id,
+                razorpay_fund_account_id: fundAccountId,
+              },
+            }
+          );
         }
       }
     }
   } catch (error) {
     console.error("Error syncing with Razorpay during signup:", error);
-    // We do NOT fail the signup here, just log it. 
+    // We do NOT fail the signup here, just log it.
     // They can retry syncing by updating their profile later.
   }
 

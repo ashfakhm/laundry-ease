@@ -59,20 +59,24 @@ export const complaintCategorySchema = z.enum([
   "other",
 ]);
 
-export const createComplaintSchema = z.object({
-  order_id: objectIdSchema.optional(),
-  booking_id: objectIdSchema.optional(),
-  complaint_type: complaintCategorySchema,
-  title: z.string().min(5, "Title must be at least 5 characters"),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-  photos: z
-    .array(z.string().url())
-    .max(5, "Maximum 5 photos allowed")
-    .optional(),
-}).refine(data => data.order_id || data.booking_id, {
+export const createComplaintSchema = z
+  .object({
+    order_id: objectIdSchema.optional(),
+    booking_id: objectIdSchema.optional(),
+    complaint_type: complaintCategorySchema,
+    title: z.string().min(5, "Title must be at least 5 characters"),
+    description: z
+      .string()
+      .min(10, "Description must be at least 10 characters"),
+    photos: z
+      .array(z.string().url())
+      .max(5, "Maximum 5 photos allowed")
+      .optional(),
+  })
+  .refine((data) => data.order_id || data.booking_id, {
     message: "Either order_id or booking_id is required",
-    path: ["order_id"]
-});
+    path: ["order_id"],
+  });
 
 // Provider search schema
 export const providerSearchSchema = z.object({
@@ -105,6 +109,12 @@ export const signupSeekerSchema = z.object({
     postalCode: z.string().min(1, "Postal code is required"),
     landmark: z.string().optional(),
   }),
+  coordinates: z
+    .object({
+      lat: z.number(),
+      lng: z.number(),
+    })
+    .optional(),
 });
 
 export const signupProviderSchema = z.object({
@@ -132,6 +142,12 @@ export const signupProviderSchema = z.object({
   upiId: z.string().optional().or(z.literal("")).optional(),
   profilePicture: z.string().optional(),
   bannerImage: z.string().optional(),
+  coordinates: z
+    .object({
+      lat: z.number(),
+      lng: z.number(),
+    })
+    .optional(),
 });
 
 export const otpRequestSchema = z.object({

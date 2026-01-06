@@ -10,12 +10,8 @@ import {
   Loader2,
   Plus,
   X,
-  MapPin,
-  Tag,
-  DollarSign,
   Phone,
   Mail,
-  ShieldCheck,
   Briefcase,
 } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -67,6 +63,7 @@ export default function ProviderSignupPage() {
     upiId: "",
     profilePicture: "",
     bannerImage: "",
+    coordinates: undefined as { lat: number; lng: number } | undefined,
   });
   const [pricingRates, setPricingRates] = useState<
     { item: string; rate: string }[]
@@ -99,7 +96,10 @@ export default function ProviderSignupPage() {
     return raw.startsWith("+") ? raw : `+${digits || raw}`;
   }
 
-  function set<K extends keyof typeof form>(k: K, v: any) {
+  function set<K extends keyof typeof form>(
+    k: K,
+    v: string | number | boolean | string[] | Record<string, number> | undefined
+  ) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
@@ -226,6 +226,7 @@ export default function ProviderSignupPage() {
       bankAccountNumber: form.bankAccountNumber,
       bankIFSC: form.bankIFSC,
       upiId: form.upiId,
+      coordinates: form.coordinates,
     });
     setLoading(false);
     if (!ok) return setError(data?.error || "Signup failed");
@@ -237,7 +238,6 @@ export default function ProviderSignupPage() {
       callbackUrl: "/",
     });
   }
-
 
   return (
     <>
@@ -356,7 +356,7 @@ export default function ProviderSignupPage() {
                       />
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      We'll add +91 automatically.
+                      We&apos;ll add +91 automatically.
                     </p>
                   </div>
                 </div>
@@ -439,7 +439,8 @@ export default function ProviderSignupPage() {
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      These images will be displayed on your public profile to attract customers.
+                      These images will be displayed on your public profile to
+                      attract customers.
                     </p>
                   </div>
 
@@ -449,7 +450,15 @@ export default function ProviderSignupPage() {
                     </label>
                     <LocationAutocomplete
                       value={form.location}
-                      onChange={(val) => set("location", val)}
+                      onChange={(address, coords) => {
+                        set("location", address);
+                        if (coords) {
+                          set("coordinates", {
+                            lat: coords.lat,
+                            lng: coords.lng,
+                          });
+                        }
+                      }}
                       placeholder="e.g. Koramangala"
                     />
                   </div>
@@ -647,14 +656,19 @@ export default function ProviderSignupPage() {
               {/* Payout Details */}
               <div className="space-y-6">
                 <div>
-                  <h3 className="font-heading text-lg font-bold">Payout (Bank) Details</h3>
+                  <h3 className="font-heading text-lg font-bold">
+                    Payout (Bank) Details
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    Required to receive payouts. Details must match your bank records.
+                    Required to receive payouts. Details must match your bank
+                    records.
                   </p>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Account Holder Name</label>
+                    <label className="text-sm font-medium">
+                      Account Holder Name
+                    </label>
                     <input
                       className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder="As per bank records"
@@ -664,7 +678,9 @@ export default function ProviderSignupPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Account Number</label>
+                    <label className="text-sm font-medium">
+                      Account Number
+                    </label>
                     <input
                       className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder="Bank account number"
@@ -679,14 +695,18 @@ export default function ProviderSignupPage() {
                       className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder="e.g. HDFC0001234"
                       value={form.bankIFSC}
-                      onChange={(e) => set("bankIFSC", e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        set("bankIFSC", e.target.value.toUpperCase())
+                      }
                       required
                       maxLength={11}
                       pattern="^[A-Z]{4}0[A-Z0-9]{6}$"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">UPI ID (optional)</label>
+                    <label className="text-sm font-medium">
+                      UPI ID (optional)
+                    </label>
                     <input
                       className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder="yourname@upi (optional)"

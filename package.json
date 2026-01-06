@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.1",
+    "@googlemaps/google-maps-services-js": "^3.4.2",
     "@hookform/resolvers": "^5.2.2",
+    "@react-google-maps/api": "^2.20.8",
     "babel-plugin-react-compiler": "^1.0.0",
     "bcrypt": "^6.0.0",
     "class-variance-authority": "^0.7.1",
@@ -35,6 +37,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "twilio": "^5.11.1",
+    "use-places-autocomplete": "^4.0.1",
     "zod": "^4.2.0"
   },
   "devDependencies": {
