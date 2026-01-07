@@ -1,131 +1,234 @@
-# LaundryEase Product Requirements Document
+# LaundryEase — Product Requirements Document
 
 ## 1. Executive Summary
 
-LaundryEase is a double-blind logistics and escrow platform connecting Seekers (customers) with Providers (cleaning services). It solves the "trust gap" in local services by holding payment in escrow until service delivery is authenticated via OTP. The system enforces a rigid 7-stage state machine to eliminate ambiguity about order status.
+LaundryEase turns a local laundry job into a verifiable contract.
+
+It does that by splitting the transaction into two moments:
+
+- a **handshake** (booking) where both sides agree to a slot without moving money, and
+- a **commitment** (paid invoice) where the seeker locks funds in escrow and the provider begins work.
+
+From commitment to delivery, the system advances through explicit states and releases escrow only after OTP-confirmed handoff.
 
 ## 2. Goals & Non-Goals
 
 ### Goals
 
-- **Eliminate Non-Payment Risk**: Ensure Providers are paid for completed work via Escrow.
-- **Eliminate Service Uncertainty**: Provide Seekers with deterministic state tracking (e.g., `Washing`, `Ready`).
-- **Enforce Geographic Viability**: Only allow matching within the Provider's economically viable radius.
-- **Auditable History**: Maintain an immutable log of every status change and transaction.
+- **Remove payment ambiguity**
+  Providers should never wonder whether they’ll get paid after they’ve consumed time, utilities, and labor.
+
+- **Replace status guessing with recorded facts**
+  Seekers should see the job as a timeline of states, not a chat thread.
+
+- **Prevent unviable matches at the source**
+  The search experience should surface only providers who deliberately cover the seeker’s location.
+
+- **Create an auditable transaction trail**
+  The platform must record state transitions and payment events so support can resolve edge cases with evidence.
 
 ### Non-Goals
 
-- **Dynamic Pricing**: We do not algorithmically set prices. Providers define their own rate cards.
-- **Instant On-Demand**: We are not a 10-minute pickup service. This is a scheduled workflow.
-- **Logistics Fulfillment**: We do not provide delivery riders. Providers manage their own logistics.
+- **We do not set prices**
+  Providers control their rate cards and fees.
+
+- **We do not promise instant pickup**
+  The system optimizes for scheduled reliability, not 10-minute availability.
+
+- **We do not run logistics**
+  Providers handle pickup and delivery themselves.
 
 ## 3. Users & Roles
 
 ### Seeker
 
-- **Definition**: Individual consumer requiring laundry services.
-- **Capabilities**: Search by location, request bookings, pay invoices, track status, authenticate delivery (OTP).
+Definition: an individual requesting laundry services.
+
+Primary responsibilities:
+
+- choose a provider based on location coverage
+- request a booking slot
+- pay an invoice to activate escrow
+- confirm delivery via OTP
 
 ### Provider
 
-- **Definition**: Independent business or individual operator.
-- **Capabilities**: Define service radius/rates, accept/reject bookings, generate invoices, update order state, receive payouts.
+Definition: an independent operator or laundry business.
+
+Primary responsibilities:
+
+- define service radius and availability constraints (including capacity)
+- accept or reject booking requests
+- inspect items and issue invoices
+- advance orders through the lifecycle states
+- complete delivery and collect OTP
 
 ### Admin
 
-- **Definition**: Platform operator.
-- **Capabilities**: Resolve disputes (escrow release/refund), ban malicious actors.
+Definition: the platform operator.
+
+Primary responsibilities:
+
+- resolve disputes and complaints
+- enforce abuse policy (e.g., bans, freezes)
+- decide escrow outcomes when the normal path breaks
 
 ## 4. Core User Flows
 
 ### A. Discovery & Booking (Handshake)
 
-1.  **Search**: Seeker inputs location + deadline. System queries MongoDB for Providers where `distance(Seeker, Provider) <= Provider.radius`.
-2.  **Request**: Seeker selects Provider → Requests Slot. State: `requested`.
-3.  **Negotiation**: Provider accepts or rejects request. If accepted, State: `accepted` (Wait for Pickup).
+1. **Search**
+   Seeker provides a location. The system returns providers whose service radius covers that coordinate.
 
-### B. Pickup & Contract (Commitment)
+2. **Request**
+   Seeker requests a slot from a chosen provider.
 
-1.  **Pickup**: Provider arrives. Verifies items.
-2.  **Invoicing**: Provider creates `Invoice` based on actual items collected.
-3.  **Escrow**: Seeker pays Invoice via Razorpay. Funds held in Platform Escrow.
-4.  **Conversion**: `Booking` converts to `Order`. State: `invoiced`.
+3. **Accept / Reject**
+   Provider accepts to proceed or rejects to end the attempt.
 
-### C. Execution & Delivery (Settlement)
+Outcome: both sides agree to a slot, but no commitment exists yet.
 
-1.  **Processing**: Provider updates state: `Washing` → `Ironing` → `Ready`.
-2.  **Delivery**: Provider marks `Out for Delivery`.
-3.  **Authentication**: Provider delivers. Seeker provides OTP.
-4.  **Release**: System verifies OTP. State: `delivered`. Funds moved from Escrow to Payout Queue (T+24h).
+### B. Pickup, Invoice, and Escrow (Commitment)
+
+1. **Pickup and inspection**
+   Provider verifies the actual items.
+
+2. **Invoice creation**
+   Provider issues an invoice based on the inspected items.
+
+3. **Payment into escrow**
+   Seeker pays. The system holds funds in escrow.
+
+4. **Order activation**
+   The job becomes an active order. Work begins.
+
+### C. Execution, Delivery, and Settlement
+
+1. **Lifecycle progression**
+   Provider advances the order through explicit states (e.g., washing → ironing → ready → out for delivery).
+
+2. **Delivery**
+   Provider delivers to the seeker.
+
+3. **OTP confirmation**
+   Seeker shares a one-time code to confirm handoff.
+
+4. **Escrow release**
+   The system verifies OTP and releases funds to the provider payout flow (with any configured cooling period).
 
 ## 5. System Requirements
 
-### Functional
+### Functional Requirements
 
-- **Geospatial Search**: Must use `$geoWithin` or equivalent accurate distance calculation. Precision: 100m.
-- **Booking Management**: Providers must be able to set "Capacity" (max concurrent bookings).
-- **Escrow Logic**: System must hold funds. Payouts trigger only on `delivered` state + 24h cooling period.
-- **OTP Verification**: Delivery confirmation requires 6-digit OTP generated at `Order` creation.
+- **Geospatial discovery**
+  The system must support radius-based matching with practical precision.
 
-### Non-Functional
+- **Capacity enforcement**
+  Providers must define a maximum number of concurrent active jobs. The system must block acceptance beyond that capacity.
 
-- **Consistency**: Order state must be strongly consistent. No eventual consistency for Payment status.
-- **Security**: All PII (Phone, Address) accessible only to connected counterparty during active Booking.
-- **Performance**: Search query < 200ms for 50km radius.
+- **Invoice immutability after payment**
+  Once the seeker pays, invoice line items must not change.
+
+- **Escrow gating**
+  Work must start only after escrow holds the paid invoice amount.
+
+- **OTP delivery authentication**
+  Delivery must require a one-time code.
+
+### Non-Functional Requirements
+
+- **Consistency**
+  Order state and payment state must not drift.
+
+- **Data minimization**
+  The system should reveal personal details only when needed to complete the job.
+
+- **Search latency target**
+  Provider discovery should feel immediate under normal load.
 
 ## 6. State Management & Lifecycle
 
-### Booking States
+### Booking (Handshake) States
 
-| State       | Trigger         | Next Valid States              |
-| :---------- | :-------------- | :----------------------------- |
-| `requested` | Seeker Request  | `accepted`, `rejected`         |
-| `accepted`  | Provider Action | `confirmed` (Pickup)           |
-| `rejected`  | Provider Action | Terminal                       |
-| `confirmed` | Seeker+Provider | `invoice_created`, `cancelled` |
+| State       | Meaning                       | Allowed Next States               |
+| ----------- | ----------------------------- | --------------------------------- |
+| `requested` | Seeker requested a slot       | `accepted`, `rejected`, `expired` |
+| `accepted`  | Provider accepted the request | `confirmed`, `cancelled`          |
+| `rejected`  | Provider rejected the request | terminal                          |
+| `confirmed` | parties agreed on pickup/slot | `invoice_created`, `cancelled`    |
+| `expired`   | request timed out             | terminal                          |
 
-### Order States (Post-Payment)
+### Order (Commitment → Settlement) States
 
-| State              | Description                                              |
-| :----------------- | :------------------------------------------------------- |
-| `invoiced`         | Payment locked in Escrow. Processing starts.             |
-| `washing`          | Physical cleaning in progress.                           |
-| `ironing`          | Finishing/Pressing.                                      |
-| `ready`            | Ready for delivery/pickup.                               |
-| `out_for_delivery` | Logistics active.                                        |
-| `delivered`        | OTP Verified. Escrow timer starts. Terminal for Service. |
+| State              | Meaning                            |
+| ------------------ | ---------------------------------- |
+| `invoiced`         | invoice paid; funds held in escrow |
+| `washing`          | cleaning in progress               |
+| `ironing`          | finishing in progress              |
+| `ready`            | ready for delivery or pickup       |
+| `out_for_delivery` | provider is actively delivering    |
+| `delivered`        | OTP verified; service complete     |
+
+Rules:
+
+- The system must enforce valid transitions.
+- The system must time-stamp every transition and record the actor.
 
 ## 7. Data & Integrity Rules
 
-- **Immutable Financials**: Once an Invoice is paid, line items cannot be edited.
-- **Location Binding**: A Provider cannot change their location while active Bookings exist (or must handle conflict).
-- **Concurrency**: A Provider cannot accept Bookings beyond their defined `Capacity`.
+- **Immutable financial record**
+  Paid invoices must remain unchanged. Adjustments require a new invoice or an explicit admin action.
+
+- **Capacity is a hard constraint**
+  The provider cannot accept a booking that would exceed configured capacity.
+
+- **Location changes during active work require protection**
+  Provider location and radius updates must not break active commitments.
 
 ## 8. Security & Abuse Prevention
 
-- **Payment Tokenization**: No raw card data stored. Razorpay tokens only.
-- **Escrow Freeze**: Any Dispute/Complaint immediately freezes the Escrow timer.
-- **Address Masking**: Seeker coordinates are public to search algorithm, but specific address `line1` is hidden until Booking is `accepted`.
+- **Tokenized payments**
+  Store payment references, not raw card data.
+
+- **Escrow freeze on dispute**
+  Any complaint or dispute must halt settlement timers until the admin decides the outcome.
+
+- **Progress requires authorization**
+  Only the provider assigned to the order can advance lifecycle states.
+
+- **Selective disclosure of PII**
+  The system should hide full address details until a booking reaches a state where fulfillment requires them.
 
 ## 9. Observability & Failure Strategy
 
-- **Audit Logs**: All state transitions (`Booking`, `Order`) are timestamped.
-- **Orphan Prevention**: Cron job checks for `requested` bookings older than 24h → Auto-expire.
-- **Payment Reconciliation**: Daily job to verify `razorpay_order_id` vs Database `payment_status`.
+- **Audit log**
+  Capture: entity, previous state, next state, actor, timestamp, and correlated payment identifiers.
+
+- **Expiry and cleanup**
+  Automatically expire stale booking requests to avoid orphaned intent.
+
+- **Payment reconciliation**
+  Regularly reconcile payment provider records against internal payment state.
 
 ## 10. Out of Scope
 
-- **Laundry Machine IoT Integration**: Manual status updates only.
-- **Route Optimization**: No multi-stop routing for providers.
-- **Inventory Management**: We don't track Provider detergent stock.
+- IoT integration with machines
+- Multi-stop route optimization
+- Provider inventory management (supplies)
 
 ## 11. Success Metrics
 
-- **Dispute Rate**: < 1% of Orders.
-- **Completion Rate**: `delivered` / `invoiced` > 98%.
-- **Search-to-Booking**: Conversion > 15%.
+- **Completion reliability**: delivered / invoiced
+- **Dispute rate**: disputes per invoiced order
+- **Time-to-clarity**: reduction in seeker-to-provider status calls/messages (proxy via support/contact rates)
 
 ## 12. Open Questions & Risks
 
-- **Cash Payments**: Currently strictly digital. Risk: Providers accepting Cash bypasses Escrow revenue model.
-- **No-Show Handling**: Prerequisite: How to penalize Seeker for no-show at Pickup? (Currently manual).
+- **Cash payments**
+  If providers accept cash outside escrow, the trust contract breaks and the platform loses its enforcement mechanism.
+
+- **No-show policy**
+  The system needs a consistent rule for seeker no-shows at pickup and provider no-shows at delivery.
+
+- **Cancellation semantics**
+  We need explicit policy for who can cancel at each state and what happens to escrow when cancellation occurs.
