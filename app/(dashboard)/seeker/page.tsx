@@ -320,9 +320,16 @@ export default function SeekerDashboardPage() {
                 No providers found
               </h3>
               <p className="mt-2 text-muted-foreground max-w-sm">
-                We couldn&apos;t find any providers matching your search
-                filters. Try adjusting your location or service type.
+                {searchLocation
+                  ? `We couldn't find any providers in ${searchLocation}. Try selecting from the location suggestions or adjusting your service type.`
+                  : "Please select a location first. Click on the location field and choose from the suggestions."}
               </p>
+              {searchLocation && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  💡 Tip: Make sure to select your location from the dropdown
+                  suggestions for accurate results.
+                </p>
+              )}
             </motion.div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

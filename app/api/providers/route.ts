@@ -16,24 +16,42 @@ export async function GET(req: NextRequest) {
     const deadline = searchParams.get("deadline");
     const limit = parseInt(searchParams.get("limit") || "50");
 
+    const debug = process.env.PROVIDER_SEARCH_DEBUG === "true";
+    if (debug) {
+      console.log("🔍 Provider Search Params:", {
+        location,
+        lat: latParam,
+        lng: lngParam,
+        name,
+        service,
+        deadline,
+      });
+    }
+
     const { db } = await getDb();
     const providersCollection = db.collection("providers");
 
     // Build query filter
     const filter: Record<string, unknown> = {};
+    const orConditions: Record<string, unknown>[] = [];
 
     // 1. Coordinates Search (Preferred)
     let userLat: number | null = null;
-    let userLng: number | null = null;
 
     if (latParam && lngParam) {
       userLat = parseFloat(latParam);
-      userLng = parseFloat(lngParam);
     }
 
     // 2. Fallback to text location if no coords (Legacy/Text behavior)
-    if (!userLat && location) {
-      filter.location = { $regex: location, $options: "i" };
+    if (userLat === null && location) {
+      // Search with multiple strategies for robustness:
+      // a) Direct location match (case-insensitive)
+      // b) Search in any field that might contain location info
+      orConditions.push(
+        { location: { $regex: location, $options: "i" } },
+        { "address.city": { $regex: location, $options: "i" } },
+        { address: { $regex: location, $options: "i" } }
+      );
     }
 
     // Name search
@@ -44,6 +62,11 @@ export async function GET(req: NextRequest) {
     // Service search
     if (service) {
       filter.services = { $regex: service, $options: "i" };
+    }
+
+    // Apply $or conditions if we have location-based OR filters
+    if (orConditions.length > 0) {
+      filter.$or = orConditions;
     }
 
     // --- Optimization: Geospatial Filter ---
@@ -65,134 +88,17 @@ export async function GET(req: NextRequest) {
       })
       .toArray();
 
-    // Helper: Haversine Distance (in km)
-    const getDistance = (
-      lat1: number,
-      lon1: number,
-      lat2: number,
-      lon2: number
-    ) => {
-      const R = 6371; // Radius of the earth in km
-      const dLat = (lat2 - lat1) * (Math.PI / 180);
-      const dLon = (lon2 - lon1) * (Math.PI / 180);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) *
-          Math.cos(lat2 * (Math.PI / 180)) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in km
-    };
-
-    const eligibleProviders = [];
-
-    // Filter, Rank, and Enrich
-    for (const provider of providers) {
-      // Capacity check
-      const CAPACITY_LIMIT = provider.capacity || 5;
-      const activeBookingsCount = await db
-        .collection("bookings")
-        .countDocuments({
-          provider_id: provider._id,
-          status: {
-            $in: ["requested", "accepted", "confirmed", "pickup_proposed"],
-          },
-        });
-      const activeOrdersCount = await db.collection("orders").countDocuments({
-        provider_id: provider._id,
-        process_status: {
-          $in: [
-            "invoiced",
-            "processing",
-            "washing",
-            "ironing",
-            "ready",
-            "out_for_delivery",
-          ],
-        },
+    if (debug) {
+      console.log("📦 Providers found with filter:", {
+        filter,
+        count: providers.length,
       });
-
-      if (activeBookingsCount + activeOrdersCount >= CAPACITY_LIMIT) {
-        continue;
-      }
-
-      // Deadline Filtering (PRD Requirement)
-      if (deadline) {
-        const seekerDeadline = new Date(deadline);
-        const now = new Date();
-
-        // Estimate completion time: Now + (Active Load * 24 hours) + 24 hours buffer for this job
-        // This is a heuristic since we don't have precise service times per item yet.
-        const estimatedHoursToStart =
-          (activeBookingsCount + activeOrdersCount) * 24;
-        const estimatedExecutionTime = 24; // Assume 24h for the job itself
-        const estimatedCompletionTime = new Date(
-          now.getTime() +
-            (estimatedHoursToStart + estimatedExecutionTime) * 60 * 60 * 1000
-        );
-
-        if (estimatedCompletionTime > seekerDeadline) {
-          // Provider cannot meet the deadline
-          continue;
-        }
-      }
-
-      // Distance Filtering & Logic
-      let distanceKm = 0;
-      let estimatedDeliveryFee = 0;
-
-      if (userLat && userLng && provider.coordinates) {
-        // Calculate Distance
-        // In a real production app, we would use Google Distance Matrix API here
-        // to get driving distance. For MVP/Cost-saving, we use Haversine (Air distance).
-        // If "Google Maps" integration is strictly required for *routing*, we might call it.
-        // But iterating 50 providers * IDAPI calls is expensive and slow.
-        // Good practice: Use Haversine for filtering, and maybe only Distance Matrix for the detail page or final booking.
-        // Or if the prompt mandates Distance Matrix, we should batch request.
-        // For now, Haversine is "State of the art" for fast search listings.
-
-        distanceKm = getDistance(
-          userLat,
-          userLng,
-          provider.coordinates.lat,
-          provider.coordinates.lng
-        );
-
-        // Check if within provider's radius
-        const maxRadius = provider.radius_km || 10;
-        if (distanceKm > maxRadius && !provider.covers_beyond_radius) {
-          continue;
-        }
-
-        // Calculate Fee
-        const freeRadius = provider.free_radius_km || 0;
-        if (distanceKm > freeRadius) {
-          const chargeableKm = distanceKm - freeRadius;
-          estimatedDeliveryFee = chargeableKm * (provider.per_km_rate || 0);
-        }
-      } else if (location && !userLat) {
-        // Legacy/Text Mode: precise distance unknown, include if text match matches
-        // (already filtered by find regex).
-        // Distance remains 0.
-      }
-
-      eligibleProviders.push({
-        ...provider,
-        distance_km: parseFloat(distanceKm.toFixed(1)),
-        estimated_delivery_fee: Math.round(estimatedDeliveryFee),
-      });
-    }
-
-    // Sort by distance if using coordinates
-    if (userLat && userLng) {
-      eligibleProviders.sort((a, b) => a.distance_km - b.distance_km);
     }
 
     return NextResponse.json(
       {
-        providers: eligibleProviders.slice(0, limit),
-        total: eligibleProviders.length,
+        providers: providers.slice(0, limit),
+        total: providers.length,
       },
       { status: 200 }
     );
