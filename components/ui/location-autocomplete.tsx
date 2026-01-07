@@ -43,7 +43,9 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setValue(e.target.value);
-    onChange(e.target.value); // Propagate text change immediately
+    // Note: Only propagate the text value without coordinates
+    // User must select from suggestions to get coordinates
+    onChange(e.target.value);
   };
 
   const handleSelect = async (place_id: string, description: string) => {

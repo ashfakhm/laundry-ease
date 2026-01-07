@@ -29,6 +29,7 @@ const isPublicRoute = createRouteMatcher([
   /^\/api\/auth/,
   /^\/api\/otp/,
   /^\/api\/signup/,
+  /^\/api\/providers/, // Allow public access to search providers
 ]);
 
 const isAdminRoute = createRouteMatcher(["/admin"]);
