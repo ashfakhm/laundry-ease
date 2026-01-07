@@ -16,14 +16,17 @@ export async function GET(req: NextRequest) {
     const deadline = searchParams.get("deadline");
     const limit = parseInt(searchParams.get("limit") || "50");
 
-    console.log("🔍 Provider Search Params:", {
-      location,
-      lat: latParam,
-      lng: lngParam,
-      name,
-      service,
-      deadline,
-    });
+    const debug = process.env.PROVIDER_SEARCH_DEBUG === "true";
+    if (debug) {
+      console.log("🔍 Provider Search Params:", {
+        location,
+        lat: latParam,
+        lng: lngParam,
+        name,
+        service,
+        deadline,
+      });
+    }
 
     const { db } = await getDb();
     const providersCollection = db.collection("providers");
@@ -34,15 +37,13 @@ export async function GET(req: NextRequest) {
 
     // 1. Coordinates Search (Preferred)
     let userLat: number | null = null;
-    let userLng: number | null = null;
 
     if (latParam && lngParam) {
       userLat = parseFloat(latParam);
-      userLng = parseFloat(lngParam);
     }
 
     // 2. Fallback to text location if no coords (Legacy/Text behavior)
-    if (!userLat && location) {
+    if (userLat === null && location) {
       // Search with multiple strategies for robustness:
       // a) Direct location match (case-insensitive)
       // b) Search in any field that might contain location info
@@ -87,12 +88,13 @@ export async function GET(req: NextRequest) {
       })
       .toArray();
 
-    console.log("📦 Providers found with filter:", {
-      filter,
-      count: providers.length,
-    });
+    if (debug) {
+      console.log("📦 Providers found with filter:", {
+        filter,
+        count: providers.length,
+      });
+    }
 
-    // DEBUG: Return early with raw providers for testing
     return NextResponse.json(
       {
         providers: providers.slice(0, limit),
