@@ -12,8 +12,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {

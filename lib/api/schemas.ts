@@ -110,7 +110,10 @@ export const signupSeekerSchema = z.object({
   coordinates: z
     .object({
       lat: z.number().min(-90).max(90, "Latitude must be between -90 and 90"),
-      lng: z.number().min(-180).max(180, "Longitude must be between -180 and 180"),
+      lng: z
+        .number()
+        .min(-180)
+        .max(180, "Longitude must be between -180 and 180"),
     })
     .optional(),
 });
@@ -143,7 +146,10 @@ export const signupProviderSchema = z.object({
   coordinates: z
     .object({
       lat: z.number().min(-90).max(90, "Latitude must be between -90 and 90"),
-      lng: z.number().min(-180).max(180, "Longitude must be between -180 and 180"),
+      lng: z
+        .number()
+        .min(-180)
+        .max(180, "Longitude must be between -180 and 180"),
     })
     .optional(),
 });
@@ -209,7 +215,10 @@ export const updateProviderProfileSchema = z.object({
   bannerImage: z.string().url().optional(),
   bankAccountHolder: z.string().min(2).optional(),
   bankAccountNumber: z.string().min(6).optional(),
-  bankIFSC: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code").optional(),
+  bankIFSC: z
+    .string()
+    .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code")
+    .optional(),
   upiId: z.string().optional(),
 });
 
@@ -233,18 +242,26 @@ export const bookingArrivedSchema = z.object({
   lng: z.number().min(-180).max(180),
 });
 
+export const bookingPaymentInitSchema = z.object({
+  bookingId: objectIdSchema,
+});
+
 export const invoiceReviewSchema = z.object({
   approved: z.boolean(),
   reason: z.string().optional(),
 });
 
 export const invoiceCreateSchema = z.object({
-  items: z.array(z.object({
-    itemType: z.string().min(1),
-    quantity: z.number().int().positive(),
-    unitPrice: z.number().nonnegative(),
-    photoUrl: z.string().url().optional(),
-  })).min(1),
+  items: z
+    .array(
+      z.object({
+        itemType: z.string().min(1),
+        quantity: z.number().int().positive(),
+        unitPrice: z.number().nonnegative(),
+        photoUrl: z.string().url().optional(),
+      })
+    )
+    .min(1),
   notes: z.string().optional(),
   photos: z.array(z.string().url()).optional(),
   discount: z.number().nonnegative().default(0),
@@ -259,7 +276,13 @@ export const paymentVerifySchema = z.object({
 });
 
 export const orderStatusUpdateSchema = z.object({
-  status: z.enum(["processing", "washing", "ironing", "ready", "out_for_delivery"]),
+  status: z.enum([
+    "processing",
+    "washing",
+    "ironing",
+    "ready",
+    "out_for_delivery",
+  ]),
   // Note: "invoiced" is the initial state when order is created, not a transition target
   // Note: "delivered" can only be set via confirm-delivery endpoint (requires OTP)
 });
@@ -325,6 +348,10 @@ export type CreateComplaintInput = z.infer<typeof createComplaintSchema>;
 export type ProviderSearchInput = z.infer<typeof providerSearchSchema>;
 export type SignupSeekerInput = z.infer<typeof signupSeekerSchema>;
 export type SignupProviderInput = z.infer<typeof signupProviderSchema>;
-export type UpdateSeekerProfileInput = z.infer<typeof updateSeekerProfileSchema>;
-export type UpdateProviderProfileInput = z.infer<typeof updateProviderProfileSchema>;
+export type UpdateSeekerProfileInput = z.infer<
+  typeof updateSeekerProfileSchema
+>;
+export type UpdateProviderProfileInput = z.infer<
+  typeof updateProviderProfileSchema
+>;
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;

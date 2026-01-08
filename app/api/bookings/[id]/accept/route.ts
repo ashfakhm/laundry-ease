@@ -5,15 +5,18 @@ import { getBookingById, updateBookingStatus } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { createRazorpayContact, createRazorpayFundAccount } from "@/lib/razorpay";
+import {
+  createRazorpayContact,
+  createRazorpayFundAccount,
+} from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
@@ -75,53 +78,66 @@ export async function PATCH(
 
     // Check for Provider Payment Details (Mandatory)
     if (!provider.razorpay_fund_account_id) {
-       // Attempt to sync on-the-fly if details exist locally
-       const { accountHolderName, accountNumber, ifsc } = provider.bankDetails || {};
-       
-       if (accountHolderName && accountNumber && ifsc) {
-          try {
-             // 1. Create Contact
-             const contact = await createRazorpayContact({
-                name: provider.name || provider.businessName || "Provider",
-                email: provider.email,
-                contact: provider.phone || "",
-                type: "vendor",
-                reference_id: provider._id.toString(),
-             });
+      // Attempt to sync on-the-fly if details exist locally
+      const { accountHolderName, accountNumber, ifsc } =
+        provider.bankDetails || {};
 
-             // 2. Create Fund Account
-             const fundAccount = await createRazorpayFundAccount({
-                contact_id: contact.id,
-                account_type: "bank_account",
-                bank_account: {
-                   name: accountHolderName,
-                   account_number: accountNumber,
-                   ifsc: ifsc
-                }
-             });
+      if (accountHolderName && accountNumber && ifsc) {
+        try {
+          // 1. Create Contact
+          const contact = await createRazorpayContact({
+            name: provider.name || provider.businessName || "Provider",
+            email: provider.email,
+            contact: provider.phone || "",
+            type: "vendor",
+            reference_id: provider._id.toString(),
+          });
 
-             // 3. Update Provider
-             await db.collection("providers").updateOne(
-                { _id: provider._id },
-                { $set: { 
-                    razorpay_contact_id: contact.id,
-                    razorpay_fund_account_id: fundAccount.id 
-                }}
-             );
-             // Proceed with acceptance
-          } catch (err: any) {
-             logger.error("BOOKINGS", "Auto-sync Razorpay failed", err, { bookingId: id, providerId: provider._id });
-             return NextResponse.json(
-                { message: `Payment Setup Failed: ${err.message || "Invalid Bank Details/API Keys"}` },
-                { status: 400 }
-             );
-          }
-       } else {
+          // 2. Create Fund Account
+          const fundAccount = await createRazorpayFundAccount({
+            contact_id: contact.id,
+            account_type: "bank_account",
+            bank_account: {
+              name: accountHolderName,
+              account_number: accountNumber,
+              ifsc: ifsc,
+            },
+          });
+
+          // 3. Update Provider
+          await db.collection("providers").updateOne(
+            { _id: provider._id },
+            {
+              $set: {
+                razorpay_contact_id: contact.id,
+                razorpay_fund_account_id: fundAccount.id,
+              },
+            }
+          );
+          // Proceed with acceptance
+        } catch (err: any) {
+          logger.error("BOOKINGS", "Auto-sync Razorpay failed", err, {
+            bookingId: id,
+            providerId: provider._id,
+          });
           return NextResponse.json(
-            { message: "You must complete your Payment/Bank Details in Profile before accepting bookings." },
+            {
+              message: `Payment Setup Failed: ${
+                err.message || "Invalid Bank Details/API Keys"
+              }`,
+            },
             { status: 400 }
           );
-       }
+        }
+      } else {
+        return NextResponse.json(
+          {
+            message:
+              "You must complete your Payment/Bank Details in Profile before accepting bookings.",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Commission Calculation
@@ -131,14 +147,14 @@ export async function PATCH(
 
     const updateRes = await db.collection("bookings").updateOne(
       { _id: booking_id },
-      { 
-        $set: { 
+      {
+        $set: {
           status: "accepted",
           platform_commission,
           provider_payout_amount,
           payout_status: "pending",
-          updatedAt: new Date()
-        } 
+          updatedAt: new Date(),
+        },
       }
     );
     const success = updateRes.modifiedCount > 0;
@@ -152,7 +168,9 @@ export async function PATCH(
       );
     }
   } catch (error) {
-    logger.error("BOOKINGS", "Error accepting booking", error, { bookingId: id });
+    logger.error("BOOKINGS", "Error accepting booking", error, {
+      bookingId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

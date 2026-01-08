@@ -335,11 +335,7 @@ export async function updateOrderPaymentStatus(
   order_id: ObjectId,
   payment_status: "paid" | "held" | "refunded"
 ) {
-  // SECURITY: Block direct release - escrow must go through proper releaseEscrowPayment() function
-  if (payment_status === "released") {
-    throw new Error("Cannot directly set payment_status to 'released'. Use releaseEscrowPayment() instead.");
-  }
-
+  // "released" status is managed exclusively through releaseEscrowPayment() function
   const { db } = await getDb();
   const res = await db
     .collection<Order>("orders")
@@ -419,12 +415,10 @@ export async function releaseEscrowPayment(order_id: ObjectId) {
   }
 
   // Atomic update: Only update if still in "held" status (prevents race conditions)
-  const res = await db
-    .collection<Order>("orders")
-    .updateOne(
-      { _id: order_id, payment_status: "held" }, // Ensure still "held" before updating
-      { $set: { payment_status: "released", escrow_released_at: new Date() } }
-    );
+  const res = await db.collection<Order>("orders").updateOne(
+    { _id: order_id, payment_status: "held" }, // Ensure still "held" before updating
+    { $set: { payment_status: "released", escrow_released_at: new Date() } }
+  );
   return res.modifiedCount > 0;
 }
 

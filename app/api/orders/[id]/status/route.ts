@@ -10,6 +10,7 @@ import { Order } from "@/types/orders";
 import { env } from "@/lib/env";
 import twilio from "twilio";
 import { logger } from "@/lib/logger";
+import { orderStatusUpdateSchema } from "@/lib/api/schemas";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -39,7 +40,10 @@ export async function POST(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid status data", details: parsed.error.flatten().fieldErrors },
+        {
+          error: "Invalid status data",
+          details: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
@@ -71,7 +75,9 @@ export async function POST(
       return NextResponse.json(
         {
           error: "Invalid state transition",
-          message: `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(", ")}`,
+          message: `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(
+            ", "
+          )}`,
           currentStatus,
           allowedNextStates,
         },
@@ -110,7 +116,7 @@ export async function POST(
             if (phone.length === 10) {
               phone = `+91${phone}`;
             } else if (phone.startsWith("0")) {
-                phone = `+91${phone.substring(1)}`;
+              phone = `+91${phone.substring(1)}`;
             }
           }
 
@@ -123,32 +129,28 @@ export async function POST(
             from: env.TWILIO_PHONE_NUMBER,
             to: phone,
           });
-          logger.info("ORDERS", "Delivery OTP SMS sent", { orderId: id, phone: phone.substring(0, 4) + "***" });
+          logger.info("ORDERS", "Delivery OTP SMS sent", {
+            orderId: id,
+            phone: phone.substring(0, 4) + "***",
+          });
         } catch (err) {
-          logger.error("ORDERS", "Failed to send delivery OTP SMS", err, { orderId: id });
+          logger.error("ORDERS", "Failed to send delivery OTP SMS", err, {
+            orderId: id,
+          });
         }
       } else {
-        logger.warn("ORDERS", "Seeker phone number not found, cannot send OTP SMS", { orderId: id });
+        logger.warn(
+          "ORDERS",
+          "Seeker phone number not found, cannot send OTP SMS",
+          { orderId: id }
+        );
       }
     }
 
     // CRITICAL: "delivered" status can ONLY be set through confirm-delivery endpoint
     // This endpoint handles workflow status (processing → washing → ironing → ready → out_for_delivery)
     // Delivery confirmation requires OTP and must go through /api/orders/[id]/confirm-delivery
-    if (status === "delivered") {
-      logger.warn("ORDERS", "Attempted to set status to 'delivered' via status endpoint", {
-        orderId: id,
-        currentStatus: currentStatus,
-      });
-      return NextResponse.json(
-        {
-          error: "Invalid operation",
-          message: "Cannot mark order as delivered via status update. Please use the confirm-delivery endpoint with OTP verification.",
-          hint: "Use POST /api/orders/[id]/confirm-delivery with OTP",
-        },
-        { status: 422 }
-      );
-    }
+    // Schema validation ensures "delivered" cannot be sent here
 
     // Late penalty calculation happens in confirm-delivery endpoint, not here
     // This endpoint only handles workflow status transitions (processing → washing → ironing → ready → out_for_delivery)
@@ -163,7 +165,9 @@ export async function POST(
       message: "Status updated successfully",
     });
   } catch (error) {
-    logger.error("ORDERS", "Error updating order status", error, { orderId: id });
+    logger.error("ORDERS", "Error updating order status", error, {
+      orderId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

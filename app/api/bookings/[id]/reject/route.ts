@@ -11,8 +11,8 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
@@ -68,7 +68,9 @@ export async function PATCH(
       );
     }
   } catch (error) {
-    logger.error("BOOKINGS", "Error rejecting booking", error, { bookingId: id });
+    logger.error("BOOKINGS", "Error rejecting booking", error, {
+      bookingId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

@@ -11,8 +11,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
@@ -24,14 +24,15 @@ export async function POST(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid OTP data", details: parsed.error.flatten().fieldErrors },
+        {
+          error: "Invalid OTP data",
+          details: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
 
     const { otp } = parsed.data;
-
-
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);

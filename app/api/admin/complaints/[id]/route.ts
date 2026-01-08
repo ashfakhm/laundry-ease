@@ -14,8 +14,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -40,7 +40,10 @@ export async function PATCH(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid status data", details: parsed.error.flatten().fieldErrors },
+        {
+          error: "Invalid status data",
+          details: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
@@ -60,7 +63,9 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
-    logger.error("ADMIN_COMPLAINTS", "Error updating complaint", error, { complaintId: id });
+    logger.error("ADMIN_COMPLAINTS", "Error updating complaint", error, {
+      complaintId: id,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -22,7 +22,7 @@ const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().min(1),
   RAZORPAY_KEY_SECRET: z.string().min(1),
   NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().min(1),
-  RAZORPAYX_ACCOUNT_NUMBER: z.string().min(1),
+  RAZORPAYX_ACCOUNT_NUMBER: z.string().min(1).optional().or(z.literal("")),
 
   // Google Maps API
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1),

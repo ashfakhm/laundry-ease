@@ -43,7 +43,9 @@ export async function GET(req: Request) {
         // 1. Complaint Check (Double Check)
         const activeComplaint = await db.collection("complaints").findOne({
           order_id: order._id,
-          status: { $in: ["open", "in_progress", "investigating", "escalated"] },
+          status: {
+            $in: ["open", "in_progress", "investigating", "escalated"],
+          },
         });
 
         if (activeComplaint) {
@@ -56,9 +58,13 @@ export async function GET(req: Request) {
           .collection("providers")
           .findOne({ _id: order.provider_id });
         if (!provider || !provider.razorpay_fund_account_id) {
-          logger.warn("CRON", `Provider ${order.provider_id} has no fund account`, {
-            orderId: order._id,
-          });
+          logger.warn(
+            "CRON",
+            `Provider ${order.provider_id} has no fund account`,
+            {
+              orderId: order._id,
+            }
+          );
           results.push({
             orderId: order._id,
             status: "skipped_no_fund_account",
@@ -82,6 +88,21 @@ export async function GET(req: Request) {
           order.total_price * 0.95 + (order.delivery_charge || 0);
         const amountInPaise = Math.round(payoutAmount * 100);
 
+        // CRITICAL: Require RAZORPAYX_ACCOUNT_NUMBER to be configured
+        if (!env.RAZORPAYX_ACCOUNT_NUMBER) {
+          logger.error(
+            "CRON",
+            "RAZORPAYX_ACCOUNT_NUMBER not configured - cannot process payouts",
+            new Error("Missing RazorpayX account number"),
+            { orderId: order._id }
+          );
+          results.push({
+            orderId: order._id.toString(),
+            status: "account_not_configured",
+          });
+          continue;
+        }
+
         // 5. Trigger Razorpay Payout (only after escrow is released)
         // IDEMPOTENCY: Razorpay uses reference_id to prevent duplicate payouts
         // We use the Fund Account ID linked to the Bank Account
@@ -99,7 +120,7 @@ export async function GET(req: Request) {
         // 6. Update DB with payout details (atomic - only if payout_id doesn't exist)
         // IDEMPOTENCY: Only update if payout_id is not already set (prevents overwriting existing payouts)
         const updateResult = await db.collection("orders").updateOne(
-          { 
+          {
             _id: order._id,
             payout_id: { $exists: false }, // Only update if payout_id doesn't exist (idempotent)
           },
@@ -115,12 +136,16 @@ export async function GET(req: Request) {
         if (updateResult.matchedCount === 0) {
           // Payout was created but DB update failed (race condition) or already exists
           // Log warning but don't fail - payout_id already exists from previous run
-          logger.warn("CRON", `Payout ID already exists for order (idempotent skip)`, {
-            orderId: order._id,
-            payoutId: payout.id,
-          });
+          logger.warn(
+            "CRON",
+            `Payout ID already exists for order (idempotent skip)`,
+            {
+              orderId: order._id,
+              payoutId: payout.id,
+            }
+          );
         }
-        
+
         results.push({
           orderId: order._id,
           status: "payout_success",

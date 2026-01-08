@@ -10,8 +10,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -22,7 +22,10 @@ export async function POST(
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json({ message: "Booking not found" }, { status: 404 });
+      return NextResponse.json(
+        { message: "Booking not found" },
+        { status: 404 }
+      );
     }
 
     if (booking.seeker_id.toString() !== session.user.id) {
@@ -33,33 +36,43 @@ export async function POST(
     // 'accepted', 'confirmed', 'invoice_created' might imply commitment.
     // User requested "mistake", usually early stage.
     const allowedStatuses = ["requested", "pickup_proposed"];
-    
+
     if (!allowedStatuses.includes(booking.status)) {
-         return NextResponse.json({ 
-            message: `Cannot cancel booking with status: ${booking.status}. Contact support.` 
-        }, { status: 400 });
+      return NextResponse.json(
+        {
+          message: `Cannot cancel booking with status: ${booking.status}. Contact support.`,
+        },
+        { status: 400 }
+      );
     }
 
     // Update status to 'cancelled'
     const { db } = await getDb();
     const result = await db.collection("bookings").updateOne(
-        { _id: booking_id },
-        { 
-            $set: { 
-                status: "cancelled",
-                updatedAt: new Date()
-            } 
-        }
+      { _id: booking_id },
+      {
+        $set: {
+          status: "cancelled",
+          updatedAt: new Date(),
+        },
+      }
     );
 
     if (result.modifiedCount === 1) {
-        return NextResponse.json({ success: true, message: "Booking cancelled successfully" });
+      return NextResponse.json({
+        success: true,
+        message: "Booking cancelled successfully",
+      });
     } else {
-        return NextResponse.json({ message: "Failed to update booking" }, { status: 500 }      );
+      return NextResponse.json(
+        { message: "Failed to update booking" },
+        { status: 500 }
+      );
     }
-
   } catch (error) {
-    logger.error("BOOKINGS", "Error cancelling booking", error, { bookingId: id });
+    logger.error("BOOKINGS", "Error cancelling booking", error, {
+      bookingId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

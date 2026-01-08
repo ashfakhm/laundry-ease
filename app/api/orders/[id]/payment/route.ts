@@ -13,17 +13,17 @@ export async function POST(
   req: Request,
   context: { params: { id: string } } | { params: Promise<{ id: string }> }
 ) {
-  try {
-     // Support both sync and async params (Promise or object)
-     let id: string;
-     if (
-       typeof (context.params as unknown as Promise<unknown>).then === "function"
-     ) {
-       id = ((await context.params) as { id: string }).id;
-     } else {
-       id = (context.params as { id: string }).id;
-     }
+  // Support both sync and async params (Promise or object)
+  let id: string;
+  if (
+    typeof (context.params as unknown as Promise<unknown>).then === "function"
+  ) {
+    id = ((await context.params) as { id: string }).id;
+  } else {
+    id = (context.params as { id: string }).id;
+  }
 
+  try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -43,11 +43,14 @@ export async function POST(
     }
 
     if (order.payment_status === "paid" || order.payment_status === "held") {
-        return NextResponse.json({ error: "Order is already paid" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Order is already paid" },
+        { status: 400 }
+      );
     }
 
     // Calculate Amount
-    // Total Price + Delivery Charge (if any) - already in order.total_price ideally, 
+    // Total Price + Delivery Charge (if any) - already in order.total_price ideally,
     // but strict type might separate them. Let's sum safely.
     // Order Type says: total_price is the final amount.
     // Let's verify: `total_price` should be the amount to pay.
@@ -57,15 +60,17 @@ export async function POST(
     const razorpayOrder = await createRazorpayOrder(amountInPaise, id);
 
     return NextResponse.json({
-        id: razorpayOrder.id,
-        amount: razorpayOrder.amount,
-        currency: razorpayOrder.currency,
-        key: process.env.RAZORPAY_KEY_ID // Send public key to client
+      id: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      key: process.env.RAZORPAY_KEY_ID, // Send public key to client
     });
-
   } catch (error) {
     logger.error("ORDERS", "Payment init error", error, { orderId: id });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -74,17 +79,17 @@ export async function PUT(
   req: Request,
   context: { params: { id: string } } | { params: Promise<{ id: string }> }
 ) {
-  try {
-     // Support both sync and async params (Promise or object)
-     let id: string;
-     if (
-       typeof (context.params as unknown as Promise<unknown>).then === "function"
-     ) {
-       id = ((await context.params) as { id: string }).id;
-     } else {
-       id = (context.params as { id: string }).id;
-     }
+  // Support both sync and async params (Promise or object)
+  let id: string;
+  if (
+    typeof (context.params as unknown as Promise<unknown>).then === "function"
+  ) {
+    id = ((await context.params) as { id: string }).id;
+  } else {
+    id = (context.params as { id: string }).id;
+  }
 
+  try {
     const body = await req.json();
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
 
@@ -103,21 +108,25 @@ export async function PUT(
 
     // Update Order Status
     await db.collection("orders").updateOne(
-        { _id: orderId },
-        {
-            $set: {
-                payment_status: "paid",
-                payment_made_at: new Date(),
-                process_status: "processing", // Move to processing
-                updatedAt: new Date()
-            }
-        }
+      { _id: orderId },
+      {
+        $set: {
+          payment_status: "paid",
+          payment_made_at: new Date(),
+          process_status: "processing", // Move to processing
+          updatedAt: new Date(),
+        },
+      }
     );
 
     return NextResponse.json({ success: true });
-
   } catch (error) {
-    logger.error("ORDERS", "Payment verification error", error, { orderId: id });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    logger.error("ORDERS", "Payment verification error", error, {
+      orderId: id,
+    });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

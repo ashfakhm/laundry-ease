@@ -5,6 +5,7 @@ import { Order } from "@/types/orders";
 import { Provider } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { releaseEscrowPayment } from "@/lib/db";
+import { env } from "@/lib/env";
 
 export async function GET(req: NextRequest) {
   try {
@@ -99,6 +100,21 @@ export async function GET(req: NextRequest) {
           continue;
         }
 
+        // CRITICAL: Require RAZORPAYX_ACCOUNT_NUMBER to be configured
+        if (!env.RAZORPAYX_ACCOUNT_NUMBER) {
+          logger.error(
+            "CRON",
+            "RAZORPAYX_ACCOUNT_NUMBER not configured - cannot process payouts",
+            new Error("Missing RazorpayX account number"),
+            { orderId: order._id }
+          );
+          results.push({
+            orderId: order._id,
+            status: "account_not_configured",
+          });
+          continue;
+        }
+
         // Initiate Payout (only after escrow is released)
         const payout = await createRazorpayPayout({
           account_number: env.RAZORPAYX_ACCOUNT_NUMBER,
@@ -114,7 +130,7 @@ export async function GET(req: NextRequest) {
         // Update Order with payout details (payment_status already set to "released" by releaseEscrowPayment)
         // IDEMPOTENCY: Only update if payout_id doesn't exist (prevents overwriting existing payouts)
         const updateResult = await db.collection<Order>("orders").updateOne(
-          { 
+          {
             _id: order._id,
             payout_id: { $exists: false }, // Only update if payout_id doesn't exist (idempotent)
           },
@@ -132,10 +148,14 @@ export async function GET(req: NextRequest) {
         if (updateResult.matchedCount === 0) {
           // Payout was created but DB update failed (race condition) or already exists
           // Log warning but don't fail - payout_id already exists from previous run
-          logger.warn("CRON", `Payout ID already exists for order (idempotent skip)`, {
-            orderId: order._id,
-            payoutId: payout.id,
-          });
+          logger.warn(
+            "CRON",
+            `Payout ID already exists for order (idempotent skip)`,
+            {
+              orderId: order._id,
+              payoutId: payout.id,
+            }
+          );
         }
 
         results.push({

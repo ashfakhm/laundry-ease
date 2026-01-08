@@ -10,8 +10,8 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -65,10 +65,14 @@ export async function DELETE(
       .findOne({ booking_id: booking_id });
 
     if (associatedOrder) {
-      logger.warn("BOOKINGS", "Attempted to delete booking with associated order", {
-        bookingId: booking_id.toString(),
-        orderId: associatedOrder._id.toString(),
-      });
+      logger.warn(
+        "BOOKINGS",
+        "Attempted to delete booking with associated order",
+        {
+          bookingId: booking_id.toString(),
+          orderId: associatedOrder._id.toString(),
+        }
+      );
       return NextResponse.json(
         {
           message:
@@ -95,7 +99,9 @@ export async function DELETE(
       );
     }
   } catch (error) {
-    logger.error("BOOKINGS", "Error deleting booking", error, { bookingId: id });
+    logger.error("BOOKINGS", "Error deleting booking", error, {
+      bookingId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

@@ -11,9 +11,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
-
     // Always use ObjectId for MongoDB queries
     let bookingQuery: { _id: ObjectId };
     try {
@@ -35,7 +34,10 @@ export async function POST(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid invoice data", details: parsed.error.flatten().fieldErrors },
+        {
+          error: "Invalid invoice data",
+          details: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
@@ -72,10 +74,14 @@ export async function POST(
       (sum: number, it) => sum + it.quantity * it.unitPrice,
       0
     );
-    const cleanSubtotal = subtotal !== undefined ? subtotal : calculatedSubtotal;
+    const cleanSubtotal =
+      subtotal !== undefined ? subtotal : calculatedSubtotal;
     const cleanDiscount = discount || 0;
     // Recalculate total if missing - ensure it's never negative
-    const cleanTotal = total !== undefined ? Math.max(0, total) : Math.max(0, cleanSubtotal - cleanDiscount);
+    const cleanTotal =
+      total !== undefined
+        ? Math.max(0, total)
+        : Math.max(0, cleanSubtotal - cleanDiscount);
 
     // Invoice structure - validated by Zod schema
     const invoice = {

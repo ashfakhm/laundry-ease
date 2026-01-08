@@ -15,8 +15,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -45,12 +45,17 @@ export async function POST(
 
     // Calculate Delivery (Duplicated logic for consistency)
     const { db } = await getDb();
-    const provider = await db.collection("providers").findOne({ _id: new ObjectId(booking.provider_id) });
-    
+    const provider = await db
+      .collection("providers")
+      .findOne({ _id: new ObjectId(booking.provider_id) });
+
     let delivery_charge = 0;
     if (booking.seeker_coordinates && provider?.coordinates) {
       const { calculateDistance } = await import("@/lib/distance");
-      const dist = calculateDistance(booking.seeker_coordinates, provider.coordinates);
+      const dist = calculateDistance(
+        booking.seeker_coordinates,
+        provider.coordinates
+      );
       const freeRadius = provider.free_radius_km || 5;
       const perKmRate = provider.per_km_rate || 10;
       const extra = Math.max(0, dist - freeRadius);
@@ -62,7 +67,7 @@ export async function POST(
       0
     );
     const totalAmount = itemsTotal + delivery_charge;
-    
+
     const amountInPaise = Math.round(totalAmount * 100);
 
     const razorpayOrder = await createRazorpayOrder(amountInPaise, id); // id is booking_id
@@ -86,8 +91,8 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const body = await req.json();
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
 
@@ -115,7 +120,7 @@ export async function PUT(
     const provider = await db
       .collection("providers")
       .findOne({ _id: new ObjectId(booking.provider_id) });
-      
+
     let delivery_distance_km = 0;
     let delivery_charge = 0;
     if (booking_coords && provider?.coordinates) {
@@ -158,29 +163,31 @@ export async function PUT(
       delivery_distance_km,
       delivery_charge,
       deadline: booking.deadline ? new Date(booking.deadline) : undefined,
-      
+
       // Payment & Escrow
-      payment_status: "paid", 
+      payment_status: "paid",
       payment_made_at: now,
       process_status: "invoiced", // Start status
-      
+
       escrow_started_at: undefined, // Starts on Delivery? Or Now? User said "After provider completes delivery... Escrow timer starts"
-      // But payment is held NOW. 
+      // But payment is held NOW.
       // We will leave escrow_started_at undefined until delivery.
-      
+
       platform_commission,
       provider_payout_amount,
       razorpay_order_id,
       razorpay_payment_id,
       payout_status: "pending",
-      createdAt: now
+      createdAt: now,
     };
 
     const res = await db.collection("orders").insertOne(orderData);
 
     return NextResponse.json({ success: true, orderId: res.insertedId });
   } catch (error) {
-    logger.error("BOOKINGS", "Payment verification error", error, { bookingId: id });
+    logger.error("BOOKINGS", "Payment verification error", error, {
+      bookingId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }
