@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
+import { invoiceReviewActionSchema } from "@/lib/api/schemas";
 
 // POST: Seeker reviews invoice (approve/reject)
 export async function POST(
@@ -16,7 +18,17 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const { db } = await getDb();
-    const { action } = await req.json(); // action: "approve" | "reject" | "edit"
+    const body = await req.json();
+    const parsed = invoiceReviewActionSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid action", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { action } = parsed.data; // "approve" | "reject" | "edit"
     const bookingQuery = { _id: new ObjectId(id) };
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
@@ -103,7 +115,7 @@ export async function POST(
     }
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
-    console.error("Invoice review error:", error);
+    logger.error("BOOKINGS", "Invoice review error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

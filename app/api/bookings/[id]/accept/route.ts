@@ -6,6 +6,7 @@ import { Role } from "@/types/enums";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { createRazorpayContact, createRazorpayFundAccount } from "@/lib/razorpay";
+import { logger } from "@/lib/logger";
 
 export async function PATCH(
   req: Request,
@@ -109,7 +110,7 @@ export async function PATCH(
              );
              // Proceed with acceptance
           } catch (err: any) {
-             console.error("Auto-sync Razorpay failed:", err);
+             logger.error("BOOKINGS", "Auto-sync Razorpay failed", err, { bookingId: id, providerId: provider._id });
              return NextResponse.json(
                 { message: `Payment Setup Failed: ${err.message || "Invalid Bank Details/API Keys"}` },
                 { status: 400 }
@@ -151,7 +152,7 @@ export async function PATCH(
       );
     }
   } catch (error) {
-    console.error("Error accepting booking:", error);
+    logger.error("BOOKINGS", "Error accepting booking", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

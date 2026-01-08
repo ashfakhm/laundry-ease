@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
+import { logger } from "@/lib/logger";
+import { calculateDistance } from "@/lib/distance";
 
 /**
  * Search for providers based on location, name, services, and other criteria
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     const debug = process.env.PROVIDER_SEARCH_DEBUG === "true";
     if (debug) {
-      console.log("🔍 Provider Search Params:", {
+      logger.debug("PROVIDER_SEARCH", "Search params", {
         location,
         lat: latParam,
         lng: lngParam,
@@ -35,15 +37,48 @@ export async function GET(req: NextRequest) {
     const filter: Record<string, unknown> = {};
     const orConditions: Record<string, unknown>[] = [];
 
-    // 1. Coordinates Search (Preferred)
-    let userLat: number | null = null;
+    // 1. Coordinates Search (Preferred) - Validate and use for distance filtering
+    let userCoords: { lat: number; lng: number } | null = null;
+    let maxRadiusKm: number | null = null;
 
     if (latParam && lngParam) {
-      userLat = parseFloat(latParam);
+      const lat = parseFloat(latParam);
+      const lng = parseFloat(lngParam);
+
+      // Validate coordinate ranges
+      if (
+        isNaN(lat) ||
+        isNaN(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180
+      ) {
+        return NextResponse.json(
+          { error: "Invalid coordinates. Latitude must be -90 to 90, Longitude must be -180 to 180." },
+          { status: 400 }
+        );
+      }
+
+      userCoords = { lat, lng };
+      
+      // Optional: Get max radius from query param (default 50km for initial filter)
+      const radiusParam = searchParams.get("radius");
+      maxRadiusKm = radiusParam ? parseFloat(radiusParam) : 50;
+      
+      if (isNaN(maxRadiusKm!) || maxRadiusKm! <= 0) {
+        return NextResponse.json(
+          { error: "Invalid radius. Must be a positive number." },
+          { status: 400 }
+        );
+      }
+
+      // Filter providers that have coordinates (required for distance calculation)
+      filter.coordinates = { $exists: true, $ne: null };
     }
 
     // 2. Fallback to text location if no coords (Legacy/Text behavior)
-    if (userLat === null && location) {
+    if (!userCoords && location) {
       // Search with multiple strategies for robustness:
       // a) Direct location match (case-insensitive)
       // b) Search in any field that might contain location info
@@ -69,15 +104,8 @@ export async function GET(req: NextRequest) {
       filter.$or = orConditions;
     }
 
-    // --- Optimization: Geospatial Filter ---
-    // If we have coordinates, first filter by a broad "max reasonable radius" (e.g. 50km)
-    // to reduce the set before calculating precise distances.
-    // Ideally we'd use $nearSphere, but that requires a 2dsphere index.
-    // For now, we'll fetch matches and filter in memory if index is missing,
-    // OR just fetch matching services/name and filter by distance in JS.
-    // Given MVP scale, in-memory filtering is fine.
-
-    const providers = await providersCollection
+    // Fetch providers matching filters
+    let providers = await providersCollection
       .find(filter)
       .project({
         passwordHash: 0,
@@ -88,22 +116,48 @@ export async function GET(req: NextRequest) {
       })
       .toArray();
 
+    // If coordinates provided, filter by distance and sort by proximity
+    if (userCoords && maxRadiusKm) {
+      providers = providers
+        .filter((provider) => {
+          if (!provider.coordinates) return false;
+          const distance = calculateDistance(userCoords!, provider.coordinates);
+          // Check if provider's radius covers the seeker's location
+          const providerRadius = provider.radius_km || 10;
+          return distance <= (maxRadiusKm! + providerRadius); // Include providers whose radius might reach the seeker
+        })
+        .map((provider) => {
+          const distance = calculateDistance(userCoords!, provider.coordinates);
+          return {
+            ...provider,
+            distanceFromSeeker: distance,
+          };
+        })
+        .sort((a, b) => (a.distanceFromSeeker || Infinity) - (b.distanceFromSeeker || Infinity))
+        .slice(0, limit);
+    } else {
+      // No coordinates - just apply limit
+      providers = providers.slice(0, limit);
+    }
+
     if (debug) {
-      console.log("📦 Providers found with filter:", {
+      logger.debug("PROVIDER_SEARCH", "Providers found", {
         filter,
+        userCoords,
+        maxRadiusKm,
         count: providers.length,
       });
     }
 
     return NextResponse.json(
       {
-        providers: providers.slice(0, limit),
+        providers,
         total: providers.length,
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error fetching providers:", error);
+    logger.error("PROVIDER_SEARCH", "Error fetching providers", error);
     return NextResponse.json(
       { error: "Failed to fetch providers" },
       { status: 500 }

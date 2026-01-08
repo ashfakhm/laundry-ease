@@ -5,6 +5,7 @@ import { getBookingById, updateBookingStatus } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 export async function PATCH(
   req: Request,
@@ -67,7 +68,7 @@ export async function PATCH(
       );
     }
   } catch (error) {
-    console.error("Error rejecting booking:", error);
+    logger.error("BOOKINGS", "Error rejecting booking", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

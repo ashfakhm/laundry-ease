@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { uploadInvoicePhoto } from "@/lib/cloudinary";
 import { requireAuth } from "@/lib/api/auth";
 import { AppError } from "@/lib/api/errors";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
         { status: error.statusCode }
       );
     }
-    console.error("Upload error:", error);
+    logger.error("UPLOAD", "Upload error", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

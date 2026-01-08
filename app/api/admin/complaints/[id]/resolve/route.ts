@@ -6,6 +6,9 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
 import { refundRazorpayPayment } from "@/lib/razorpay";
+import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
+import { adminComplaintResolveSchema } from "@/lib/api/schemas";
 
 export async function POST(
   req: Request,
@@ -18,11 +21,21 @@ export async function POST(
 
     // Verify Admin
     const dbUser = await getUserByEmail(session.user.email);
-    if (!dbUser || dbUser.role !== "admin") {
+    if (!dbUser || dbUser.role !== Role.ADMIN) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { outcome } = await req.json(); // refund_full, release_payout, reject
+    const body = await req.json();
+    const parsed = adminComplaintResolveSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid resolution data", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { outcome } = parsed.data; // refund_full, release_payout, reject
     const { db } = await getDb();
     const complaintId = new ObjectId(id);
 
@@ -71,7 +84,7 @@ export async function POST(
              await releaseEscrowPayment(orderId);
         }
     } catch (finError: any) {
-        console.error("Financial Action Failed:", finError);
+        logger.error("ADMIN_COMPLAINTS", "Financial action failed", finError, { complaintId: id, outcome });
         // Manual Intervention Needed
         await db.collection("complaint_messages").insertOne({
             complaint_id: complaintId,
@@ -99,7 +112,7 @@ export async function POST(
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error("Error resolving dispute:", error);
+    logger.error("ADMIN_COMPLAINTS", "Error resolving dispute", error, { complaintId: id });
     return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

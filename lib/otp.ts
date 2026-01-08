@@ -24,6 +24,9 @@ const emailTransporter = nodemailer.createTransport({
 
 const smsClient = twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
 
+const MAX_OTP_REQUESTS_PER_HOUR = 5;
+const MAX_VERIFICATION_ATTEMPTS = 5;
+
 export async function requestOtp(
   target: string,
   type: OtpType,
@@ -33,12 +36,32 @@ export async function requestOtp(
     target: target.substring(0, 4) + "***",
   });
   const { db } = await getDb();
+  const col = db.collection<OtpRecord>("otp_codes");
+  
+  // Rate limiting: Check requests in last hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const recentRequests = await col.countDocuments({
+    target,
+    type,
+    createdAt: { $gte: oneHourAgo },
+  });
+
+  if (recentRequests >= MAX_OTP_REQUESTS_PER_HOUR) {
+    logger.warn("OTP", `Rate limit exceeded for ${type}`, {
+      target: target.substring(0, 4) + "***",
+      count: recentRequests,
+    });
+    return {
+      ok: false,
+      error: "Too many OTP requests. Please try again later.",
+    };
+  }
+
   const code = generateCode();
   const hash = await bcrypt.hash(code, 10);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
 
-  const col = db.collection("otp_codes");
   await col.insertOne({
     target,
     type,
@@ -112,13 +135,30 @@ export async function verifyOtp(target: string, type: OtpType, code: string) {
   if (new Date(doc.expiresAt).getTime() < Date.now())
     return { ok: false, error: "OTP expired" };
 
+  // Check attempt limit
+  if (doc.attempts >= MAX_VERIFICATION_ATTEMPTS) {
+    logger.warn("OTP", `Max attempts exceeded for ${type}`, {
+      target: target.substring(0, 4) + "***",
+      attempts: doc.attempts,
+    });
+    return { ok: false, error: "Maximum verification attempts exceeded. Please request a new OTP." };
+  }
+
   const match = await bcrypt.compare(code, doc.codeHash);
   if (!match) {
-    await col.updateOne({ _id: doc._id }, { $inc: { attempts: 1 } });
+    const newAttempts = doc.attempts + 1;
+    await col.updateOne({ _id: doc._id }, { $set: { attempts: newAttempts } });
+    logger.warn("OTP", `Invalid code attempt for ${type}`, {
+      target: target.substring(0, 4) + "***",
+      attempts: newAttempts,
+    });
     return { ok: false, error: "Invalid code" };
   }
 
   await col.updateOne({ _id: doc._id }, { $set: { verified: true } });
+  logger.info("OTP", `OTP verified successfully for ${type}`, {
+    target: target.substring(0, 4) + "***",
+  });
   return { ok: true };
 }
 

@@ -4,6 +4,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { getUserByEmail } from "@/lib/db";
+import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   req: Request,
@@ -26,11 +28,11 @@ export async function GET(
 
     const userId = session.user.id;
     const dbUser = await getUserByEmail(session.user.email);
-    const userRole = dbUser?.role || "seeker";
+    const userRole = dbUser?.role || Role.SEEKER;
 
     const isSeeker = complaint.seeker_id.toString() === userId;
     const isProvider = complaint.provider_id.toString() === userId;
-    const isAdmin = userRole === "admin";
+    const isAdmin = userRole === Role.ADMIN;
 
     let allowed = false;
     if (isAdmin) allowed = true;
@@ -47,7 +49,7 @@ export async function GET(
     return NextResponse.json(complaint);
 
   } catch (error) {
-    console.error("Error fetching complaint:", error);
+    logger.error("COMPLAINTS", "Error fetching complaint", error, { complaintId: id });
     return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

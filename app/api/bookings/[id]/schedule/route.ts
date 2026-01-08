@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
+import { bookingScheduleSchema } from "@/lib/api/schemas";
 
 export async function POST(
   req: Request,
@@ -16,7 +18,16 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { dateTime, action } = body;
+    const parsed = bookingScheduleSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid schedule data", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { dateTime, action } = parsed.data;
 
     const { db } = await getDb();
     let bookingQuery: any;
@@ -124,7 +135,7 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Schedule pickup error:", error);
+    logger.error("BOOKINGS", "Schedule pickup error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

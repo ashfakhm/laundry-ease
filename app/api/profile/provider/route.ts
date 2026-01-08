@@ -8,6 +8,8 @@ import {
   createRazorpayFundAccount,
 } from "@/lib/razorpay";
 import { Provider } from "@/lib/db";
+import { logger } from "@/lib/logger";
+import { updateProviderProfileSchema } from "@/lib/api/schemas";
 
 /**
  * GET /api/profile/provider
@@ -57,7 +59,7 @@ export async function GET() {
 
     return NextResponse.json(safeProvider, { status: 200 });
   } catch (error) {
-    console.error("Error fetching provider profile:", error);
+    logger.error("PROFILE", "Error fetching provider profile", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -87,6 +89,15 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
+    const parsed = updateProviderProfileSchema.safeParse(body);
+    
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    
     const {
       name,
       businessName,
@@ -106,7 +117,11 @@ export async function PATCH(req: Request) {
       phone,
       profilePicture,
       bannerImage,
-    } = body;
+      bankAccountHolder,
+      bankAccountNumber,
+      bankIFSC,
+      upiId,
+    } = parsed.data;
 
     // Build update object with only provided fields
     const updateFields: Record<string, unknown> = {};
@@ -131,7 +146,6 @@ export async function PATCH(req: Request) {
     if (bannerImage !== undefined) updateFields.bannerImage = bannerImage;
 
     // Bank Details Update
-    const { bankAccountHolder, bankAccountNumber, bankIFSC, upiId } = body;
     if (
       bankAccountHolder !== undefined ||
       bankAccountNumber !== undefined ||
@@ -219,7 +233,7 @@ export async function PATCH(req: Request) {
         }
       } catch (e: unknown) {
         const err = e as Error;
-        console.error("Razorpay Sync Error:", err);
+        logger.error("PROFILE", "Razorpay sync error during profile update", err, { email: session.user.email });
         // Fail the request if critical bank details sync fails so user knows
         return NextResponse.json(
           {
@@ -313,7 +327,7 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json(safeUpdated, { status: 200 });
   } catch (error) {
-    console.error("Error updating provider profile:", error);
+    logger.error("PROFILE", "Error updating provider profile", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
+import { adminComplaintStatusSchema } from "@/lib/api/schemas";
 
 /**
  * PATCH /api/admin/complaints/:id
@@ -34,11 +36,16 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { status } = body;
+    const parsed = adminComplaintStatusSchema.safeParse(body);
 
-    if (!["open", "in_progress", "resolved"].includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid status data", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
     }
+
+    const { status } = parsed.data;
 
     const result = await db
       .collection("complaints")
@@ -53,7 +60,7 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
-    console.error("Error updating complaint:", error);
+    logger.error("ADMIN_COMPLAINTS", "Error updating complaint", error, { complaintId: id });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

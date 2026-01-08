@@ -3,14 +3,23 @@ import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
 import { Booking } from "@/types/bookings";
+import { logger } from "@/lib/logger";
+import { bookingPaymentInitSchema } from "@/lib/api/schemas";
+import { env } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
     try {
-        const { bookingId } = await req.json();
+        const body = await req.json();
+        const parsed = bookingPaymentInitSchema.safeParse(body);
 
-        if (!bookingId) {
-            return NextResponse.json({ error: "Booking ID required" }, { status: 400 });
+        if (!parsed.success) {
+          return NextResponse.json(
+            { error: "Invalid booking ID", details: parsed.error.flatten().fieldErrors },
+            { status: 400 }
+          );
         }
+
+        const { bookingId } = parsed.data;
 
         const { db } = await getDb();
         const booking = await db.collection<Booking>("bookings").findOne({ _id: new ObjectId(bookingId) });
@@ -43,11 +52,11 @@ export async function POST(req: NextRequest) {
             orderId: razorpayOrder.id,
             amount: amountInPaise,
             currency: razorpayOrder.currency,
-            keyId: process.env.RAZORPAY_KEY_ID
+            keyId: env.NEXT_PUBLIC_RAZORPAY_KEY_ID
         });
 
     } catch (error: any) {
-        console.error("Error initiating booking payment:", error);
+        logger.error("BOOKINGS", "Error initiating booking payment", error, { bookingId });
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

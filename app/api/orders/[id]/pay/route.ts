@@ -5,6 +5,7 @@ import { getOrderById, updateOrderPaymentStatus } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
+import { logger } from "@/lib/logger";
 
 // POST: Create Razorpay Order
 export async function POST(
@@ -51,7 +52,7 @@ export async function POST(
       currency: razorpayOrder.currency,
     });
   } catch (error) {
-    console.error("Error creating payment order:", error);
+    logger.error("ORDERS", "Error creating payment order", error, { orderId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }
@@ -96,7 +97,7 @@ export async function PUT(
       );
     }
   } catch (error) {
-    console.error("Error verifying payment:", error);
+    logger.error("ORDERS", "Error verifying payment", error, { orderId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

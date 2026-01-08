@@ -14,6 +14,7 @@
  */
 
 import { getDb } from "./mongodb";
+import { logger } from "./logger";
 
 export async function setupGeospatialIndex() {
   try {
@@ -27,7 +28,7 @@ export async function setupGeospatialIndex() {
     );
 
     if (hasGeoIndex) {
-      console.log("Geospatial index already exists");
+      logger.info("GEO-INDEX", "Geospatial index already exists");
       return { success: true, message: "Index already exists" };
     }
 
@@ -39,10 +40,10 @@ export async function setupGeospatialIndex() {
       { name: "coordinates_2d" }
     );
 
-    console.log("Created coordinate index on providers collection");
+    logger.info("GEO-INDEX", "Created coordinate index on providers collection");
     return { success: true, message: "Index created successfully" };
   } catch (error) {
-    console.error("Error setting up geospatial index:", error);
+    logger.error("GEO-INDEX", "Error setting up geospatial index", error);
     return { success: false, error: String(error) };
   }
 }
@@ -64,7 +65,7 @@ export async function migrateToGeoJSONAndCreateIndex() {
       })
       .toArray();
 
-    console.log(`Found ${providers.length} providers to migrate`);
+    logger.info("GEO-INDEX", `Found ${providers.length} providers to migrate`);
 
     // Migrate each provider
     for (const provider of providers) {
@@ -90,10 +91,10 @@ export async function migrateToGeoJSONAndCreateIndex() {
       { name: "locationGeoJSON_2dsphere" }
     );
 
-    console.log("Migration complete: Created GeoJSON field and 2dsphere index");
+    logger.info("GEO-INDEX", "Migration complete: Created GeoJSON field and 2dsphere index");
     return { success: true, message: "Migration complete" };
   } catch (error) {
-    console.error("Error migrating to GeoJSON:", error);
+    logger.error("GEO-INDEX", "Error migrating to GeoJSON", error);
     return { success: false, error: String(error) };
   }
 }

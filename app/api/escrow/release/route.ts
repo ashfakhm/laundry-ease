@@ -4,11 +4,12 @@ import { getDb } from "@/lib/mongodb";
 import { Order } from "@/types/orders";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
   // Verify Cron Secret - This endpoint should only be called by cron jobs
   const authHeader = req.headers.get("authorization");
-  if (!process.env.CRON_SECRET) {
+  if (!env.CRON_SECRET) {
     logger.error(
       "ESCROW",
       "CRON_SECRET not configured - escrow release endpoint disabled"
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -36,21 +37,28 @@ export async function POST(req: NextRequest) {
     const { db } = await getDb();
 
     for (const order of ordersToRelease) {
-      // Check for open complaints before releasing payment
+      // Note: releaseEscrowPayment already checks for complaints internally
+      // Double-check here for logging purposes only
       const activeComplaint = await db.collection("complaints").findOne({
         order_id: new ObjectId(order._id),
-        status: { $in: ["open", "investigating", "escalated"] },
+        status: { $in: ["open", "investigating", "escalated", "in_progress"] },
       });
 
       if (activeComplaint) {
         // Escrow release skipped due to active complaint - expected behavior
+        logger.info("ESCROW", "Skipping escrow release due to active complaint", { orderId: order._id, complaintId: activeComplaint._id });
         continue;
       }
+      
+      // releaseEscrowPayment is idempotent - safe to call multiple times
       const success = await releaseEscrowPayment(order._id);
       if (success) {
         releasedOrders.push(order);
+        logger.info("ESCROW", "Escrow released successfully", { orderId: order._id });
       } else {
+        // Could be already released (idempotent) or blocked by complaint
         failedOrders.push(order);
+        logger.warn("ESCROW", "Escrow release failed", { orderId: order._id });
       }
     }
 
@@ -60,7 +68,7 @@ export async function POST(req: NextRequest) {
       failedOrders,
     });
   } catch (error) {
-    console.error("Error releasing escrow payments:", error);
+    logger.error("ESCROW", "Error releasing escrow payments", error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

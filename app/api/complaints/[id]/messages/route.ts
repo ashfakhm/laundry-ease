@@ -5,11 +5,14 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { getUserByEmail } from "@/lib/db";
 import { ComplaintMessage } from "@/types/complaints";
+import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
+import { complaintMessageSchema } from "@/lib/api/schemas";
 
 async function checkAccess(userId: string, userRole: string, complaint: any) {
   const isSeeker = complaint.seeker_id.toString() === userId;
   const isProvider = complaint.provider_id.toString() === userId;
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === Role.ADMIN;
 
   // 1. Audit Visibility Guard
   // "Seeker/provider NEVER can after resolution"
@@ -58,7 +61,7 @@ export async function GET(
 
     // Robust Role Check
     const dbUser = await getUserByEmail(session.user.email);
-    const userRole = dbUser?.role || "seeker"; // Fallback, but getUserByEmail returns correct role
+    const userRole = dbUser?.role || Role.SEEKER; // Fallback, but getUserByEmail returns correct role
     
     const access = await checkAccess(session.user.id, userRole, complaint);
     if (!access.allowed) {
@@ -74,7 +77,7 @@ export async function GET(
     return NextResponse.json(messages);
 
   } catch (error) {
-    console.error("Error fetching messages:", error);
+    logger.error("COMPLAINTS", "Error fetching messages", error, { complaintId: id });
     return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }
@@ -94,7 +97,17 @@ export async function POST(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
     
-        const { content, attachments } = await req.json();
+        const body = await req.json();
+        const parsed = complaintMessageSchema.safeParse(body);
+
+        if (!parsed.success) {
+          return NextResponse.json(
+            { error: "Invalid message data", details: parsed.error.flatten().fieldErrors },
+            { status: 400 }
+          );
+        }
+
+        const { content, attachments } = parsed.data;
         
         const { db } = await getDb();
         const complaintId = new ObjectId(id);
@@ -105,7 +118,7 @@ export async function POST(
         }
     
         const dbUser = await getUserByEmail(session.user.email);
-        const userRole = dbUser?.role || "seeker";
+        const userRole = dbUser?.role || Role.SEEKER;
         
         const access = await checkAccess(session.user.id, userRole, complaint);
         if (!access.allowed) {
@@ -131,7 +144,7 @@ export async function POST(
         return NextResponse.json(message, { status: 201 });
     
       } catch (error) {
-        console.error("Error creating message:", error);
+        logger.error("COMPLAINTS", "Error creating message", error, { complaintId: id });
         return NextResponse.json({ error: "Internal Error" }, { status: 500 });
       }
 }

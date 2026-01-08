@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { Order } from "@/types/order"; 
+import { Order } from "@/types/orders";
+import { logger } from "@/lib/logger"; 
 
 export const runtime = "nodejs";
 
@@ -124,7 +125,7 @@ export async function POST(
     return NextResponse.json({ success: true, orderId: result.insertedId, status: "approved" });
 
   } catch (error) {
-    console.error("Invoice review error:", error);
+    logger.error("INVOICES", "Invoice review error", error, { bookingId: id });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

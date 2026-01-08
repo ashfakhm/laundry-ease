@@ -72,11 +72,137 @@ Tradeoff: the flow rejects “fast but fuzzy” transactions. It favors clarity 
 
 ## 8. Getting Started
 
-1. Install dependencies.
-2. Configure environment variables for the database and payments.
-3. Run the development server.
+### Prerequisites
 
-If you need exact variable names or scripts, check `package.json` and `lib/env.ts`.
+- Node.js 18+ and npm
+- MongoDB (local instance or MongoDB Atlas)
+- Google Cloud Project with OAuth credentials
+- Razorpay account with API keys and RazorpayX account
+- Twilio account for SMS OTP
+- Google Cloud API key (Maps, Places, Geocoding)
+- (Optional) Cloudinary account for image uploads
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd laundry-ease
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables**
+   
+   Copy the example environment file:
+   ```bash
+   cp .env.example .env.local
+   ```
+   
+   Edit `.env.local` and fill in all required variables. See the [Environment Variables](#environment-variables) section below for details.
+
+4. **Set up MongoDB**
+   
+   - For local MongoDB: Ensure MongoDB is running on `localhost:27017`
+   - For MongoDB Atlas: Update `MONGODB_URI` with your Atlas connection string
+   
+   Run the geospatial index setup (if script exists):
+   ```bash
+   # This ensures proper indexing for location-based queries
+   npm run setup:geospatial-index
+   ```
+
+5. **Generate secure secrets**
+   
+   Generate strong random secrets for `CRON_SECRET` and `NEXTAUTH_SECRET`:
+   ```bash
+   openssl rand -base64 32
+   ```
+   Copy the output and use it for both secrets (or generate separate ones).
+
+6. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+7. **Access the application**
+   
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Environment Variables
+
+All environment variables are validated on startup via Zod schema in `lib/env.ts`. See `.env.example` for a complete template.
+
+**Required Variables:**
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `GOOGLE_ID` | Google OAuth client ID | From Google Cloud Console |
+| `GOOGLE_SECRET` | Google OAuth client secret | From Google Cloud Console |
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017` or Atlas URI |
+| `MONGODB_DB` | Database name | `laundryease` |
+| `EMAIL_USER` | Email for sending OTP | `your-email@gmail.com` |
+| `EMAIL_PASS` | Email app password | Gmail App Password |
+| `TWILIO_ACCOUNT_SID` | Twilio account SID | From Twilio Console |
+| `TWILIO_AUTH_TOKEN` | Twilio auth token | From Twilio Console |
+| `TWILIO_PHONE_NUMBER` | Twilio phone number | `+919876543210` |
+| `RAZORPAY_KEY_ID` | Razorpay API key ID | From Razorpay Dashboard |
+| `RAZORPAY_KEY_SECRET` | Razorpay API key secret | From Razorpay Dashboard |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Same as RAZORPAY_KEY_ID | Same as above |
+| `RAZORPAYX_ACCOUNT_NUMBER` | RazorpayX account number | `2323230000000000` |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps API key | From Google Cloud Console |
+| `CRON_SECRET` | Secret for cron authentication | Generate with `openssl rand -base64 32` |
+| `NEXTAUTH_SECRET` | Secret for JWT signing | Generate with `openssl rand -base64 32` |
+
+**Optional Variables:**
+
+- `NEXTAUTH_URL` - Application base URL (defaults to `http://localhost:3000`)
+- `NEXT_PUBLIC_BASE_URL` - Public URL for email links
+- `NEXT_PUBLIC_APP_URL` - Alternative app URL
+- `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name
+- `CLOUDINARY_API_KEY` - Cloudinary API key
+- `CLOUDINARY_API_SECRET` - Cloudinary API secret
+
+### External Service Setup
+
+**Google OAuth:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project or select existing
+3. Enable Google+ API
+4. Create OAuth 2.0 credentials (Web application type)
+5. Add authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
+6. Copy Client ID and Secret to `.env.local`
+
+**Razorpay:**
+1. Sign up at [Razorpay](https://razorpay.com/)
+2. Activate your account
+3. Get API keys from Settings → API Keys
+4. Set up RazorpayX account for escrow
+5. Copy account number and API keys to `.env.local`
+
+**Twilio:**
+1. Sign up at [Twilio](https://www.twilio.com/)
+2. Get a phone number
+3. Copy Account SID, Auth Token, and Phone Number to `.env.local`
+
+**Google Maps:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Enable these APIs:
+   - Maps JavaScript API
+   - Places API
+   - Geocoding API
+3. Create API key and restrict it (recommended)
+4. Copy API key to `.env.local`
+
+### Troubleshooting
+
+- **Environment variable errors**: Check `lib/env.ts` for exact variable names and requirements
+- **MongoDB connection issues**: Verify `MONGODB_URI` format and network access
+- **OTP not sending**: Verify Twilio credentials and phone number format (E.164)
+- **Payment errors**: Verify Razorpay keys match environment (test/live) and account status
 
 ## 9. Project Status & Direction
 

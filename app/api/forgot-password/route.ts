@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import nodemailer from "nodemailer";
 import { randomBytes } from "crypto";
+import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,17 +46,17 @@ export async function POST(req: NextRequest) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
+        user: env.EMAIL_USER,
+        pass: env.EMAIL_PASS,
       },
     });
 
     const resetUrl = `${
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+      env.NEXT_PUBLIC_BASE_URL || env.NEXTAUTH_URL || "http://localhost:3000"
     }/reset-password?token=${resetToken}`;
 
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: env.EMAIL_USER,
       to: email,
       subject: "LaundryEase - Password Reset Request",
       html: `
@@ -78,7 +80,7 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Forgot password error:", error);
+    logger.error("AUTH", "Forgot password error", error);
     return NextResponse.json(
       { error: "An error occurred. Please try again later." },
       { status: 500 }

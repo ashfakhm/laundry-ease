@@ -109,8 +109,8 @@ export const signupSeekerSchema = z.object({
   }),
   coordinates: z
     .object({
-      lat: z.number(),
-      lng: z.number(),
+      lat: z.number().min(-90).max(90, "Latitude must be between -90 and 90"),
+      lng: z.number().min(-180).max(180, "Longitude must be between -180 and 180"),
     })
     .optional(),
 });
@@ -142,8 +142,8 @@ export const signupProviderSchema = z.object({
   bannerImage: z.string().optional(),
   coordinates: z
     .object({
-      lat: z.number(),
-      lng: z.number(),
+      lat: z.number().min(-90).max(90, "Latitude must be between -90 and 90"),
+      lng: z.number().min(-180).max(180, "Longitude must be between -180 and 180"),
     })
     .optional(),
 });
@@ -159,6 +159,165 @@ export const otpVerifySchema = z.object({
   code: z.string().length(6, "OTP must be 6 digits"),
 });
 
+// Profile update schemas
+export const updateSeekerProfileSchema = z.object({
+  name: z.string().min(2).optional(),
+  phone: phoneSchema.optional(),
+  address: z
+    .object({
+      line1: z.string().min(1),
+      city: z.string().min(1),
+      state: z.string().min(1),
+      country: z.string().min(1),
+      postalCode: z.string().min(1),
+      landmark: z.string().optional(),
+    })
+    .optional(),
+  coordinates: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+    })
+    .optional(),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(8).optional(),
+});
+
+export const updateProviderProfileSchema = z.object({
+  name: z.string().min(2).optional(),
+  businessName: z.string().min(2).optional(),
+  bio: z.string().optional(),
+  description: z.string().optional(),
+  location: z.string().min(1).optional(),
+  services: z.array(z.string()).optional(),
+  pricingRates: z.record(z.string(), z.number().nonnegative()).optional(),
+  radius_km: z.number().positive().max(50).optional(),
+  free_radius_km: z.number().nonnegative().optional(),
+  per_km_rate: z.number().nonnegative().optional(),
+  coordinates: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+    })
+    .optional(),
+  pricing: z.number().nonnegative().optional(),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(8).optional(),
+  capacity: z.number().int().positive().max(100).optional(),
+  phone: phoneSchema.optional(),
+  profilePicture: z.string().url().optional(),
+  bannerImage: z.string().url().optional(),
+  bankAccountHolder: z.string().min(2).optional(),
+  bankAccountNumber: z.string().min(6).optional(),
+  bankIFSC: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code").optional(),
+  upiId: z.string().optional(),
+});
+
+// Review schemas
+export const createReviewSchema = z.object({
+  order_id: objectIdSchema,
+  provider_id: objectIdSchema,
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().max(1000).optional(),
+});
+
+// Booking action schemas
+export const bookingScheduleSchema = z.object({
+  dateTime: z.string().datetime("Invalid date/time format"),
+  action: z.enum(["propose", "confirm"]).optional(),
+});
+
+export const bookingArrivedSchema = z.object({
+  bookingId: objectIdSchema,
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
+export const invoiceReviewSchema = z.object({
+  approved: z.boolean(),
+  reason: z.string().optional(),
+});
+
+export const invoiceCreateSchema = z.object({
+  items: z.array(z.object({
+    itemType: z.string().min(1),
+    quantity: z.number().int().positive(),
+    unitPrice: z.number().nonnegative(),
+    photoUrl: z.string().url().optional(),
+  })).min(1),
+  notes: z.string().optional(),
+  photos: z.array(z.string().url()).optional(),
+  discount: z.number().nonnegative().default(0),
+  total: z.number().nonnegative().optional(),
+  subtotal: z.number().nonnegative().optional(),
+});
+
+export const paymentVerifySchema = z.object({
+  razorpay_order_id: z.string().min(1),
+  razorpay_payment_id: z.string().min(1),
+  razorpay_signature: z.string().min(1),
+});
+
+export const orderStatusUpdateSchema = z.object({
+  status: z.enum(["processing", "washing", "ironing", "ready", "out_for_delivery"]),
+  // Note: "invoiced" is the initial state when order is created, not a transition target
+  // Note: "delivered" can only be set via confirm-delivery endpoint (requires OTP)
+});
+
+export const orderScheduleDeliverySchema = z.object({
+  action: z.enum(["propose", "confirm"]),
+  dateTime: z.string().datetime().optional(),
+});
+
+export const confirmDeliverySchema = z.object({
+  otp: z.string().length(6, "OTP must be 6 digits"),
+});
+
+// Admin schemas
+export const adminComplaintStatusSchema = z.object({
+  status: z.enum(["open", "in_progress", "resolved", "rejected"]),
+});
+
+export const adminComplaintResolveSchema = z.object({
+  outcome: z.enum(["refund_full", "release_payout", "reject"]),
+});
+
+export const adminComplaintAccessSchema = z.object({
+  granted: z.boolean(),
+});
+
+export const adminRefundSchema = z.object({
+  paymentId: z.string().min(1),
+  bookingId: objectIdSchema.optional(),
+  orderId: objectIdSchema.optional(),
+  amount: z.number().positive().optional(),
+  reason: z.string().min(5).optional(),
+});
+
+// Auth schemas
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().min(1),
+});
+
+export const sendMagicLinkSchema = z.object({
+  email: emailSchema,
+});
+
+// Complaint message schema
+export const complaintMessageSchema = z.object({
+  content: z.string().min(1).max(5000),
+  attachments: z.array(z.string().url()).max(5).optional(),
+});
+
 // Type exports for use in components
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
@@ -166,3 +325,6 @@ export type CreateComplaintInput = z.infer<typeof createComplaintSchema>;
 export type ProviderSearchInput = z.infer<typeof providerSearchSchema>;
 export type SignupSeekerInput = z.infer<typeof signupSeekerSchema>;
 export type SignupProviderInput = z.infer<typeof signupProviderSchema>;
+export type UpdateSeekerProfileInput = z.infer<typeof updateSeekerProfileSchema>;
+export type UpdateProviderProfileInput = z.infer<typeof updateProviderProfileSchema>;
+export type CreateReviewInput = z.infer<typeof createReviewSchema>;

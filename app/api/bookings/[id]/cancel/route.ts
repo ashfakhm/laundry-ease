@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getBookingById, updateBookingStatus } from "@/lib/db"; // You might need to expose updateBookingStatus generic or specific
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
+import { logger } from "@/lib/logger";
 
 export async function POST(
   req: Request,
@@ -54,11 +55,11 @@ export async function POST(
     if (result.modifiedCount === 1) {
         return NextResponse.json({ success: true, message: "Booking cancelled successfully" });
     } else {
-        return NextResponse.json({ message: "Failed to update booking" }, { status: 500 });
+        return NextResponse.json({ message: "Failed to update booking" }, { status: 500 }      );
     }
 
   } catch (error) {
-    console.error("Error cancelling booking:", error);
+    logger.error("BOOKINGS", "Error cancelling booking", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

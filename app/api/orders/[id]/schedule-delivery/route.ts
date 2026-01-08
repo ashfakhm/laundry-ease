@@ -2,16 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Order } from "@/types/orders";
+import { logger } from "@/lib/logger";
+import { orderScheduleDeliverySchema } from "@/lib/api/schemas";
 
 // POST /api/orders/[id]/schedule-delivery
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const { action, dateTime } = await req.json(); // action: 'propose' | 'confirm'
+        const body = await req.json();
+        const parsed = orderScheduleDeliverySchema.safeParse(body);
 
-        if (!id || !action) {
-            return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+        if (!parsed.success) {
+          return NextResponse.json(
+            { error: "Invalid schedule data", details: parsed.error.flatten().fieldErrors },
+            { status: 400 }
+          );
         }
+
+        const { action, dateTime } = parsed.data;
 
         const { db } = await getDb();
         const order = await db.collection<Order>("orders").findOne({ _id: new ObjectId(id) });
@@ -56,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 
     } catch (error: any) {
-        console.error("Scheduling Error:", error);
+        logger.error("ORDERS", "Scheduling error", error, { orderId: id, action });
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

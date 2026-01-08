@@ -20,6 +20,7 @@ export type Order = {
   payment_made_at?: Date;
   escrow_started_at?: Date;
   escrow_release_at?: Date;
+  escrow_released_at?: Date;
   otp_confirmed_at?: Date;
   cancellation_status?: "cancelled_by_seeker" | "cancelled_by_provider";
   createdAt: Date;

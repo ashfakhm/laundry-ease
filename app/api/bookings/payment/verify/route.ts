@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb";
 import { verifyRazorpaySignature } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
 import { Booking } from "@/types/bookings";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
     try {
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, message: "Payment verified" });
 
     } catch (error: any) {
-        console.error("Error verifying booking payment:", error);
+        logger.error("BOOKINGS", "Error verifying booking payment", error, { bookingId });
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

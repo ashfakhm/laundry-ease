@@ -5,6 +5,7 @@ import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
 import { Booking } from "@/types/bookings";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -41,7 +42,7 @@ export async function GET() {
     
     return NextResponse.json(bookings);
   } catch (error) {
-    console.error("Error fetching seeker bookings:", error);
+    logger.error("BOOKINGS", "Error fetching seeker bookings", error);
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

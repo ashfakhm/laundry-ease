@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppError, ErrorCode, ApiResponse, ApiSuccessResponse } from "./errors";
 import { ZodError } from "zod";
+import { logger } from "@/lib/logger";
 
 /**
  * Standardized API response helpers
@@ -58,10 +59,8 @@ export function errorResponse(error: unknown): NextResponse {
   }
 
   // Log unexpected errors (FAANG practice: structured logging)
-  console.error("[API_ERROR]", {
+  logger.error("API", "Unexpected error in API route", error, {
     type: error instanceof Error ? error.name : "Unknown",
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
     timestamp: new Date().toISOString(),
   });
 

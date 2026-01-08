@@ -222,7 +222,59 @@ Rules:
 - **Dispute rate**: disputes per invoiced order
 - **Time-to-clarity**: reduction in seeker-to-provider status calls/messages (proxy via support/contact rates)
 
-## 12. Open Questions & Risks
+## 12. Environment Setup & Configuration
+
+### Required Environment Variables
+
+LaundryEase requires the following environment variables to be configured (see `.env.example` for template):
+
+**Authentication & OAuth:**
+- `GOOGLE_ID` - Google OAuth client ID
+- `GOOGLE_SECRET` - Google OAuth client secret
+- `NEXTAUTH_SECRET` - Secret for NextAuth JWT signing (generate: `openssl rand -base64 32`)
+- `NEXTAUTH_URL` - Application base URL (optional, defaults to localhost:3000)
+
+**Database:**
+- `MONGODB_URI` - MongoDB connection string
+- `MONGODB_DB` - Database name (defaults to "laundryease")
+
+**Email & SMS (OTP Delivery):**
+- `EMAIL_USER` - Email address for sending OTP emails
+- `EMAIL_PASS` - App-specific password for email service
+- `TWILIO_ACCOUNT_SID` - Twilio account SID
+- `TWILIO_AUTH_TOKEN` - Twilio authentication token
+- `TWILIO_PHONE_NUMBER` - Twilio phone number (E.164 format)
+
+**Payments (Razorpay):**
+- `RAZORPAY_KEY_ID` - Razorpay API key ID
+- `RAZORPAY_KEY_SECRET` - Razorpay API key secret
+- `NEXT_PUBLIC_RAZORPAY_KEY_ID` - Same as RAZORPAY_KEY_ID (exposed to client)
+- `RAZORPAYX_ACCOUNT_NUMBER` - RazorpayX account number for escrow
+
+**Google Maps:**
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` - Google Maps API key (requires Maps JavaScript API, Places API, Geocoding API)
+
+**Security:**
+- `CRON_SECRET` - Secret for securing cron job endpoints (generate: `openssl rand -base64 32`)
+
+**Optional:**
+- `NEXT_PUBLIC_BASE_URL` - Public application URL for email links
+- `NEXT_PUBLIC_APP_URL` - Alternative application URL
+- `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name (for image uploads)
+- `CLOUDINARY_API_KEY` - Cloudinary API key
+- `CLOUDINARY_API_SECRET` - Cloudinary API secret
+
+### Setup Instructions
+
+1. Copy `.env.example` to `.env.local`
+2. Fill in all required variables with actual values
+3. Ensure all external services (Razorpay, Twilio, Google Cloud) are configured
+4. Run MongoDB setup script if needed: `npm run setup:geospatial-index` (if script exists)
+5. Start the development server: `npm run dev`
+
+See `README.md` for detailed setup instructions.
+
+## 13. Open Questions & Risks
 
 - **Cash payments**
   If providers accept cash outside escrow, the trust contract breaks and the platform loses its enforcement mechanism.

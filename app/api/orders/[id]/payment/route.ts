@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -63,7 +64,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error("Payment init error:", error);
+    logger.error("ORDERS", "Payment init error", error, { orderId: id });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -116,7 +117,7 @@ export async function PUT(
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error("Payment verification error:", error);
+    logger.error("ORDERS", "Payment verification error", error, { orderId: id });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

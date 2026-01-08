@@ -5,6 +5,8 @@ import { Role } from "@/types/enums";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
+import { adminRefundSchema } from "@/lib/api/schemas";
 
 export async function POST(req: Request) {
     try {
@@ -13,11 +15,17 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        const { paymentId, bookingId, orderId, amount, reason } = await req.json();
+        const body = await req.json();
+        const parsed = adminRefundSchema.safeParse(body);
 
-        if (!paymentId) {
-             return NextResponse.json({ message: "Payment ID required" }, { status: 400 });
+        if (!parsed.success) {
+          return NextResponse.json(
+            { error: "Invalid refund data", details: parsed.error.flatten().fieldErrors },
+            { status: 400 }
+          );
         }
+
+        const { paymentId, bookingId, orderId, amount, reason } = parsed.data;
 
         const refund = await refundRazorpayPayment(paymentId, amount ? Number(amount) : undefined, { reason });
 
@@ -39,7 +47,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true, refund });
 
     } catch (error: any) {
-        console.error("Refund error:", error);
-         return NextResponse.json({ error: error.message }, { status: 500 });
+        logger.error("ADMIN_REFUND", "Refund error", error, { paymentId, bookingId, orderId });
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

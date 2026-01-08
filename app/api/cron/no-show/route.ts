@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { checkNoShows } from "@/cron/no-show-check";
 import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 
 export async function GET(req: Request) {
   // Authenticate Cron requests - CRITICAL for production security
   const authHeader = req.headers.get("authorization");
-  if (!process.env.CRON_SECRET) {
+  if (!env.CRON_SECRET) {
     logger.error("CRON", "CRON_SECRET not configured - cron endpoint disabled");
     return NextResponse.json(
       { error: "Cron endpoint not configured" },
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
     );
   }
 
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

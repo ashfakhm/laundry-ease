@@ -8,6 +8,7 @@ import { ObjectId } from "mongodb";
 import { calculateDistance } from "@/lib/distance";
 import { Role } from "@/types/enums";
 import { OrderItem } from "@/types/orders";
+import { logger } from "@/lib/logger";
 
 // POST: Create Razorpay Order for Invoice Amount
 export async function POST(
@@ -72,7 +73,7 @@ export async function POST(
       currency: razorpayOrder.currency,
     });
   } catch (error) {
-    console.error("Payment init error:", error);
+    logger.error("BOOKINGS", "Payment init error", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }
@@ -179,7 +180,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true, orderId: res.insertedId });
   } catch (error) {
-    console.error("Payment verification error:", error);
+    logger.error("BOOKINGS", "Payment verification error", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

@@ -7,6 +7,7 @@ import { successResponse, withErrorHandling } from "@/lib/api/response";
 import { createOrderSchema } from "@/lib/api/schemas";
 import { Errors } from "@/lib/api/errors";
 import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
 
 interface ProviderData {
   role: Role;
@@ -74,9 +75,7 @@ export const POST = withErrorHandling(async (req: Request) => {
       : 1;
 
   if (!booking_coords || !provider_coords) {
-    console.warn(
-      `[ORDER_CREATION] Missing coordinates for Booking ${booking_id}. Using default 1km.`
-    );
+    logger.warn("ORDERS", "Missing coordinates for booking, using default 1km", { bookingId: booking_id });
   }
 
   let delivery_charge = 0;

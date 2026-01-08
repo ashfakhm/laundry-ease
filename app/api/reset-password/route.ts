@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import bcrypt from "bcrypt";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Reset password error:", error);
+    logger.error("AUTH", "Reset password error", error);
     return NextResponse.json(
       { error: "An error occurred. Please try again later." },
       { status: 500 }

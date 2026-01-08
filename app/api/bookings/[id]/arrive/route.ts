@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 // POST: Provider marks themselves as arrived at pickup location
 export async function POST(
@@ -67,7 +68,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, arrivedAt: new Date() });
   } catch (error) {
-    console.error("Mark arrived error:", error);
+    logger.error("BOOKINGS", "Mark arrived error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

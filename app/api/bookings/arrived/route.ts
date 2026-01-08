@@ -2,16 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Booking } from "@/types/bookings";
-import { getDistance } from "geolib";
+import { calculateDistance } from "@/lib/distance";
+import { logger } from "@/lib/logger";
+import { bookingArrivedSchema } from "@/lib/api/schemas";
 
 // POST /api/bookings/arrived
 export async function POST(req: NextRequest) {
     try {
-        const { bookingId, lat, lng } = await req.json();
+        const body = await req.json();
+        const parsed = bookingArrivedSchema.safeParse(body);
 
-        if (!bookingId || !lat || !lng) {
-            return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+        if (!parsed.success) {
+          return NextResponse.json(
+            { error: "Invalid arrival data", details: parsed.error.flatten().fieldErrors },
+            { status: 400 }
+          );
         }
+
+        const { bookingId, lat, lng } = parsed.data;
 
         const { db } = await getDb();
         const booking = await db.collection<Booking>("bookings").findOne({ _id: new ObjectId(bookingId) });
@@ -28,16 +36,18 @@ export async function POST(req: NextRequest) {
              return NextResponse.json({ success: true, message: "Marked arrived (No seeker coords)" });
         }
 
-        const distance = getDistance(
-            { latitude: lat, longitude: lng },
-            { latitude: booking.seeker_coordinates.lat, longitude: booking.seeker_coordinates.lng }
+        // Calculate distance in km, then convert to meters for comparison
+        const distanceKm = calculateDistance(
+            { lat, lng },
+            booking.seeker_coordinates
         );
+        const distanceMeters = distanceKm * 1000;
 
-        if (distance > 200) { // 200 meters allowed radius
+        if (distanceMeters > 200) { // 200 meters allowed radius
              return NextResponse.json({ 
                  error: "Too far from location", 
-                 distance, 
-                 allowed: 200 
+                 distanceMeters: Math.round(distanceMeters), 
+                 allowedMeters: 200 
              }, { status: 400 });
         }
 
@@ -46,7 +56,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, message: "Marked arrived successfully" });
 
     } catch (error: any) {
-        console.error("Arrival Error:", error);
+        logger.error("BOOKINGS", "Arrival error", error, { bookingId });
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

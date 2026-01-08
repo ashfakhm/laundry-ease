@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
 import { Order } from "@/types/orders";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
 
     } catch (error: any) {
-        console.error("Error initiating order payment:", error);
+        logger.error("ORDERS", "Error initiating order payment", error, { orderId: id });
         return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

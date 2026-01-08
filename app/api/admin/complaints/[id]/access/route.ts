@@ -5,6 +5,9 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { getUserByEmail } from "@/lib/db";
 import { ComplaintMessage } from "@/types/complaints";
+import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
+import { adminComplaintAccessSchema } from "@/lib/api/schemas";
 
 export async function PATCH(
   req: Request,
@@ -17,11 +20,21 @@ export async function PATCH(
 
     // Verify Admin
     const dbUser = await getUserByEmail(session.user.email);
-    if (dbUser?.role !== "admin") {
+    if (dbUser?.role !== Role.ADMIN) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { granted } = await req.json(); // true/false
+    const body = await req.json();
+    const parsed = adminComplaintAccessSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid access data", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { granted } = parsed.data;
     const { db } = await getDb();
     const complaintId = new ObjectId(id);
 
@@ -57,7 +70,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, granted });
 
   } catch (error) {
-    console.error("Error updating access:", error);
+    logger.error("ADMIN_COMPLAINTS", "Error updating access", error, { complaintId: id });
     return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

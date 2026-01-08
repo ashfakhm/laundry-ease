@@ -329,11 +329,17 @@ export async function getOrderById(order_id: ObjectId): Promise<Order | null> {
 
 /**
  * Update an order's payment status
+ * SECURITY: Cannot set status to "released" - must use releaseEscrowPayment() instead
  */
 export async function updateOrderPaymentStatus(
   order_id: ObjectId,
-  payment_status: "paid" | "held" | "released" | "refunded"
+  payment_status: "paid" | "held" | "refunded"
 ) {
+  // SECURITY: Block direct release - escrow must go through proper releaseEscrowPayment() function
+  if (payment_status === "released") {
+    throw new Error("Cannot directly set payment_status to 'released'. Use releaseEscrowPayment() instead.");
+  }
+
   const { db } = await getDb();
   const res = await db
     .collection<Order>("orders")
@@ -384,9 +390,21 @@ export async function getHeldOrdersPastEscrowDate(): Promise<Order[]> {
 
 /**
  * Release escrow payment for an order
+ * IDEMPOTENT: Safe to call multiple times - will only update if status is "held"
  */
 export async function releaseEscrowPayment(order_id: ObjectId) {
   const { db } = await getDb();
+
+  // IDEMPOTENCY CHECK: Verify order is in "held" status before releasing
+  const order = await db.collection<Order>("orders").findOne({ _id: order_id });
+  if (!order) {
+    return false;
+  }
+
+  // If already released or not in held status, return false (idempotent)
+  if (order.payment_status !== "held") {
+    return order.payment_status === "released"; // Return true if already released (idempotent success)
+  }
 
   // VALIDATION: Check for active complaints before releasing
   // FAANG Requirement: Block if ANY complaint is not fully resolved/rejected.
@@ -400,9 +418,13 @@ export async function releaseEscrowPayment(order_id: ObjectId) {
     return false;
   }
 
+  // Atomic update: Only update if still in "held" status (prevents race conditions)
   const res = await db
     .collection<Order>("orders")
-    .updateOne({ _id: order_id }, { $set: { payment_status: "released" } });
+    .updateOne(
+      { _id: order_id, payment_status: "held" }, // Ensure still "held" before updating
+      { $set: { payment_status: "released", escrow_released_at: new Date() } }
+    );
   return res.modifiedCount > 0;
 }
 

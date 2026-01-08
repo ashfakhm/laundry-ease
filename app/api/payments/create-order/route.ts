@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { requireAuth } from "@/lib/api/auth";
+import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 
 export async function POST(req: Request) {
   try {
@@ -26,15 +28,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid currency" }, { status: 400 });
     }
 
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return NextResponse.json(
-        { error: "Payment temporarily unavailable. Please try again later." },
-        { status: 503 }
-      );
-    }
     const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
+      key_id: env.RAZORPAY_KEY_ID,
+      key_secret: env.RAZORPAY_KEY_SECRET,
     });
     const order = await razorpay.orders.create({
       amount,
@@ -46,10 +42,10 @@ export async function POST(req: Request) {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      key: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
     });
   } catch (error) {
-    console.error("Razorpay order creation error:", error);
+    logger.error("PAYMENTS", "Razorpay order creation error", error);
     return NextResponse.json(
       { error: "Payment temporarily unavailable. Please try again later." },
       { status: 500 }
