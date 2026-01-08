@@ -3,25 +3,26 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { Role } from "@/types/enums";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== Role.ADMIN) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
   const { role } = await req.json();
-  if (!role || !["seeker", "provider"].includes(role)) {
+  if (!role || ![Role.SEEKER, Role.PROVIDER].includes(role as Role)) {
     return NextResponse.json(
       { error: "Missing or invalid parameters" },
       { status: 400 }
     );
   }
   const { db } = await getDb();
-  const collection = role === "provider" ? "providers" : "seekers";
+  const collection = role === Role.PROVIDER ? "providers" : "seekers";
   const result = await db
     .collection(collection)
     .deleteOne({ _id: new ObjectId(id) });

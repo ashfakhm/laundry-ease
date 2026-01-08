@@ -4,12 +4,14 @@ import { createRazorpayPayout } from "@/lib/razorpay";
 import { Order } from "@/types/orders";
 import { Provider } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { releaseEscrowPayment } from "@/lib/db";
+import { env } from "@/lib/env";
 
 export async function GET(req: NextRequest) {
   try {
     // Authorization check - CRITICAL for production security
     const authHeader = req.headers.get("authorization");
-    if (!process.env.CRON_SECRET) {
+    if (!env.CRON_SECRET) {
       logger.error(
         "CRON",
         "CRON_SECRET not configured - cron endpoint disabled"
@@ -20,21 +22,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // CRITICAL: Require RAZORPAYX_ACCOUNT_NUMBER - never use hardcoded fallback
-    if (!process.env.RAZORPAYX_ACCOUNT_NUMBER) {
-      logger.error(
-        "CRON",
-        "RAZORPAYX_ACCOUNT_NUMBER not configured - payout endpoint disabled"
-      );
-      return NextResponse.json(
-        { error: "Payout configuration missing" },
-        { status: 503 }
-      );
-    }
+    // CRITICAL: Require RAZORPAYX_ACCOUNT_NUMBER - validated in env.ts schema
 
     const { db } = await getDb();
     const now = new Date();
@@ -99,9 +91,33 @@ export async function GET(req: NextRequest) {
       const payoutAmountPaise = Math.round(payoutAmount * 100);
 
       try {
-        // Initiate Payout
+        // CRITICAL: Release Escrow FIRST (before initiating payout)
+        // This ensures escrow checks (complaints, etc.) are enforced
+        const escrowReleased = await releaseEscrowPayment(order._id);
+        if (!escrowReleased) {
+          // Escrow release failed (likely due to complaint or already released)
+          results.push({ orderId: order._id, status: "escrow_release_failed" });
+          continue;
+        }
+
+        // CRITICAL: Require RAZORPAYX_ACCOUNT_NUMBER to be configured
+        if (!env.RAZORPAYX_ACCOUNT_NUMBER) {
+          logger.error(
+            "CRON",
+            "RAZORPAYX_ACCOUNT_NUMBER not configured - cannot process payouts",
+            new Error("Missing RazorpayX account number"),
+            { orderId: order._id }
+          );
+          results.push({
+            orderId: order._id,
+            status: "account_not_configured",
+          });
+          continue;
+        }
+
+        // Initiate Payout (only after escrow is released)
         const payout = await createRazorpayPayout({
-          account_number: process.env.RAZORPAYX_ACCOUNT_NUMBER!, // Validated at top of function
+          account_number: env.RAZORPAYX_ACCOUNT_NUMBER,
           fund_account_id: provider.razorpay_fund_account_id,
           amount: payoutAmountPaise,
           currency: "INR",
@@ -111,19 +127,36 @@ export async function GET(req: NextRequest) {
           reference_id: order._id.toString(),
         });
 
-        // Update Order
-        await db.collection<Order>("orders").updateOne(
-          { _id: order._id },
+        // Update Order with payout details (payment_status already set to "released" by releaseEscrowPayment)
+        // IDEMPOTENCY: Only update if payout_id doesn't exist (prevents overwriting existing payouts)
+        const updateResult = await db.collection<Order>("orders").updateOne(
+          {
+            _id: order._id,
+            payout_id: { $exists: false }, // Only update if payout_id doesn't exist (idempotent)
+          },
           {
             $set: {
-              payment_status: "released",
               payout_status: "processing", // Razorpay Payouts are async, 'processing' is safe. Hook handles 'processed'.
               payout_id: payout.id,
+              payout_initiated_at: new Date(),
               platform_commission: commission,
               provider_payout_amount: payoutAmount,
             },
           }
         );
+
+        if (updateResult.matchedCount === 0) {
+          // Payout was created but DB update failed (race condition) or already exists
+          // Log warning but don't fail - payout_id already exists from previous run
+          logger.warn(
+            "CRON",
+            `Payout ID already exists for order (idempotent skip)`,
+            {
+              orderId: order._id,
+              payoutId: payout.id,
+            }
+          );
+        }
 
         results.push({
           orderId: order._id,

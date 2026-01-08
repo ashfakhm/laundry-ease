@@ -9,6 +9,8 @@ import { getDb } from "@/lib/mongodb";
 import { Order } from "@/types/orders";
 import { env } from "@/lib/env";
 import twilio from "twilio";
+import { logger } from "@/lib/logger";
+import { orderStatusUpdateSchema } from "@/lib/api/schemas";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -34,19 +36,53 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { status } = body;
+    const parsed = orderStatusUpdateSchema.safeParse(body);
 
-    const validStatuses = [
-      "processing",
-      "washing",
-      "ironing",
-      "ready",
-      "out_for_delivery",
-      "delivered",
-    ];
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid status data",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
 
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json({ message: "Invalid status" }, { status: 400 });
+    const { status } = parsed.data;
+
+    // STATE TRANSITION VALIDATION: Ensure valid transitions from current state
+    // Orders start at "invoiced" and must progress: invoiced → processing → washing → ironing → ready → out_for_delivery → delivered
+    const validTransitions: Record<string, string[]> = {
+      invoiced: ["processing"],
+      processing: ["washing", "ready"], // Can skip directly to ready if simple service
+      washing: ["ironing", "ready"], // Can skip ironing if not needed
+      ironing: ["ready"],
+      ready: ["out_for_delivery"],
+      out_for_delivery: ["delivered"],
+      // delivered is terminal
+    };
+
+    const currentStatus = order.process_status || "invoiced";
+    const allowedNextStates = validTransitions[currentStatus] || [];
+
+    if (!allowedNextStates.includes(status)) {
+      logger.warn("ORDERS", "Invalid state transition attempted", {
+        orderId: id,
+        currentStatus,
+        attemptedStatus: status,
+        allowedNextStates,
+      });
+      return NextResponse.json(
+        {
+          error: "Invalid state transition",
+          message: `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(
+            ", "
+          )}`,
+          currentStatus,
+          allowedNextStates,
+        },
+        { status: 422 }
+      );
     }
 
     const { db } = await getDb();
@@ -64,11 +100,10 @@ export async function POST(
     };
 
     if (status === "out_for_delivery") {
-      // Generate OTP
+      // Generate OTP for delivery confirmation
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       updateData.delivery_otp = otp;
-      // Send real SMS to seeker
-      const { db } = await getDb();
+      // Send real SMS to seeker with OTP
       const seeker = await db
         .collection("seekers")
         .findOne({ _id: order.seeker_id });
@@ -81,7 +116,7 @@ export async function POST(
             if (phone.length === 10) {
               phone = `+91${phone}`;
             } else if (phone.startsWith("0")) {
-                phone = `+91${phone.substring(1)}`;
+              phone = `+91${phone.substring(1)}`;
             }
           }
 
@@ -94,47 +129,31 @@ export async function POST(
             from: env.TWILIO_PHONE_NUMBER,
             to: phone,
           });
+          logger.info("ORDERS", "Delivery OTP SMS sent", {
+            orderId: id,
+            phone: phone.substring(0, 4) + "***",
+          });
         } catch (err) {
-          console.error("Failed to send delivery OTP SMS:", err);
+          logger.error("ORDERS", "Failed to send delivery OTP SMS", err, {
+            orderId: id,
+          });
         }
       } else {
-        console.warn("Seeker phone number not found, cannot send OTP SMS.");
-      }
-    }
-
-    if (status === "delivered") {
-      const { otp } = body;
-
-      // If order allows "Seeker Confirmation" via checking their own device, we might skip this.
-      // But for "Provider enters OTP" flow:
-      if (!otp) {
-        return NextResponse.json(
-          { message: "OTP required for delivery confirmation" },
-          { status: 400 }
+        logger.warn(
+          "ORDERS",
+          "Seeker phone number not found, cannot send OTP SMS",
+          { orderId: id }
         );
       }
-
-      if (otp !== order.delivery_otp) {
-        return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
-      }
-
-      updateData.otp_confirmed_at = new Date();
     }
 
-    if (status === "delivered" && order.deadline) {
-      const now = new Date();
-      if (now > order.deadline) {
-        // Calculate Penalty
-        // Rule: 5% discount per hour late (max 30%)
-        const lateHours =
-          (now.getTime() - new Date(order.deadline).getTime()) /
-          (1000 * 60 * 60);
-        const penaltyRate = Math.min(lateHours * 0.05, 0.3);
-        const penaltyAmount = Math.round(order.total_price * penaltyRate);
+    // CRITICAL: "delivered" status can ONLY be set through confirm-delivery endpoint
+    // This endpoint handles workflow status (processing → washing → ironing → ready → out_for_delivery)
+    // Delivery confirmation requires OTP and must go through /api/orders/[id]/confirm-delivery
+    // Schema validation ensures "delivered" cannot be sent here
 
-        updateData.latePenalty = penaltyAmount;
-      }
-    }
+    // Late penalty calculation happens in confirm-delivery endpoint, not here
+    // This endpoint only handles workflow status transitions (processing → washing → ironing → ready → out_for_delivery)
 
     await db
       .collection("orders")
@@ -143,11 +162,12 @@ export async function POST(
     revalidatePath(`/seeker/orders/${id}`);
 
     return NextResponse.json({
-      message: "Status updated",
-      latePenalty: updateData.latePenalty,
+      message: "Status updated successfully",
     });
   } catch (error) {
-    console.error("Error updating order status:", error);
+    logger.error("ORDERS", "Error updating order status", error, {
+      orderId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

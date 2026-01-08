@@ -10,6 +10,7 @@ import {
   createRazorpayFundAccount,
 } from "@/lib/razorpay";
 import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
 
 export type ActionResponse = {
   success: boolean;
@@ -132,7 +133,9 @@ export async function updateBookingStatus(
             );
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (err: any) {
-            console.error("Auto-sync Razorpay failed:", err);
+            logger.error("BOOKING_ACTIONS", "Auto-sync Razorpay failed", err, {
+              bookingId,
+            });
             return {
               success: false,
               error: `Payment Setup Failed: ${
@@ -183,7 +186,9 @@ export async function updateBookingStatus(
 
     return { success: false, error: "Invalid action" };
   } catch (error) {
-    console.error("Update booking status error:", error);
+    logger.error("BOOKING_ACTIONS", "Error updating booking status", error, {
+      bookingId,
+    });
     return { success: false, error: "Internal server error" };
   }
 }
@@ -271,7 +276,9 @@ export async function proposePickupSlot(
     revalidatePath("/provider/Manage-booking");
     return { success: true, message: "Pickup slot proposed" };
   } catch (error) {
-    console.error("Propose pickup slot error:", error);
+    logger.error("BOOKING_ACTIONS", "Error proposing pickup slot", error, {
+      bookingId,
+    });
     return { success: false, error: "Failed to propose pickup slot" };
   }
 }
@@ -335,7 +342,9 @@ export async function markProviderArrived(
     revalidatePath("/provider/Manage-booking");
     return { success: true, message: "Marked as arrived" };
   } catch (error) {
-    console.error("Mark arrived error:", error);
+    logger.error("BOOKING_ACTIONS", "Error marking provider arrival", error, {
+      bookingId,
+    });
     return { success: false, error: "Failed to mark arrival" };
   }
 }

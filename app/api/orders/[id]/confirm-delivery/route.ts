@@ -4,13 +4,15 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getOrderById, confirmDelivery } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
+import { confirmDeliverySchema } from "@/lib/api/schemas";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
@@ -18,13 +20,19 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { otp } = body;
+    const parsed = confirmDeliverySchema.safeParse(body);
 
-    if (!otp) {
-      return NextResponse.json({ message: "OTP is required" }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid OTP data",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
     }
 
-
+    const { otp } = parsed.data;
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
@@ -49,13 +57,8 @@ export async function POST(
       );
     }
 
-    // DB Comparison for OTP
-    if (order.delivery_otp && order.delivery_otp !== otp) {
-      return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
-    }
-
-    // DB Comparison for OTP
-    if (order.delivery_otp && order.delivery_otp !== otp) {
+    // Verify OTP
+    if (!order.delivery_otp || order.delivery_otp !== otp) {
       return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
     }
 
@@ -72,7 +75,7 @@ export async function POST(
       );
     }
   } catch (error) {
-    console.error("Error confirming delivery:", error);
+    logger.error("ORDERS", "Error confirming delivery", error, { orderId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

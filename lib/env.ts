@@ -17,6 +17,31 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().min(1),
   TWILIO_AUTH_TOKEN: z.string().min(1),
   TWILIO_PHONE_NUMBER: z.string().min(1),
+
+  // Razorpay Payment Gateway
+  RAZORPAY_KEY_ID: z.string().min(1),
+  RAZORPAY_KEY_SECRET: z.string().min(1),
+  NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().min(1),
+  RAZORPAYX_ACCOUNT_NUMBER: z.string().min(1).optional().or(z.literal("")),
+
+  // Google Maps API
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1),
+
+  // Cron Security
+  CRON_SECRET: z.string().min(1),
+
+  // NextAuth (required for JWT signing)
+  NEXTAUTH_SECRET: z.string().min(1),
+  NEXTAUTH_URL: z.string().url().optional(),
+
+  // Application URLs (optional, have defaults in code)
+  NEXT_PUBLIC_BASE_URL: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().optional(),
+
+  // Cloudinary (optional, has fallback)
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

@@ -8,6 +8,7 @@ import {
 } from "@/lib/razorpay";
 import { Provider } from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   const payload = await req.json();
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (error) {
-    console.error("Error syncing with Razorpay during signup:", error);
+    logger.error("SIGNUP", "Error syncing with Razorpay during signup", error, { email });
     // We do NOT fail the signup here, just log it.
     // They can retry syncing by updating their profile later.
   }

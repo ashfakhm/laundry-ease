@@ -3,6 +3,8 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Review, Provider } from "@/lib/db";
 import { requireSeeker } from "@/lib/api/auth";
+import { logger } from "@/lib/logger";
+import { createReviewSchema } from "@/lib/api/schemas";
 
 // POST /api/reviews
 export async function POST(req: NextRequest) {
@@ -10,20 +12,17 @@ export async function POST(req: NextRequest) {
     // Only authenticated seekers can create reviews
     const { user } = await requireSeeker();
 
-    const { order_id, provider_id, rating, comment } = await req.json();
+    const body = await req.json();
+    const parsed = createReviewSchema.safeParse(body);
 
-    if (!order_id || !provider_id || !rating) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    }
-
-    // Validate rating range
-    const ratingNum = Number(rating);
-    if (ratingNum < 1 || ratingNum > 5 || !Number.isInteger(ratingNum)) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Rating must be an integer between 1 and 5" },
+        { error: "Invalid review data", details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
+
+    const { order_id, provider_id, rating: ratingNum, comment } = parsed.data;
 
     const { db } = await getDb();
 
@@ -52,12 +51,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Review using authenticated user's ID (not from request)
+    // Note: We use order_id and provider_id from validated schema, but seeker_id from session
     const review: Review = {
       order_id: new ObjectId(order_id),
       seeker_id: new ObjectId(user.id),
       provider_id: new ObjectId(provider_id),
       rating: ratingNum,
-      comment,
+      comment: comment || undefined,
       createdAt: new Date(),
     };
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Internal Server Error";
-    console.error("Review Error:", error);
+    logger.error("REVIEWS", "Error creating review", error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(reviews);
   } catch (error: unknown) {
-    console.error("Fetch Reviews Error:", error);
+    logger.error("REVIEWS", "Error fetching reviews", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

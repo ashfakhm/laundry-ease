@@ -1,13 +1,9 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { logger } from "./logger";
 
-// Validate Razorpay environment variables
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  console.warn(
-    "⚠️  Razorpay credentials not configured. Payment features will not work. " +
-      "Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env.local"
-  );
-}
+// Note: env validation happens via env.ts schema
+// This check is for runtime safety
 
 // Initialize Razorpay
 // Note: These env vars must be set in .env.local
@@ -98,7 +94,7 @@ export async function createRazorpayOrder(
     const order = await razorpay.orders.create(options);
     return order;
   } catch (error) {
-    console.error("Error creating Razorpay order:", error);
+    logger.error("RAZORPAY", "Error creating Razorpay order", error, { receipt });
     throw error;
   }
 }
@@ -144,7 +140,7 @@ export async function refundRazorpayPayment(
     const refund = await razorpay.payments.refund(paymentId, params);
     return refund;
   } catch (error) {
-    console.error("Error refunding Razorpay payment:", error);
+    logger.error("RAZORPAY", "Error refunding Razorpay payment", error, { paymentId, amount });
     throw error;
   }
 }
@@ -195,7 +191,7 @@ export async function createRazorpayContact(data: {
     const result = await razorpayFetch("/contacts", "POST", data);
     return result as unknown as RazorpayContact;
   } catch (error) {
-    console.error("Error creating Razorpay contact:", error);
+    logger.error("RAZORPAY", "Error creating Razorpay contact", error, { name: data.name });
     throw error;
   }
 }
@@ -216,7 +212,7 @@ export async function createRazorpayFundAccount(data: {
     const result = await razorpayFetch("/fund_accounts", "POST", data);
     return result as unknown as RazorpayFundAccount;
   } catch (error) {
-    console.error("Error creating Fund Account:", error);
+    logger.error("RAZORPAY", "Error creating Fund Account", error, { contactId: data.contact_id });
     throw error;
   }
 }
@@ -235,7 +231,7 @@ export async function createRazorpayFundAccountVpa(data: {
     const result = await razorpayFetch("/fund_accounts", "POST", data);
     return result as unknown as RazorpayFundAccount;
   } catch (error) {
-    console.error("Error creating VPA Fund Account:", error);
+    logger.error("RAZORPAY", "Error creating VPA Fund Account", error, { contactId: data.contact_id });
     throw error;
   }
 }
@@ -261,7 +257,7 @@ export async function createRazorpayPayout(data: {
     ).payouts.create(data);
     return response;
   } catch (error) {
-    console.error("Error creating Payout:", error);
+    logger.error("RAZORPAY", "Error creating Payout", error, { fundAccountId: data.fund_account_id, amount: data.amount });
     throw error;
   }
 }

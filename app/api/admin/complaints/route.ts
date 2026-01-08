@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/admin/complaints
@@ -64,7 +65,7 @@ export async function GET() {
 
     return NextResponse.json(enrichedComplaints, { status: 200 });
   } catch (error) {
-    console.error("Error fetching complaints:", error);
+    logger.error("ADMIN_COMPLAINTS", "Error fetching complaints", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

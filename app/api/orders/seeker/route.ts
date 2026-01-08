@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/orders/seeker
@@ -52,7 +53,7 @@ export async function GET() {
 
     return NextResponse.json(enrichedOrders, { status: 200 });
   } catch (error) {
-    console.error("Error fetching seeker orders:", error);
+    logger.error("ORDERS", "Error fetching seeker orders", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

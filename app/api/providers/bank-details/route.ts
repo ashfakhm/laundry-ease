@@ -7,6 +7,7 @@ import {
 } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
 import { requireProvider } from "@/lib/api/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Internal Server Error";
-    console.error("Error saving bank details:", error);
+    logger.error("PROVIDER", "Error saving bank details", error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

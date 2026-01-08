@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getOrderById, cancelOrder } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 const CANCELLATION_FEE = 1000; // 10 currency units
 
@@ -11,8 +12,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
@@ -62,7 +63,7 @@ export async function POST(
       );
     }
   } catch (error) {
-    console.error("Error cancelling order:", error);
+    logger.error("ORDERS", "Error cancelling order", error, { orderId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

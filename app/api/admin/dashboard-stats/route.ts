@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
+import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "admin") {
+    if (!session || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -83,7 +85,7 @@ export async function GET() {
       totalRevenue,
     });
   } catch (error) {
-    console.error("Error fetching admin dashboard stats:", error);
+    logger.error("ADMIN_DASHBOARD", "Error fetching admin dashboard stats", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-
+import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { razorpay } from "@/lib/razorpay";
 import { updateOrderPaymentStatus, getOrderById } from "@/lib/db";
@@ -19,7 +20,7 @@ interface Order extends Record<string, unknown> {
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "admin") {
+    if (!session || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -58,7 +59,7 @@ export async function GET() {
 
     return NextResponse.json(enrichedOrders);
   } catch (error) {
-    console.error("Error fetching payments:", error);
+    logger.error("ADMIN_PAYMENTS", "Error fetching payments", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -82,7 +83,7 @@ const actionSchema = z.object({
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "admin") {
+    if (!session || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -174,7 +175,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, result: razorpayResult });
   } catch (error) {
-    console.error("Error in admin refund/penalty:", error);
+    logger.error("ADMIN_PAYMENTS", "Error in admin refund/penalty", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

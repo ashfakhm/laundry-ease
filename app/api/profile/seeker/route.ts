@@ -3,31 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
-import { z } from "zod";
 import bcrypt from "bcrypt";
-
-const updateSchema = z.object({
-  name: z.string().optional(),
-  phone: z.string().optional(),
-  address: z
-    .object({
-      line1: z.string(),
-      city: z.string(),
-      state: z.string(),
-      country: z.string(),
-      postalCode: z.string(),
-      landmark: z.string().optional(),
-    })
-    .optional(),
-  coordinates: z
-    .object({
-      lat: z.number(),
-      lng: z.number(),
-    })
-    .optional(),
-  currentPassword: z.string().optional(),
-  newPassword: z.string().min(8).optional(),
-});
+import { logger } from "@/lib/logger";
+import { updateSeekerProfileSchema } from "@/lib/api/schemas";
 
 /**
  * GET /api/profile/seeker
@@ -61,7 +39,7 @@ export async function GET() {
 
     return NextResponse.json(seeker, { status: 200 });
   } catch (error) {
-    console.error("Error fetching seeker profile:", error);
+    logger.error("PROFILE", "Error fetching seeker profile", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -87,7 +65,7 @@ export async function PUT(req: Request) {
 
     const { db } = await getDb();
     const json = await req.json();
-    const parsed = updateSchema.safeParse(json);
+    const parsed = updateSeekerProfileSchema.safeParse(json);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -147,7 +125,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ success: true, message: "Profile updated successfully" });
 
   } catch (error) {
-    console.error("Error updating seeker profile:", error);
+    logger.error("PROFILE", "Error updating seeker profile", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

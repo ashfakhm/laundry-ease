@@ -3,8 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
+import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-secret-key";
+const JWT_SECRET = env.NEXTAUTH_SECRET;
 
 export async function POST(req: Request) {
   try {
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Email verification error:", error);
+    logger.error("AUTH", "Email verification error", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

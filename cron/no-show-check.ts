@@ -39,24 +39,44 @@ export async function checkNoShows() {
   const results = [];
 
   for (const booking of overdueBookings) {
-    // Step 2: Check if an order exists for this booking
-    const order = await db
-      .collection("orders")
-      .findOne({ booking_id: booking._id });
+    try {
+      // Step 2: Check if an order exists for this booking
+      const order = await db
+        .collection("orders")
+        .findOne({ booking_id: booking._id });
 
-    if (!order) {
-      // MARK AS NO-SHOW
-      await db.collection<Booking>("bookings").updateOne(
-        { _id: booking._id },
-        {
-          $set: {
-            noShowStatus: true,
-            status: "rejected", // Auto-cancel basically
+      if (!order) {
+        // IDEMPOTENCY: Only update if still in "accepted" status and not already marked
+        // Atomic update prevents double-processing
+        const updateResult = await db.collection<Booking>("bookings").updateOne(
+          {
+            _id: booking._id,
+            status: "accepted", // Only update if still accepted (idempotent)
+            noShowStatus: { $ne: true }, // Double-check not already marked
           },
+          {
+            $set: {
+              noShowStatus: true,
+              status: "rejected", // Auto-cancel basically
+              noShowMarkedAt: new Date(),
+            },
+          }
+        );
+
+        // If update didn't match, booking was already processed (idempotent - skip)
+        if (updateResult.matchedCount > 0) {
+          results.push(`Marked Booking ${booking._id} as No-Show`);
+          logger.info("NO-SHOW", `Booking marked as No-Show`, {
+            bookingId: booking._id.toString(),
+          });
+        } else {
+          logger.debug("NO-SHOW", `Booking already processed (idempotent skip)`, {
+            bookingId: booking._id.toString(),
+          });
         }
-      );
-      results.push(`Marked Booking ${booking._id} as No-Show`);
-      logger.info("NO-SHOW", `Booking marked as No-Show`, {
+      }
+    } catch (err) {
+      logger.error("NO-SHOW", `Failed to process no-show check`, err, {
         bookingId: booking._id.toString(),
       });
     }

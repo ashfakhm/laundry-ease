@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import cloudinary from "cloudinary";
+import { logger } from "@/lib/logger";
 
 // Check if Cloudinary is configured
 const isCloudinaryConfigured = !!(
@@ -83,17 +84,14 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Fallback to base64 encoding
-      console.warn(
-        "Cloudinary not configured. Using base64 encoding as fallback. " +
-          "For production, please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in .env.local"
-      );
+      logger.warn("UPLOAD", "Cloudinary not configured. Using base64 encoding as fallback.");
       const base64 = buffer.toString("base64");
       imageUrl = `data:${file.type};base64,${base64}`;
     }
 
     return NextResponse.json({ url: imageUrl }, { status: 200 });
   } catch (error: any) {
-    console.error("Image upload error:", error);
+    logger.error("UPLOAD", "Image upload error", error);
     return NextResponse.json(
       { error: "Failed to upload image", details: error.message },
       { status: 500 }

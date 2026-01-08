@@ -3,15 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
+import { invoiceCreateSchema } from "@/lib/api/schemas";
 
 // POST: Provider creates invoice for a confirmed booking
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
-
     // Always use ObjectId for MongoDB queries
     let bookingQuery: { _id: ObjectId };
     try {
@@ -29,13 +30,19 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { items, notes, photos, discount, total, subtotal } = body;
-    if (!Array.isArray(items) || items.length === 0) {
+    const parsed = invoiceCreateSchema.safeParse(body);
+
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invoice items required" },
+        {
+          error: "Invalid invoice data",
+          details: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
+
+    const { items, notes, photos, discount, total, subtotal } = parsed.data;
 
     const { db } = await getDb();
 
@@ -62,34 +69,28 @@ export async function POST(
     }
 
     // Invoice structure: items, notes, photos, discount, subtotal, total
-    // Helper to generic safe parse numbers
-    const safeNum = (val: unknown) => {
-      const n = Number(val);
-      return isNaN(n) ? 0 : n;
-    };
-
-    const cleanDiscount = safeNum(discount);
-    // Recalculate subtotal from items if missing/invalid
+    // Calculate totals - Zod already validates all numbers are nonnegative
     const calculatedSubtotal = items.reduce(
-      (sum: number, it: { quantity: unknown; unitPrice: unknown }) =>
-        sum + safeNum(it.quantity) * safeNum(it.unitPrice),
+      (sum: number, it) => sum + it.quantity * it.unitPrice,
       0
     );
     const cleanSubtotal =
-      subtotal !== undefined ? safeNum(subtotal) : calculatedSubtotal;
-
-    // Recalculate total if missing
-    // Default total is subtotal - discount
-    let cleanTotal =
-      body.total !== undefined
-        ? safeNum(body.total)
+      subtotal !== undefined ? subtotal : calculatedSubtotal;
+    const cleanDiscount = discount || 0;
+    // Recalculate total if missing - ensure it's never negative
+    const cleanTotal =
+      total !== undefined
+        ? Math.max(0, total)
         : Math.max(0, cleanSubtotal - cleanDiscount);
-    // Ensure total is never negative
-    cleanTotal = Math.max(0, cleanTotal);
 
-    // Invoice structure: items, notes, photos, discount, subtotal, total
+    // Invoice structure - validated by Zod schema
     const invoice = {
-      items,
+      items: items.map((it: any) => ({
+        itemType: it.itemType,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        photoUrl: it.photoUrl,
+      })),
       notes: notes || "",
       photos: photos || [],
       discount: cleanDiscount,
@@ -110,7 +111,7 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Create invoice error:", error);
+    logger.error("BOOKINGS", "Create invoice error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

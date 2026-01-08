@@ -4,13 +4,14 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getBookingById } from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -57,12 +58,31 @@ export async function DELETE(
 
     const { db } = await getDb();
 
-    // Check if there is an associated order.
-    // If an order exists (even if cancelled), deleting the booking might break references in Order.
-    // However, usually "cancelled" bookings don't have orders yet, or the order is also cancelled.
-    // For this specific logic: if an Order exists, we might want to prevent deletion or cascading delete.
-    // For MVP/simple flow: allow deletion if booking is standalone.
+    // CRITICAL: Prevent orphan orders - check if there is an associated order
+    // If an order exists, prevent deletion to maintain referential integrity
+    const associatedOrder = await db
+      .collection("orders")
+      .findOne({ booking_id: booking_id });
 
+    if (associatedOrder) {
+      logger.warn(
+        "BOOKINGS",
+        "Attempted to delete booking with associated order",
+        {
+          bookingId: booking_id.toString(),
+          orderId: associatedOrder._id.toString(),
+        }
+      );
+      return NextResponse.json(
+        {
+          message:
+            "Cannot delete booking: An order exists for this booking. Please cancel the order first.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Safe to delete - no associated order
     const deleteResult = await db
       .collection("bookings")
       .deleteOne({ _id: booking_id });
@@ -79,7 +99,9 @@ export async function DELETE(
       );
     }
   } catch (error) {
-    console.error("Error deleting booking:", error);
+    logger.error("BOOKINGS", "Error deleting booking", error, {
+      bookingId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

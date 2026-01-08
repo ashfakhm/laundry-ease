@@ -2,15 +2,17 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-secret-key";
-const BASE_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
+const JWT_SECRET = env.NEXTAUTH_SECRET;
+const BASE_URL = env.NEXTAUTH_URL || env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 const emailTransporter = nodemailer.createTransport({
   service: "Gmail",
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: env.EMAIL_USER,
+    pass: env.EMAIL_PASS,
   },
 });
 
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Send magic link error:", error);
+    logger.error("AUTH", "Send magic link error", error);
     return NextResponse.json(
       { error: "Failed to send verification email" },
       { status: 500 }

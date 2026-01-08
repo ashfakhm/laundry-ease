@@ -3,20 +3,35 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
+import { invoiceReviewSchema } from "@/lib/api/schemas";
 
 // POST: Seeker reviews invoice (approve/reject)
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const { db } = await getDb();
-    const { action } = await req.json(); // action: "approve" | "reject" | "edit"
+    const body = await req.json();
+    const parsed = invoiceReviewSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid action",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { approved, reason } = parsed.data;
     const bookingQuery = { _id: new ObjectId(id) };
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
@@ -29,7 +44,7 @@ export async function POST(
     if (!seeker || booking.seeker_id.toString() !== seeker._id.toString()) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    if (action === "approve") {
+    if (approved) {
       // Create order from booking/invoice
       const invoice = booking.invoice;
       if (
@@ -81,29 +96,20 @@ export async function POST(
         },
       });
       return NextResponse.json({ success: true, orderCreated: true });
-    } else if (action === "reject") {
-      // Forfeit booking fee, mark booking as rejected
+    } else {
+      // Reject: Forfeit booking fee, mark booking as rejected
       await db.collection("bookings").updateOne(bookingQuery, {
         $set: {
           status: "rejected",
           bookingFeeStatus: "forfeited",
+          invoice_rejection_reason: reason,
           updatedAt: new Date(),
         },
       });
       return NextResponse.json({ success: true, feeForfeited: true });
-    } else if (action === "edit") {
-      // Mark booking as invoice_created, allow provider to edit
-      await db.collection("bookings").updateOne(bookingQuery, {
-        $set: {
-          status: "invoice_created",
-          updatedAt: new Date(),
-        },
-      });
-      return NextResponse.json({ success: true, editRequested: true });
     }
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
-    console.error("Invoice review error:", error);
+    logger.error("BOOKINGS", "Invoice review error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

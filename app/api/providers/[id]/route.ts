@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { logger } from "@/lib/logger";
 
 /**
  * GET /api/providers/:id
@@ -10,9 +11,8 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
-
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
@@ -42,7 +42,9 @@ export async function GET(
 
     return NextResponse.json(provider, { status: 200 });
   } catch (error) {
-    console.error("Error fetching provider:", error);
+    logger.error("PROVIDER", "Error fetching provider", error, {
+      providerId: id,
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

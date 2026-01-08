@@ -7,6 +7,7 @@ import { ObjectId } from "mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { Booking } from "@/types/bookings";
+import { logger } from "@/lib/logger";
 
 // POST: Create Razorpay Order for Booking Fee
 export async function POST(
@@ -55,7 +56,7 @@ export async function POST(
       currency: razorpayOrder.currency,
     });
   } catch (error) {
-    console.error("Error creating booking fee order:", error);
+    logger.error("BOOKINGS", "Error creating booking fee order", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }
@@ -103,7 +104,7 @@ export async function PUT(
       );
     }
   } catch (error) {
-    console.error("Error verification booking fee:", error);
+    logger.error("BOOKINGS", "Error verifying booking fee", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }
