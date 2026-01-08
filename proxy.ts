@@ -3,8 +3,10 @@ import type { JWT } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/* ================= ROUTE MATCHER ================= */
-
+/**
+ * Route-matching utility for middleware
+ * Supports both string paths and regex patterns
+ */
 type Matcher = string | RegExp;
 
 function createRouteMatcher(routes: Matcher[]) {
@@ -18,8 +20,9 @@ function createRouteMatcher(routes: Matcher[]) {
   };
 }
 
-/* ================= ROUTE GROUPS ================= */
-
+/**
+ * Public routes - accessible without authentication
+ */
 const isPublicRoute = createRouteMatcher([
   "/",
   "/auth",
@@ -32,46 +35,60 @@ const isPublicRoute = createRouteMatcher([
   /^\/api\/providers/, // Allow public access to search providers
 ]);
 
+/**
+ * Protected routes by role
+ */
 const isAdminRoute = createRouteMatcher(["/admin"]);
 const isProviderRoute = createRouteMatcher(["/provider"]);
 const isSeekerRoute = createRouteMatcher(["/seeker"]);
 
-/* ================= PROXY (Next.js 16+) ================= */
-
+/**
+ * Modern Proxy Handler for Next.js 15+
+ * Handles authentication, authorization, and role-based routing
+ */
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const token = (await getToken({ req })) as JWT | null;
 
-  // Role-based redirects for authenticated users after sign-in
+  /**
+   * Step 1: Redirect authenticated users to their dashboard
+   */
   if (token && token.role && pathname === "/") {
     const role = token.role as string;
-    if (role === "admin") {
-      return NextResponse.redirect(new URL("/admin", req.url));
-    }
-    if (role === "provider") {
-      return NextResponse.redirect(new URL("/provider", req.url));
-    }
-    if (role === "seeker") {
-      return NextResponse.redirect(new URL("/seeker", req.url));
+    switch (role) {
+      case "admin":
+        return NextResponse.redirect(new URL("/admin", req.url));
+      case "provider":
+        return NextResponse.redirect(new URL("/provider", req.url));
+      case "seeker":
+        return NextResponse.redirect(new URL("/seeker", req.url));
     }
   }
 
-  /* 1️⃣ Public routes */
+  /**
+   * Step 2: Allow public routes without authentication
+   */
   if (isPublicRoute(req)) {
     return NextResponse.next();
   }
 
-  /* 2️⃣ Not authenticated */
+  /**
+   * Step 3: Require authentication for protected routes
+   */
   if (!token) {
     return NextResponse.redirect(new URL("/auth", req.url));
   }
 
-  /* 3️⃣ Logged in but role missing */
+  /**
+   * Step 4: Redirect to role selection if missing
+   */
   if (!token.role && pathname !== "/choose-role") {
     return NextResponse.redirect(new URL("/choose-role", req.url));
   }
 
-  /* 4️⃣ Role-based protection */
+  /**
+   * Step 5: Enforce role-based access control
+   */
   if (isAdminRoute(req) && token.role !== "admin") {
     return NextResponse.redirect(new URL("/unauthorized", req.url));
   }
@@ -84,11 +101,16 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/unauthorized", req.url));
   }
 
+  /**
+   * Allow the request to proceed
+   */
   return NextResponse.next();
 }
 
-/* ================= MATCHER ================= */
-
+/**
+ * Matcher configuration
+ * Excludes static assets and Next.js internals
+ */
 export const config = {
   matcher: [
     "/((?!_next|.*\\.(?:css|js|json|png|jpg|jpeg|gif|svg|ico|woff2?)|favicon.ico).*)",

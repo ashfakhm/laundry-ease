@@ -1,35 +1,57 @@
-import { getSeekerBookings } from "@/lib/data/bookings";
-import { Metadata } from "next";
+"use client";
+
+import { useState, useEffect } from "react";
 import { Receipt, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
-// Force dynamic rendering - this page uses getServerSession which requires headers()
-export const dynamic = "force-dynamic";
+export default function SeekerInvoicesPage() {
+  const [bookings, setBookings] = useState<any[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export const metadata: Metadata = {
-  title: "My Invoices | LaundryEase",
-  description: "View and pay your laundry invoices.",
-};
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const res = await fetch("/api/bookings/seeker");
+        if (!res.ok) {
+          throw new Error("Failed to fetch invoices");
+        }
+        const data = await res.json();
+        setBookings(data.data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-export default async function SeekerInvoicesPage() {
-  const result = await getSeekerBookings();
+    fetchBookings();
+  }, []);
 
-  if (!result.success || !result.data) {
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-background/50 p-6 flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </main>
+    );
+  }
+
+  if (error || !bookings) {
     return (
       <main className="min-h-screen p-6 flex flex-col items-center justify-center text-center">
         <div className="h-20 w-20 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
           <AlertCircle className="h-10 w-10 text-destructive" />
         </div>
         <h2 className="text-2xl font-bold">Unable to load invoices</h2>
-        <p className="text-muted-foreground mt-2">{result.error}</p>
+        <p className="text-muted-foreground mt-2">{error}</p>
       </main>
     );
   }
 
   // Filter bookings that have an invoice
-  const bookingsWithInvoices = result.data
+  const bookingsWithInvoices = bookings
     .filter(
       (b) =>
         b.invoice || b.status === "invoice_created" || b.status === "confirmed"

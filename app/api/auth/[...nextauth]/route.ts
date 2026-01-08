@@ -1,4 +1,4 @@
-import NextAuth, { type NextAuthOptions, type Session } from "next-auth";
+import NextAuth, { type Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
@@ -7,7 +7,7 @@ import bcrypt from "bcrypt";
 import { env } from "@/lib/env";
 import { Role } from "@/types/enums";
 
-export const authOptions: NextAuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google({
       clientId: env.GOOGLE_ID,
@@ -98,7 +98,6 @@ export const authOptions: NextAuthOptions = {
   pages: {
     error: "/choose-role", // Redirect to choose role page on error
   },
-};
+});
 
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+export { handlers as GET, handlers as POST };

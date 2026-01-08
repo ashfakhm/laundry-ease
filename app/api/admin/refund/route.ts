@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { Role } from "@/types/enums";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
@@ -14,7 +13,7 @@ export async function POST(req: Request) {
   let orderId: string | undefined;
 
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }

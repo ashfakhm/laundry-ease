@@ -6,8 +6,7 @@ import { successResponse, withErrorHandling } from "@/lib/api/response";
 import { createComplaintSchema } from "@/lib/api/schemas";
 import { Errors } from "@/lib/api/errors";
 import { ComplaintMessage } from "@/types/complaints";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 
 export const POST = withErrorHandling(async (req: Request) => {
   const session = await requireSeeker();
@@ -102,7 +101,7 @@ export const POST = withErrorHandling(async (req: Request) => {
 });
 
 export const GET = withErrorHandling(async (req: Request) => {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session?.user?.id) {
      throw Errors.unauthorized();
   }

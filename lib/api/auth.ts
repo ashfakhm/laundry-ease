@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { Role } from "@/types/enums";
 import { Errors } from "./errors";
 
@@ -24,7 +23,7 @@ export interface AuthResult {
  * Throws AppError if auth fails
  */
 export async function requireAuth(allowedRoles?: Role[]): Promise<AuthResult> {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
 
   if (!session?.user?.email || !session.user.id) {
     throw Errors.unauthorized("Please sign in to continue");

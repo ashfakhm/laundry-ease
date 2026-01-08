@@ -1,6 +1,7 @@
-import { getProviderBookings } from "@/lib/data/bookings";
+"use client";
+
 import { BookingList } from "./booking-list";
-import { Metadata } from "next";
+import { useState, useEffect } from "react";
 import {
   ClipboardList,
   Calendar,
@@ -9,19 +10,41 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { PopulatedBooking } from "@/types/bookings";
 
-// Force dynamic rendering - this page uses getServerSession which requires headers()
-export const dynamic = "force-dynamic";
+export default function ManageBookingsPage() {
+  const [bookings, setBookings] = useState<PopulatedBooking[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export const metadata: Metadata = {
-  title: "Manage Bookings | LaundryEase Provider",
-  description: "View and manage your laundry service bookings.",
-};
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const res = await fetch("/api/bookings/provider");
+        if (!res.ok) {
+          throw new Error("Failed to fetch bookings");
+        }
+        const data = await res.json();
+        setBookings(data.data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-export default async function ManageBookingsPage() {
-  const result = await getProviderBookings();
+    fetchBookings();
+  }, []);
 
-  if (!result.success || !result.data) {
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-background/50 p-6 flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </main>
+    );
+  }
+
+  if (error || !bookings) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="text-center max-w-md">
@@ -32,7 +55,7 @@ export default async function ManageBookingsPage() {
             Unable to load bookings
           </h2>
           <p className="mt-2 text-muted-foreground">
-            {result.error || "Please try again later."}
+            {error || "Please try again later."}
           </p>
         </div>
       </main>
@@ -41,10 +64,10 @@ export default async function ManageBookingsPage() {
 
   // Calculate stats
   const stats = {
-    pending: result.data.filter((b) => b.status === "requested").length,
-    confirmed: result.data.filter((b) => b.status === "confirmed").length,
-    completed: result.data.filter((b) => b.status === "completed").length,
-    total: result.data.length,
+    pending: bookings.filter((b) => b.status === "requested").length,
+    confirmed: bookings.filter((b) => b.status === "confirmed").length,
+    completed: bookings.filter((b) => b.status === "completed").length,
+    total: bookings.length,
   };
 
   return (
@@ -91,7 +114,7 @@ export default async function ManageBookingsPage() {
         </header>
 
         {/* Booking List */}
-        <BookingList initialBookings={result.data} />
+        <BookingList initialBookings={bookings} />
       </div>
     </main>
   );

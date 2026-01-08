@@ -1,6 +1,7 @@
-import { getSeekerBookings } from "@/lib/data/bookings";
+"use client";
+
 import { SeekerBookingList } from "./seeker-booking-list";
-import { Metadata } from "next";
+import { useState, useEffect } from "react";
 import {
   ClipboardList,
   Calendar,
@@ -10,18 +11,39 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Force dynamic rendering - this page uses getServerSession which requires headers()
-export const dynamic = "force-dynamic";
+export default function SeekerBookingsPage() {
+  const [bookings, setBookings] = useState<any[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export const metadata: Metadata = {
-  title: "My Bookings | LaundryEase",
-  description: "Track your laundry orders and schedule pickups.",
-};
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const res = await fetch("/api/bookings/seeker");
+        if (!res.ok) {
+          throw new Error("Failed to fetch bookings");
+        }
+        const data = await res.json();
+        setBookings(data.data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-export default async function SeekerBookingsPage() {
-  const result = await getSeekerBookings();
+    fetchBookings();
+  }, []);
 
-  if (!result.success || !result.data) {
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-background/50 p-6 flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </main>
+    );
+  }
+
+  if (error || !bookings) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="text-center max-w-md">
@@ -32,7 +54,7 @@ export default async function SeekerBookingsPage() {
             Unable to load bookings
           </h2>
           <p className="mt-2 text-muted-foreground">
-            {result.error || "Please try again later or contact support."}
+            {error || "Please try again later or contact support."}
           </p>
         </div>
       </main>
@@ -41,14 +63,14 @@ export default async function SeekerBookingsPage() {
 
   // Calculate stats
   const stats = {
-    pending: result.data.filter((b) => b.status === "requested").length,
-    active: result.data.filter((b) =>
+    pending: bookings.filter((b) => b.status === "requested").length,
+    active: bookings.filter((b) =>
       ["accepted", "pickup_proposed", "confirmed", "in_progress"].includes(
         b.status
       )
     ).length,
-    completed: result.data.filter((b) => b.status === "completed").length,
-    total: result.data.length,
+    completed: bookings.filter((b) => b.status === "completed").length,
+    total: bookings.length,
   };
 
   return (
@@ -95,7 +117,7 @@ export default async function SeekerBookingsPage() {
         </header>
 
         {/* Booking List */}
-        <SeekerBookingList initialBookings={result.data} />
+        <SeekerBookingList initialBookings={bookings} />
       </div>
     </main>
   );

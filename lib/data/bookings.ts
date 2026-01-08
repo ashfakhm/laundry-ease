@@ -1,7 +1,6 @@
 import { getDb } from "@/lib/mongodb";
 import { PopulatedBooking } from "@/types/bookings";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { ObjectId } from "mongodb";
 
 export async function getProviderBookings(): Promise<{
@@ -10,7 +9,7 @@ export async function getProviderBookings(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session?.user?.email) {
       return { success: false, error: "Unauthorized" };
@@ -100,7 +99,7 @@ export async function getSeekerBookings(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session?.user?.email) {
       return { success: false, error: "Unauthorized" };

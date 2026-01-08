@@ -1,12 +1,11 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb"; // Correct import based on typical usage or check booking-actions
 import { ObjectId } from "mongodb";
 
 export async function getProviderOrders() {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
 
   if (!session || !session.user || (session.user as any).role !== "provider") {
     throw new Error("Unauthorized");

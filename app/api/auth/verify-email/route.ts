@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import { logger } from "@/lib/logger";
@@ -13,10 +12,7 @@ export async function POST(req: Request) {
     const { token } = await req.json();
 
     if (!token) {
-      return NextResponse.json(
-        { error: "Token is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Token is required" }, { status: 400 });
     }
 
     // Verify JWT token
@@ -46,25 +42,20 @@ export async function POST(req: Request) {
     const provider = await db.collection("providers").findOne({ email });
 
     if (!seeker && !provider) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Update emailVerified flag
     if (seeker) {
-      await db.collection("seekers").updateOne(
-        { email },
-        { $set: { emailVerified: true } }
-      );
+      await db
+        .collection("seekers")
+        .updateOne({ email }, { $set: { emailVerified: true } });
     }
 
     if (provider) {
-      await db.collection("providers").updateOne(
-        { email },
-        { $set: { emailVerified: true } }
-      );
+      await db
+        .collection("providers")
+        .updateOne({ email }, { $set: { emailVerified: true } });
     }
 
     return NextResponse.json({ success: true });

@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -12,7 +11,7 @@ export default async function CreateInvoicePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
 
   if (!session?.user?.email) {
     redirect("/signin");
@@ -57,9 +56,7 @@ export default async function CreateInvoicePage({
       </header>
       <div className="bg-card border border-border rounded-2xl p-6 mb-8">
         <InvoiceForm bookingId={id} />
-        <p className="text-sm text-muted-foreground mt-2">
-          Booking ID: {id}
-        </p>
+        <p className="text-sm text-muted-foreground mt-2">Booking ID: {id}</p>
       </div>
       <div className="mt-8">
         <h2 className="font-semibold text-lg mb-2">Chat with Seeker</h2>
