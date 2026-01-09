@@ -15,6 +15,13 @@ import {
   Send,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type OrderItem = {
   name: string;
@@ -405,42 +412,47 @@ export default function OrderStatusPage() {
                             {!order.otp_confirmed_at &&
                               order.payment_status !== "released" &&
                               !order.cancellation_status && (
-                                <select
-                                  className="text-xs border rounded px-1 py-0.5"
+                                <Select
                                   value={order.process_status || "invoiced"}
-                                  onChange={(e) =>
-                                    updateStatus(order._id, e.target.value)
+                                  onValueChange={(value) =>
+                                    updateStatus(order._id, value)
                                   }
                                   disabled={updating === order._id}
                                 >
-                                  {(() => {
-                                    const current = (order.process_status ||
-                                      "invoiced") as NonNullable<
-                                      OrderWithProcessStatus["process_status"]
-                                    >;
-                                    const allowed =
-                                      order.allowedNextStates ??
-                                      deriveAllowedNextStates(current);
-
-                                    // Show current + allowed-next only.
-                                    const options = [
-                                      current,
-                                      ...allowed,
-                                    ] as Array<
-                                      NonNullable<
+                                  <SelectTrigger className="h-8 w-40 text-xs">
+                                    <SelectValue placeholder="Update status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(() => {
+                                      const current = (order.process_status ||
+                                        "invoiced") as NonNullable<
                                         OrderWithProcessStatus["process_status"]
-                                      >
-                                    >;
+                                      >;
+                                      const allowed =
+                                        order.allowedNextStates ??
+                                        deriveAllowedNextStates(current);
 
-                                    const unique = Array.from(new Set(options));
+                                      const options = [
+                                        current,
+                                        ...allowed,
+                                      ] as Array<
+                                        NonNullable<
+                                          OrderWithProcessStatus["process_status"]
+                                        >
+                                      >;
 
-                                    return unique.map((s) => (
-                                      <option key={s} value={s}>
-                                        {STATUS_LABELS[s]}
-                                      </option>
-                                    ));
-                                  })()}
-                                </select>
+                                      const unique = Array.from(
+                                        new Set(options)
+                                      );
+
+                                      return unique.map((s) => (
+                                        <SelectItem key={s} value={s}>
+                                          {STATUS_LABELS[s]}
+                                        </SelectItem>
+                                      ));
+                                    })()}
+                                  </SelectContent>
+                                </Select>
                               )}
                           </div>
                         </div>
