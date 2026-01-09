@@ -6,6 +6,7 @@ import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { confirmDeliverySchema } from "@/lib/api/schemas";
+import { revalidatePath } from "next/cache";
 
 export async function POST(
   req: Request,
@@ -50,7 +51,13 @@ export async function POST(
       );
     }
 
-    if (order.payment_status !== "paid") {
+    // If escrow has already started, payment_status will be "held" (or later "released").
+    // Confirming delivery should still be allowed in these post-payment states so the UI can reach "Delivered".
+    if (
+      !(["paid", "held", "released", "refunded"] as readonly string[]).includes(
+        order.payment_status
+      )
+    ) {
       return NextResponse.json(
         { message: "Order must be paid before confirming delivery" },
         { status: 400 }
@@ -65,6 +72,7 @@ export async function POST(
     const success = await confirmDelivery(order_id);
 
     if (success) {
+      revalidatePath(`/seeker/orders/${id}`);
       return NextResponse.json({
         message: "Delivery confirmed, escrow started",
       });
