@@ -6,11 +6,14 @@ import { getOrderById } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
-import { Order } from "@/types/orders";
 import { env } from "@/lib/env";
 import twilio from "twilio";
 import { logger } from "@/lib/logger";
 import { orderStatusUpdateSchema } from "@/lib/api/schemas";
+import {
+  getAllowedNextStates,
+  type OrderProcessStatus,
+} from "@/lib/orders/status-machine";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -50,22 +53,11 @@ export async function POST(
 
     const { status } = parsed.data;
 
-    // STATE TRANSITION VALIDATION: Ensure valid transitions from current state
-    // Orders start at "invoiced" and must progress: invoiced → processing → washing → ironing → ready → out_for_delivery → delivered
-    const validTransitions: Record<string, string[]> = {
-      invoiced: ["processing"],
-      processing: ["washing", "ready"], // Can skip directly to ready if simple service
-      washing: ["ironing", "ready"], // Can skip ironing if not needed
-      ironing: ["ready"],
-      ready: ["out_for_delivery"],
-      out_for_delivery: ["delivered"],
-      // delivered is terminal
-    };
+    const currentStatus = (order.process_status ||
+      "invoiced") as OrderProcessStatus;
+    const allowedNextStates = getAllowedNextStates(currentStatus);
 
-    const currentStatus = order.process_status || "invoiced";
-    const allowedNextStates = validTransitions[currentStatus] || [];
-
-    if (!allowedNextStates.includes(status)) {
+    if (!allowedNextStates.includes(status as OrderProcessStatus)) {
       logger.warn("ORDERS", "Invalid state transition attempted", {
         orderId: id,
         currentStatus,
@@ -93,9 +85,12 @@ export async function POST(
     // Let's calculate it when status becomes "delivered".
 
     // OTP Logic
-    const updateData: any = {
-      // Using any to allow dynamic fields like delivery_otp
-      process_status: status,
+    const updateData: {
+      process_status: OrderProcessStatus;
+      updatedAt: Date;
+      delivery_otp?: string;
+    } = {
+      process_status: status as OrderProcessStatus,
       updatedAt: new Date(),
     };
 
@@ -163,6 +158,8 @@ export async function POST(
 
     return NextResponse.json({
       message: "Status updated successfully",
+      currentStatus: status,
+      allowedNextStates: getAllowedNextStates(status as OrderProcessStatus),
     });
   } catch (error) {
     logger.error("ORDERS", "Error updating order status", error, {
