@@ -15,6 +15,13 @@ import {
   Send,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type OrderItem = {
   name: string;
@@ -46,14 +53,68 @@ type Order = {
 
 type OrderWithProcessStatus = Order & {
   process_status?:
+    | "invoiced"
     | "processing"
     | "washing"
     | "ironing"
     | "ready"
     | "out_for_delivery"
     | "delivered";
+  allowedNextStates?: Array<
+    | "processing"
+    | "washing"
+    | "ironing"
+    | "ready"
+    | "out_for_delivery"
+    | "delivered"
+  >;
   deadline?: Date;
 };
+
+const STATUS_LABELS: Record<
+  NonNullable<OrderWithProcessStatus["process_status"]>,
+  string
+> = {
+  invoiced: "Invoiced",
+  processing: "Processing",
+  washing: "Washing",
+  ironing: "Ironing",
+  ready: "Ready",
+  out_for_delivery: "Out for Delivery",
+  delivered: "Delivered",
+};
+
+function deriveAllowedNextStates(
+  current: NonNullable<OrderWithProcessStatus["process_status"]>
+): Array<
+  | "processing"
+  | "washing"
+  | "ironing"
+  | "ready"
+  | "out_for_delivery"
+  | "delivered"
+> {
+  // Matches server state machine (authoritative source); used as a safe fallback
+  // before we get allowedNextStates from API.
+  const transitions: Record<string, string[]> = {
+    invoiced: ["processing"],
+    processing: ["washing", "ready"],
+    washing: ["ironing", "ready"],
+    ironing: ["ready"],
+    ready: ["out_for_delivery"],
+    out_for_delivery: ["delivered"],
+    delivered: [],
+  };
+
+  return (transitions[current] ?? []) as unknown as Array<
+    | "processing"
+    | "washing"
+    | "ironing"
+    | "ready"
+    | "out_for_delivery"
+    | "delivered"
+  >;
+}
 
 export default function OrderStatusPage() {
   const { data: session } = useSession();
@@ -66,19 +127,25 @@ export default function OrderStatusPage() {
 
   // OTP Modal State
   const [otpModalOpen, setOtpModalOpen] = useState(false);
-  const [selectedOrderForOtp, setSelectedOrderForOtp] = useState<string | null>(null);
+  const [selectedOrderForOtp, setSelectedOrderForOtp] = useState<string | null>(
+    null
+  );
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const toast = useToast();
 
-  async function updateStatus(orderId: string, newStatus: string, otp?: string) {
+  async function updateStatus(
+    orderId: string,
+    newStatus: string,
+    otp?: string
+  ) {
     if (newStatus === "delivered" && !otp) {
-        // Open Modal
-        setSelectedOrderForOtp(orderId);
-        setOtpModalOpen(true);
-        setOtpInput("");
-        setOtpError(null);
-        return;
+      // Open Modal
+      setSelectedOrderForOtp(orderId);
+      setOtpModalOpen(true);
+      setOtpInput("");
+      setOtpError(null);
+      return;
     }
 
     setUpdating(orderId);
@@ -91,7 +158,7 @@ export default function OrderStatusPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Optimistic update
+        // Update local order + allowedNextStates from server so UI stays in sync.
         setOrders((prev) =>
           prev.map((o) =>
             o._id === orderId
@@ -99,30 +166,98 @@ export default function OrderStatusPage() {
                   ...o,
                   process_status:
                     newStatus as OrderWithProcessStatus["process_status"],
-                  otp_confirmed_at: newStatus === "delivered" ? new Date().toISOString() : o.otp_confirmed_at
+                  allowedNextStates: Array.isArray(data?.allowedNextStates)
+                    ? data.allowedNextStates
+                    : o.allowedNextStates,
+                  otp_confirmed_at:
+                    newStatus === "delivered"
+                      ? new Date().toISOString()
+                      : o.otp_confirmed_at,
                 }
               : o
           )
         );
         // Close modal if open
-        if(otpModalOpen) setOtpModalOpen(false);
+        if (otpModalOpen) setOtpModalOpen(false);
       } else {
-          if(otp) setOtpError(data.message || "Failed to verify OTP");
-          else toast.error(data.message || "Failed to update status");
+        // Keep UI consistent with backend: if backend tells us the allowed states,
+        // store them so dropdown becomes correct immediately.
+        if (
+          res.status === 422 &&
+          Array.isArray(data?.allowedNextStates) &&
+          typeof data?.currentStatus === "string"
+        ) {
+          setOrders((prev) =>
+            prev.map((o) =>
+              o._id === orderId
+                ? {
+                    ...o,
+                    process_status:
+                      data.currentStatus as OrderWithProcessStatus["process_status"],
+                    allowedNextStates: data.allowedNextStates,
+                  }
+                : o
+            )
+          );
+        }
+
+        if (otp) setOtpError(data.message || "Failed to verify OTP");
+        else toast.error(data.message || "Failed to update status");
       }
     } catch (e) {
       console.error(e);
-      if(otp) setOtpError("Network error");
+      if (otp) setOtpError("Network error");
     } finally {
       setUpdating(null);
     }
   }
 
   function handleOtpSubmit(e: React.FormEvent) {
-      e.preventDefault();
-      if(selectedOrderForOtp && otpInput.length === 6) {
-          updateStatus(selectedOrderForOtp, "delivered", otpInput);
-      }
+    e.preventDefault();
+    if (!selectedOrderForOtp) return;
+    if (otpInput.length !== 6) {
+      setOtpError("Please enter a 6-digit OTP");
+      return;
+    }
+
+    setUpdating(selectedOrderForOtp);
+    setOtpError(null);
+
+    fetch(`/api/orders/${selectedOrderForOtp}/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ otp: otpInput }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setOtpError(data?.message || "Failed to verify OTP");
+          return;
+        }
+
+        // Mark as delivered in UI immediately (escrow start happens server-side)
+        setOrders((prev) =>
+          prev.map((o) =>
+            o._id === selectedOrderForOtp
+              ? {
+                  ...o,
+                  process_status: "delivered",
+                  otp_confirmed_at: new Date().toISOString(),
+                  allowedNextStates: [],
+                }
+              : o
+          )
+        );
+
+        toast.success(data?.message || "Delivery confirmed");
+        setOtpModalOpen(false);
+      })
+      .catch(() => {
+        setOtpError("Network error");
+      })
+      .finally(() => {
+        setUpdating(null);
+      });
   }
 
   useEffect(() => {
@@ -318,23 +453,47 @@ export default function OrderStatusPage() {
                             {!order.otp_confirmed_at &&
                               order.payment_status !== "released" &&
                               !order.cancellation_status && (
-                                <select
-                                  className="text-xs border rounded px-1 py-0.5"
-                                  value={order.process_status || "processing"}
-                                  onChange={(e) =>
-                                    updateStatus(order._id, e.target.value)
+                                <Select
+                                  value={order.process_status || "invoiced"}
+                                  onValueChange={(value) =>
+                                    updateStatus(order._id, value)
                                   }
                                   disabled={updating === order._id}
                                 >
-                                  <option value="processing">Processing</option>
-                                  <option value="washing">Washing</option>
-                                  <option value="ironing">Ironing</option>
-                                  <option value="ready">Ready</option>
-                                  <option value="out_for_delivery">
-                                    Out for Delivery
-                                  </option>
-                                  <option value="delivered">Delivered</option>
-                                </select>
+                                  <SelectTrigger className="h-8 w-40 text-xs">
+                                    <SelectValue placeholder="Update status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(() => {
+                                      const current = (order.process_status ||
+                                        "invoiced") as NonNullable<
+                                        OrderWithProcessStatus["process_status"]
+                                      >;
+                                      const allowed =
+                                        order.allowedNextStates ??
+                                        deriveAllowedNextStates(current);
+
+                                      const options = [
+                                        current,
+                                        ...allowed,
+                                      ] as Array<
+                                        NonNullable<
+                                          OrderWithProcessStatus["process_status"]
+                                        >
+                                      >;
+
+                                      const unique = Array.from(
+                                        new Set(options)
+                                      );
+
+                                      return unique.map((s) => (
+                                        <SelectItem key={s} value={s}>
+                                          {STATUS_LABELS[s]}
+                                        </SelectItem>
+                                      ));
+                                    })()}
+                                  </SelectContent>
+                                </Select>
                               )}
                           </div>
                         </div>
@@ -416,66 +575,91 @@ export default function OrderStatusPage() {
       </div>
 
       {/* OTP Modal */}
-        {otpModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="bg-card w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
-                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                        <ShieldCheck className="w-5 h-5 text-primary" /> Verify Delivery
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        Please enter the OTP provided by the customer to confirm delivery.
-                    </p>
+      {otpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-card w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-primary" /> Verify Delivery
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              The delivery OTP is sent to the customer (Seeker). Ask the
+              customer to confirm delivery from their dashboard.
+            </p>
 
-                    <button
-                        type="button"
-                        disabled={!!updating}
-                        onClick={() => {
-                            if(selectedOrderForOtp) {
-                                updateStatus(selectedOrderForOtp, "out_for_delivery");
-                                alert("OTP Resent to Customer!");
-                            }
-                        }}
-                        className="mb-4 text-xs text-primary font-bold hover:underline flex items-center justify-center gap-1 mx-auto"
-                    >
-                        <Send className="w-3 h-3" /> Resend OTP Code
-                    </button>
-                    
-                    <form onSubmit={handleOtpSubmit} className="space-y-4">
-                         <input
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={6}
-                            placeholder="Enter 6-digit OTP"
-                            className="input input-bordered w-full text-center text-2xl tracking-widest font-mono"
-                            value={otpInput}
-                            onChange={(e) => setOtpInput(e.target.value.replace(/[^0-9]/g, ''))}
-                            autoFocus
-                         />
-                         
-                         {otpError && (
-                             <p className="text-xs text-error font-bold text-center">{otpError}</p>
-                         )}
-                         
-                         <div className="grid grid-cols-2 gap-3">
-                             <button 
-                                type="button" 
-                                className="btn btn-ghost"
-                                onClick={() => { setOtpModalOpen(false); setOtpError(null); }}
-                             >
-                                 Cancel
-                             </button>
-                             <button
-                                type="submit"
-                                className="btn btn-primary"
-                                disabled={otpInput.length !== 6 || !!updating}
-                             >
-                                 {updating ? "Verifying..." : "Confirm"}
-                             </button>
-                         </div>
-                    </form>
-                </div>
-            </div>
-        )}
+            <button
+              type="button"
+              disabled={!!updating}
+              onClick={() => {
+                if (selectedOrderForOtp) {
+                  setUpdating(selectedOrderForOtp);
+                  fetch(`/api/orders/${selectedOrderForOtp}/otp/resend`, {
+                    method: "POST",
+                  })
+                    .then(async (res) => {
+                      const data = await res.json().catch(() => ({}));
+                      if (!res.ok) {
+                        toast.error(
+                          data?.message || "Failed to resend OTP. Try again."
+                        );
+                        return;
+                      }
+
+                      toast.success(data?.message || "OTP resent to customer");
+                    })
+                    .catch(() => {
+                      toast.error("Network error while resending OTP");
+                    })
+                    .finally(() => setUpdating(null));
+                }
+              }}
+              className="mb-4 text-xs text-primary font-bold hover:underline flex items-center justify-center gap-1 mx-auto"
+            >
+              <Send className="w-3 h-3" /> Resend OTP Code
+            </button>
+
+            <form onSubmit={handleOtpSubmit} className="space-y-4">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="Enter 6-digit OTP"
+                className="input input-bordered w-full text-center text-2xl tracking-widest font-mono"
+                value={otpInput}
+                onChange={(e) =>
+                  setOtpInput(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                autoFocus
+              />
+
+              {otpError && (
+                <p className="text-xs text-error font-bold text-center">
+                  {otpError}
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setOtpModalOpen(false);
+                    setOtpError(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={!!updating}
+                >
+                  Close
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

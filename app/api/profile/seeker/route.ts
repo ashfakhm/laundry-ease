@@ -6,6 +6,7 @@ import { Role } from "@/types/enums";
 import bcrypt from "bcrypt";
 import { logger } from "@/lib/logger";
 import { updateSeekerProfileSchema } from "@/lib/api/schemas";
+import { ObjectId, type Filter } from "mongodb";
 
 /**
  * GET /api/profile/seeker
@@ -15,7 +16,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id && !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -24,11 +25,22 @@ export async function GET() {
     }
 
     const { db } = await getDb();
+
+    // Get seeker by stable identity.
+    // Email can change; session.user.id is stable and should be preferred for lookups.
+    const seekerOr: Filter<unknown>[] = [];
+    if (session.user.id && ObjectId.isValid(String(session.user.id))) {
+      seekerOr.push({ _id: new ObjectId(String(session.user.id)) });
+    }
+    if (session.user.email) {
+      seekerOr.push({ email: session.user.email });
+    }
+
     const seeker = await db.collection("seekers").findOne(
-      { email: session.user.email },
+      { $or: seekerOr },
       {
         projection: {
-          passwordHash: 0, // Exclude sensitive data
+          passwordHash: 0,
         },
       }
     );
@@ -55,7 +67,7 @@ export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id && !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -64,6 +76,17 @@ export async function PUT(req: Request) {
     }
 
     const { db } = await getDb();
+
+    const seekerOr: Filter<unknown>[] = [];
+    if (session.user.id && ObjectId.isValid(String(session.user.id))) {
+      seekerOr.push({ _id: new ObjectId(String(session.user.id)) });
+    }
+    if (session.user.email) {
+      seekerOr.push({ email: session.user.email });
+    }
+
+    const seekerFilter: Filter<unknown> = { $or: seekerOr };
+
     const json = await req.json();
     const parsed = updateSeekerProfileSchema.safeParse(json);
 
@@ -74,56 +97,69 @@ export async function PUT(req: Request) {
       );
     }
 
-    const { name, phone, address, coordinates, currentPassword, newPassword } = parsed.data;
-    const updates: any = {};
+    const { name, phone, address, coordinates, currentPassword, newPassword } =
+      parsed.data;
+    const updates: Record<string, unknown> = {};
 
     if (name) updates.name = name;
     if (phone) updates.phone = phone;
     if (address) updates.address = address;
     if (coordinates) updates.coordinates = coordinates;
-    
+
     // Secure Password Change Logic
     if (newPassword) {
-       if (!currentPassword) {
-           return NextResponse.json({ error: "Current password is required to set a new password" }, { status: 400 });
-       }
+      if (!currentPassword) {
+        return NextResponse.json(
+          { error: "Current password is required to set a new password" },
+          { status: 400 }
+        );
+      }
 
-       // Fetch current password hash (explicitly requested as it's usually excluded)
-       const user = await db.collection("seekers").findOne(
-           { email: session.user.email },
-           { projection: { passwordHash: 1 } }
-       );
+      // Fetch current password hash (explicitly requested as it's usually excluded)
+      const user = await db
+        .collection("seekers")
+        .findOne(seekerFilter, { projection: { passwordHash: 1 } });
 
-       if (!user || !user.passwordHash) {
-           // If user has no password set (e.g. Google auth only), we might allow setting one directly? 
-           // For now, adhere to strict security: if they have a DB entry but no password, they likely shouldn't be setting one this way without a different flow.
-           // However, let's assume standard email/pass flow:
-           return NextResponse.json({ error: "User not found or no password set" }, { status: 404 });
-       }
+      if (!user || !user.passwordHash) {
+        // If user has no password set (e.g. Google auth only), we might allow setting one directly?
+        // For now, adhere to strict security: if they have a DB entry but no password, they likely shouldn't be setting one this way without a different flow.
+        // However, let's assume standard email/pass flow:
+        return NextResponse.json(
+          { error: "User not found or no password set" },
+          { status: 404 }
+        );
+      }
 
-       const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
-       if (!isMatch) {
-            return NextResponse.json({ error: "Incorrect current password" }, { status: 401 });
-       }
+      const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isMatch) {
+        return NextResponse.json(
+          { error: "Incorrect current password" },
+          { status: 401 }
+        );
+      }
 
-       updates.passwordHash = await bcrypt.hash(newPassword, 10);
+      updates.passwordHash = await bcrypt.hash(newPassword, 10);
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ message: "No changes provided" }, { status: 200 });
+      return NextResponse.json(
+        { message: "No changes provided" },
+        { status: 200 }
+      );
     }
 
-    const res = await db.collection("seekers").updateOne(
-      { email: session.user.email },
-      { $set: updates }
-    );
+    const res = await db
+      .collection("seekers")
+      .updateOne(seekerFilter, { $set: updates });
 
     if (res.matchedCount === 0) {
       return NextResponse.json({ error: "Seeker not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, message: "Profile updated successfully" });
-
+    return NextResponse.json({
+      success: true,
+      message: "Profile updated successfully",
+    });
   } catch (error) {
     logger.error("PROFILE", "Error updating seeker profile", error);
     return NextResponse.json(

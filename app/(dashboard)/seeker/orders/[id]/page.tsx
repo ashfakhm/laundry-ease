@@ -5,16 +5,12 @@ import { ObjectId } from "mongodb";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import {
-  Clock,
   CheckCircle2,
   Truck,
   Package,
   MapPin,
   Phone,
   MessageSquare,
-  IndianRupee,
-  AlertCircle,
-  HelpCircle,
   ShieldCheck,
   ChevronRight,
   Receipt,
@@ -31,6 +27,14 @@ export default async function OrderDetailsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  type OrderItem = {
+    name?: string;
+    quantity?: number;
+    unit_price?: number;
+    line_total?: number;
+    photoUrl?: string;
+  };
+
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -79,7 +83,10 @@ export default async function OrderDetailsPage({
   // Status Logic
   const isCancelled = !!order.cancellation_status;
   const processStatus = order.process_status || "invoiced";
-  const isPaid = order.payment_status === "paid";
+  // Any post-payment escrow state should still be treated as “paid” in the UI.
+  const isPaid = ["paid", "held", "released", "refunded"].includes(
+    order.payment_status
+  );
   const isDelivered = !!order.otp_confirmed_at || processStatus === "delivered";
 
   // Tracker Logic
@@ -105,7 +112,7 @@ export default async function OrderDetailsPage({
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
       {/* Top Banner / Header */}
-      <div className="bg-background border-b border-border sticky top-0 z-30 shadow-sm shadow-black/5 backdrop-blur-xl bg-background/80">
+      <div className="border-b border-border sticky top-0 z-30 shadow-sm shadow-black/5 backdrop-blur-xl bg-background/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
@@ -154,7 +161,7 @@ export default async function OrderDetailsPage({
             {/* 1. Status Tracker Card */}
             {!isCancelled && (
               <div className="bg-card border border-border/50 rounded-3xl p-6 sm:p-8 shadow-xl shadow-black/5 overflow-hidden relative">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-purple-600 opacity-20" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-primary to-purple-600 opacity-20" />
                 <h2 className="text-lg font-bold font-heading mb-8 flex items-center gap-2">
                   <Truck className="w-5 h-5 text-primary" /> Tracking
                 </h2>
@@ -186,7 +193,7 @@ export default async function OrderDetailsPage({
                           {idx !== trackerSteps.length - 1 && (
                             <div
                               className={cn(
-                                "md:hidden absolute left-[17px] top-10 bottom-[-24px] w-0.5 z-0",
+                                "md:hidden absolute left-4.25 top-10 -bottom-6 w-0.5 z-0",
                                 isCompleted ? "bg-primary" : "bg-muted"
                               )}
                             />
@@ -242,12 +249,12 @@ export default async function OrderDetailsPage({
                 </span>
               </div>
               <div className="divide-y divide-border/50">
-                {order.items.map((item: any, i: number) => (
+                {order.items.map((item: OrderItem, i: number) => (
                   <div
                     key={i}
                     className="p-4 sm:p-5 flex items-center gap-4 hover:bg-muted/20 transition-colors"
                   >
-                    <div className="h-16 w-16 bg-muted rounded-xl relative overflow-hidden flex-shrink-0 border border-border/50 shadow-sm group">
+                    <div className="h-16 w-16 bg-muted rounded-xl relative overflow-hidden shrink-0 border border-border/50 shadow-sm group">
                       {item.photoUrl ? (
                         <Image
                           src={item.photoUrl}
@@ -306,7 +313,7 @@ export default async function OrderDetailsPage({
                     Directly message the provider for updates or special
                     instructions.
                   </p>
-                  <div className="h-[500px] border border-border/50 rounded-3xl overflow-hidden shadow-xl shadow-black/5 bg-card">
+                  <div className="h-125 border border-border/50 rounded-3xl overflow-hidden shadow-xl shadow-black/5 bg-card">
                     <BookingChat
                       bookingId={order.booking_id.toString()}
                       selfRole="seeker"
@@ -382,15 +389,17 @@ export default async function OrderDetailsPage({
               </h3>
 
               <div className="flex items-center gap-4 mb-6">
-                <div className="h-12 w-12 rounded-full overflow-hidden border-2 border-border bg-muted shadow-lg flex-shrink-0">
+                <div className="h-12 w-12 rounded-full overflow-hidden border-2 border-border bg-muted shadow-lg shrink-0">
                   {order.provider.profilePicture ? (
-                    <img
+                    <Image
                       src={order.provider.profilePicture}
                       alt={order.provider.businessName || order.provider.name}
+                      width={48}
+                      height={48}
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-lg font-bold text-white">
+                    <div className="h-full w-full bg-linear-to-br from-primary to-purple-600 flex items-center justify-center text-lg font-bold text-white">
                       {order.provider.businessName?.[0] ||
                         order.provider.name?.[0] ||
                         "P"}

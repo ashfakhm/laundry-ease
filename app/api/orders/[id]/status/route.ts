@@ -6,11 +6,13 @@ import { getOrderById } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
-import { Order } from "@/types/orders";
-import { env } from "@/lib/env";
-import twilio from "twilio";
 import { logger } from "@/lib/logger";
 import { orderStatusUpdateSchema } from "@/lib/api/schemas";
+import {
+  getAllowedNextStates,
+  type OrderProcessStatus,
+} from "@/lib/orders/status-machine";
+import { sendDeliveryOtpEmail } from "@/lib/delivery-otp-email";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -50,22 +52,11 @@ export async function POST(
 
     const { status } = parsed.data;
 
-    // STATE TRANSITION VALIDATION: Ensure valid transitions from current state
-    // Orders start at "invoiced" and must progress: invoiced → processing → washing → ironing → ready → out_for_delivery → delivered
-    const validTransitions: Record<string, string[]> = {
-      invoiced: ["processing"],
-      processing: ["washing", "ready"], // Can skip directly to ready if simple service
-      washing: ["ironing", "ready"], // Can skip ironing if not needed
-      ironing: ["ready"],
-      ready: ["out_for_delivery"],
-      out_for_delivery: ["delivered"],
-      // delivered is terminal
-    };
+    const currentStatus = (order.process_status ||
+      "invoiced") as OrderProcessStatus;
+    const allowedNextStates = getAllowedNextStates(currentStatus);
 
-    const currentStatus = order.process_status || "invoiced";
-    const allowedNextStates = validTransitions[currentStatus] || [];
-
-    if (!allowedNextStates.includes(status)) {
+    if (!allowedNextStates.includes(status as OrderProcessStatus)) {
       logger.warn("ORDERS", "Invalid state transition attempted", {
         orderId: id,
         currentStatus,
@@ -93,9 +84,12 @@ export async function POST(
     // Let's calculate it when status becomes "delivered".
 
     // OTP Logic
-    const updateData: any = {
-      // Using any to allow dynamic fields like delivery_otp
-      process_status: status,
+    const updateData: {
+      process_status: OrderProcessStatus;
+      updatedAt: Date;
+      delivery_otp?: string;
+    } = {
+      process_status: status as OrderProcessStatus,
       updatedAt: new Date(),
     };
 
@@ -103,47 +97,27 @@ export async function POST(
       // Generate OTP for delivery confirmation
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       updateData.delivery_otp = otp;
-      // Send real SMS to seeker with OTP
+      // Send OTP to seeker via email (Gmail)
       const seeker = await db
         .collection("seekers")
         .findOne({ _id: order.seeker_id });
-      if (seeker?.phone) {
+      if (seeker?.email) {
         try {
-          // Format phone number to E.164
-          let phone = seeker.phone.trim().replace(/\s+/g, "");
-          if (!phone.startsWith("+")) {
-            // If 10 digits, assume India +91
-            if (phone.length === 10) {
-              phone = `+91${phone}`;
-            } else if (phone.startsWith("0")) {
-              phone = `+91${phone.substring(1)}`;
-            }
-          }
-
-          const smsClient = twilio(
-            env.TWILIO_ACCOUNT_SID,
-            env.TWILIO_AUTH_TOKEN
-          );
-          await smsClient.messages.create({
-            body: `Your LaundryEase delivery OTP is ${otp}. Please share this code with your provider only upon delivery.`,
-            from: env.TWILIO_PHONE_NUMBER,
-            to: phone,
-          });
-          logger.info("ORDERS", "Delivery OTP SMS sent", {
+          await sendDeliveryOtpEmail({
+            to: String(seeker.email),
+            otp,
             orderId: id,
-            phone: phone.substring(0, 4) + "***",
+            ttlMinutes: 10,
           });
         } catch (err) {
-          logger.error("ORDERS", "Failed to send delivery OTP SMS", err, {
+          logger.error("ORDERS", "Failed to send delivery OTP email", err, {
             orderId: id,
           });
         }
       } else {
-        logger.warn(
-          "ORDERS",
-          "Seeker phone number not found, cannot send OTP SMS",
-          { orderId: id }
-        );
+        logger.warn("ORDERS", "Seeker email not found, cannot send OTP email", {
+          orderId: id,
+        });
       }
     }
 
@@ -163,6 +137,8 @@ export async function POST(
 
     return NextResponse.json({
       message: "Status updated successfully",
+      currentStatus: status,
+      allowedNextStates: getAllowedNextStates(status as OrderProcessStatus),
     });
   } catch (error) {
     logger.error("ORDERS", "Error updating order status", error, {

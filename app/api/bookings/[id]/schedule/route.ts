@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { ObjectId, type Filter, type Document } from "mongodb";
 import { logger } from "@/lib/logger";
 import { bookingScheduleSchema } from "@/lib/api/schemas";
 
@@ -13,7 +13,7 @@ export async function POST(
   const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    if (!session?.user?.id && !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -33,12 +33,13 @@ export async function POST(
     const { dateTime, action } = parsed.data;
 
     const { db } = await getDb();
-    let bookingQuery: any;
+    let bookingQuery: Filter<Document>;
     // Try to use ObjectId if valid, else fallback to string
     try {
       bookingQuery = { _id: new ObjectId(id) };
     } catch {
-      bookingQuery = { _id: id };
+      // Some environments may store _id as a string; keep this fallback.
+      bookingQuery = { _id: id } as unknown as Filter<Document>;
     }
 
     const booking = await db.collection("bookings").findOne(bookingQuery);
@@ -49,9 +50,15 @@ export async function POST(
     // If seeker is confirming the slot
     if (action === "confirm") {
       // Check if user is the seeker
-      const seeker = await db
-        .collection("seekers")
-        .findOne({ email: session.user.email });
+      const seekerOr: Filter<unknown>[] = [];
+      if (session.user.id && ObjectId.isValid(String(session.user.id))) {
+        seekerOr.push({ _id: new ObjectId(String(session.user.id)) });
+      }
+      if (session.user.email) {
+        seekerOr.push({ email: session.user.email });
+      }
+
+      const seeker = await db.collection("seekers").findOne({ $or: seekerOr });
       if (!seeker) {
         return NextResponse.json(
           { error: "Seeker not found" },

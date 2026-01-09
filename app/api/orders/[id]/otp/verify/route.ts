@@ -5,35 +5,37 @@ import { getOrderById, confirmDelivery } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
-import { confirmDeliverySchema } from "@/lib/api/schemas";
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
+const schema = z.object({
+  otp: z.string().regex(/^\d{6}$/, "OTP must be 6 digits"),
+});
+
+// POST: Provider verifies delivery OTP and marks delivery confirmed
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user || session.user.role !== Role.SEEKER) {
+    if (!session || !session.user || session.user.role !== Role.PROVIDER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parsed = confirmDeliverySchema.safeParse(body);
-
+    const json = await req.json().catch(() => null);
+    const parsed = schema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
         {
-          error: "Invalid OTP data",
+          message: "Invalid OTP",
           details: parsed.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
     }
-
-    const { otp } = parsed.data;
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
@@ -42,48 +44,54 @@ export async function POST(
       return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
-    if (order.seeker_id.toString() !== session.user.id) {
+    if (order.provider_id.toString() !== session.user.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+    }
+
+    if ((order.process_status || "invoiced") !== "out_for_delivery") {
       return NextResponse.json(
         {
-          message: "You are not authorized to confirm delivery for this order",
+          message: "OTP can only be verified when order is out for delivery",
+          currentStatus: order.process_status || "invoiced",
         },
-        { status: 403 }
+        { status: 409 }
       );
     }
 
-    // If escrow has already started, payment_status will be "held" (or later "released").
-    // Confirming delivery should still be allowed in these post-payment states so the UI can reach "Delivered".
-    if (
-      !(["paid", "held", "released", "refunded"] as readonly string[]).includes(
-        order.payment_status
-      )
-    ) {
+    if (order.payment_status !== "paid") {
       return NextResponse.json(
         { message: "Order must be paid before confirming delivery" },
         { status: 400 }
       );
     }
 
-    // Verify OTP
+    const { otp } = parsed.data;
+
+    // Verify OTP exactly as stored on the order
     if (!order.delivery_otp || order.delivery_otp !== otp) {
       return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
     }
 
     const success = await confirmDelivery(order_id);
-
-    if (success) {
-      revalidatePath(`/seeker/orders/${id}`);
-      return NextResponse.json({
-        message: "Delivery confirmed, escrow started",
-      });
-    } else {
+    if (!success) {
       return NextResponse.json(
         { message: "Failed to confirm delivery" },
         { status: 500 }
       );
     }
+
+    logger.info("ORDERS", "Delivery OTP verified by provider", {
+      orderId: id,
+      providerId: session.user.id,
+    });
+
+    return NextResponse.json({
+      message: "Delivery confirmed",
+    });
   } catch (error) {
-    logger.error("ORDERS", "Error confirming delivery", error, { orderId: id });
+    logger.error("ORDERS", "Error verifying delivery OTP", error, {
+      orderId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

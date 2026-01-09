@@ -12,7 +12,7 @@ export async function getProviderBookings(): Promise<{
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.id && !session?.user?.email) {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -108,10 +108,14 @@ export async function getSeekerBookings(): Promise<{
 
     const { db } = await getDb();
 
-    // Get seeker by email
-    const seeker = await db
-      .collection("seekers")
-      .findOne({ email: session.user.email });
+    // Get seeker by stable identity.
+    // Email can change; session.user.id is stable and should be used for lookups.
+    const seeker = await db.collection("seekers").findOne({
+      $or: [
+        { _id: new ObjectId(String(session.user.id)) },
+        { email: session.user.email },
+      ],
+    });
 
     if (!seeker) {
       return { success: false, error: "Seeker not found" };

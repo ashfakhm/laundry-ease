@@ -358,6 +358,7 @@ export async function confirmDelivery(order_id: ObjectId) {
     { _id: order_id },
     {
       $set: {
+        process_status: "delivered",
         payment_status: "held",
         otp_confirmed_at: now,
         escrow_started_at: now,

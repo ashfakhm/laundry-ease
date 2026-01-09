@@ -4,8 +4,9 @@ import { useState, useMemo } from "react";
 import { PopulatedSeekerBooking, BookingStatus } from "@/types/bookings";
 import { SeekerBookingCard } from "./seeker-booking-card";
 import { cn } from "@/lib/utils";
-import { Inbox } from "lucide-react";
+import { Inbox, ArrowRight, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Script from "next/script";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -91,32 +92,53 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
       {/* List Area */}
       {filteredBookings.length === 0 ? (
         <motion.div
-           initial={{ opacity: 0, y: 10 }}
-           animate={{ opacity: 1, y: 0 }}
-           className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex min-h-100 flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center"
         >
           <div className="rounded-full bg-muted p-4 shadow-sm">
             <Inbox className="h-8 w-8 text-muted-foreground" />
           </div>
           <h3 className="mt-4 text-lg font-heading font-bold text-foreground">
-            No bookings found
+            {filter === "all" ? "No bookings yet" : "No bookings found"}
           </h3>
           <p className="mt-2 text-sm text-muted-foreground max-w-sm">
             {filter === "all"
-              ? "You haven't made any bookings yet."
+              ? "You're all set—your bookings will show up here once you book a provider."
               : `You have no ${filter} bookings at the moment.`}
           </p>
+
+          {filter === "all" && (
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <Link
+                href="/seeker"
+                className="btn btn-primary rounded-xl h-11 px-6 font-bold inline-flex items-center justify-center gap-2"
+              >
+                <Search className="h-4 w-4" />
+                Find Providers
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+
+              <Link
+                href="/seeker/view-orders"
+                className="btn btn-ghost rounded-xl h-11 px-6 font-bold inline-flex items-center justify-center gap-2 border border-border"
+              >
+                View Orders
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          )}
         </motion.div>
       ) : (
         <div className="space-y-4">
           <AnimatePresence>
-          {filteredBookings.map((booking) => (
-            <SeekerBookingCard
-              key={booking._id.toString()}
-              booking={booking}
-              onRefresh={() => router.refresh()}
-            />
-          ))}
+            {filteredBookings.map((booking) => (
+              <SeekerBookingCard
+                key={booking._id.toString()}
+                booking={booking}
+                onRefresh={() => router.refresh()}
+              />
+            ))}
           </AnimatePresence>
         </div>
       )}
