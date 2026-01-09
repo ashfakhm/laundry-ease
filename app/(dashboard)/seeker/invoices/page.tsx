@@ -1,6 +1,14 @@
 import { getSeekerBookings } from "@/lib/data/bookings";
 import { Metadata } from "next";
-import { Receipt, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import {
+  Receipt,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  Calendar,
+  Search,
+} from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -72,15 +80,32 @@ export default async function SeekerInvoicesPage() {
               <Receipt className="w-8 h-8 text-muted-foreground/50" />
             </div>
             <h3 className="text-xl font-bold text-foreground">
-              No Invoices Yet
+              No invoices yet
             </h3>
             <p className="text-muted-foreground max-w-md mx-auto mt-2">
-              Invoices will appear here once your provider processes your
-              laundry request.
+              Once you book a provider and they generate an invoice, it’ll show
+              up here for review and payment.
             </p>
-            <Link href="/seeker" className="btn btn-primary mt-6 rounded-xl">
-              Find Providers
-            </Link>
+
+            <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+              <Link
+                href="/seeker"
+                className="btn btn-primary rounded-xl h-11 px-6 font-bold inline-flex items-center justify-center gap-2"
+              >
+                <Search className="h-4 w-4" />
+                Find Providers
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+
+              <Link
+                href="/seeker/bookings"
+                className="btn btn-ghost rounded-xl h-11 px-6 font-bold inline-flex items-center justify-center gap-2 border border-border"
+              >
+                <Calendar className="h-4 w-4" />
+                Go to Bookings
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-10">
@@ -130,11 +155,29 @@ function InvoiceCard({
   booking,
   isPending,
 }: {
-  booking: any;
+  booking: {
+    _id: string | { toString(): string };
+    status: string;
+    updatedAt?: string | Date;
+    createdAt: string | Date;
+    order_id?: string;
+    provider?: {
+      businessName?: string;
+      name?: string;
+    } | null;
+    invoice?: {
+      total?: number;
+      items?: Array<unknown>;
+      createdAt?: string | Date;
+    } | null;
+  };
   isPending: boolean;
 }) {
   const total = booking.invoice?.total || 0;
   const itemCount = booking.invoice?.items?.length || 0;
+  const bookingId = String(booking._id);
+  const displayDate =
+    booking.invoice?.createdAt || booking.updatedAt || booking.createdAt;
 
   return (
     <div
@@ -153,7 +196,7 @@ function InvoiceCard({
               "Provider"}
           </h3>
           <p className="text-xs text-muted-foreground">
-            Booking ID: {booking._id.slice(-6).toUpperCase()}
+            Booking ID: {bookingId.slice(-6).toUpperCase()}
           </p>
         </div>
         <div
@@ -174,10 +217,7 @@ function InvoiceCard({
             {itemCount} Items
           </p>
           <p className="text-xs text-muted-foreground">
-            {format(
-              new Date(booking.invoice?.createdAt || booking.updatedAt),
-              "PPP"
-            )}
+            {format(new Date(displayDate), "PPP")}
           </p>
         </div>
         <div className="text-right">
@@ -191,7 +231,7 @@ function InvoiceCard({
       <div className="mt-6 pt-4 border-t border-border flex gap-3">
         {isPending ? (
           <Link
-            href={`/seeker/bookings/${booking._id}/invoice-review`}
+            href={`/seeker/bookings/${bookingId}/invoice-review`}
             className="flex-1 btn btn-primary h-11 rounded-xl font-bold shadow-lg shadow-primary/20 group-hover:scale-[1.02] transition-transform"
           >
             Review & Pay

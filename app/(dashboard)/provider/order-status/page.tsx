@@ -214,9 +214,50 @@ export default function OrderStatusPage() {
 
   function handleOtpSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (selectedOrderForOtp && otpInput.length === 6) {
-      updateStatus(selectedOrderForOtp, "delivered", otpInput);
+    if (!selectedOrderForOtp) return;
+    if (otpInput.length !== 6) {
+      setOtpError("Please enter a 6-digit OTP");
+      return;
     }
+
+    setUpdating(selectedOrderForOtp);
+    setOtpError(null);
+
+    fetch(`/api/orders/${selectedOrderForOtp}/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ otp: otpInput }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setOtpError(data?.message || "Failed to verify OTP");
+          return;
+        }
+
+        // Mark as delivered in UI immediately (escrow start happens server-side)
+        setOrders((prev) =>
+          prev.map((o) =>
+            o._id === selectedOrderForOtp
+              ? {
+                  ...o,
+                  process_status: "delivered",
+                  otp_confirmed_at: new Date().toISOString(),
+                  allowedNextStates: [],
+                }
+              : o
+          )
+        );
+
+        toast.success(data?.message || "Delivery confirmed");
+        setOtpModalOpen(false);
+      })
+      .catch(() => {
+        setOtpError("Network error");
+      })
+      .finally(() => {
+        setUpdating(null);
+      });
   }
 
   useEffect(() => {
@@ -541,7 +582,8 @@ export default function OrderStatusPage() {
               <ShieldCheck className="w-5 h-5 text-primary" /> Verify Delivery
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Please enter the OTP provided by the customer to confirm delivery.
+              The delivery OTP is sent to the customer (Seeker). Ask the
+              customer to confirm delivery from their dashboard.
             </p>
 
             <button
@@ -549,8 +591,25 @@ export default function OrderStatusPage() {
               disabled={!!updating}
               onClick={() => {
                 if (selectedOrderForOtp) {
-                  updateStatus(selectedOrderForOtp, "out_for_delivery");
-                  alert("OTP Resent to Customer!");
+                  setUpdating(selectedOrderForOtp);
+                  fetch(`/api/orders/${selectedOrderForOtp}/otp/resend`, {
+                    method: "POST",
+                  })
+                    .then(async (res) => {
+                      const data = await res.json().catch(() => ({}));
+                      if (!res.ok) {
+                        toast.error(
+                          data?.message || "Failed to resend OTP. Try again."
+                        );
+                        return;
+                      }
+
+                      toast.success(data?.message || "OTP resent to customer");
+                    })
+                    .catch(() => {
+                      toast.error("Network error while resending OTP");
+                    })
+                    .finally(() => setUpdating(null));
                 }
               }}
               className="mb-4 text-xs text-primary font-bold hover:underline flex items-center justify-center gap-1 mx-auto"
@@ -592,9 +651,9 @@ export default function OrderStatusPage() {
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={otpInput.length !== 6 || !!updating}
+                  disabled={!!updating}
                 >
-                  {updating ? "Verifying..." : "Confirm"}
+                  Close
                 </button>
               </div>
             </form>
