@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Package,
@@ -132,7 +132,12 @@ export default function OrderStatusPage() {
   );
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendCooldownMs, setResendCooldownMs] = useState(0);
+  const [resendInfo, setResendInfo] = useState<string | null>(null);
   const toast = useToast();
+
+  const resendCooldownSeconds = Math.ceil(resendCooldownMs / 1000);
+  const resendDisabled = !!updating || resendCooldownMs > 0;
 
   async function updateStatus(
     orderId: string,
@@ -259,6 +264,66 @@ export default function OrderStatusPage() {
         setUpdating(null);
       });
   }
+
+  async function handleResendOtp() {
+    if (!selectedOrderForOtp) return;
+
+    setUpdating(selectedOrderForOtp);
+    setOtpError(null);
+    setResendInfo(null);
+
+    try {
+      const res = await fetch(`/api/orders/${selectedOrderForOtp}/otp/resend`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // Respect backend rate limiting.
+        const retryAfterSeconds =
+          typeof data?.retryAfterSeconds === "number"
+            ? data.retryAfterSeconds
+            : 0;
+        if (retryAfterSeconds > 0) {
+          setResendCooldownMs(retryAfterSeconds * 1000);
+          setResendInfo(
+            `Please wait ${retryAfterSeconds}s before resending the OTP.`
+          );
+        }
+
+        toast.error(data?.message || "Failed to resend OTP. Try again.");
+        return;
+      }
+
+      toast.success(data?.message || "OTP resent to customer");
+      // UI cooldown mirrors server MIN_RESEND_INTERVAL_MS.
+      setResendCooldownMs(60_000);
+      setResendInfo("OTP resent. You can resend again in 60s.");
+    } catch {
+      toast.error("Network error while resending OTP");
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  // Countdown for resend cooldown.
+  useEffect(() => {
+    if (resendCooldownMs <= 0) return;
+    const t = setInterval(() => {
+      setResendCooldownMs((ms) => Math.max(0, ms - 1000));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [resendCooldownMs]);
+
+  // Clear modal state when closing.
+  useEffect(() => {
+    if (otpModalOpen) return;
+    setSelectedOrderForOtp(null);
+    setOtpInput("");
+    setOtpError(null);
+    setResendCooldownMs(0);
+    setResendInfo(null);
+  }, [otpModalOpen]);
 
   useEffect(() => {
     async function fetchOrders() {
@@ -582,40 +647,27 @@ export default function OrderStatusPage() {
               <ShieldCheck className="w-5 h-5 text-primary" /> Verify Delivery
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              The delivery OTP is sent to the customer (Seeker). Ask the
-              customer to confirm delivery from their dashboard.
+              The delivery OTP is sent to the customer (Seeker) via email. Enter
+              the 6-digit code to confirm delivery.
             </p>
 
             <button
               type="button"
-              disabled={!!updating}
-              onClick={() => {
-                if (selectedOrderForOtp) {
-                  setUpdating(selectedOrderForOtp);
-                  fetch(`/api/orders/${selectedOrderForOtp}/otp/resend`, {
-                    method: "POST",
-                  })
-                    .then(async (res) => {
-                      const data = await res.json().catch(() => ({}));
-                      if (!res.ok) {
-                        toast.error(
-                          data?.message || "Failed to resend OTP. Try again."
-                        );
-                        return;
-                      }
-
-                      toast.success(data?.message || "OTP resent to customer");
-                    })
-                    .catch(() => {
-                      toast.error("Network error while resending OTP");
-                    })
-                    .finally(() => setUpdating(null));
-                }
-              }}
-              className="mb-4 text-xs text-primary font-bold hover:underline flex items-center justify-center gap-1 mx-auto"
+              disabled={resendDisabled}
+              onClick={handleResendOtp}
+              className="mb-2 text-xs text-primary font-bold hover:underline flex items-center justify-center gap-1 mx-auto disabled:opacity-50"
             >
-              <Send className="w-3 h-3" /> Resend OTP Code
+              <Send className="w-3 h-3" />
+              {resendCooldownMs > 0
+                ? `Resend available in ${resendCooldownSeconds}s`
+                : "Resend OTP"}
             </button>
+
+            {resendInfo && (
+              <p className="mb-4 text-[11px] text-muted-foreground text-center">
+                {resendInfo}
+              </p>
+            )}
 
             <form onSubmit={handleOtpSubmit} className="space-y-4">
               <input
@@ -626,9 +678,10 @@ export default function OrderStatusPage() {
                 className="input input-bordered w-full text-center text-2xl tracking-widest font-mono"
                 value={otpInput}
                 onChange={(e) =>
-                  setOtpInput(e.target.value.replace(/[^0-9]/g, ""))
+                  setOtpInput(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))
                 }
                 autoFocus
+                disabled={!!updating}
               />
 
               {otpError && (
@@ -651,9 +704,9 @@ export default function OrderStatusPage() {
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={!!updating}
+                  disabled={!!updating || otpInput.length !== 6}
                 >
-                  Close
+                  Confirm Delivery
                 </button>
               </div>
             </form>
