@@ -5,6 +5,7 @@ export type BookingStatus =
   | "accepted"
   | "rejected"
   | "pickup_proposed"
+  | "reschedule_requested"
   | "confirmed"
   | "invoice_created"
   | "cancelled"
@@ -48,6 +49,17 @@ export type Booking = {
     proposedBy: "provider" | "seeker";
     dateTime: Date | string;
     confirmedAt?: Date | string;
+  };
+
+  reschedule?: {
+    requestedBy: "seeker" | "provider";
+    requestedAt: Date | string;
+    reason?: string;
+    count: number;
+    previousPickupSlot?: {
+      dateTime: Date | string;
+      confirmedAt?: Date | string;
+    };
   };
   arrivedAt?: Date | string; // Provider arrival timestamp
 

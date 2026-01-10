@@ -236,10 +236,13 @@ export async function proposePickupSlot(
       return { success: false, error: "Unauthorized" };
     }
 
-    if (booking.status !== "accepted") {
+    if (
+      booking.status !== "accepted" &&
+      booking.status !== "reschedule_requested"
+    ) {
       return {
         success: false,
-        error: "Slot can only be proposed for accepted bookings",
+        error: "Slot can only be proposed for accepted bookings or reschedules",
       };
     }
 
@@ -266,8 +269,9 @@ export async function proposePickupSlot(
       $set: {
         status: "pickup_proposed",
         pickupSlot: {
+          proposedBy: "provider",
           dateTime: slotTime,
-          confirmed: false,
+          confirmedAt: undefined,
         },
         updatedAt: new Date(),
       },

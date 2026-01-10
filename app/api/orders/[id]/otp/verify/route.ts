@@ -58,7 +58,14 @@ export async function POST(
       );
     }
 
-    if (order.payment_status !== "paid") {
+    // Allow verification even if payment is already in escrow states.
+    // "paid" = captured, "held" = escrow started (delivery confirmed),
+    // "released" = escrow released. "refunded" and "unpaid" should not allow.
+    if (
+      order.payment_status !== "paid" &&
+      order.payment_status !== "held" &&
+      order.payment_status !== "released"
+    ) {
       return NextResponse.json(
         { message: "Order must be paid before confirming delivery" },
         { status: 400 }

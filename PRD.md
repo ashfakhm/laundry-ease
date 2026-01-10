@@ -150,13 +150,15 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 
 ### Booking (Handshake) States
 
-| State       | Meaning                       | Allowed Next States               |
-| ----------- | ----------------------------- | --------------------------------- |
-| `requested` | Seeker requested a slot       | `accepted`, `rejected`, `expired` |
-| `accepted`  | Provider accepted the request | `confirmed`, `cancelled`          |
-| `rejected`  | Provider rejected the request | terminal                          |
-| `confirmed` | parties agreed on pickup/slot | `invoice_created`, `cancelled`    |
-| `expired`   | request timed out             | terminal                          |
+| State                  | Meaning                                                      | Allowed Next States                                                 |
+| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `requested`            | Seeker requested a slot                                      | `accepted`, `rejected`, `expired`                                   |
+| `accepted`             | Provider accepted the request                                | `pickup_proposed`, `confirmed`, `cancelled`, `reschedule_requested` |
+| `rejected`             | Provider rejected the request                                | terminal                                                            |
+| `pickup_proposed`      | provider proposed a pickup slot                              | `confirmed`, `reschedule_requested`, `cancelled`                    |
+| `confirmed`            | parties agreed on pickup/slot                                | `invoice_created`, `reschedule_requested`, `cancelled`              |
+| `reschedule_requested` | either side requested a new pickup time (not a cancellation) | `pickup_proposed`, `confirmed`, `cancelled`                         |
+| `expired`              | request timed out                                            | terminal                                                            |
 
 ### Order (Commitment → Settlement) States
 
@@ -173,6 +175,13 @@ Rules:
 
 - The system must enforce valid transitions.
 - The system must time-stamp every transition and record the actor.
+
+Reschedule rules:
+
+- Rescheduling is a **booking-level** action and is explicitly **not** cancellation.
+- Either seeker or provider may request reschedule while pickup is still being negotiated.
+- When a reschedule is requested, the system must clear any pickup confirmation timestamp (e.g., `pickupSlot.confirmedAt`) and return the booking to the propose/confirm flow.
+- The system should record metadata for repeatability and audit (who requested, when, reason, count, previous slot snapshot).
 
 ## 7. Data & Integrity Rules
 
@@ -229,16 +238,19 @@ Rules:
 LaundryEase requires the following environment variables to be configured (see `.env.example` for template):
 
 **Authentication & OAuth:**
+
 - `GOOGLE_ID` - Google OAuth client ID
 - `GOOGLE_SECRET` - Google OAuth client secret
 - `NEXTAUTH_SECRET` - Secret for NextAuth JWT signing (generate: `openssl rand -base64 32`)
 - `NEXTAUTH_URL` - Application base URL (optional, defaults to localhost:3000)
 
 **Database:**
+
 - `MONGODB_URI` - MongoDB connection string
 - `MONGODB_DB` - Database name (defaults to "laundryease")
 
 **Email & SMS (OTP Delivery):**
+
 - `EMAIL_USER` - Email address for sending OTP emails
 - `EMAIL_PASS` - App-specific password for email service
 - `TWILIO_ACCOUNT_SID` - Twilio account SID
@@ -246,18 +258,22 @@ LaundryEase requires the following environment variables to be configured (see `
 - `TWILIO_PHONE_NUMBER` - Twilio phone number (E.164 format)
 
 **Payments (Razorpay):**
+
 - `RAZORPAY_KEY_ID` - Razorpay API key ID
 - `RAZORPAY_KEY_SECRET` - Razorpay API key secret
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID` - Same as RAZORPAY_KEY_ID (exposed to client)
 - `RAZORPAYX_ACCOUNT_NUMBER` - RazorpayX account number for escrow
 
 **Google Maps:**
+
 - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` - Google Maps API key (requires Maps JavaScript API, Places API, Geocoding API)
 
 **Security:**
+
 - `CRON_SECRET` - Secret for securing cron job endpoints (generate: `openssl rand -base64 32`)
 
 **Optional:**
+
 - `NEXT_PUBLIC_BASE_URL` - Public application URL for email links
 - `NEXT_PUBLIC_APP_URL` - Alternative application URL
 - `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name (for image uploads)
@@ -284,3 +300,6 @@ See `README.md` for detailed setup instructions.
 
 - **Cancellation semantics**
   We need explicit policy for who can cancel at each state and what happens to escrow when cancellation occurs.
+
+- **Reschedule abuse / infinite loops**
+  The platform needs a policy for excessive reschedule requests (caps, cooldowns, or admin escalation) to prevent griefing.

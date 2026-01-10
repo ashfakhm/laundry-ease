@@ -169,6 +169,10 @@ function EmptyState({
       title: "No proposed pickups",
       description: "Bookings with proposed times waiting for confirmation.",
     },
+    reschedule_requested: {
+      title: "No reschedules",
+      description: "Bookings needing a new pickup time will appear here.",
+    },
     confirmed: {
       title: "No confirmed bookings",
       description: "Confirmed pickups ready to be fulfilled.",
