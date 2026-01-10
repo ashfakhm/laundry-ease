@@ -107,6 +107,45 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
     });
   };
 
+  const handleRequestReschedule = () => {
+    startTransition(async () => {
+      try {
+        const res = await fetch(
+          `/api/bookings/${booking._id.toString()}/reschedule/request`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          }
+        );
+
+        if (res.ok) {
+          toast({
+            title: "Reschedule requested",
+            description: "Please propose a new pickup time.",
+            type: "info",
+          });
+          onRefresh();
+          return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        toast({
+          title: "Failed to request reschedule",
+          description:
+            data?.error?.message || data?.message || "Please try again",
+          type: "error",
+        });
+      } catch (e: unknown) {
+        toast({
+          title: "Failed to request reschedule",
+          description: e instanceof Error ? e.message : "Please try again",
+          type: "error",
+        });
+      }
+    });
+  };
+
   const loading = isPending;
 
   return (
@@ -256,6 +295,38 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
           </div>
         )}
 
+        {booking.status === "reschedule_requested" && (
+          <div className="space-y-4 rounded-xl bg-amber-500/5 p-4 border border-amber-500/10">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-700" />
+                <span className="text-sm font-bold text-amber-900">
+                  Reschedule requested
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Propose a new pickup time
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <input
+                type="datetime-local"
+                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                value={slotDate}
+                onChange={(e) => setSlotDate(e.target.value)}
+              />
+              <button
+                onClick={handleProposeSlot}
+                disabled={loading || !slotDate}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-600/20 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {loading ? "Sending..." : "Send New Pickup Proposal"}
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {booking.status === "confirmed" && (
           <>
             <div className="flex items-center gap-3 rounded-xl bg-green-500/10 p-4 border border-green-500/20 text-sm">
@@ -273,14 +344,24 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
             {/* Provider Arrival Logic */}
             <div className="mt-4 space-y-3">
               {!booking.arrivedAt ? (
-                <button
-                  onClick={handleArrive}
-                  disabled={loading}
-                  className="flex items-center justify-center gap-2 w-full h-11 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                >
-                  <MapPin className="h-4 w-4" />
-                  {loading ? "Confirming..." : "I Have Arrived"}
-                </button>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={handleArrive}
+                    disabled={loading}
+                    className="flex items-center justify-center gap-2 w-full h-11 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    {loading ? "Confirming..." : "I Have Arrived"}
+                  </button>
+                  <button
+                    onClick={handleRequestReschedule}
+                    disabled={loading}
+                    className="flex items-center justify-center gap-2 w-full h-11 border border-input bg-background text-foreground font-bold rounded-xl hover:bg-muted transition-all disabled:opacity-50"
+                  >
+                    <Clock className="h-4 w-4" />
+                    {loading ? "..." : "Request Reschedule"}
+                  </button>
+                </div>
               ) : (
                 <Link
                   href={`/provider/bookings/${booking._id}/invoice`}

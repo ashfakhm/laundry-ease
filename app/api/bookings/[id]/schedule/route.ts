@@ -107,9 +107,15 @@ export async function POST(
     if (booking.provider_id.toString() !== provider._id.toString()) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
-    if (booking.status !== "accepted") {
+    if (
+      booking.status !== "accepted" &&
+      booking.status !== "reschedule_requested"
+    ) {
       return NextResponse.json(
-        { error: "Slot can only be proposed for accepted bookings" },
+        {
+          error:
+            "Slot can only be proposed for accepted bookings or reschedules",
+        },
         { status: 400 }
       );
     }
@@ -135,8 +141,9 @@ export async function POST(
       $set: {
         status: "pickup_proposed",
         pickupSlot: {
+          proposedBy: "provider",
           dateTime: slotTime,
-          confirmed: false,
+          confirmedAt: undefined,
         },
       },
     });

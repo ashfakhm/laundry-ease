@@ -41,6 +41,12 @@ const STATUS_CONFIG: Record<
     className:
       "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 shadow-indigo-100/50 dark:shadow-indigo-900/20",
   },
+  reschedule_requested: {
+    label: "Reschedule",
+    icon: Clock,
+    className:
+      "bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800 shadow-amber-100/50 dark:shadow-amber-900/20",
+  },
   rejected: {
     label: "Declined",
     icon: XCircle,
