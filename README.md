@@ -49,6 +49,9 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
 - **Delivery authentication**
   Providers stop fearing “delivered but unpaid.” Seekers stop fearing “paid but not delivered.” OTP ties the final handoff to a recorded confirmation.
 
+- **Reschedule without cancellation (booking-level)**
+  Either side can request a pickup reschedule while pickup is still being negotiated. Reschedule creates an explicit booking state (not a cancellation) and routes the booking back into the propose/confirm flow.
+
 ## 6. Who This Is For
 
 - **For** local laundry businesses and serious independent providers who run scheduled work and want payment certainty.
@@ -85,51 +88,58 @@ Tradeoff: the flow rejects “fast but fuzzy” transactions. It favors clarity 
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd laundry-ease
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Configure environment variables**
-   
+
    Copy the example environment file:
+
    ```bash
    cp .env.example .env.local
    ```
-   
+
    Edit `.env.local` and fill in all required variables. See the [Environment Variables](#environment-variables) section below for details.
 
 4. **Set up MongoDB**
-   
+
    - For local MongoDB: Ensure MongoDB is running on `localhost:27017`
    - For MongoDB Atlas: Update `MONGODB_URI` with your Atlas connection string
-   
+
    Run the geospatial index setup (if script exists):
+
    ```bash
    # This ensures proper indexing for location-based queries
    npm run setup:geospatial-index
    ```
 
 5. **Generate secure secrets**
-   
+
    Generate strong random secrets for `CRON_SECRET` and `NEXTAUTH_SECRET`:
+
    ```bash
    openssl rand -base64 32
    ```
+
    Copy the output and use it for both secrets (or generate separate ones).
 
 6. **Start the development server**
+
    ```bash
    npm run dev
    ```
 
 7. **Access the application**
-   
+
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Environment Variables
@@ -138,24 +148,24 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 
 **Required Variables:**
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `GOOGLE_ID` | Google OAuth client ID | From Google Cloud Console |
-| `GOOGLE_SECRET` | Google OAuth client secret | From Google Cloud Console |
-| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017` or Atlas URI |
-| `MONGODB_DB` | Database name | `laundryease` |
-| `EMAIL_USER` | Email for sending OTP | `your-email@gmail.com` |
-| `EMAIL_PASS` | Email app password | Gmail App Password |
-| `TWILIO_ACCOUNT_SID` | Twilio account SID | From Twilio Console |
-| `TWILIO_AUTH_TOKEN` | Twilio auth token | From Twilio Console |
-| `TWILIO_PHONE_NUMBER` | Twilio phone number | `+919876543210` |
-| `RAZORPAY_KEY_ID` | Razorpay API key ID | From Razorpay Dashboard |
-| `RAZORPAY_KEY_SECRET` | Razorpay API key secret | From Razorpay Dashboard |
-| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Same as RAZORPAY_KEY_ID | Same as above |
-| `RAZORPAYX_ACCOUNT_NUMBER` | RazorpayX account number | `2323230000000000` |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps API key | From Google Cloud Console |
-| `CRON_SECRET` | Secret for cron authentication | Generate with `openssl rand -base64 32` |
-| `NEXTAUTH_SECRET` | Secret for JWT signing | Generate with `openssl rand -base64 32` |
+| Variable                          | Description                    | Example                                  |
+| --------------------------------- | ------------------------------ | ---------------------------------------- |
+| `GOOGLE_ID`                       | Google OAuth client ID         | From Google Cloud Console                |
+| `GOOGLE_SECRET`                   | Google OAuth client secret     | From Google Cloud Console                |
+| `MONGODB_URI`                     | MongoDB connection string      | `mongodb://localhost:27017` or Atlas URI |
+| `MONGODB_DB`                      | Database name                  | `laundryease`                            |
+| `EMAIL_USER`                      | Email for sending OTP          | `your-email@gmail.com`                   |
+| `EMAIL_PASS`                      | Email app password             | Gmail App Password                       |
+| `TWILIO_ACCOUNT_SID`              | Twilio account SID             | From Twilio Console                      |
+| `TWILIO_AUTH_TOKEN`               | Twilio auth token              | From Twilio Console                      |
+| `TWILIO_PHONE_NUMBER`             | Twilio phone number            | `+919876543210`                          |
+| `RAZORPAY_KEY_ID`                 | Razorpay API key ID            | From Razorpay Dashboard                  |
+| `RAZORPAY_KEY_SECRET`             | Razorpay API key secret        | From Razorpay Dashboard                  |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID`     | Same as RAZORPAY_KEY_ID        | Same as above                            |
+| `RAZORPAYX_ACCOUNT_NUMBER`        | RazorpayX account number       | `2323230000000000`                       |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps API key            | From Google Cloud Console                |
+| `CRON_SECRET`                     | Secret for cron authentication | Generate with `openssl rand -base64 32`  |
+| `NEXTAUTH_SECRET`                 | Secret for JWT signing         | Generate with `openssl rand -base64 32`  |
 
 **Optional Variables:**
 
@@ -169,6 +179,7 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 ### External Service Setup
 
 **Google OAuth:**
+
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a project or select existing
 3. Enable Google+ API
@@ -177,6 +188,7 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 6. Copy Client ID and Secret to `.env.local`
 
 **Razorpay:**
+
 1. Sign up at [Razorpay](https://razorpay.com/)
 2. Activate your account
 3. Get API keys from Settings → API Keys
@@ -184,11 +196,13 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 5. Copy account number and API keys to `.env.local`
 
 **Twilio:**
+
 1. Sign up at [Twilio](https://www.twilio.com/)
 2. Get a phone number
 3. Copy Account SID, Auth Token, and Phone Number to `.env.local`
 
 **Google Maps:**
+
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Enable these APIs:
    - Maps JavaScript API
@@ -201,8 +215,38 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 
 - **Environment variable errors**: Check `lib/env.ts` for exact variable names and requirements
 - **MongoDB connection issues**: Verify `MONGODB_URI` format and network access
-- **OTP not sending**: Verify Twilio credentials and phone number format (E.164)
+- **OTP not sending**: Verify email credentials (`EMAIL_USER` / `EMAIL_PASS`) and that your email provider allows app passwords / SMTP
 - **Payment errors**: Verify Razorpay keys match environment (test/live) and account status
+
+## 10. Booking reschedule flow (latest)
+
+LaundryEase supports a _reschedule request_ that is separate from cancellation.
+
+### What it does
+
+- Either **seeker or provider** can request a pickup reschedule.
+- The booking moves to `reschedule_requested`.
+- The system clears pickup confirmation (`pickupSlot.confirmedAt`) so a new proposal can be made.
+- The reschedule action is tracked via `booking.reschedule` metadata (requestedBy, requestedAt, reason, count, previousPickupSlot).
+
+### When it’s allowed
+
+Reschedule requests are allowed only while the booking is still in pickup negotiation:
+
+- `accepted`
+- `pickup_proposed`
+- `confirmed`
+
+Not allowed:
+
+- after provider arrival (`arrivedAt` exists)
+- after invoice creation / completion
+
+### API endpoint
+
+- `POST /api/bookings/:id/reschedule/request`
+  - Body: `{ "reason"?: string }`
+  - Access: booking owner (seeker) or the assigned provider
 
 ## 9. Project Status & Direction
 
@@ -211,6 +255,7 @@ Stable:
 - Role-based flows (seeker/provider/admin)
 - Location-based provider discovery
 - Booking → invoicing → escrow → delivery confirmation loop
+- Booking reschedule requests during pickup scheduling
 
 Intentionally not finished yet:
 
