@@ -3,6 +3,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import DeliveryOtpForm from "@/components/seeker/delivery-otp-form";
 
 export default async function DeliveryOtpPage({
@@ -21,6 +23,14 @@ export default async function DeliveryOtpPage({
     redirect("/dashboard/seeker");
   return (
     <div className="max-w-md mx-auto p-6">
+      <div className="mb-4">
+        <Link
+          href="/seeker/view-orders"
+          className="text-xs font-bold text-muted-foreground hover:text-primary inline-flex items-center gap-1 transition-colors uppercase tracking-wider"
+        >
+          <ChevronRight className="w-3 h-3 rotate-180" /> Back to Orders
+        </Link>
+      </div>
       <h1 className="text-2xl font-bold mb-4">Confirm Delivery</h1>
       <DeliveryOtpForm orderId={params.id} />
     </div>

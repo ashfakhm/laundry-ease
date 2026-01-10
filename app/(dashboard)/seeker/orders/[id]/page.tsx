@@ -118,7 +118,7 @@ export default async function OrderDetailsPage({
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Link
-                  href="/seeker/orders"
+                  href="/seeker/view-orders"
                   className="text-xs font-bold text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors uppercase tracking-wider"
                 >
                   <ChevronRight className="w-3 h-3 rotate-180" /> Back to Orders
