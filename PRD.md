@@ -69,9 +69,11 @@ Definition: the platform operator.
 
 Primary responsibilities:
 
-- resolve disputes and complaints
+- resolve disputes and complaints through structured workflow
 - enforce abuse policy (e.g., bans, freezes)
 - decide escrow outcomes when the normal path breaks
+- manage complaint lifecycle (accept, add provider, resolve)
+- set response deadlines for provider engagement
 
 ## 4. Core User Flows
 
@@ -116,6 +118,23 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 4. **Escrow release**
    The system verifies OTP and releases funds to the provider payout flow (with any configured cooling period).
 
+### D. Complaint & Dispute Resolution
+
+1. **Complaint raised**
+   Seeker raises a complaint against an order within the allowed window (24 hours post-delivery). Escrow is immediately frozen.
+
+2. **Admin review**
+   Admin reviews the complaint and accepts it, setting a 7-day response deadline for the provider.
+
+3. **Provider engagement**
+   Admin adds the provider to the complaint chat. The complaint moves to `in_review` and becomes a 3-party conversation.
+
+4. **Resolution**
+   Admin decides the outcome:
+   - **Release payout**: Provider receives funds (complaint dismissed or resolved in provider's favor)
+   - **Full refund**: Seeker receives full refund (provider at fault)
+   - **Reject**: Complaint is invalid; funds released to provider
+
 ## 5. System Requirements
 
 ### Functional Requirements
@@ -134,6 +153,12 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 
 - **OTP delivery authentication**
   Delivery must require a one-time code.
+
+- **Complaint window enforcement**
+  Seekers must raise complaints within 24 hours of delivery. After this window, escrow may auto-release.
+
+- **Complaint chat audit trail**
+  All messages in a complaint thread must be recorded with sender role and timestamp for dispute evidence.
 
 ### Non-Functional Requirements
 
@@ -183,6 +208,27 @@ Reschedule rules:
 - When a reschedule is requested, the system must clear any pickup confirmation timestamp (e.g., `pickupSlot.confirmedAt`) and return the booking to the propose/confirm flow.
 - The system should record metadata for repeatability and audit (who requested, when, reason, count, previous slot snapshot).
 
+### Complaint (Dispute Resolution) States
+
+| State       | Meaning                                              | Allowed Next States                 |
+| ----------- | ---------------------------------------------------- | ----------------------------------- |
+| `open`      | Seeker raised a complaint; escrow frozen             | `accepted`                          |
+| `accepted`  | Admin acknowledged; 7-day response deadline set      | `in_review`, `resolved`, `rejected` |
+| `in_review` | Provider added to chat; active mediation in progress | `resolved`, `rejected`              |
+| `resolved`  | Admin decided; escrow action executed                | terminal                            |
+| `rejected`  | Invalid complaint; escrow released to provider       | terminal                            |
+
+Complaint workflow rules:
+
+- **One order, one complaint**: Each order may have at most one complaint.
+- **Escrow freeze on complaint**: When a seeker raises a complaint, the escrow release timer halts immediately.
+- **Admin acceptance required**: Complaints begin in `open` state and require admin acceptance before proceeding.
+- **Response deadline**: When admin accepts a complaint, a response deadline is set (default 7 days). Provider is notified.
+- **Provider access control**: Provider enters the complaint chat only when admin explicitly grants access (moves to `in_review`).
+- **3-way chat**: Once provider is added, the complaint becomes a 3-way conversation (Admin, Seeker, Provider).
+- **Resolution outcomes**: Admin can resolve with: `release_payout` (pay provider), `refund_full` (refund seeker), or `reject` (dismiss complaint, release to provider).
+- **Immutable resolution**: Once resolved or rejected, the complaint cannot be reopened.
+
 ## 7. Data & Integrity Rules
 
 - **Immutable financial record**
@@ -201,6 +247,12 @@ Reschedule rules:
 
 - **Escrow freeze on dispute**
   Any complaint or dispute must halt settlement timers until the admin decides the outcome.
+
+- **Complaint access control**
+  Provider can only view complaint details after admin explicitly grants access. Seeker and admin have access from creation.
+
+- **Response deadline tracking**
+  System tracks provider response deadline (default 7 days from acceptance) and surfaces overdue complaints to admin.
 
 - **Progress requires authorization**
   Only the provider assigned to the order can advance lifecycle states.
@@ -228,7 +280,9 @@ Reschedule rules:
 ## 11. Success Metrics
 
 - **Completion reliability**: delivered / invoiced
-- **Dispute rate**: disputes per invoiced order
+- **Dispute rate**: complaints per invoiced order
+- **Complaint resolution time**: average time from complaint `open` to `resolved`/`rejected`
+- **Provider response compliance**: percentage of complaints with provider response within deadline
 - **Time-to-clarity**: reduction in seeker-to-provider status calls/messages (proxy via support/contact rates)
 
 ## 12. Environment Setup & Configuration
@@ -296,10 +350,16 @@ See `README.md` for detailed setup instructions.
   If providers accept cash outside escrow, the trust contract breaks and the platform loses its enforcement mechanism.
 
 - **No-show policy**
-  The system needs a consistent rule for seeker no-shows at pickup and provider no-shows at delivery.
+  The system needs a consistent rule for seeker no-shows at pickup and provider no-shows at delivery. Cron jobs auto-check for no-shows, but policy enforcement needs refinement.
 
 - **Cancellation semantics**
   We need explicit policy for who can cancel at each state and what happens to escrow when cancellation occurs.
 
 - **Reschedule abuse / infinite loops**
   The platform needs a policy for excessive reschedule requests (caps, cooldowns, or admin escalation) to prevent griefing.
+
+- **Complaint window extension requests**
+  If a seeker misses the 24-hour complaint window due to legitimate reasons (travel, illness), there's no current mechanism to request an extension.
+
+- **Partial refunds**
+  Current resolution options are binary (full refund or full payout). A partial refund flow may be needed for nuanced disputes.
