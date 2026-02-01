@@ -320,3 +320,103 @@ LaundryEase provides a structured dispute resolution workflow for post-delivery 
 - **Escrow freeze**: Raising a complaint halts the escrow release timer
 - **Provider access control**: Provider only sees complaint after admin explicitly grants access
 - **Response deadline**: Default 7 days from acceptance; overdue complaints surfaced to admin
+
+## 12. Project Structure
+
+```
+laundry-ease/
+├── app/                          # Next.js App Router
+│   ├── (auth)/                   # Auth route group (verify-email, verify-phone)
+│   ├── (dashboard)/              # Protected dashboard routes
+│   │   ├── admin/                # Admin panel (complaints, users, settings)
+│   │   ├── provider/             # Provider dashboard (bookings, orders, earnings)
+│   │   └── seeker/               # Seeker dashboard (bookings, orders, disputes)
+│   ├── (root)/                   # Public landing page route group
+│   ├── actions/                  # Server actions (booking, order, profile)
+│   ├── api/                      # API routes
+│   │   ├── admin/                # Admin endpoints (complaints, users)
+│   │   ├── auth/                 # NextAuth configuration
+│   │   ├── bookings/             # Booking CRUD, chat, reschedule
+│   │   ├── complaints/           # Complaint creation, messages
+│   │   ├── cron/                 # Scheduled job endpoints
+│   │   ├── escrow/               # Escrow release endpoints
+│   │   ├── invoices/             # Invoice generation
+│   │   ├── orders/               # Order lifecycle management
+│   │   ├── otp/                  # OTP send/verify
+│   │   ├── payments/             # Razorpay integration
+│   │   ├── providers/            # Provider search, discovery
+│   │   ├── reviews/              # Review submission
+│   │   └── webhooks/             # Payment webhooks
+│   ├── auth/                     # Auth pages (login)
+│   ├── choose-role/              # Role selection after OAuth
+│   ├── complete-signup/          # Profile completion
+│   ├── reset-password/           # Password reset flow
+│   ├── signup/                   # Registration pages
+│   ├── globals.css               # Global styles (Tailwind)
+│   ├── layout.tsx                # Root layout with providers
+│   └── page.tsx                  # Landing page
+│
+├── components/                   # React components
+│   ├── bookings/                 # Booking list components
+│   ├── navigation/               # Sidebar, topnav components
+│   ├── orders/                   # Order actions, payment buttons
+│   ├── provider/                 # Provider-specific components
+│   ├── seeker/                   # Seeker-specific components
+│   ├── seo/                      # SEO components (JSON-LD)
+│   ├── ui/                       # shadcn/ui components
+│   ├── booking-modal.tsx         # Booking creation modal
+│   ├── chat-interface.tsx        # Booking chat with dispute modal
+│   ├── complaint-chat.tsx        # 3-way complaint chat
+│   ├── provider-card.tsx         # Provider search result card
+│   └── theme-toggle.tsx          # Dark/light mode toggle
+│
+├── cron/                         # Cron job logic
+│   ├── auto-reject-bookings.ts   # Auto-reject expired booking requests
+│   ├── escrow-auto-release.ts    # Auto-release escrow after cooling period
+│   └── no-show-check.ts          # No-show detection and handling
+│
+├── lib/                          # Shared utilities
+│   ├── api/                      # API helpers (auth, errors, response, schemas)
+│   ├── data/                     # Data fetching utilities
+│   ├── orders/                   # Order-specific utilities
+│   ├── audit.ts                  # Audit logging
+│   ├── cloudinary.ts             # Image upload
+│   ├── db.ts                     # Database operations
+│   ├── env.ts                    # Environment validation (Zod)
+│   ├── escrow-jobs.ts            # Escrow job scheduling
+│   ├── google-maps.ts            # Google Maps integration
+│   ├── logger.ts                 # Structured logging
+│   ├── mongodb.ts                # MongoDB connection
+│   ├── otp.ts                    # OTP generation/verification
+│   ├── razorpay.ts               # Razorpay payment integration
+│   └── utils.ts                  # General utilities (cn, formatters)
+│
+├── types/                        # TypeScript type definitions
+│   ├── bookings.ts               # Booking types and states
+│   ├── complaints.ts             # Complaint types and states
+│   ├── enums.ts                  # Shared enums (Role, Status)
+│   ├── next-auth.d.ts            # NextAuth type extensions
+│   ├── order.ts                  # Order types
+│   └── provider.ts               # Provider types
+│
+├── public/                       # Static assets
+├── proxy.ts                      # Custom proxy middleware (replaces middleware.ts)
+├── next.config.ts                # Next.js configuration
+├── vercel.json                   # Vercel deployment config (cron jobs)
+├── package.json                  # Dependencies and scripts
+├── tsconfig.json                 # TypeScript configuration
+├── PRD.md                        # Product Requirements Document
+└── README.md                     # This file
+```
+
+### Key Directories Explained
+
+| Directory          | Purpose                                          |
+| ------------------ | ------------------------------------------------ |
+| `app/(dashboard)/` | Role-based dashboards with protected routes      |
+| `app/api/`         | RESTful API endpoints organized by domain        |
+| `components/ui/`   | Reusable shadcn/ui components                    |
+| `cron/`            | Scheduled background jobs (Vercel cron)          |
+| `lib/api/`         | Request validation, error handling, auth helpers |
+| `lib/db.ts`        | Core database operations (CRUD, transactions)    |
+| `types/`           | Shared TypeScript interfaces and enums           |
