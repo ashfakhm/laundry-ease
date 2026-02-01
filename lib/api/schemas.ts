@@ -96,7 +96,7 @@ export const signupSeekerSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number")
     .regex(
       /[^A-Za-z0-9]/,
-      "Password must contain at least one special character"
+      "Password must contain at least one special character",
     ),
   phone: phoneSchema,
   address: z.object({
@@ -259,7 +259,7 @@ export const invoiceCreateSchema = z.object({
         quantity: z.number().int().positive(),
         unitPrice: z.number().nonnegative(),
         photoUrl: z.string().url().optional(),
-      })
+      }),
     )
     .min(1),
   notes: z.string().optional(),
@@ -298,7 +298,11 @@ export const confirmDeliverySchema = z.object({
 
 // Admin schemas
 export const adminComplaintStatusSchema = z.object({
-  status: z.enum(["open", "in_progress", "resolved", "rejected"]),
+  status: z.enum(["open", "accepted", "in_review", "resolved", "rejected"]),
+});
+
+export const adminComplaintAcceptSchema = z.object({
+  deadlineDays: z.number().min(1).max(14).default(7), // Days until provider must respond
 });
 
 export const adminComplaintResolveSchema = z.object({

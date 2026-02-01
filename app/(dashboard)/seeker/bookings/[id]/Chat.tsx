@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 interface DisputeState {
   open: boolean;
   reason: string;
@@ -8,7 +8,6 @@ interface DisputeState {
   error: string | null;
   success: string | null;
 }
-
 
 interface ChatMessage {
   _id?: string;
@@ -62,9 +61,9 @@ export default function BookingChat({
       }));
       setTimeout(
         () => setDispute((d) => ({ ...d, open: false, success: null })),
-        1200
+        1200,
       );
-    } catch (err) {
+    } catch {
       setDispute((d) => ({
         ...d,
         loading: false,
@@ -73,23 +72,23 @@ export default function BookingChat({
     }
   }
 
-  useEffect(() => {
-    fetchMessages();
-    // Optionally, poll for new messages every 5s
-    const interval = setInterval(fetchMessages, 5000);
-    return () => clearInterval(interval);
-  }, [bookingId]);
-
-  async function fetchMessages() {
+  const fetchMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/bookings/${bookingId}/chat`);
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
       setMessages(data);
-    } catch (err) {
+    } catch {
       setError("Could not load chat");
     }
-  }
+  }, [bookingId]);
+
+  useEffect(() => {
+    fetchMessages();
+    // Optionally, poll for new messages every 5s
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
+  }, [fetchMessages]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -105,7 +104,7 @@ export default function BookingChat({
       if (!res.ok) throw new Error("Failed to send message");
       setInput("");
       fetchMessages();
-    } catch (err) {
+    } catch {
       setError("Could not send message");
     } finally {
       setLoading(false);
@@ -193,7 +192,7 @@ export default function BookingChat({
                   Details
                 </label>
                 <textarea
-                  className="input input-bordered w-full min-h-[80px]"
+                  className="input input-bordered w-full min-h-20"
                   value={dispute.details}
                   onChange={(e) =>
                     setDispute((d) => ({ ...d, details: e.target.value }))

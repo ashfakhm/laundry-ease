@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Send, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { EvidenceUpload } from "@/components/ui/evidence-upload";
@@ -57,22 +57,22 @@ export default function BookingChat({
     success: null,
   });
 
-  useEffect(() => {
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
-    return () => clearInterval(interval);
-  }, [bookingId]);
-
-  async function fetchMessages() {
+  const fetchMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/bookings/${bookingId}/chat`);
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
       setMessages(data);
-    } catch (err) {
+    } catch {
       setError("Could not load chat");
     }
-  }
+  }, [bookingId]);
+
+  useEffect(() => {
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
+  }, [fetchMessages]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -88,7 +88,7 @@ export default function BookingChat({
       if (!res.ok) throw new Error("Failed to send message");
       setInput("");
       fetchMessages();
-    } catch (err) {
+    } catch {
       setError("Could not send message");
     } finally {
       setLoading(false);
@@ -108,32 +108,33 @@ export default function BookingChat({
           title: dispute.title,
           complaint_type: dispute.reason,
           description: dispute.details,
-          photos: dispute.photos
+          photos: dispute.photos,
         }),
       });
 
       if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Failed to raise dispute");
+        const data = await res.json();
+        throw new Error(data.error || "Failed to raise dispute");
       }
-      
+
       const data = await res.json();
-      
+
       setDispute((d) => ({
         ...d,
         loading: false,
         success: "Dispute raised! Redirecting...",
       }));
-      
+
       setTimeout(() => {
-          router.push(`/seeker/disputes/${data.data?._id || data._id}`); 
+        router.push(`/seeker/disputes/${data.data?._id || data._id}`);
       }, 1000);
-      
-    } catch (err: any) {
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not raise dispute";
       setDispute((d) => ({
         ...d,
         loading: false,
-        error: err.message || "Could not raise dispute",
+        error: message,
       }));
     }
   }
@@ -146,12 +147,12 @@ export default function BookingChat({
     <div className="flex flex-col h-full bg-background/50 relative">
       <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
         {messages.length === 0 && !loading && (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 space-y-2">
-                <div className="p-3 bg-muted rounded-full">
-                     <Send className="w-5 h-5" />
-                </div>
-                <p className="text-sm font-medium">Start the conversation</p>
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 space-y-2">
+            <div className="p-3 bg-muted rounded-full">
+              <Send className="w-5 h-5" />
             </div>
+            <p className="text-sm font-medium">Start the conversation</p>
+          </div>
         )}
 
         {messages.map((msg, i) => (
@@ -169,7 +170,9 @@ export default function BookingChat({
               }`}
             >
               <p>{msg.message}</p>
-              <div className={`text-[10px] mt-1 text-right opacity-60 leading-none`}>
+              <div
+                className={`text-[10px] mt-1 text-right opacity-60 leading-none`}
+              >
                 {new Date(msg.createdAt).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -180,9 +183,12 @@ export default function BookingChat({
         ))}
         <div ref={messagesEndRef} />
       </div>
-      
+
       {/* Input Area */}
-      <form onSubmit={sendMessage} className="flex gap-2 p-3 border-t bg-card/80 backdrop-blur-sm">
+      <form
+        onSubmit={sendMessage}
+        className="flex gap-2 p-3 border-t bg-card/80 backdrop-blur-sm"
+      >
         <button
           type="button"
           className="p-2.5 text-amber-500 hover:bg-amber-500/10 rounded-full transition-colors"
@@ -206,19 +212,26 @@ export default function BookingChat({
           <Send className="w-4 h-4 ml-0.5" />
         </button>
       </form>
-      
-      {error && <div className="text-destructive text-xs p-2 text-center bg-destructive/5 font-medium">{error}</div>}
+
+      {error && (
+        <div className="text-destructive text-xs p-2 text-center bg-destructive/5 font-medium">
+          {error}
+        </div>
+      )}
 
       {/* Dispute Modal */}
       {dispute.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-card rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200 border border-border my-auto">
             <h2 className="text-xl font-heading font-bold mb-4 flex items-center gap-2">
-                 <AlertTriangle className="w-5 h-5 text-amber-500" /> Report an Issue
+              <AlertTriangle className="w-5 h-5 text-amber-500" /> Report an
+              Issue
             </h2>
             <form onSubmit={handleDisputeSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Issue Title</label>
+                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+                  Issue Title
+                </label>
                 <input
                   type="text"
                   className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
@@ -233,7 +246,9 @@ export default function BookingChat({
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Category</label>
+                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+                  Category
+                </label>
                 <select
                   className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                   value={dispute.reason}
@@ -242,16 +257,20 @@ export default function BookingChat({
                   }
                   required
                 >
-                    {COMPLAINT_TYPES.map(type => (
-                        <option key={type.value} value={type.value}>{type.label}</option>
-                    ))}
+                  {COMPLAINT_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                 <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Description</label>
+                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+                  Description
+                </label>
                 <textarea
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-25 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                   value={dispute.details}
                   onChange={(e) =>
                     setDispute((d) => ({ ...d, details: e.target.value }))
@@ -263,17 +282,23 @@ export default function BookingChat({
               </div>
 
               <div>
-                  <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Evidence (Optional)</label>
-                  <EvidenceUpload
-                      value={dispute.photos}
-                      onChange={(urls) => setDispute(d => ({ ...d, photos: urls }))}
-                  />
+                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+                  Evidence (Optional)
+                </label>
+                <EvidenceUpload
+                  value={dispute.photos}
+                  onChange={(urls) =>
+                    setDispute((d) => ({ ...d, photos: urls }))
+                  }
+                />
               </div>
-              
+
               {(dispute.error || dispute.success) && (
-                 <div className={`p-3 rounded-xl text-sm font-medium ${dispute.error ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"}`}>
-                     {dispute.error || dispute.success}
-                 </div>
+                <div
+                  className={`p-3 rounded-xl text-sm font-medium ${dispute.error ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"}`}
+                >
+                  {dispute.error || dispute.success}
+                </div>
               )}
 
               <div className="flex gap-3 justify-end pt-2">

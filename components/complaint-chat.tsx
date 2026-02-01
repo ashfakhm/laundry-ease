@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
-import { Send, Image as ImageIcon, Lock } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Send, Lock } from "lucide-react";
 import Image from "next/image";
 
 interface ChatMessage {
@@ -27,13 +27,7 @@ export default function ComplaintChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isResolved, setIsResolved] = useState(false);
 
-  useEffect(() => {
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000); // Polling
-    return () => clearInterval(interval);
-  }, [complaintId]);
-
-  async function fetchMessages() {
+  const fetchMessages = useCallback(async () => {
     try {
       const res = await fetch(`/api/complaints/${complaintId}/messages`);
       if (res.status === 403) {
@@ -53,7 +47,13 @@ export default function ComplaintChat({
       console.error(err);
       // Don't overwrite specific error if set
     }
-  }
+  }, [complaintId]);
+
+  useEffect(() => {
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 5000); // Polling
+    return () => clearInterval(interval);
+  }, [fetchMessages]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -76,8 +76,10 @@ export default function ComplaintChat({
 
       setInput("");
       fetchMessages();
-    } catch (err: any) {
-      setError(err.message || "Could not send message");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not send message";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -89,7 +91,7 @@ export default function ComplaintChat({
 
   return (
     <div className="flex flex-col h-full bg-background/50 relative rounded-2xl overflow-hidden border border-border/50">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent min-h-[400px]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent min-h-100">
         {messages.length === 0 && !loading && !error && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 space-y-2">
             <p className="text-sm font-medium">No messages yet.</p>
@@ -114,8 +116,8 @@ export default function ComplaintChat({
                 msg.sender_role === selfRole
                   ? "bg-primary text-primary-foreground rounded-br-sm"
                   : msg.sender_role === "system"
-                  ? "bg-muted text-muted-foreground w-full text-center mx-auto text-xs py-1"
-                  : "bg-background border border-border rounded-bl-sm"
+                    ? "bg-muted text-muted-foreground w-full text-center mx-auto text-xs py-1"
+                    : "bg-background border border-border rounded-bl-sm"
               }`}
             >
               {msg.sender_role === "system" ? (

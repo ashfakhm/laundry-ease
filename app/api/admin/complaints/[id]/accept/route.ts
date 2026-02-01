@@ -1,0 +1,132 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getUserByEmail } from "@/lib/db";
+import { getDb } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
+import { ComplaintMessage } from "@/types/complaints";
+import { Role } from "@/types/enums";
+import { logger } from "@/lib/logger";
+import { adminComplaintAcceptSchema } from "@/lib/api/schemas";
+
+/**
+ * POST /api/admin/complaints/:id/accept
+ * Accept a complaint and set response deadline for provider
+ *
+ * Flow:
+ * 1. Validate admin auth
+ * 2. Check complaint exists and is in 'open' status
+ * 3. Update status to 'accepted'
+ * 4. Set response deadline (default 7 days)
+ * 5. Create system message
+ * 6. TODO: Send notification to seeker and provider
+ */
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Verify Admin
+    const dbUser = await getUserByEmail(session.user.email);
+    if (!dbUser || dbUser.role !== Role.ADMIN) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Parse body (optional deadline customization)
+    let deadlineDays = 7;
+    try {
+      const body = await req.json();
+      const parsed = adminComplaintAcceptSchema.safeParse(body);
+      if (parsed.success) {
+        deadlineDays = parsed.data.deadlineDays;
+      }
+    } catch {
+      // Empty body is fine, use default
+    }
+
+    const { db } = await getDb();
+    const complaintId = new ObjectId(id);
+
+    const complaint = await db
+      .collection("complaints")
+      .findOne({ _id: complaintId });
+
+    if (!complaint) {
+      return NextResponse.json(
+        { error: "Complaint not found" },
+        { status: 404 },
+      );
+    }
+
+    // Only open or legacy status complaints can be accepted
+    // Known completed statuses that should not be re-accepted
+    const completedStatuses = ["accepted", "in_review", "resolved", "rejected"];
+    if (completedStatuses.includes(complaint.status)) {
+      return NextResponse.json(
+        { error: `Cannot accept complaint with status: ${complaint.status}` },
+        { status: 400 },
+      );
+    }
+
+    // Calculate response deadline
+    const now = new Date();
+    const responseDeadline = new Date(now);
+    responseDeadline.setDate(responseDeadline.getDate() + deadlineDays);
+
+    // Update complaint
+    await db.collection("complaints").updateOne(
+      { _id: complaintId },
+      {
+        $set: {
+          status: "accepted",
+          acceptedAt: now,
+          response_deadline: responseDeadline,
+        },
+      },
+    );
+
+    // Get seeker name for system message
+    const seeker = await db
+      .collection("seekers")
+      .findOne({ _id: complaint.seeker_id });
+    const seekerName = seeker?.name || "Customer";
+
+    // Create system message
+    const systemMsg: Omit<ComplaintMessage, "_id"> = {
+      complaint_id: complaintId,
+      sender_id: dbUser._id as ObjectId,
+      sender_role: "system",
+      message_type: "SYSTEM",
+      content: `Admin has accepted this complaint. ${seekerName}'s issue is now under review. Provider will be notified and has ${deadlineDays} days to respond.`,
+      createdAt: now,
+    };
+
+    await db.collection("complaint_messages").insertOne(systemMsg);
+
+    // TODO: Send notifications to seeker (confirmation) and provider (alert)
+    // await sendComplaintAcceptedNotification(complaint.seeker_id, complaint.provider_id, complaintId);
+
+    logger.info("ADMIN_COMPLAINTS", "Complaint accepted", {
+      complaintId: id,
+      adminId: session.user.id,
+      responseDeadline: responseDeadline.toISOString(),
+    });
+
+    return NextResponse.json({
+      success: true,
+      status: "accepted",
+      response_deadline: responseDeadline,
+    });
+  } catch (error) {
+    logger.error("ADMIN_COMPLAINTS", "Error accepting complaint", error, {
+      complaintId: id,
+    });
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+  }
+}

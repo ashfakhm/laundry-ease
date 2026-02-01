@@ -11,17 +11,9 @@ export const runtime = "nodejs";
 // POST: Create Razorpay Order
 export async function POST(
   req: Request,
-  context: { params: { id: string } } | { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Support both sync and async params (Promise or object)
-  let id: string;
-  if (
-    typeof (context.params as unknown as Promise<unknown>).then === "function"
-  ) {
-    id = ((await context.params) as { id: string }).id;
-  } else {
-    id = (context.params as { id: string }).id;
-  }
+  const { id } = await params;
 
   try {
     const session = await getServerSession(authOptions);
@@ -45,7 +37,7 @@ export async function POST(
     if (order.payment_status === "paid" || order.payment_status === "held") {
       return NextResponse.json(
         { error: "Order is already paid" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -69,7 +61,7 @@ export async function POST(
     logger.error("ORDERS", "Payment init error", error, { orderId: id });
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -77,17 +69,9 @@ export async function POST(
 // PUT: Verify Payment
 export async function PUT(
   req: Request,
-  context: { params: { id: string } } | { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Support both sync and async params (Promise or object)
-  let id: string;
-  if (
-    typeof (context.params as unknown as Promise<unknown>).then === "function"
-  ) {
-    id = ((await context.params) as { id: string }).id;
-  } else {
-    id = (context.params as { id: string }).id;
-  }
+  const { id } = await params;
 
   try {
     const body = await req.json();
@@ -96,7 +80,7 @@ export async function PUT(
     const isValid = verifyRazorpaySignature(
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature
+      razorpay_signature,
     );
 
     if (!isValid) {
@@ -116,7 +100,7 @@ export async function PUT(
           process_status: "processing", // Move to processing
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     return NextResponse.json({ success: true });
@@ -126,7 +110,7 @@ export async function PUT(
     });
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

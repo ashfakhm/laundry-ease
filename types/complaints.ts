@@ -6,28 +6,36 @@ export type Complaint = {
   booking_id: ObjectId; // Linked booking
   seeker_id: ObjectId;
   provider_id: ObjectId;
-  
+
   // Metadata
   complaint_type: string;
   title: string;
   description: string;
   photos?: string[];
-  
+
   // State
   // FAANG-Grade State Machine:
-  // OPEN: Initial state. Payment blocked.
-  // VERIFIED: Admin acknowledged. Payment blocked. Chat active.
-  // IN_REVIEW: Provider potentially added. Payment blocked.
+  // OPEN: Initial state. Payment blocked. Awaiting admin review.
+  // ACCEPTED: Admin acknowledged. Payment blocked. Chat active. Provider NOT yet in chat.
+  // IN_REVIEW: Provider added to chat. Active mediation. Payment blocked.
   // RESOLVED: Admin decided. Payment Executed. Chat archived.
   // REJECTED: Invalid complaint. Escrow released. Chat archived.
-  status: "open" | "verified" | "in_review" | "resolved" | "rejected";
-  
-  resolution_outcome?: "refund_full" | "refund_partial" | "release_payout" | "no_action";
-  
+  status: "open" | "accepted" | "in_review" | "resolved" | "rejected";
+
+  resolution_outcome?:
+    | "refund_full"
+    | "refund_partial"
+    | "release_payout"
+    | "no_action";
+
+  // Deadline Tracking
+  acceptedAt?: Date;
+  response_deadline?: Date; // Provider must respond by this date (typically 3-7 days from acceptance)
+
   // Chat & Access
-  participants: ObjectId[]; 
+  participants: ObjectId[];
   provider_access_granted: boolean;
-  
+
   createdAt: Date;
   resolvedAt?: Date;
 };

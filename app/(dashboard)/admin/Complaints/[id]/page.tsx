@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, UserPlus, CheckCircle, Ban } from "lucide-react";
 import Link from "next/link";
@@ -9,6 +9,18 @@ import { toast } from "sonner";
 
 type Params = Promise<{ id: string }>;
 
+interface ComplaintData {
+  _id: string;
+  order_id: string;
+  title: string;
+  description: string;
+  complaint_type: string;
+  status: string;
+  createdAt: string;
+  response_deadline?: string;
+  provider_access_granted?: boolean;
+}
+
 export default function AdminComplaintDetailPage({
   params,
 }: {
@@ -16,15 +28,11 @@ export default function AdminComplaintDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const [complaint, setComplaint] = useState<any>(null);
+  const [complaint, setComplaint] = useState<ComplaintData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    fetchComplaint();
-  }, [id]);
-
-  async function fetchComplaint() {
+  const fetchComplaint = useCallback(async () => {
     try {
       const res = await fetch(`/api/complaints/${id}`);
       if (res.ok) {
@@ -39,7 +47,11 @@ export default function AdminComplaintDetailPage({
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    fetchComplaint();
+  }, [fetchComplaint]);
 
   async function handleAddProvider() {
     setActionLoading(true);
@@ -64,7 +76,7 @@ export default function AdminComplaintDetailPage({
   }
 
   async function handleResolve(
-    outcome: "release_payout" | "refund_full" | "reject"
+    outcome: "release_payout" | "refund_full" | "reject",
   ) {
     if (!confirm(`Are you sure you want to ${outcome.replace(/_/g, " ")}?`))
       return;
@@ -183,35 +195,123 @@ export default function AdminComplaintDetailPage({
               Admin Actions
             </h3>
 
+            {/* Current Status Display */}
+            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-sm">
+              <span className="text-muted-foreground">Current Status: </span>
+              <span className="font-semibold text-blue-700 dark:text-blue-400">
+                {complaint.status}
+              </span>
+            </div>
+
+            {/* Deadline Display */}
+            {complaint.response_deadline && (
+              <div className="p-3 rounded-xl bg-muted/50 text-sm">
+                <span className="text-muted-foreground">
+                  Response Deadline:{" "}
+                </span>
+                <span className="font-medium">
+                  {new Date(complaint.response_deadline).toLocaleDateString()}
+                </span>
+                {new Date(complaint.response_deadline) < new Date() && (
+                  <span className="ml-2 text-red-500 font-medium">
+                    (Overdue)
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-3">
-              {!providerAdded && (
+              {/* Accept button for open complaints OR any non-standard status */}
+              {(complaint.status === "open" ||
+                ![
+                  "open",
+                  "accepted",
+                  "in_review",
+                  "resolved",
+                  "rejected",
+                ].includes(complaint.status)) && (
                 <button
-                  onClick={handleAddProvider}
+                  onClick={async () => {
+                    setActionLoading(true);
+                    try {
+                      const res = await fetch(
+                        `/api/admin/complaints/${id}/accept`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ deadlineDays: 7 }),
+                        },
+                      );
+                      if (res.ok) {
+                        toast.success("Complaint accepted");
+                        fetchComplaint();
+                      } else {
+                        const data = await res.json();
+                        toast.error(data.error || "Failed to accept");
+                      }
+                    } catch {
+                      toast.error("Failed to accept complaint");
+                    } finally {
+                      setActionLoading(false);
+                    }
+                  }}
                   disabled={actionLoading}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  Add Provider to Chat
+                  <CheckCircle className="w-4 h-4" />
+                  Accept Complaint
                 </button>
               )}
 
-              <button
-                onClick={() => handleResolve("release_payout")}
-                disabled={actionLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                <CheckCircle className="w-4 h-4" />
-                Issue Solved: Release Payout
-              </button>
+              {/* Add Provider button - show for accepted status OR in_review without provider */}
+              {!providerAdded &&
+                (complaint.status === "accepted" ||
+                  complaint.status === "in_review") && (
+                  <button
+                    onClick={handleAddProvider}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Add Provider to Chat
+                  </button>
+                )}
 
-              <button
-                onClick={() => handleResolve("refund_full")}
-                disabled={actionLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
-              >
-                <Ban className="w-4 h-4" />
-                Full Refund
-              </button>
+              {/* Resolution buttons - show for accepted, in_review, OR unknown status */}
+              {(complaint.status === "accepted" ||
+                complaint.status === "in_review" ||
+                !["open", "resolved", "rejected"].includes(
+                  complaint.status,
+                )) && (
+                <>
+                  <button
+                    onClick={() => handleResolve("release_payout")}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Release Payout
+                  </button>
+
+                  <button
+                    onClick={() => handleResolve("refund_full")}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    <Ban className="w-4 h-4" />
+                    Full Refund
+                  </button>
+
+                  <button
+                    onClick={() => handleResolve("reject")}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-4 py-2 border-2 border-gray-400 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    <Ban className="w-4 h-4" />
+                    Reject Complaint
+                  </button>
+                </>
+              )}
             </div>
 
             {providerAdded && (
@@ -244,10 +344,11 @@ export default function AdminComplaintDetailPage({
 
 function StatusBadge({ status }: { status: string }) {
   const colors = {
-    open: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    under_review: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+    open: "bg-red-500/10 text-red-600 border-red-500/20",
+    accepted: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+    in_review: "bg-amber-500/10 text-amber-600 border-amber-500/20",
     resolved: "bg-green-500/10 text-green-600 border-green-500/20",
-    rejected: "bg-red-500/10 text-red-600 border-red-500/20",
+    rejected: "bg-gray-500/10 text-gray-600 border-gray-500/20",
   };
 
   return (
