@@ -444,7 +444,7 @@ await createRazorpayPayout({
 1. Webhook receives `payment.failed` event
 2. Payment status updated in database
 3. User can retry payment from their dashboard
-4. No duplicate charges (Razorpay order ID is reused)
+4. No duplicate payouts; each payment attempt is verified by signature and reconciled via webhooks
 
 ### Q: How does the complaint affect escrow?
 
@@ -527,7 +527,7 @@ Seeker raises complaint (status: "open")
     ↓
 Admin reviews and accepts (status: "accepted", deadline set)
     ↓
-Admin adds provider to chat (status: "in_review")
+Admin adds provider to chat (status: "in_review", legacy status `under_review` still recognized)
     ↓
 3-way chat for mediation
     ↓
@@ -535,6 +535,8 @@ Admin resolves (status: "resolved" or "rejected")
     ↓
 Escrow action executed (refund/release)
 ```
+
+Note: The 24-hour complaint window is a product rule; the current API does not enforce a hard cutoff yet.
 
 ---
 
@@ -784,7 +786,7 @@ Logs include: timestamp, category, message, metadata.
 
 **Answer**:
 
-- **API Routes**: `withErrorHandling` wrapper catches and formats errors
+- **API Routes**: Many routes use `withErrorHandling`; others use explicit `try/catch` with `NextResponse`
 - **Frontend**: Error boundaries + toast notifications
 - **Global**: `global-error.tsx` for uncaught errors
 - **Logging**: All errors logged with context for debugging
@@ -878,6 +880,16 @@ await session.withTransaction(async () => {
 | **Haversine**   | Formula to calculate distance between two coordinates                  |
 
 ---
+
+## Known Gaps vs PRD (Be Transparent)
+
+Use these points if you are asked about differences between the PRD and current implementation:
+
+- **24-hour complaint window**: Documented in PRD, but the API does not enforce a strict cutoff yet. A validation check can be added based on `delivered` + `otp_confirmed_at` timestamps.
+- **Complaint status normalization**: The core flow uses `open → accepted → in_review → resolved/rejected`, but some endpoints still recognize legacy `under_review` as active.
+- **Error handling consistency**: Many API routes use `withErrorHandling`, but some still use explicit `try/catch`. This is a refactor opportunity for consistency.
+- **Payment retries**: Each retry creates a new Razorpay order; idempotency is handled at payout and webhook reconciliation, not by reusing order IDs.
+- **PRD vs timeline**: PRD has a few future-looking features (like complaint window extension requests) that are not fully wired yet.
 
 ## Quick Presentation Tips
 
