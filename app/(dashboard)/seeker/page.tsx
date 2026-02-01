@@ -43,7 +43,7 @@ export default function SeekerDashboardPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingInProgress, setBookingInProgress] = useState<string | null>(
-    null
+    null,
   );
   const [searchLocation, setSearchLocation] = useState("");
   const [searchCoordinates, setSearchCoordinates] = useState<
@@ -290,7 +290,7 @@ export default function SeekerDashboardPage() {
                   "rounded-full px-3 py-1 text-xs font-medium transition-all duration-200 border",
                   selectedService === service
                     ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
-                    : "bg-background border-border hover:border-primary/50 hover:bg-muted"
+                    : "bg-background border-border hover:border-primary/50 hover:bg-muted",
                 )}
               >
                 {service}
@@ -352,7 +352,7 @@ export default function SeekerDashboardPage() {
                       <div className="flex justify-between items-start gap-4">
                         <div className="flex items-start gap-3 flex-1">
                           {/* Profile Picture */}
-                          <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted flex-shrink-0">
+                          <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted shrink-0">
                             {provider.profilePicture ? (
                               <Image
                                 src={provider.profilePicture}
@@ -377,7 +377,7 @@ export default function SeekerDashboardPage() {
                                 "Provider"}
                             </h3>
                             <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
-                              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                              <MapPin className="w-3.5 h-3.5 shrink-0" />
                               <span className="truncate">
                                 {provider.location || "Location not set"}
                               </span>
@@ -387,7 +387,7 @@ export default function SeekerDashboardPage() {
                         {provider.rating &&
                         provider.reviewCount &&
                         provider.reviewCount > 0 ? (
-                          <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-bold ring-1 ring-amber-500/20 flex-shrink-0">
+                          <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-bold ring-1 ring-amber-500/20 shrink-0">
                             <Star className="w-3.5 h-3.5 fill-current" />
                             {provider.rating.toFixed(1)}
                           </div>
