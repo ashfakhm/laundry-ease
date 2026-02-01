@@ -44,3 +44,5 @@ next-env.d.ts
 # docs
 *.md
 !README.md
+!PRD.md
+!PRESENTATION_HELPER.md
