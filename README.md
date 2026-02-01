@@ -48,7 +48,8 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
 
 - **Delivery authentication**
   Providers stop fearing “delivered but unpaid.” Seekers stop fearing “paid but not delivered.” OTP ties the final handoff to a recorded confirmation.
-
+- **Complaint & dispute resolution**
+  Seekers can raise complaints within 24 hours of delivery. Escrow freezes immediately. Admin mediates through a 3-way chat system with response deadlines.
 - **Reschedule without cancellation (booking-level)**
   Either side can request a pickup reschedule while pickup is still being negotiated. Reschedule creates an explicit booking state (not a cancellation) and routes the booking back into the propose/confirm flow.
 
@@ -111,7 +112,6 @@ Tradeoff: the flow rejects “fast but fuzzy” transactions. It favors clarity 
    Edit `.env.local` and fill in all required variables. See the [Environment Variables](#environment-variables) section below for details.
 
 4. **Set up MongoDB**
-
    - For local MongoDB: Ensure MongoDB is running on `localhost:27017`
    - For MongoDB Atlas: Update `MONGODB_URI` with your Atlas connection string
 
@@ -256,9 +256,67 @@ Stable:
 - Location-based provider discovery
 - Booking → invoicing → escrow → delivery confirmation loop
 - Booking reschedule requests during pickup scheduling
+- Complaint system with admin workflow (accept → add provider → resolve)
+- 3-way chat for dispute mediation (seeker, provider, admin)
+- Response deadline tracking for provider engagement
+- Escrow freeze on complaint, release on resolution
 
 Intentionally not finished yet:
 
-- Full dispute resolution experience (evidence capture exists; policy and tooling need hardening)
+- Partial refund flow (currently only full refund or full payout)
+- Complaint window extension requests
 - Cancellation and no-show handling that enforces penalties consistently
 - Provider field UX polish (mobile-first ergonomics)
+
+## 11. Complaint & Dispute Resolution
+
+LaundryEase provides a structured dispute resolution workflow for post-delivery issues.
+
+### Complaint Lifecycle
+
+| State       | Description                                     |
+| ----------- | ----------------------------------------------- |
+| `open`      | Seeker raised complaint; escrow frozen          |
+| `accepted`  | Admin acknowledged; 7-day response deadline set |
+| `in_review` | Provider added to chat; active mediation        |
+| `resolved`  | Admin decided outcome; escrow action executed   |
+| `rejected`  | Invalid complaint dismissed; escrow released    |
+
+### How it works
+
+1. **Seeker raises complaint** within 24 hours of delivery
+   - Escrow immediately freezes
+   - Complaint created in `open` status
+   - Initial message includes title, description, and evidence photos
+
+2. **Admin accepts complaint**
+   - Sets 7-day response deadline for provider
+   - Status moves to `accepted`
+   - Seeker notified of acceptance
+
+3. **Admin adds provider to chat**
+   - Provider gains access to complaint details
+   - Status moves to `in_review`
+   - 3-way conversation begins (Admin, Seeker, Provider)
+
+4. **Admin resolves complaint**
+   - `release_payout` - Funds go to provider (complaint dismissed or resolved in provider's favor)
+   - `refund_full` - Seeker receives full refund (provider at fault)
+   - `reject` - Complaint invalid; funds released to provider
+
+### API endpoints
+
+- `POST /api/complaints` - Create complaint (seeker)
+- `GET /api/complaints/:id` - Get complaint details
+- `GET /api/complaints/:id/messages` - Get chat messages
+- `POST /api/complaints/:id/messages` - Send message
+- `POST /api/admin/complaints/:id/accept` - Accept complaint (admin)
+- `POST /api/admin/complaints/:id/add-provider` - Add provider to chat (admin)
+- `POST /api/admin/complaints/:id/resolve` - Resolve with outcome (admin)
+
+### Key rules
+
+- **One order, one complaint**: Each order can have at most one complaint
+- **Escrow freeze**: Raising a complaint halts the escrow release timer
+- **Provider access control**: Provider only sees complaint after admin explicitly grants access
+- **Response deadline**: Default 7 days from acceptance; overdue complaints surfaced to admin
