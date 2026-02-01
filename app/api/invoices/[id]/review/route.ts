@@ -10,17 +10,9 @@ export const runtime = "nodejs";
 
 export async function POST(
   req: Request,
-  context: { params: { id: string } } | { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  // Support both sync and async params (Promise or object)
-  let id: string;
-  if (
-    typeof (context.params as unknown as Promise<unknown>).then === "function"
-  ) {
-    id = ((await context.params) as { id: string }).id;
-  } else {
-    id = (context.params as { id: string }).id;
-  }
+  const { id } = await params;
 
   try {
     const session = await getServerSession(authOptions);
@@ -43,7 +35,7 @@ export async function POST(
     if (booking.seeker_id.toString() !== session.user.id) {
       return NextResponse.json(
         { error: "Unauthorized access to this booking" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -58,7 +50,7 @@ export async function POST(
       }
       return NextResponse.json(
         { error: "Booking is not in invoice review state" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -75,7 +67,7 @@ export async function POST(
             updatedAt: new Date(),
             bookingFeeStatus: "forfeited",
           },
-        }
+        },
       );
       return NextResponse.json({ success: true, status: "rejected" });
     }
@@ -85,7 +77,7 @@ export async function POST(
     if (!invoice) {
       return NextResponse.json(
         { error: "Invoice data missing" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -133,7 +125,7 @@ export async function POST(
           order_id: result.insertedId,
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     return NextResponse.json({
@@ -145,7 +137,7 @@ export async function POST(
     logger.error("INVOICES", "Invoice review error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

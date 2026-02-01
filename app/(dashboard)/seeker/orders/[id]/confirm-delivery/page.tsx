@@ -10,15 +10,16 @@ import DeliveryOtpForm from "@/components/seeker/delivery-otp-form";
 export default async function DeliveryOtpPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/signin");
   const { db } = await getDb();
   // Only allow seeker to confirm delivery
   const order = await db
     .collection("orders")
-    .findOne({ _id: new ObjectId(params.id) });
+    .findOne({ _id: new ObjectId(id) });
   if (!order || order.seeker_id.toString() !== session.user.id)
     redirect("/dashboard/seeker");
   return (
@@ -32,7 +33,7 @@ export default async function DeliveryOtpPage({
         </Link>
       </div>
       <h1 className="text-2xl font-bold mb-4">Confirm Delivery</h1>
-      <DeliveryOtpForm orderId={params.id} />
+      <DeliveryOtpForm orderId={id} />
     </div>
   );
 }

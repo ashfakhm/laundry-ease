@@ -247,7 +247,7 @@ export async function createBooking(data: {
   const session = client.startSession();
 
   try {
-    let insertedBooking: Booking | null = null;
+    let insertedBooking: Booking | undefined;
 
     await session.withTransaction(async () => {
       const now = new Date();
@@ -312,7 +312,7 @@ export async function createBooking(data: {
 
     // Audit log - booking created (fire-and-forget, non-blocking)
     auditBookingStateChange({
-      booking_id: insertedBooking._id,
+      booking_id: insertedBooking._id as ObjectId,
       previous_state: null,
       next_state: "requested",
       action: "booking_created",

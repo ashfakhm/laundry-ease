@@ -4,6 +4,7 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 // removed unused useRouter
 import React from "react";
+import Link from "next/link";
 import { PasswordInput } from "@/components/ui/password-input";
 import { AppHeader } from "@/components/ui/app-header";
 import { motion } from "framer-motion";
@@ -37,10 +38,10 @@ export default function AuthPage() {
         setError(
           <>
             Account not found.{" "}
-            <a href="/choose-role" className="underline hover:text-primary">
+            <Link href="/choose-role" className="underline hover:text-primary">
               Sign up
-            </a>
-          </>
+            </Link>
+          </>,
         );
       } else if (res?.error === "INVALID_CREDENTIALS") {
         setError("Invalid email or password.");
