@@ -108,7 +108,7 @@ export default function AdminDashboardPage() {
                 View Ledger
               </button>
             </div>
-            <div className="flex h-[200px] items-center justify-center rounded-2xl border border-dashed bg-muted/30">
+            <div className="flex h-50 items-center justify-center rounded-2xl border border-dashed bg-muted/30">
               <div className="text-center space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">
                   Total Revenue
@@ -129,7 +129,7 @@ export default function AdminDashboardPage() {
                 Resolve All
               </button>
             </div>
-            <div className="flex h-[200px] items-center justify-center rounded-2xl border border-dashed bg-muted/30">
+            <div className="flex h-50 items-center justify-center rounded-2xl border border-dashed bg-muted/30">
               <p className="text-sm text-muted-foreground">
                 {stats?.openComplaints === 0
                   ? "No active disputes"
