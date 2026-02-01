@@ -36,14 +36,13 @@ export default function ComplaintsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<
     "all" | "open" | "in_progress" | "resolved"
-  >("open");
+  >("all");
   const toast = useToast();
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     complaintId: string;
-    resolution: "refund_full" | "refund_partial" | "release_payout";
-    refundAmount?: number;
-  }>({ isOpen: false, complaintId: "", resolution: "release_payout" });
+    outcome: "refund_full" | "release_payout" | "reject";
+  }>({ isOpen: false, complaintId: "", outcome: "release_payout" });
 
   useEffect(() => {
     fetchComplaints();
@@ -65,7 +64,7 @@ export default function ComplaintsPage() {
 
   async function updateComplaintStatus(
     complaintId: string,
-    status: "in_progress" | "resolved"
+    status: "in_progress" | "resolved",
   ) {
     try {
       const response = await fetch(`/api/admin/complaints/${complaintId}`, {
@@ -131,16 +130,18 @@ export default function ComplaintsPage() {
 
   async function resolveComplaint(
     complaintId: string,
-    resolution: "refund_full" | "refund_partial" | "release_payout",
-    refundAmount?: number
+    outcome: "refund_full" | "release_payout" | "reject",
   ) {
     try {
-      const response = await fetch(`/api/admin/complaints/${complaintId}/resolve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resolution, refundAmount }),
-      });
-      
+      const response = await fetch(
+        `/api/admin/complaints/${complaintId}/resolve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ outcome }),
+        },
+      );
+
       const data = await response.json();
 
       if (response.ok) {
@@ -159,46 +160,61 @@ export default function ComplaintsPage() {
 
   // Helper for action buttons
   function renderActions(complaint: Complaint) {
-      if (complaint.status === "resolved") return null;
+    if (complaint.status === "resolved") return null;
 
-      return (
-          <div className="flex flex-col gap-2 w-full lg:w-48">
-              {complaint.status === "open" && (
-                  <button
-                      onClick={() => updateComplaintStatus(complaint._id, "in_progress")}
-                      className="rounded-xl border bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
-                  >
-                      Start Review
-                  </button>
-              )}
-              
-              {complaint.status === "in_progress" && (
-                  <>
-                      <button
-                          onClick={() => setConfirmDialog({
-                            isOpen: true,
-                            complaintId: complaint._id,
-                            resolution: "release_payout"
-                          })}
-                          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
-                      >
-                          Issue Solved: Release Payout
-                      </button>
-                       <button
-                          onClick={() => setConfirmDialog({
-                            isOpen: true,
-                            complaintId: complaint._id,
-                            resolution: "refund_full"
-                          })}
-                          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
-                      >
-                          Full Refund
-                      </button>
-                      {/* Partial refund UI omitted for brevity, usually requires a modal input */}
-                  </>
-              )}
-          </div>
-      );
+    return (
+      <div className="flex flex-col gap-2 w-full lg:w-48">
+        {complaint.status === "open" && (
+          <button
+            onClick={() => updateComplaintStatus(complaint._id, "in_progress")}
+            className="rounded-xl border bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+          >
+            Start Review
+          </button>
+        )}
+
+        {complaint.status === "in_progress" && (
+          <>
+            <button
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  complaintId: complaint._id,
+                  outcome: "release_payout",
+                })
+              }
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+            >
+              Issue Solved: Release Payout
+            </button>
+            <button
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  complaintId: complaint._id,
+                  outcome: "refund_full",
+                })
+              }
+              className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
+            >
+              Full Refund
+            </button>
+            <button
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  complaintId: complaint._id,
+                  outcome: "reject",
+                })
+              }
+              className="rounded-xl border bg-background px-4 py-2 text-sm font-semibold hover:bg-muted"
+            >
+              Reject Complaint
+            </button>
+          </>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -211,11 +227,55 @@ export default function ComplaintsPage() {
           </p>
         </div>
 
-        {/* ... (keeping Stats & Filters) ... */}
-        {/* Simplified for brevity in replace block, but keeping structure implies I should match surrounding code better if I want to preserve it. 
-           I will replace the map loop content mainly. 
-        */}
-        
+        {/* Stats */}
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="text-2xl font-bold">{complaints.length}</p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Open</p>
+            <p className="text-2xl font-bold text-red-500">
+              {complaints.filter((c) => c.status === "open").length}
+            </p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-sm text-muted-foreground">In Progress</p>
+            <p className="text-2xl font-bold text-amber-500">
+              {complaints.filter((c) => c.status === "in_progress").length}
+            </p>
+          </div>
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Resolved</p>
+            <p className="text-2xl font-bold text-emerald-500">
+              {complaints.filter((c) => c.status === "resolved").length}
+            </p>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          {(["all", "open", "in_progress", "resolved"] as const).map(
+            (status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
+                  filter === status
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80"
+                }`}
+              >
+                {status === "all"
+                  ? "All"
+                  : status === "in_progress"
+                    ? "In Progress"
+                    : status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ),
+          )}
+        </div>
+
         {/* Complaints List */}
         {filteredComplaints.length === 0 ? (
           <div className="rounded-3xl border bg-card/80 p-12 text-center shadow-sm backdrop-blur">
@@ -295,7 +355,7 @@ export default function ComplaintsPage() {
           </div>
         )}
       </div>
-      
+
       {/* Confirmation Dialog */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
@@ -303,16 +363,15 @@ export default function ComplaintsPage() {
         onConfirm={async () => {
           await resolveComplaint(
             confirmDialog.complaintId,
-            confirmDialog.resolution,
-            confirmDialog.refundAmount
+            confirmDialog.outcome,
           );
           setConfirmDialog({ ...confirmDialog, isOpen: false });
         }}
-        title={`Confirm ${confirmDialog.resolution === "release_payout" ? "Payout Release" : "Refund"}`}
-        message={`Are you sure you want to proceed with: ${confirmDialog.resolution.replace(/_/g, " ")}?`}
+        title={`Confirm ${confirmDialog.outcome === "release_payout" ? "Payout Release" : confirmDialog.outcome === "reject" ? "Rejection" : "Refund"}`}
+        message={`Are you sure you want to proceed with: ${confirmDialog.outcome.replace(/_/g, " ")}?`}
         confirmText="Proceed"
         cancelText="Cancel"
-        variant={confirmDialog.resolution === "refund_full" ? "danger" : "warning"}
+        variant={confirmDialog.outcome === "refund_full" ? "danger" : "warning"}
       />
     </main>
   );
