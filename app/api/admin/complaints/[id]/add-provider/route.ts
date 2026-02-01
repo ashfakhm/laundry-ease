@@ -10,7 +10,7 @@ import { logger } from "@/lib/logger";
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -37,17 +37,20 @@ export async function POST(
     if (complaint.provider_access_granted) {
       return NextResponse.json(
         { error: "Provider already has access" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Update complaint to grant provider access
+    // Update complaint to grant provider access and change status to in_review
     await db.collection("complaints").updateOne(
       { _id: complaintId },
       {
-        $set: { provider_access_granted: true },
+        $set: {
+          provider_access_granted: true,
+          status: "in_review", // Move to in_review when provider is added
+        },
         $addToSet: { participants: complaint.provider_id }, // Add to participants if not present
-      }
+      },
     );
 
     // Get provider name for system message
@@ -74,7 +77,7 @@ export async function POST(
       "ADMIN_COMPLAINTS",
       "Error adding provider to complaint",
       error,
-      { complaintId: id }
+      { complaintId: id },
     );
     return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
