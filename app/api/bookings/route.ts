@@ -15,7 +15,7 @@ export const POST = withErrorHandling(async (req: Request) => {
   if (!result.success) {
     throw Errors.validation(
       "Invalid booking data",
-      result.error.flatten().fieldErrors
+      result.error.flatten().fieldErrors,
     );
   }
 
@@ -32,44 +32,29 @@ export const POST = withErrorHandling(async (req: Request) => {
     throw Errors.notFound("Provider not found");
   }
 
-  // **Capacity Check (Race Condition Mitigation)**
-  const activeBookings = await db.collection("bookings").countDocuments({
-    provider_id: providerOid,
-    status: {
-      $in: ["requested", "accepted", "pickup_proposed", "confirmed"],
-    },
-  });
-
-  const activeOrders = await db.collection("orders").countDocuments({
-    provider_id: providerOid,
-    process_status: {
-      $in: [
-        "invoiced",
-        "processing",
-        "washing",
-        "ironing",
-        "ready",
-        "out_for_delivery",
-      ],
-    },
-  });
-
   const capacity = provider.capacity || 5;
-  if (activeBookings + activeOrders >= capacity) {
-    throw Errors.conflict(
-      `Provider is currently at full capacity (${
-        activeBookings + activeOrders
-      }/${capacity}). Please try again later or choose another provider.`
-    );
+
+  // Atomic booking creation with transactional capacity check
+  // Prevents race condition where multiple parallel requests could exceed capacity
+  try {
+    const booking = await createBooking({
+      seeker_id,
+      provider_id: providerOid,
+      deadline: deadline ? new Date(deadline) : undefined,
+      seeker_coordinates,
+      bookingFee: provider.pricing || 0,
+      capacity,
+    });
+
+    return successResponse(booking, 201);
+  } catch (error) {
+    // Handle capacity exceeded error from transaction
+    if (
+      error instanceof Error &&
+      error.message.startsWith("CAPACITY_EXCEEDED:")
+    ) {
+      throw Errors.conflict(error.message.replace("CAPACITY_EXCEEDED:", ""));
+    }
+    throw error;
   }
-
-  const booking = await createBooking({
-    seeker_id,
-    provider_id: providerOid,
-    deadline: deadline ? new Date(deadline) : undefined,
-    seeker_coordinates,
-    bookingFee: provider.pricing || 0,
-  });
-
-  return successResponse(booking, 201);
 });

@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { maskBankDetails } from "@/lib/utils";
 
 /**
  * GET /api/providers/:id
- * Fetch a single provider by ID
+ * Fetch a single provider by ID (public endpoint for seeker browsing)
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -17,7 +18,7 @@ export async function GET(
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: "Invalid provider ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -26,17 +27,21 @@ export async function GET(
       { _id: new ObjectId(id) },
       {
         projection: {
-          passwordHash: 0, // Exclude sensitive data
+          // Exclude sensitive data completely
+          passwordHash: 0,
           emailVerified: 0,
           phoneVerified: 0,
+          bankDetails: 0, // Never expose bank details in public endpoint
+          razorpay_fund_account_id: 0,
+          razorpay_contact_id: 0,
         },
-      }
+      },
     );
 
     if (!provider) {
       return NextResponse.json(
         { error: "Provider not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -47,7 +52,7 @@ export async function GET(
     });
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

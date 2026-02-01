@@ -5,6 +5,11 @@ import { ObjectId } from "mongodb";
 import { getDb } from "./mongodb";
 import { Role } from "@/types/enums";
 import bcrypt from "bcrypt";
+import {
+  auditBookingStateChange,
+  auditOrderStateChange,
+  auditEscrowStateChange,
+} from "./audit";
 
 export type BaseUser = {
   _id?: ObjectId;
@@ -71,7 +76,7 @@ export type UserWithRole = (Seeker | Provider | Admin) & {
  * Returns user with their role
  */
 export async function getUserByEmail(
-  email?: string | null
+  email?: string | null,
 ): Promise<UserWithRole | null> {
   if (!email) return null;
   const { db } = await getDb();
@@ -224,38 +229,112 @@ export type Review = {
   createdAt: Date;
 };
 
+/**
+ * Create a booking with atomic capacity check using MongoDB transaction.
+ * Prevents race conditions where multiple bookings could exceed provider capacity.
+ *
+ * @throws Error if provider capacity is exceeded
+ */
 export async function createBooking(data: {
   seeker_id: ObjectId;
   provider_id: ObjectId;
   deadline?: Date;
   bookingFee: number;
   seeker_coordinates?: { lat: number; lng: number };
+  capacity: number; // Provider's max capacity - must be passed in
 }) {
-  const { db } = await getDb();
-  const now = new Date();
+  const { db, client } = await getDb();
+  const session = client.startSession();
 
-  const booking: Omit<Booking, "_id"> = {
-    seeker_id: data.seeker_id,
-    provider_id: data.provider_id,
-    status: "requested",
-    bookingFee: data.bookingFee, // Dynamic fee from provider
-    bookingFeeStatus: "pending",
-    deadline: data.deadline,
-    seeker_coordinates: data.seeker_coordinates,
-    createdAt: now,
-  };
+  try {
+    let insertedBooking: Booking | null = null;
 
-  const res = await db
-    .collection<Omit<Booking, "_id">>("bookings")
-    .insertOne(booking);
-  return { ...booking, _id: res.insertedId };
+    await session.withTransaction(async () => {
+      const now = new Date();
+
+      // Atomic capacity check within transaction
+      const activeBookings = await db.collection("bookings").countDocuments(
+        {
+          provider_id: data.provider_id,
+          status: {
+            $in: ["requested", "accepted", "pickup_proposed", "confirmed"],
+          },
+        },
+        { session },
+      );
+
+      const activeOrders = await db.collection("orders").countDocuments(
+        {
+          provider_id: data.provider_id,
+          process_status: {
+            $in: [
+              "invoiced",
+              "processing",
+              "washing",
+              "ironing",
+              "ready",
+              "out_for_delivery",
+            ],
+          },
+        },
+        { session },
+      );
+
+      const totalActive = activeBookings + activeOrders;
+      if (totalActive >= data.capacity) {
+        throw new Error(
+          `CAPACITY_EXCEEDED:Provider is currently at full capacity (${totalActive}/${data.capacity}). Please try again later or choose another provider.`,
+        );
+      }
+
+      // Insert booking within same transaction
+      const booking: Omit<Booking, "_id"> = {
+        seeker_id: data.seeker_id,
+        provider_id: data.provider_id,
+        status: "requested",
+        bookingFee: data.bookingFee,
+        bookingFeeStatus: "pending",
+        deadline: data.deadline,
+        seeker_coordinates: data.seeker_coordinates,
+        createdAt: now,
+      };
+
+      const res = await db
+        .collection<Omit<Booking, "_id">>("bookings")
+        .insertOne(booking, { session });
+
+      insertedBooking = { ...booking, _id: res.insertedId };
+    });
+
+    if (!insertedBooking) {
+      throw new Error("Failed to create booking");
+    }
+
+    // Audit log - booking created (fire-and-forget, non-blocking)
+    auditBookingStateChange({
+      booking_id: insertedBooking._id,
+      previous_state: null,
+      next_state: "requested",
+      action: "booking_created",
+      actor_type: "seeker",
+      actor_id: data.seeker_id,
+      metadata: {
+        provider_id: data.provider_id.toString(),
+        booking_fee: data.bookingFee,
+      },
+    });
+
+    return insertedBooking;
+  } finally {
+    await session.endSession();
+  }
 }
 
 /**
  * Get a booking by its ID
  */
 export async function getBookingById(
-  booking_id: ObjectId
+  booking_id: ObjectId,
 ): Promise<Booking | null> {
   const { db } = await getDb();
   const booking = await db
@@ -269,7 +348,7 @@ export async function getBookingById(
  */
 export async function updateBookingStatus(
   booking_id: ObjectId,
-  status: "accepted" | "rejected"
+  status: "accepted" | "rejected",
 ) {
   const { db } = await getDb();
   const res = await db
@@ -277,7 +356,112 @@ export async function updateBookingStatus(
     .updateOne({ _id: booking_id }, { $set: { status } });
   return res.modifiedCount > 0;
 }
+/**
+ * Accept a booking with atomic capacity check using MongoDB transaction.
+ * Prevents race conditions where multiple accepts could exceed provider capacity.
+ *
+ * @returns The updated booking if successful, null if booking not found or not in 'requested' status
+ * @throws Error if provider capacity is exceeded
+ */
+export async function acceptBookingWithCapacityCheck(data: {
+  booking_id: ObjectId;
+  provider_id: ObjectId;
+  maxCapacity: number;
+  platform_commission: number;
+  provider_payout_amount: number;
+}): Promise<Booking | null> {
+  const { db, client } = await getDb();
+  const session = client.startSession();
 
+  try {
+    let updatedBooking: Booking | null = null;
+
+    await session.withTransaction(async () => {
+      // Get booking first to verify it exists and is in correct state
+      const booking = await db
+        .collection<Booking>("bookings")
+        .findOne({ _id: data.booking_id }, { session });
+
+      if (!booking) {
+        throw new Error("BOOKING_NOT_FOUND:Booking not found");
+      }
+
+      if (booking.provider_id.toString() !== data.provider_id.toString()) {
+        throw new Error(
+          "UNAUTHORIZED:You are not authorized to accept this booking",
+        );
+      }
+
+      if (booking.status !== "requested") {
+        throw new Error(
+          "ALREADY_PROCESSED:Booking has already been acted upon",
+        );
+      }
+
+      // Atomic capacity check within transaction
+      const activeBookingsCount = await db
+        .collection("bookings")
+        .countDocuments(
+          {
+            provider_id: data.provider_id,
+            status: { $in: ["accepted", "pickup_proposed", "confirmed"] },
+          },
+          { session },
+        );
+
+      if (activeBookingsCount >= data.maxCapacity) {
+        throw new Error(
+          `CAPACITY_EXCEEDED:You are at your maximum capacity of ${data.maxCapacity} active bookings.`,
+        );
+      }
+
+      // Update booking within same transaction
+      const updateResult = await db
+        .collection<Booking>("bookings")
+        .findOneAndUpdate(
+          { _id: data.booking_id, status: "requested" }, // Double-check status hasn't changed
+          {
+            $set: {
+              status: "accepted",
+              platform_commission: data.platform_commission,
+              provider_payout_amount: data.provider_payout_amount,
+              payout_status: "pending",
+              updatedAt: new Date(),
+            },
+          },
+          { returnDocument: "after", session },
+        );
+
+      if (!updateResult) {
+        throw new Error(
+          "ALREADY_PROCESSED:Booking has already been acted upon",
+        );
+      }
+
+      updatedBooking = updateResult;
+    });
+
+    // Audit log - booking accepted (fire-and-forget, non-blocking)
+    if (updatedBooking) {
+      auditBookingStateChange({
+        booking_id: data.booking_id,
+        previous_state: "requested",
+        next_state: "accepted",
+        action: "booking_accepted",
+        actor_type: "provider",
+        actor_id: data.provider_id,
+        metadata: {
+          platform_commission: data.platform_commission,
+          provider_payout_amount: data.provider_payout_amount,
+        },
+      });
+    }
+
+    return updatedBooking;
+  } finally {
+    await session.endSession();
+  }
+}
 /**
  * Create a new order
  */
@@ -333,7 +517,7 @@ export async function getOrderById(order_id: ObjectId): Promise<Order | null> {
  */
 export async function updateOrderPaymentStatus(
   order_id: ObjectId,
-  payment_status: "paid" | "held" | "refunded"
+  payment_status: "paid" | "held" | "refunded",
 ) {
   // "released" status is managed exclusively through releaseEscrowPayment() function
   const { db } = await getDb();
@@ -341,7 +525,7 @@ export async function updateOrderPaymentStatus(
     .collection<Order>("orders")
     .updateOne(
       { _id: order_id },
-      { $set: { payment_status, payment_made_at: new Date() } }
+      { $set: { payment_status, payment_made_at: new Date() } },
     );
   return res.modifiedCount > 0;
 }
@@ -364,7 +548,7 @@ export async function confirmDelivery(order_id: ObjectId) {
         escrow_started_at: now,
         escrow_release_at,
       },
-    }
+    },
   );
   return res.modifiedCount > 0;
 }
@@ -418,9 +602,28 @@ export async function releaseEscrowPayment(order_id: ObjectId) {
   // Atomic update: Only update if still in "held" status (prevents race conditions)
   const res = await db.collection<Order>("orders").updateOne(
     { _id: order_id, payment_status: "held" }, // Ensure still "held" before updating
-    { $set: { payment_status: "released", escrow_released_at: new Date() } }
+    { $set: { payment_status: "released", escrow_released_at: new Date() } },
   );
-  return res.modifiedCount > 0;
+
+  const success = res.modifiedCount > 0;
+
+  // Audit log - escrow released (fire-and-forget, non-blocking)
+  if (success) {
+    auditEscrowStateChange({
+      order_id,
+      previous_state: "held",
+      next_state: "released",
+      action: "escrow_released",
+      actor_type: "system",
+      razorpay_payment_id: order.razorpay_payment_id || null,
+      metadata: {
+        provider_payout_amount: order.provider_payout_amount,
+        escrow_started_at: order.escrow_started_at,
+      },
+    });
+  }
+
+  return success;
 }
 
 /**
@@ -429,7 +632,7 @@ export async function releaseEscrowPayment(order_id: ObjectId) {
 export async function cancelOrder(
   order_id: ObjectId,
   seeker_id: ObjectId,
-  cancellation_fee: number
+  cancellation_fee: number,
 ) {
   const { db } = await getDb();
 
@@ -437,7 +640,7 @@ export async function cancelOrder(
     .collection<Order>("orders")
     .updateOne(
       { _id: order_id, payment_status: "unpaid" },
-      { $set: { cancellation_status: "cancelled_by_seeker" } }
+      { $set: { cancellation_status: "cancelled_by_seeker" } },
     );
 
   if (orderCancelRes.modifiedCount === 0) {
@@ -449,7 +652,7 @@ export async function cancelOrder(
     {
       $inc: { outstanding_fees: cancellation_fee },
       $set: { blocked_until: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30) }, // Block for 30 days or until fee is paid
-    }
+    },
   );
 
   return seekerUpdateRes.modifiedCount > 0;
@@ -511,7 +714,7 @@ export async function freezeEscrow(order_id: ObjectId) {
       .collection<Order>("orders")
       .updateOne(
         { _id: order_id },
-        { $set: { escrow_frozen: true, escrow_frozen_at: new Date() } }
+        { $set: { escrow_frozen: true, escrow_frozen_at: new Date() } },
       );
   } catch {
     // Error persisting escrow_frozen flag - continue silently as complaint still blocks release
@@ -545,7 +748,7 @@ export async function getBookingsForProvider(email: string) {
         .collection<Seeker>("seekers")
         .findOne(
           { _id: new ObjectId(booking.seeker_id) },
-          { projection: { passwordHash: 0 } }
+          { projection: { passwordHash: 0 } },
         );
 
       // Serialize ObjectIds to strings for Client Components
@@ -575,7 +778,7 @@ export async function getBookingsForProvider(email: string) {
             }
           : undefined,
       };
-    })
+    }),
   );
 
   return enrichedBookings;

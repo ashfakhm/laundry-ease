@@ -55,21 +55,24 @@ export async function GET(req: NextRequest) {
         lng > 180
       ) {
         return NextResponse.json(
-          { error: "Invalid coordinates. Latitude must be -90 to 90, Longitude must be -180 to 180." },
-          { status: 400 }
+          {
+            error:
+              "Invalid coordinates. Latitude must be -90 to 90, Longitude must be -180 to 180.",
+          },
+          { status: 400 },
         );
       }
 
       userCoords = { lat, lng };
-      
+
       // Optional: Get max radius from query param (default 50km for initial filter)
       const radiusParam = searchParams.get("radius");
       maxRadiusKm = radiusParam ? parseFloat(radiusParam) : 50;
-      
+
       if (isNaN(maxRadiusKm!) || maxRadiusKm! <= 0) {
         return NextResponse.json(
           { error: "Invalid radius. Must be a positive number." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -85,7 +88,7 @@ export async function GET(req: NextRequest) {
       orConditions.push(
         { location: { $regex: location, $options: "i" } },
         { "address.city": { $regex: location, $options: "i" } },
-        { address: { $regex: location, $options: "i" } }
+        { address: { $regex: location, $options: "i" } },
       );
     }
 
@@ -108,11 +111,14 @@ export async function GET(req: NextRequest) {
     let providers = await providersCollection
       .find(filter)
       .project({
+        // Exclude all sensitive data from public listing
         passwordHash: 0,
         emailVerified: 0,
         phoneVerified: 0,
         documents: 0,
         bankDetails: 0,
+        razorpay_fund_account_id: 0,
+        razorpay_contact_id: 0,
       })
       .toArray();
 
@@ -124,7 +130,7 @@ export async function GET(req: NextRequest) {
           const distance = calculateDistance(userCoords!, provider.coordinates);
           // Check if provider's radius covers the seeker's location
           const providerRadius = provider.radius_km || 10;
-          return distance <= (maxRadiusKm! + providerRadius); // Include providers whose radius might reach the seeker
+          return distance <= maxRadiusKm! + providerRadius; // Include providers whose radius might reach the seeker
         })
         .map((provider) => {
           const distance = calculateDistance(userCoords!, provider.coordinates);
@@ -133,7 +139,11 @@ export async function GET(req: NextRequest) {
             distanceFromSeeker: distance,
           };
         })
-        .sort((a, b) => (a.distanceFromSeeker || Infinity) - (b.distanceFromSeeker || Infinity))
+        .sort(
+          (a, b) =>
+            (a.distanceFromSeeker || Infinity) -
+            (b.distanceFromSeeker || Infinity),
+        )
         .slice(0, limit);
     } else {
       // No coordinates - just apply limit
@@ -154,13 +164,13 @@ export async function GET(req: NextRequest) {
         providers,
         total: providers.length,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     logger.error("PROVIDER_SEARCH", "Error fetching providers", error);
     return NextResponse.json(
       { error: "Failed to fetch providers" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
