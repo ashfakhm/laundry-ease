@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, UserPlus, CheckCircle, Ban } from "lucide-react";
 import Link from "next/link";
@@ -9,6 +9,18 @@ import { toast } from "sonner";
 
 type Params = Promise<{ id: string }>;
 
+interface ComplaintData {
+  _id: string;
+  order_id: string;
+  title: string;
+  description: string;
+  complaint_type: string;
+  status: string;
+  createdAt: string;
+  response_deadline?: string;
+  provider_access_granted?: boolean;
+}
+
 export default function AdminComplaintDetailPage({
   params,
 }: {
@@ -16,15 +28,11 @@ export default function AdminComplaintDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const [complaint, setComplaint] = useState<any>(null);
+  const [complaint, setComplaint] = useState<ComplaintData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    fetchComplaint();
-  }, [id]);
-
-  async function fetchComplaint() {
+  const fetchComplaint = useCallback(async () => {
     try {
       const res = await fetch(`/api/complaints/${id}`);
       if (res.ok) {
@@ -39,7 +47,11 @@ export default function AdminComplaintDetailPage({
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
+
+  useEffect(() => {
+    fetchComplaint();
+  }, [fetchComplaint]);
 
   async function handleAddProvider() {
     setActionLoading(true);
