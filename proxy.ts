@@ -13,7 +13,7 @@ function createRouteMatcher(routes: Matcher[]) {
     return routes.some((route) =>
       typeof route === "string"
         ? pathname === route || pathname.startsWith(route + "/")
-        : route.test(pathname)
+        : route.test(pathname),
     );
   };
 }
@@ -26,6 +26,8 @@ const isPublicRoute = createRouteMatcher([
   "/signup",
   "/choose-role",
   "/unauthorized",
+  "/robots.txt",
+  "/sitemap.xml",
   /^\/api\/auth/,
   /^\/api\/otp/,
   /^\/api\/signup/,
