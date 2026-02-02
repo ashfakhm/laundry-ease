@@ -26,6 +26,7 @@ export default function ComplaintChat({
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isResolved, setIsResolved] = useState(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -75,6 +76,7 @@ export default function ComplaintChat({
       if (!res.ok) throw new Error("Failed to send message");
 
       setInput("");
+      setShouldAutoScroll(true); // Always scroll to bottom after sending
       fetchMessages();
     } catch (err) {
       const message =
@@ -85,9 +87,13 @@ export default function ComplaintChat({
     }
   }
 
+  // Auto-scroll only when user sends a message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (shouldAutoScroll) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      setShouldAutoScroll(false);
+    }
+  }, [messages, shouldAutoScroll]);
 
   return (
     <div className="flex flex-col h-full bg-background/50 relative rounded-2xl overflow-hidden border border-border/50">
