@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   CreditCard,
   Users,
-  ScrollText,
   Menu,
   X,
   LogOut,
@@ -72,7 +71,8 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
           if (Array.isArray(data)) {
             // Count only active complaints (open, under_review)
             const activeCount = data.filter(
-              (c: any) => c.status === "open" || c.status === "under_review"
+              (c: { status: string }) =>
+                c.status === "open" || c.status === "under_review",
             ).length;
             setActiveComplaintsCount(activeCount);
           }
@@ -98,9 +98,9 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col border-r bg-card transition-all duration-300",
+        "hidden lg:flex flex-col border-r border-border/50 bg-card/40 backdrop-blur-xl transition-all duration-300",
         isCollapsed ? "w-16" : "w-64",
-        className
+        className,
       )}
     >
       {/* Header */}
@@ -127,7 +127,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
           <ChevronLeft
             className={cn(
               "h-5 w-5 text-muted-foreground transition-transform",
-              isCollapsed && "rotate-180"
+              isCollapsed && "rotate-180",
             )}
           />
         </button>
@@ -158,14 +158,14 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
                         isActive
                           ? "bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                        isCollapsed && "justify-center px-2"
+                        isCollapsed && "justify-center px-2",
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
                       <Icon
                         className={cn(
                           "h-5 w-5 shrink-0",
-                          isActive && "text-violet-600 dark:text-violet-400"
+                          isActive && "text-violet-600 dark:text-violet-400",
                         )}
                       />
                       {!isCollapsed && (
@@ -199,7 +199,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
           onClick={() => signOut({ callbackUrl: "/" })}
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors w-full",
-            isCollapsed && "justify-center px-2"
+            isCollapsed && "justify-center px-2",
           )}
           title={isCollapsed ? "Sign Out" : undefined}
         >
@@ -224,7 +224,8 @@ export function AdminMobileNav() {
           const data = await res.json();
           if (Array.isArray(data)) {
             const activeCount = data.filter(
-              (c: any) => c.status === "open" || c.status === "under_review"
+              (c: { status: string }) =>
+                c.status === "open" || c.status === "under_review",
             ).length;
             setActiveComplaintsCount(activeCount);
           }
@@ -316,7 +317,7 @@ export function AdminMobileNav() {
                               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                               isActive
                                 ? "bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
                             )}
                           >
                             <Icon className="h-5 w-5 shrink-0" />

@@ -88,7 +88,7 @@ export function LandingPageClient() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                   </span>
-                  Available in New York & San Francisco
+                  Available in India
                 </motion.div>
 
                 <h1 className="font-heading text-5xl md:text-7xl font-bold tracking-tighter text-foreground leading-[1.1]">
@@ -130,16 +130,62 @@ export function LandingPageClient() {
                 <div className="relative h-full w-full bg-card/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden flex items-center justify-center">
                   <div className="absolute inset-0 bg-grid-slate-900/[0.04] bg-position-[bottom_1px_center] dark:bg-grid-slate-400/[0.05] mask-[linear-gradient(to_bottom,transparent,black)]" />
                   {/* Abstract UI Representation */}
-                  <div className="relative w-3/4 h-3/4 bg-background rounded-xl shadow-2xl border border-border/50 p-6 flex flex-col gap-4">
-                    <div className="h-8 w-1/3 bg-muted rounded-md animate-pulse" />
-                    <div className="h-32 w-full bg-secondary/30 rounded-lg" />
-                    <div className="space-y-2">
-                      <div className="h-4 w-full bg-muted rounded-md" />
-                      <div className="h-4 w-5/6 bg-muted rounded-md" />
+                  <div className="relative w-3/4 max-w-sm bg-background/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-border/50 p-6 flex flex-col gap-6">
+                    <div className="flex items-center justify-between border-b border-border/10 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                          <Clock className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground text-sm">
+                            Pickup Scheduled
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Today, 2:00 PM
+                          </p>
+                        </div>
+                      </div>
+                      <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
                     </div>
-                    <div className="mt-auto flex justify-between items-center">
-                      <div className="h-10 w-24 bg-primary/20 rounded-full" />
-                      <div className="h-10 w-10 rounded-full bg-primary/20" />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/50">
+                        <MapPin className="w-4 h-4 text-primary shrink-0" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-foreground">
+                            123 Innovation Dr, Tech City
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Pickup Location
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/50">
+                        <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-foreground">
+                            Escrow Protected
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Payment held until delivery
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 pt-4 border-t border-border/10 flex justify-between items-center">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                          Estimated Total
+                        </p>
+                        <p className="text-lg font-bold text-foreground">
+                          ₹350.00
+                        </p>
+                      </div>
+                      <div className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-full shadow-lg shadow-primary/20">
+                        View Details
+                      </div>
                     </div>
                   </div>
                 </div>
