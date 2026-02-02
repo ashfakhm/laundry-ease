@@ -49,6 +49,14 @@ export async function PATCH(
       );
     }
 
+    // Ensure booking fee is paid before accepting
+    if (booking.bookingFeeStatus !== "paid") {
+      return NextResponse.json(
+        { message: "Booking fee must be paid before provider can accept" },
+        { status: 400 },
+      );
+    }
+
     // Check for Provider Payment Details (Mandatory)
     if (!provider.razorpay_fund_account_id) {
       // Attempt to sync on-the-fly if details exist locally

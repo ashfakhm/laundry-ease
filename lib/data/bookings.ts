@@ -27,10 +27,14 @@ export async function getProviderBookings(): Promise<{
       return { success: false, error: "Provider not found" };
     }
 
-    // Fetch all bookings for this provider
+    // Fetch all bookings for this provider where fee is paid
+    // Providers only see bookings after seeker has paid the booking fee
     const bookings = await db
       .collection("bookings")
-      .find({ provider_id: provider._id })
+      .find({
+        provider_id: provider._id,
+        bookingFeeStatus: "paid",
+      })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -49,7 +53,7 @@ export async function getProviderBookings(): Promise<{
               address: 1,
               image: 1,
             },
-          }
+          },
         );
 
         return {
@@ -82,7 +86,7 @@ export async function getProviderBookings(): Promise<{
             image: seeker?.image,
           },
         } as unknown as PopulatedBooking;
-      })
+      }),
     );
 
     return { success: true, data: populatedBookings };
@@ -144,7 +148,7 @@ export async function getSeekerBookings(): Promise<{
               profilePicture: 1,
               bannerImage: 1,
             },
-          }
+          },
         );
 
         return {
@@ -177,7 +181,7 @@ export async function getSeekerBookings(): Promise<{
             bannerImage: provider?.bannerImage,
           },
         } as unknown as PopulatedSeekerBooking;
-      })
+      }),
     );
 
     return { success: true, data: populatedBookings };

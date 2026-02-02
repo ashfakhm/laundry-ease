@@ -76,6 +76,14 @@ export async function updateBookingStatus(
       return { success: false, error: "Booking has already been acted upon" };
     }
 
+    // Ensure booking fee is paid before any action
+    if (booking.bookingFeeStatus !== "paid") {
+      return {
+        success: false,
+        error: "Booking fee must be paid before provider can accept",
+      };
+    }
+
     // --- ACCEPT LOGIC ---
     if (action === "accept") {
       // 1. Capacity Check
