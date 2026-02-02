@@ -321,6 +321,8 @@ LaundryEase requires the following environment variables to be configured (see `
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID` - Same as RAZORPAY_KEY_ID (exposed to client)
 - `RAZORPAYX_ACCOUNT_NUMBER` - RazorpayX account number for escrow
 
+Note: TypeScript type definitions for the Razorpay SDK are maintained in `types/razorpay.d.ts` for type-safe integration with the checkout widget.
+
 **Google Maps:**
 
 - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` - Google Maps API key (requires Maps JavaScript API, Places API, Geocoding API)

@@ -428,7 +428,8 @@ laundry-ease/
 │   ├── next-auth.d.ts            # NextAuth type extensions
 │   ├── order.ts                  # Order types
 │   ├── orders.ts                 # Additional order types
-│   └── provider.ts               # Provider types
+│   ├── provider.ts               # Provider types
+│   └── razorpay.d.ts             # Razorpay SDK type definitions
 │
 ├── public/                       # Static assets
 │   └── laundryease-logo.png      # Application logo
@@ -457,5 +458,5 @@ laundry-ease/
 | `docs/`                  | Product documentation and guides                   |
 | `lib/api/`               | Request validation, error handling, auth helpers   |
 | `lib/db.ts`              | Core database operations (CRUD, transactions)      |
-| `types/`                 | Shared TypeScript interfaces and enums             |
+| `types/`                 | Shared TypeScript interfaces, enums, and SDK types |
 | `public/`                | Static assets (logo, images)                       |

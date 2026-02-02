@@ -97,7 +97,7 @@ export function PaymentButton({
         disabled={loading}
         className={cn(
           "group relative overflow-hidden rounded-xl font-bold transition-all duration-300",
-          "bg-gradient-to-r from-primary to-purple-600 text-white shadow-lg shadow-primary/25",
+          "bg-linear-to-r from-primary to-purple-600 text-white shadow-lg shadow-primary/25",
           "hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0",
           fullWidth ? "w-full" : "w-auto px-6",
           "py-3", // Consistent height
@@ -105,7 +105,7 @@ export function PaymentButton({
         )}
       >
         {/* Shimmer Effect */}
-        <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-linear-to-r from-transparent via-white/20 to-transparent" />
 
         <div className="relative flex items-center justify-center gap-2.5">
           {loading ? (

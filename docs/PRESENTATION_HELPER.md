@@ -123,6 +123,7 @@
 3. **Code explains itself**: Types show what data looks like
 4. **Easier to maintain**: Big codebases become easier to manage
 5. **Industry need**: Required skill for professional jobs
+6. **SDK types**: We create proper TypeScript interfaces for external SDKs like Razorpay (see `types/razorpay.d.ts`) to get full type safety even with third-party libraries
 
 ### Q: Why Razorpay instead of Stripe or PayPal?
 
@@ -889,6 +890,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Error handling style**: Many API routes use `withErrorHandling`, but some still use `try/catch` directly. This can be cleaned up later.
 - **Payment retries**: Each retry makes a new Razorpay order; we handle duplicates at payout and webhook time, not by reusing order IDs.
 - **PRD vs reality**: Some future features in the PRD (like complaint window extension requests) are not fully built yet.
+- **Shared type definitions**: External SDK types (like Razorpay) are centralized in `types/razorpay.d.ts` for consistent usage across components.
 
 ## Quick Presentation Tips
 
