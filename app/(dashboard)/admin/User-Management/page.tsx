@@ -277,16 +277,17 @@ export default function UserManagementPage() {
                 )}
 
               {/* Action Buttons */}
-              <div className="flex gap-2 mt-auto pt-4 border-t border-border/50">
+              {/* Action Buttons */}
+              <div className="flex gap-3 mt-auto pt-4 border-t border-border/50">
                 <button
-                  className="flex-1 rounded-xl border border-red-200 bg-red-50/50 text-red-600 px-3 py-2 text-sm font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 rounded-xl border border-red-200 bg-red-50/80 text-red-700 px-3 py-2.5 text-sm font-semibold hover:bg-red-100 hover:border-red-300 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/40 dark:hover:border-red-500/50 dark:hover:shadow-[0_0_15px_-3px_rgba(239,68,68,0.15)] transition-all duration-200 flex items-center justify-center gap-2 group/btn"
                   onClick={() => banUser(user)}
                 >
-                  <ShieldAlert className="w-4 h-4" />
-                  Ban
+                  <ShieldAlert className="w-4 h-4 transition-transform group-hover/btn:scale-110" />
+                  Ban User
                 </button>
                 <button
-                  className="flex-1 rounded-xl border border-border bg-background text-muted-foreground px-3 py-2 text-sm font-semibold hover:bg-muted hover:text-foreground transition-colors"
+                  className="flex-1 rounded-xl border border-transparent bg-transparent text-muted-foreground px-3 py-2.5 text-sm font-semibold hover:bg-muted/50 hover:text-foreground hover:border-border/50 dark:hover:bg-slate-800/50 dark:hover:text-slate-200 transition-all duration-200"
                   onClick={() => deleteUser(user)}
                 >
                   Delete
