@@ -6,6 +6,7 @@ import Script from "next/script";
 import { CreditCard, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
+import type { RazorpayResponse, RazorpayError } from "@/types/razorpay";
 
 interface PaymentButtonProps {
   orderId: string;
@@ -13,30 +14,6 @@ interface PaymentButtonProps {
   currency?: string;
   className?: string; // Added to fix lint errors and allow customization
   fullWidth?: boolean;
-}
-
-interface RazorpayResponse {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-}
-
-interface RazorpayError {
-  error: {
-    description: string;
-  };
-}
-
-interface RazorpayInstance {
-  open(): void;
-  on(event: string, callback: (response: RazorpayError) => void): void;
-}
-
-declare global {
-  interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Razorpay: any;
-  }
 }
 
 export function PaymentButton({
