@@ -100,14 +100,14 @@ export function SeekerTopNav() {
                       "text-sm font-medium transition-colors relative py-1",
                       isActive
                         ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {item.label}
                     {isActive && (
                       <motion.div
                         layoutId="activeTab"
-                        className="absolute -bottom-[21px] left-0 right-0 h-[2px] bg-primary"
+                        className="absolute -bottom-5.25 left-0 right-0 h-0.5 bg-primary"
                         transition={{ duration: 0.2 }}
                       />
                     )}
@@ -160,7 +160,7 @@ export function SeekerTopNav() {
                       "flex items-center gap-4 text-lg font-medium p-2 rounded-lg transition-colors",
                       isActive
                         ? "bg-secondary text-foreground"
-                        : "text-muted-foreground"
+                        : "text-muted-foreground",
                     )}
                   >
                     <item.icon className="w-5 h-5" />
