@@ -21,6 +21,7 @@ type User = {
   blocked_until?: string;
   businessName?: string;
   location?: string;
+  profilePicture?: string;
 };
 
 export default function UserManagementPage() {
@@ -220,16 +221,24 @@ export default function UserManagementPage() {
               {/* Profile Header */}
               <div className="flex items-center gap-4 mb-4">
                 <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold shadow-inner ${
+                  className={`flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold shadow-inner overflow-hidden shrink-0 ${
                     user.role === "provider"
                       ? "bg-linear-to-br from-purple-100 to-purple-200 text-purple-700"
                       : "bg-linear-to-br from-emerald-100 to-emerald-200 text-emerald-700"
                   }`}
                 >
-                  {user.name.charAt(0).toUpperCase()}
+                  {user.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt={user.businessName || user.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    user.name.charAt(0).toUpperCase()
+                  )}
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg text-foreground line-clamp-1">
+                <div className="overflow-hidden">
+                  <h3 className="font-bold text-lg text-foreground line-clamp-1 truncate">
                     {user.name}
                   </h3>
                   {user.businessName && (
