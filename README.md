@@ -260,6 +260,9 @@ Stable:
 - 3-way chat for dispute mediation (seeker, provider, admin)
 - Response deadline tracking for provider engagement
 - Escrow freeze on complaint, release on resolution
+- Invoice viewing (pending with actions, history in read-only mode)
+- Secure signup with password confirmation and strength validation
+- Real-time client-side form validation (email, password matching)
 
 Intentionally not finished yet:
 
@@ -383,7 +386,7 @@ laundry-ease/
 │   ├── providers/                # Provider listing components (invoice-form)
 │   ├── seeker/                   # Seeker-specific components
 │   ├── seo/                      # SEO components (JSON-LD)
-│   ├── ui/                       # shadcn/ui components
+│   ├── ui/                       # shadcn/ui components (password-input, toast, etc.)
 │   ├── booking-modal.tsx         # Booking creation modal
 │   ├── chat-interface.tsx        # Booking chat with dispute modal
 │   ├── complaint-chat.tsx        # 3-way complaint chat
