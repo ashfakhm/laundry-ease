@@ -125,10 +125,13 @@ export async function getSeekerBookings(): Promise<{
       return { success: false, error: "Seeker not found" };
     }
 
-    // Fetch all bookings for this seeker
+    // Fetch all bookings for this seeker (exclude cancelled/rejected)
     const bookings = await db
       .collection("bookings")
-      .find({ seeker_id: seeker._id })
+      .find({
+        seeker_id: seeker._id,
+        status: { $nin: ["cancelled", "rejected"] },
+      })
       .sort({ createdAt: -1 })
       .toArray();
 
