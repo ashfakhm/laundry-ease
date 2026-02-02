@@ -124,7 +124,7 @@ export function LandingPageClient() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 1, delay: 0.2 }}
-                className="relative hidden lg:block h-[600px] w-full"
+                className="relative hidden lg:block h-150 w-full"
               >
                 <div className="absolute inset-0 bg-linear-to-br from-primary/20 via-teal-100/10 to-transparent rounded-3xl blur-3xl transform rotate-3" />
                 <div className="relative h-full w-full bg-card/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden flex items-center justify-center">
