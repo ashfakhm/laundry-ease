@@ -119,7 +119,7 @@ export async function PATCH(
     const bookingFee = booking.bookingFee || 0;
     const platform_commission = bookingFee * 0.05; // 5%
     const provider_payout_amount = bookingFee - platform_commission; // 95%
-    const maxCapacity = provider.capacity ?? 5;
+    const maxCapacity = provider.capacity ?? 100;
 
     // Atomic accept with capacity check using transaction
     // Prevents race condition where multiple accepts could exceed capacity

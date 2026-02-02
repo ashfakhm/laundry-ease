@@ -24,7 +24,7 @@ export type ActionResponse = {
  */
 export async function updateBookingStatus(
   bookingId: string,
-  action: "accept" | "reject"
+  action: "accept" | "reject",
 ): Promise<ActionResponse> {
   try {
     const session = await getServerSession(authOptions);
@@ -85,7 +85,7 @@ export async function updateBookingStatus(
           provider_id: provider._id,
           status: { $in: ["accepted", "pickup_proposed", "confirmed"] },
         });
-      const maxCapacity = provider.capacity ?? 5;
+      const maxCapacity = provider.capacity ?? 100;
       if (activeBookingsCount >= maxCapacity) {
         return {
           success: false,
@@ -129,7 +129,7 @@ export async function updateBookingStatus(
                   razorpay_contact_id: contact.id,
                   razorpay_fund_account_id: fundAccount.id,
                 },
-              }
+              },
             );
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (err: any) {
@@ -198,7 +198,7 @@ export async function updateBookingStatus(
  */
 export async function proposePickupSlot(
   bookingId: string,
-  dateTime: string
+  dateTime: string,
 ): Promise<ActionResponse> {
   try {
     const session = await getServerSession(authOptions);
@@ -291,7 +291,7 @@ export async function proposePickupSlot(
  * Marks a provider as arrived for a confirmed booking.
  */
 export async function markProviderArrived(
-  bookingId: string
+  bookingId: string,
 ): Promise<ActionResponse> {
   try {
     const session = await getServerSession(authOptions);

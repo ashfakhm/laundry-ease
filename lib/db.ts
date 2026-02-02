@@ -206,7 +206,7 @@ export async function createProvider(data: {
     per_km_rate: data.per_km_rate ?? 0,
     documents: [],
     createdAt: now,
-    capacity: data.capacity ?? 5, // Default to 5 concurrent bookings if not provided
+    capacity: data.capacity ?? 100, // Default to 100 concurrent bookings if not provided
     bankDetails: data.bankDetails,
     profilePicture: data.profilePicture,
     bannerImage: data.bannerImage,

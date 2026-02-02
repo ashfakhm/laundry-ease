@@ -51,23 +51,23 @@ const providerProfileSchema = z
     services: z.array(z.string()).min(1, "Select at least one service"),
     radius_km: z.preprocess(
       (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(1, "Minimum radius is 1km")
+      z.number().min(1, "Minimum radius is 1km"),
     ),
     free_radius_km: z.preprocess(
       (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(0)
+      z.number().min(0),
     ),
     per_km_rate: z.preprocess(
       (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(0)
+      z.number().min(0),
     ),
     pricing: z.preprocess(
       (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(0)
+      z.number().min(0),
     ), // Base pricing MVP
     capacity: z.preprocess(
       (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(1, "Minimum capacity is 1")
+      z.number().min(1, "Minimum capacity is 1"),
     ),
     // Fixed Price List
     items: z.array(
@@ -75,9 +75,9 @@ const providerProfileSchema = z
         name: z.string().min(1, "Item name is required"),
         price: z.preprocess(
           (val) => (val === "" ? undefined : Number(val)),
-          z.number().min(0, "Price must be 0 or more")
+          z.number().min(0, "Price must be 0 or more"),
         ),
-      })
+      }),
     ),
     // Bank Details
     bankAccountHolder: z.string().min(2, "Account holder name is required"),
@@ -102,7 +102,7 @@ const providerProfileSchema = z
     {
       message: "New password must be at least 8 characters",
       path: ["newPassword"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -114,7 +114,7 @@ const providerProfileSchema = z
     {
       message: "Current password is required to change password",
       path: ["currentPassword"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -126,7 +126,7 @@ const providerProfileSchema = z
     {
       message: "Passwords do not match",
       path: ["confirmPassword"],
-    }
+    },
   );
 
 type ProviderProfileValues = {
@@ -162,7 +162,7 @@ export default function ProviderEditProfilePage() {
 
   const form = useForm<ProviderProfileValues>({
     resolver: zodResolver(
-      providerProfileSchema
+      providerProfileSchema,
     ) as import("react-hook-form").Resolver<ProviderProfileValues>,
     defaultValues: {
       name: "",
@@ -176,7 +176,7 @@ export default function ProviderEditProfilePage() {
       free_radius_km: 5,
       per_km_rate: 10,
       pricing: 0,
-      capacity: 5,
+      capacity: 100,
       items: [],
       bankAccountHolder: "",
       bankAccountNumber: "",
@@ -215,7 +215,7 @@ export default function ProviderEditProfilePage() {
           free_radius_km: data.free_radius_km || 5,
           per_km_rate: data.per_km_rate || 10,
           pricing: data.pricing || 0,
-          capacity: data.capacity || 5,
+          capacity: data.capacity || 100,
           items: data.pricingRates
             ? Object.entries(data.pricingRates).map(([name, price]) => ({
                 name,
@@ -252,7 +252,7 @@ export default function ProviderEditProfilePage() {
             acc[item.name] = item.price;
             return acc;
           },
-          {}
+          {},
         );
         delete payload.items;
       }
@@ -294,7 +294,7 @@ export default function ProviderEditProfilePage() {
       form.setValue(
         "services",
         current.filter((s) => s !== service),
-        { shouldValidate: true, shouldDirty: true }
+        { shouldValidate: true, shouldDirty: true },
       );
     } else {
       form.setValue("services", [...current, service], {
@@ -497,13 +497,13 @@ export default function ProviderEditProfilePage() {
                         "cursor-pointer flex items-center justify-between p-3 rounded-xl border transition-all",
                         isSelected
                           ? "bg-primary/5 border-primary shadow-sm"
-                          : "bg-muted/20 border-border hover:border-primary/50"
+                          : "bg-muted/20 border-border hover:border-primary/50",
                       )}
                     >
                       <span
                         className={cn(
                           "text-sm font-medium",
-                          isSelected ? "text-primary" : "text-muted-foreground"
+                          isSelected ? "text-primary" : "text-muted-foreground",
                         )}
                       >
                         {service}

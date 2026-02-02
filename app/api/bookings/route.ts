@@ -32,7 +32,7 @@ export const POST = withErrorHandling(async (req: Request) => {
     throw Errors.notFound("Provider not found");
   }
 
-  const capacity = provider.capacity || 5;
+  const capacity = provider.capacity || 100;
 
   // Atomic booking creation with transactional capacity check
   // Prevents race condition where multiple parallel requests could exceed capacity
