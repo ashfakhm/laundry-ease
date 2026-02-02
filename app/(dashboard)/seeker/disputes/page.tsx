@@ -124,7 +124,7 @@ function StatusBadge({ status }: { status: string }) {
 
   const labels = {
     open: "Opened",
-    verified: "Verified",
+    accepted: "Accepted",
     in_review: "In Review",
     resolved: "Resolved",
     rejected: "Rejected",
