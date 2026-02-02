@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
@@ -108,8 +109,14 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
       <div className="flex h-20 items-center justify-between px-6 border-b border-border/40">
         {!isCollapsed && (
           <Link href="/admin" className="flex items-center gap-3 group">
-            <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/30 transition-shadow">
-              <span className="text-white font-bold text-lg">L</span>
+            <div className="relative h-9 w-9 overflow-hidden rounded-xl shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/30 transition-shadow">
+              <Image
+                src="/laundryease-logo.png"
+                alt="LaundryEase"
+                width={36}
+                height={36}
+                className="h-full w-full object-contain"
+              />
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-base text-foreground tracking-tight leading-none">
@@ -270,11 +277,16 @@ export function AdminMobileNav() {
 
   return (
     <>
-      {/* Mobile Top Bar */}
       <header className="lg:hidden sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/50 bg-background/80 backdrop-blur-md px-4">
         <Link href="/admin" className="flex items-center gap-2">
-          <div className="relative h-8 w-8 overflow-hidden rounded-lg bg-linear-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
-            <span className="text-white font-bold text-sm">L</span>
+          <div className="relative h-8 w-8 overflow-hidden rounded-lg shadow-md">
+            <Image
+              src="/laundryease-logo.png"
+              alt="LaundryEase"
+              width={32}
+              height={32}
+              className="h-full w-full object-contain"
+            />
           </div>
           <span className="font-bold text-foreground tracking-tight">
             LaundryEase Admin
