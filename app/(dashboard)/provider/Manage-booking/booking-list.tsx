@@ -42,8 +42,8 @@ export function BookingList({ initialBookings }: BookingListProps) {
       if (filter === "active") {
         filtered = bookings.filter((b) =>
           ["requested", "accepted", "pickup_proposed", "confirmed"].includes(
-            b.status
-          )
+            b.status,
+          ),
         );
       } else {
         filtered = bookings.filter((booking) => booking.status === filter);
@@ -57,7 +57,7 @@ export function BookingList({ initialBookings }: BookingListProps) {
         (b) =>
           b.seeker.name.toLowerCase().includes(query) ||
           b.seeker.email.toLowerCase().includes(query) ||
-          b._id.toString().toLowerCase().includes(query)
+          b._id.toString().toLowerCase().includes(query),
       );
     }
 
@@ -107,7 +107,7 @@ export function BookingList({ initialBookings }: BookingListProps) {
                   "group relative flex shrink-0 items-center gap-2 rounded-t-lg px-4 py-3 text-sm font-bold transition-all border-b-2 whitespace-nowrap",
                   isActive
                     ? "border-primary text-primary bg-primary/5"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
               >
                 <span>{tab.label}</span>
@@ -117,7 +117,7 @@ export function BookingList({ initialBookings }: BookingListProps) {
                       "rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors",
                       isActive
                         ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
+                        : "bg-muted text-muted-foreground",
                     )}
                   >
                     {count}
@@ -209,7 +209,7 @@ function EmptyState({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="flex min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center"
+      className="flex min-h-100 flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/50 p-12 text-center"
     >
       <div className="rounded-full bg-muted p-5 shadow-sm mb-6">
         <Inbox className="h-10 w-10 text-muted-foreground" />
