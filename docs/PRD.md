@@ -190,6 +190,7 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 | State              | Meaning                            |
 | ------------------ | ---------------------------------- |
 | `invoiced`         | invoice paid; funds held in escrow |
+| `processing`       | provider has started work          |
 | `washing`          | cleaning in progress               |
 | `ironing`          | finishing in progress              |
 | `ready`            | ready for delivery or pickup       |
