@@ -9,9 +9,11 @@
 1. [Project Overview Questions](#1-project-overview-questions)
 2. [Technology Stack Questions](#2-technology-stack-questions)
 3. [Architecture & Design Questions](#3-architecture--design-questions)
+   - [3B. Code Location Questions](#3b-code-location-questions-where-is-x-written)
 4. [Database Questions](#4-database-questions)
 5. [Authentication & Security Questions](#5-authentication--security-questions)
 6. [Payment & Escrow Questions](#6-payment--escrow-questions)
+   - [6B. Location Tracking Questions](#6b-location-tracking-questions)
 7. [Core Features Questions](#7-core-features-questions)
 8. [API & Backend Questions](#8-api--backend-questions)
 9. [Frontend & UI Questions](#9-frontend--ui-questions)
@@ -211,6 +213,236 @@ app/
 - **Route Groups** `()`: Organize files without changing URL
 - **Dynamic Routes** `[id]`: URL parts that change like `/orders/[id]`
 - **API Routes**: `route.ts` files that handle HTTP requests
+
+---
+
+## 3B. Code Location Questions ("Where is X written?")
+
+### Q: Where is the MongoDB connection code?
+
+**Answer**: `lib/mongodb.ts` - This file handles database connection:
+
+```typescript
+// lib/mongodb.ts
+import { MongoClient } from "mongodb";
+import { env } from "./env";
+
+let clientPromise: Promise<MongoClient> | undefined;
+
+function createClientPromise(): Promise<MongoClient> {
+  const client = new MongoClient(env.MONGODB_URI);
+  if (process.env.NODE_ENV === "development") {
+    // Reuse in dev to avoid too many connections
+    if (!global._mongoClientPromise)
+      global._mongoClientPromise = client.connect();
+    return global._mongoClientPromise;
+  }
+  return client.connect();
+}
+
+export async function getDb() {
+  const client = await clientPromise;
+  return client.db(env.MONGODB_DB);
+}
+```
+
+### Q: Where is the backend code written?
+
+**Answer**: Backend code is in **two places**:
+
+| Location   | What It Contains                                  | Example                        |
+| ---------- | ------------------------------------------------- | ------------------------------ |
+| `app/api/` | API routes (HTTP endpoints)                       | `app/api/bookings/route.ts`    |
+| `lib/`     | Business logic, database operations, integrations | `lib/db.ts`, `lib/razorpay.ts` |
+
+**API Routes** (`app/api/`) - Handle HTTP requests:
+
+```text
+app/api/
+├── bookings/
+│   ├── route.ts              → GET /api/bookings, POST /api/bookings
+│   └── [id]/
+│       ├── route.ts          → GET /api/bookings/:id
+│       ├── accept/route.ts   → POST /api/bookings/:id/accept
+│       └── cancel/route.ts   → POST /api/bookings/:id/cancel
+├── orders/
+├── payments/
+└── webhooks/
+```
+
+**Business Logic** (`lib/`) - Shared functions:
+
+```text
+lib/
+├── db.ts           → Database CRUD operations
+├── razorpay.ts     → Payment integration
+├── audit.ts        → Logging changes
+├── otp.ts          → OTP generation/verification
+├── google-maps.ts  → Location services
+└── mongodb.ts      → Database connection
+```
+
+### Q: Where is the frontend code?
+
+**Answer**: Frontend is in **three places**:
+
+| Location         | What It Contains            | Example                           |
+| ---------------- | --------------------------- | --------------------------------- |
+| `app/`           | Pages (Server + Client)     | `app/(dashboard)/seeker/page.tsx` |
+| `components/`    | Reusable UI components      | `components/booking-modal.tsx`    |
+| `components/ui/` | Base UI components (shadcn) | `components/ui/button.tsx`        |
+
+### Q: Where is authentication code?
+
+**Answer**: Authentication is in multiple files:
+
+| File                                  | Purpose                               |
+| ------------------------------------- | ------------------------------------- |
+| `app/api/auth/[...nextauth]/route.ts` | NextAuth configuration (providers)    |
+| `lib/api/auth.ts`                     | Auth helper functions (`requireAuth`) |
+| `app/auth/page.tsx`                   | Login page UI                         |
+| `app/choose-role/page.tsx`            | Role selection after OAuth            |
+
+### Q: Where is payment/Razorpay code?
+
+**Answer**:
+
+| File                                   | Purpose                           |
+| -------------------------------------- | --------------------------------- |
+| `lib/razorpay.ts`                      | Razorpay SDK setup, create orders |
+| `app/api/orders/[id]/payment/route.ts` | Payment initiation & verification |
+| `app/api/webhooks/razorpay/route.ts`   | Handle Razorpay webhooks          |
+| `components/orders/payment-button.tsx` | Payment button UI component       |
+| `types/razorpay.d.ts`                  | TypeScript types for Razorpay SDK |
+
+### Q: Where are the database models/schemas?
+
+**Answer**: We use **native MongoDB driver** (no Mongoose), so types are in:
+
+| File                  | What It Defines                     |
+| --------------------- | ----------------------------------- |
+| `types/bookings.ts`   | Booking interface and status enum   |
+| `types/orders.ts`     | Order interface and status enum     |
+| `types/complaints.ts` | Complaint interface and status enum |
+| `types/provider.ts`   | Provider profile interface          |
+| `types/enums.ts`      | Shared enums (Role, etc.)           |
+
+**Example**:
+
+```typescript
+// types/bookings.ts
+export type BookingStatus =
+  | "requested"
+  | "accepted"
+  | "pickup_proposed"
+  | "confirmed"
+  | "invoice_created"
+  | "completed"
+  | "cancelled"
+  | "rejected";
+
+export interface PopulatedBooking {
+  _id: ObjectId;
+  seeker: { name: string; email: string; ... };
+  provider: { businessName: string; ... };
+  status: BookingStatus;
+  // ...
+}
+```
+
+### Q: Where is the cron job code?
+
+**Answer**: Cron jobs are in **two places**:
+
+| Location        | Purpose                       |
+| --------------- | ----------------------------- |
+| `app/api/cron/` | API endpoints that cron calls |
+| `cron/`         | Business logic for each job   |
+| `vercel.json`   | Cron schedule configuration   |
+
+**Example flow**:
+
+```text
+vercel.json → schedules "/api/cron/release-payouts" every 15 min
+    ↓
+app/api/cron/release-payouts/route.ts → verifies CRON_SECRET, calls logic
+    ↓
+cron/escrow-auto-release.ts → actual payout logic
+```
+
+### Q: Where is environment variable validation?
+
+**Answer**: `lib/env.ts` - Uses Zod to validate all env vars at startup:
+
+```typescript
+// lib/env.ts
+import { z } from "zod";
+
+const envSchema = z.object({
+  MONGODB_URI: z.string().min(1),
+  RAZORPAY_KEY_ID: z.string().min(1),
+  RAZORPAY_KEY_SECRET: z.string().min(1),
+  GOOGLE_ID: z.string().min(1),
+  // ... all required variables
+});
+
+export const env = envSchema.parse(process.env);
+// If any variable is missing, app crashes immediately with clear error
+```
+
+### Q: Where is error handling code?
+
+**Answer**: Centralized in `lib/api/`:
+
+| File                  | Purpose                                    |
+| --------------------- | ------------------------------------------ |
+| `lib/api/errors.ts`   | Custom `AppError` class & helper functions |
+| `lib/api/response.ts` | Standard API response helpers              |
+
+**Example**:
+
+```typescript
+// lib/api/errors.ts
+export class AppError extends Error {
+  constructor(
+    public readonly code: ErrorCode,
+    public readonly statusCode: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+// Usage in API route
+throw Errors.notFound("Booking"); // 404
+throw Errors.unauthorized(); // 401
+throw Errors.validation("Bad input"); // 400
+```
+
+### Q: Quick Reference - "Where is X?"
+
+| Feature                | File Location                          |
+| ---------------------- | -------------------------------------- |
+| MongoDB connection     | `lib/mongodb.ts`                       |
+| Database operations    | `lib/db.ts`                            |
+| API routes             | `app/api/**/*.ts`                      |
+| Frontend pages         | `app/(dashboard)/**/*.tsx`             |
+| UI components          | `components/**/*.tsx`                  |
+| Authentication config  | `app/api/auth/[...nextauth]/route.ts`  |
+| Auth helpers           | `lib/api/auth.ts`                      |
+| Payment integration    | `lib/razorpay.ts`                      |
+| Payment API            | `app/api/orders/[id]/payment/route.ts` |
+| Webhooks               | `app/api/webhooks/razorpay/route.ts`   |
+| OTP logic              | `lib/otp.ts`                           |
+| Location/Maps          | `lib/google-maps.ts`                   |
+| Distance calculation   | `lib/distance.ts`                      |
+| Type definitions       | `types/*.ts`                           |
+| Environment validation | `lib/env.ts`                           |
+| Error handling         | `lib/api/errors.ts`                    |
+| Cron job logic         | `cron/*.ts`                            |
+| Cron API endpoints     | `app/api/cron/*.ts`                    |
+| Audit logging          | `lib/audit.ts`                         |
+| Cloudinary upload      | `lib/cloudinary.ts`                    |
 
 ---
 
