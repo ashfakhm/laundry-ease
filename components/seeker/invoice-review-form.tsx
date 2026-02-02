@@ -7,9 +7,43 @@ import Script from "next/script";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 
+interface RazorpayResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayError {
+  error: {
+    code: string;
+    description: string;
+    source: string;
+    step: string;
+    reason: string;
+  };
+}
+
+interface RazorpayOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  handler: (response: RazorpayResponse) => void;
+  prefill?: { name?: string; email?: string; contact?: string };
+  theme?: { color: string };
+  modal?: { ondismiss?: () => void };
+}
+
+interface RazorpayInstance {
+  open: () => void;
+  on: (event: string, handler: (response: RazorpayError) => void) => void;
+}
+
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
   }
 }
 
@@ -92,7 +126,7 @@ export default function InvoiceReviewForm({
             name: "LaundryEase",
             description: `Payment for Order #${data.orderId.slice(-6)}`,
             order_id: payData.id,
-            handler: async function (response: any) {
+            handler: async function (response: RazorpayResponse) {
               // 3. Verify Payment
               const verifyRes = await fetch(
                 `/api/orders/${data.orderId}/payment`,
@@ -131,7 +165,7 @@ export default function InvoiceReviewForm({
           };
 
           const rzp = new window.Razorpay(options);
-          rzp.on("payment.failed", function (response: any) {
+          rzp.on("payment.failed", function (response: RazorpayError) {
             toast.error(
               response.error.description || "Payment failed. Please try again.",
             );
