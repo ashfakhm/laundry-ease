@@ -57,6 +57,10 @@ export async function GET() {
 
         return {
           ...complaint,
+          _id: complaint._id.toString(),
+          seeker_id: complaint.seeker_id?.toString() || null,
+          provider_id: complaint.provider_id?.toString() || null,
+          order_id: complaint.order_id?.toString() || null,
           seeker: seeker || null,
           provider: provider || null,
         };

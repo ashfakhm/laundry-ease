@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   AlertCircle,
   CheckCircle2,
@@ -520,12 +521,14 @@ export default function ComplaintsPage() {
                         <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 p-2.5 pr-4">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-600 overflow-hidden shrink-0">
                             {complaint.provider.profilePicture ? (
-                              <img
+                              <Image
                                 src={complaint.provider.profilePicture}
                                 alt={
                                   complaint.provider.businessName ||
                                   complaint.provider.name
                                 }
+                                width={32}
+                                height={32}
                                 className="h-full w-full object-cover"
                               />
                             ) : (

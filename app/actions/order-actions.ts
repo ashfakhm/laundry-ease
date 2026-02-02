@@ -2,7 +2,7 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getDb } from "@/lib/mongodb"; // Correct import based on typical usage or check booking-actions
+import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
 export async function getProviderOrders() {
@@ -23,23 +23,20 @@ export async function getProviderOrders() {
     throw new Error("Provider not found");
   }
 
-  // Fetch orders (bookings) for this provider that are completed/delivered
-  // The client side filters for otp_confirmed_at, so we return all relevant ones or pre-filter.
-  // We'll return all for the provider to match previous behaviors, but optimization:
-  // Usually invoices are only for completed orders.
-
+  // Fetch orders for this provider from the orders collection
+  // Orders are created when seeker approves the invoice and pays
   const orders = await db
-    .collection("bookings")
+    .collection("orders")
     .aggregate([
       {
         $match: {
-          providerId: new ObjectId(provider._id),
+          provider_id: provider._id,
         },
       },
       {
         $lookup: {
           from: "seekers",
-          localField: "seekerId",
+          localField: "seeker_id",
           foreignField: "_id",
           as: "seeker",
         },
@@ -57,6 +54,7 @@ export async function getProviderOrders() {
           total_price: 1,
           delivery_charge: 1,
           payment_status: 1,
+          status: 1,
           createdAt: { $toString: "$createdAt" },
           otp_confirmed_at: {
             $cond: {

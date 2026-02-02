@@ -68,10 +68,12 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
-            // Count only active complaints (open, under_review)
+            // Count only active complaints (open, accepted, in_review)
             const activeCount = data.filter(
               (c: { status: string }) =>
-                c.status === "open" || c.status === "under_review",
+                c.status === "open" ||
+                c.status === "accepted" ||
+                c.status === "in_review",
             ).length;
             setActiveComplaintsCount(activeCount);
           }
@@ -241,7 +243,9 @@ export function AdminMobileNav() {
           if (Array.isArray(data)) {
             const activeCount = data.filter(
               (c: { status: string }) =>
-                c.status === "open" || c.status === "under_review",
+                c.status === "open" ||
+                c.status === "accepted" ||
+                c.status === "in_review",
             ).length;
             setActiveComplaintsCount(activeCount);
           }
