@@ -39,14 +39,14 @@ export async function GET() {
           .collection("seekers")
           .findOne(
             { _id: new ObjectId(order.seeker_id) },
-            { projection: { name: 1 } }
+            { projection: { name: 1 } },
           );
 
         const provider = await db
           .collection("providers")
           .findOne(
             { _id: new ObjectId(order.provider_id) },
-            { projection: { name: 1, businessName: 1 } }
+            { projection: { name: 1, businessName: 1, profilePicture: 1 } },
           );
 
         return {
@@ -54,7 +54,7 @@ export async function GET() {
           seeker,
           provider,
         };
-      })
+      }),
     );
 
     return NextResponse.json(enrichedOrders);
@@ -62,7 +62,7 @@ export async function GET() {
     logger.error("ADMIN_PAYMENTS", "Error fetching payments", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.flatten() },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const { orderId, action, amount, reason } = parsed.data;
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
     if (!["held", "released", "paid"].includes(order.payment_status)) {
       return NextResponse.json(
         { error: "Refund/Penalty not allowed for this payment status" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
       if (!paymentId) {
         return NextResponse.json(
           { error: "No Razorpay payment ID found for this order" },
-          { status: 400 }
+          { status: 400 },
         );
       }
       try {
@@ -140,12 +140,15 @@ export async function POST(req: Request) {
               refund_at: new Date(),
               razorpay_refund_id: refund.id,
             },
-          }
+          },
         );
       } catch (err: any) {
         return NextResponse.json(
-          { error: "Razorpay refund failed", details: err?.message || String(err) },
-          { status: 500 }
+          {
+            error: "Razorpay refund failed",
+            details: err?.message || String(err),
+          },
+          { status: 500 },
         );
       }
     } else if (action === "penalty") {
@@ -158,7 +161,7 @@ export async function POST(req: Request) {
             penalty_reason: reason,
             penalty_at: new Date(),
           },
-        }
+        },
       );
       razorpayResult = { status: "penalty_recorded", amount };
     }
@@ -178,7 +181,7 @@ export async function POST(req: Request) {
     logger.error("ADMIN_PAYMENTS", "Error in admin refund/penalty", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

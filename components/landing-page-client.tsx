@@ -69,52 +69,128 @@ export function LandingPageClient() {
         <InteractiveGridPattern />
 
         {/* Hero Section */}
-        <section className="relative px-6 py-20 md:py-32 overflow-hidden pointer-events-none">
-          <div className="container mx-auto max-w-5xl relative z-10 pointer-events-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="text-center space-y-8"
-            >
+        <section className="relative px-6 py-24 md:py-32 overflow-hidden">
+          <div className="container mx-auto max-w-6xl relative z-10">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/80 backdrop-blur-sm text-secondary-foreground border border-primary/20 text-xs font-medium shadow-[0_0_10px_rgba(45,212,191,0.1)]"
+                initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="text-left space-y-8"
               >
-                <span className="flex h-2 w-2 rounded-full bg-primary animate-[pulse_2s_infinite]"></span>
-                Available in New York & San Francisco
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 backdrop-blur-md border border-primary/10 text-xs font-semibold text-primary tracking-wide uppercase shadow-sm"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                  Available in India
+                </motion.div>
+
+                <h1 className="font-heading text-5xl md:text-7xl font-bold tracking-tighter text-foreground leading-[1.1]">
+                  Laundry, <br />
+                  <span className="text-transparent bg-clip-text bg-linear-to-r from-primary to-teal-400">
+                    solved.
+                  </span>
+                </h1>
+
+                <p className="text-lg md:text-xl text-muted-foreground max-w-xl leading-relaxed font-light">
+                  Doorstep pickup, deadline-guaranteed delivery, and payment
+                  only upon satisfaction. The new standard for urban
+                  professionals.
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
+                  <Link href="/signup/seeker" className="w-full sm:w-auto">
+                    <button className="group w-full sm:w-auto h-12 px-8 bg-primary text-primary-foreground text-base font-medium rounded-full hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5">
+                      Book a Pickup
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </Link>
+                  <Link href="/signup/provider" className="w-full sm:w-auto">
+                    <button className="w-full sm:w-auto h-12 px-8 bg-background border border-border text-foreground text-base font-medium rounded-full hover:bg-secondary/50 transition-all hover:border-primary/50">
+                      Become a Provider
+                    </button>
+                  </Link>
+                </div>
               </motion.div>
 
-              <h1 className="font-heading text-5xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.1] drop-shadow-sm">
-                Laundry,{" "}
-                <span className="text-primary italic drop-shadow-[0_0_15px_rgba(45,212,191,0.4)]">
-                  solved
-                </span>{" "}
-                <br />for the modern professional.
-              </h1>
+              {/* Minimalist Abstract Visual */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1, delay: 0.2 }}
+                className="relative hidden lg:block h-150 w-full"
+              >
+                <div className="absolute inset-0 bg-linear-to-br from-primary/20 via-teal-100/10 to-transparent rounded-3xl blur-3xl transform rotate-3" />
+                <div className="relative h-full w-full bg-card/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden flex items-center justify-center">
+                  <div className="absolute inset-0 bg-grid-slate-900/[0.04] bg-position-[bottom_1px_center] dark:bg-grid-slate-400/[0.05] mask-[linear-gradient(to_bottom,transparent,black)]" />
+                  {/* Abstract UI Representation */}
+                  <div className="relative w-3/4 max-w-sm bg-background/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-border/50 p-6 flex flex-col gap-6">
+                    <div className="flex items-center justify-between border-b border-border/10 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                          <Clock className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground text-sm">
+                            Pickup Scheduled
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Today, 2:00 PM
+                          </p>
+                        </div>
+                      </div>
+                      <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                    </div>
 
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Doorstep pickup, deadline-guaranteed delivery, and payment
-                only upon satisfaction. Experience the future of laundry with
-                our tech-enabled fleet.
-              </p>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/50">
+                        <MapPin className="w-4 h-4 text-primary shrink-0" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-foreground">
+                            123 Innovation Dr, Tech City
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Pickup Location
+                          </p>
+                        </div>
+                      </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                <Link href="/signup/seeker" className="w-full sm:w-auto">
-                  <button className="group w-full sm:w-auto h-12 px-8 bg-foreground text-background text-base font-medium rounded-lg hover:bg-foreground/90 transition-all flex items-center justify-center gap-2 shadow-[0_4px_14px_0_rgba(255,255,255,0.1)] dark:shadow-[0_4px_14px_0_rgba(0,0,0,0.5)]">
-                    Book a Pickup
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </Link>
-                <Link href="/signup/provider" className="w-full sm:w-auto">
-                  <button className="w-full sm:w-auto h-12 px-8 bg-background border border-border text-foreground text-base font-medium rounded-lg hover:bg-secondary/50 transition-all hover:border-primary/50">
-                    Become a Provider
-                  </button>
-                </Link>
-              </div>
-            </motion.div>
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/50">
+                        <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-foreground">
+                            Escrow Protected
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Payment held until delivery
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 pt-4 border-t border-border/10 flex justify-between items-center">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                          Estimated Total
+                        </p>
+                        <p className="text-lg font-bold text-foreground">
+                          ₹350.00
+                        </p>
+                      </div>
+                      <div className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-full shadow-lg shadow-primary/20">
+                        View Details
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
           </div>
         </section>
 
@@ -193,7 +269,10 @@ export function LandingPageClient() {
 
       <footer className="py-8 px-6 border-t border-border/50 bg-background/80 backdrop-blur-sm">
         <div className="container mx-auto max-w-6xl flex flex-col md:flex-row justify-between items-center gap-4">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <Link
+            href="/"
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
             <Image
               src="/laundryease-logo.png"
               alt="LaundryEase"
@@ -231,13 +310,14 @@ function FeatureCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay, duration: 0.5 }}
+      whileHover={{ y: -5 }}
       className="h-full"
     >
-      <SpotlightCard className="h-full p-8 rounded-2xl bg-card/50 backdrop-blur-sm border-primary/10 hover:border-primary/30 transition-colors">
-        <div className="mb-4 p-3 bg-secondary/50 rounded-xl inline-block border border-primary/10">
+      <SpotlightCard className="h-full p-8 rounded-2xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/20 transition-all shadow-sm hover:shadow-md group">
+        <div className="mb-6 p-4 bg-primary/5 rounded-2xl inline-block border border-primary/10 group-hover:bg-primary/10 transition-colors">
           {icon}
         </div>
-        <h3 className="font-heading text-xl font-bold mb-3 tracking-tight">
+        <h3 className="font-heading text-xl font-bold mb-3 tracking-tight text-foreground/90">
           {title}
         </h3>
         <p className="text-sm text-muted-foreground leading-relaxed">
@@ -262,15 +342,17 @@ function WorkflowStep({
       initial={{ opacity: 0, x: -20 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true, margin: "-100px" }}
-      className="md:flex items-start gap-8 relative pl-8 md:pl-0"
+      className="md:flex items-start gap-8 relative pl-8 md:pl-0 group"
     >
-      <div className="hidden md:block absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-background border-[3px] border-primary rounded-full z-10 shadow-[0_0_10px_rgba(45,212,191,0.6)]" />
+      <div className="hidden md:block absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-background border-[3px] border-primary rounded-full z-10 shadow-[0_0_10px_rgba(45,212,191,0.6)] group-hover:scale-125 transition-transform duration-300" />
 
       <div className="md:w-1/2 md:text-right md:pr-12">
-        <span className="text-xs font-bold text-primary tracking-wider uppercase mb-2 block drop-shadow-[0_0_5px_rgba(45,212,191,0.6)]">
+        <span className="text-xs font-bold text-primary tracking-widest uppercase mb-2 block opacity-80">
           Step {number}
         </span>
-        <h3 className="font-heading text-2xl font-bold mb-2">{title}</h3>
+        <h3 className="font-heading text-2xl font-bold mb-2 group-hover:text-primary transition-colors duration-300">
+          {title}
+        </h3>
       </div>
       <div className="md:w-1/2 md:pl-12 pb-16 md:pb-0 md:ml-0 pl-8">
         {/* Mobile dot */}
