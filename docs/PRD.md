@@ -177,13 +177,15 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 
 | State                  | Meaning                                                      | Allowed Next States                                                 |
 | ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `requested`            | Seeker requested a slot                                      | `accepted`, `rejected`, `expired`                                   |
+| `requested`            | Seeker requested a slot                                      | `accepted`, `rejected`                                              |
 | `accepted`             | Provider accepted the request                                | `pickup_proposed`, `confirmed`, `cancelled`, `reschedule_requested` |
-| `rejected`             | Provider rejected the request                                | terminal                                                            |
-| `pickup_proposed`      | provider proposed a pickup slot                              | `confirmed`, `reschedule_requested`, `cancelled`                    |
-| `confirmed`            | parties agreed on pickup/slot                                | `invoice_created`, `reschedule_requested`, `cancelled`              |
-| `reschedule_requested` | either side requested a new pickup time (not a cancellation) | `pickup_proposed`, `confirmed`, `cancelled`                         |
-| `expired`              | request timed out                                            | terminal                                                            |
+| `rejected`             | Provider rejected the request (or auto-rejected after 2h)    | terminal                                                            |
+| `pickup_proposed`      | Provider proposed a pickup slot                              | `confirmed`, `reschedule_requested`, `cancelled`                    |
+| `confirmed`            | Parties agreed on pickup/slot                                | `invoice_created`, `reschedule_requested`, `cancelled`              |
+| `reschedule_requested` | Either side requested a new pickup time (not a cancellation) | `pickup_proposed`, `confirmed`, `cancelled`                         |
+| `invoice_created`      | Provider generated invoice after pickup                      | `completed`, `cancelled`                                            |
+| `cancelled`            | Booking cancelled by either party                            | terminal                                                            |
+| `completed`            | Order created and booking lifecycle ended                    | terminal                                                            |
 
 ### Order (Commitment → Settlement) States
 
