@@ -75,6 +75,36 @@ Primary responsibilities:
 - manage complaint lifecycle (accept, add provider, resolve)
 - set response deadlines for provider engagement
 
+### User Registration & Authentication
+
+All users (Seeker and Provider) must complete a verified registration:
+
+**Required Information:**
+
+- Name, email, phone number
+- Password with confirmation
+- Role-specific details (address for seekers, business info for providers)
+
+**Verification Requirements:**
+
+- Email OTP verification
+- Phone SMS OTP verification
+- Both must be verified before account creation
+
+**Password Policy:**
+
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one number
+- At least one special character
+- Password confirmation must match
+- Real-time validation feedback during entry
+
+**Email Format:**
+
+- Valid email format required
+- Client-side validation with error feedback
+
 ## 4. Core User Flows
 
 ### A. Discovery & Booking (Handshake)
@@ -98,11 +128,26 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 2. **Invoice creation**
    Provider issues an invoice based on the inspected items.
 
-3. **Payment into escrow**
-   Seeker pays. The system holds funds in escrow.
+3. **Invoice review**
+   Seeker can view the invoice details including:
+   - Itemized list with quantities and prices
+   - Item photos (if uploaded by provider)
+   - Subtotal, discounts, and total
+   - Provider notes
 
-4. **Order activation**
+4. **Invoice decision**
+   Seeker reviews and either:
+   - **Approves & Pays**: Proceeds to payment
+   - **Rejects**: Returns items to provider with a required reason
+
+5. **Payment into escrow**
+   On approval, seeker pays. The system holds funds in escrow.
+
+6. **Order activation**
    The job becomes an active order. Work begins.
+
+7. **Invoice history**
+   Seekers can view past invoices in read-only mode from payment history.
 
 ### C. Execution, Delivery, and Settlement
 
@@ -148,6 +193,11 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 - **Invoice immutability after payment**
   Once the seeker pays, invoice line items must not change.
 
+- **Invoice viewing**
+  Seekers must be able to view invoice details at any time:
+  - Pending invoices: Viewable with payment/rejection actions
+  - Completed invoices: Viewable in read-only mode from payment history
+
 - **Escrow gating**
   Work must start only after escrow holds the paid invoice amount.
 
@@ -160,6 +210,13 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 - **Complaint chat audit trail**
   All messages in a complaint thread must be recorded with sender role and timestamp for dispute evidence.
 
+- **Account security**
+  User registration must enforce:
+  - Password confirmation (matching passwords required)
+  - Password strength requirements (8+ chars, uppercase, number, special character)
+  - Email format validation
+  - Real-time client-side validation feedback
+
 ### Non-Functional Requirements
 
 - **Consistency**
@@ -170,6 +227,12 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 
 - **Search latency target**
   Provider discovery should feel immediate under normal load.
+
+- **Form validation UX**
+  - Real-time validation feedback for input fields
+  - Password strength indicators during entry
+  - Clear error messages displayed inline
+  - Validation on blur to avoid premature errors
 
 ## 6. State Management & Lifecycle
 
