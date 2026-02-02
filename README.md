@@ -323,50 +323,72 @@ LaundryEase provides a structured dispute resolution workflow for post-delivery 
 
 ## 12. Project Structure
 
-```
+```text
 laundry-ease/
 ├── app/                          # Next.js App Router
-│   ├── (auth)/                   # Auth route group (verify-email, verify-phone)
+│   ├── (auth)/                   # Auth route group
+│   │   ├── verify-email/         # Email verification flow
+│   │   └── verify-phone/         # Phone verification flow
 │   ├── (dashboard)/              # Protected dashboard routes
-│   │   ├── admin/                # Admin panel (complaints, users, settings)
-│   │   ├── provider/             # Provider dashboard (bookings, orders, earnings)
+│   │   ├── admin/                # Admin panel (complaints, users, payments)
+│   │   ├── provider/             # Provider dashboard (bookings, orders, earnings, invoices)
 │   │   └── seeker/               # Seeker dashboard (bookings, orders, disputes)
 │   ├── (root)/                   # Public landing page route group
-│   ├── actions/                  # Server actions (booking, order, profile)
+│   ├── actions/                  # Server actions
+│   │   ├── booking-actions.ts    # Booking operations
+│   │   ├── order-actions.ts      # Order operations
+│   │   └── profile-actions.ts    # Profile operations
 │   ├── api/                      # API routes
-│   │   ├── admin/                # Admin endpoints (complaints, users)
+│   │   ├── admin/                # Admin endpoints (complaints, users, dashboard-stats, refund)
 │   │   ├── auth/                 # NextAuth configuration
-│   │   ├── bookings/             # Booking CRUD, chat, reschedule
+│   │   ├── bookings/             # Booking CRUD, chat, reschedule, dispute
 │   │   ├── complaints/           # Complaint creation, messages
 │   │   ├── cron/                 # Scheduled job endpoints
 │   │   ├── escrow/               # Escrow release endpoints
-│   │   ├── invoices/             # Invoice generation
+│   │   ├── forgot-password/      # Password reset request
+│   │   ├── invoices/             # Invoice generation and review
 │   │   ├── orders/               # Order lifecycle management
 │   │   ├── otp/                  # OTP send/verify
 │   │   ├── payments/             # Razorpay integration
+│   │   ├── profile/              # Profile management
+│   │   ├── provider/             # Provider-specific endpoints (dashboard-stats)
 │   │   ├── providers/            # Provider search, discovery
+│   │   ├── reset-password/       # Password reset execution
 │   │   ├── reviews/              # Review submission
-│   │   └── webhooks/             # Payment webhooks
+│   │   ├── signup/               # Registration endpoints
+│   │   ├── upload/               # Image upload (Cloudinary)
+│   │   └── webhooks/             # Payment webhooks (Razorpay)
 │   ├── auth/                     # Auth pages (login)
 │   ├── choose-role/              # Role selection after OAuth
-│   ├── complete-signup/          # Profile completion
-│   ├── reset-password/           # Password reset flow
-│   ├── signup/                   # Registration pages
+│   ├── complete-signup/          # Profile completion (provider/seeker)
+│   ├── reset-password/           # Password reset page
+│   ├── signup/                   # Registration pages (provider/seeker)
+│   ├── favicon.ico               # App favicon
+│   ├── forbidden.tsx             # 403 error page
+│   ├── global-error.tsx          # Global error boundary
 │   ├── globals.css               # Global styles (Tailwind)
 │   ├── layout.tsx                # Root layout with providers
-│   └── page.tsx                  # Landing page
+│   ├── loading.tsx               # Global loading state
+│   ├── not-found.tsx             # 404 error page
+│   ├── page.tsx                  # Landing page
+│   ├── robots.ts                 # SEO robots.txt generation
+│   ├── sitemap.ts                # SEO sitemap generation
+│   └── unauthorized.tsx          # 401 error page
 │
 ├── components/                   # React components
 │   ├── bookings/                 # Booking list components
-│   ├── navigation/               # Sidebar, topnav components
+│   ├── navigation/               # Sidebar, topnav components (admin, provider, seeker)
 │   ├── orders/                   # Order actions, payment buttons
 │   ├── provider/                 # Provider-specific components
+│   ├── providers/                # Provider listing components (invoice-form)
 │   ├── seeker/                   # Seeker-specific components
 │   ├── seo/                      # SEO components (JSON-LD)
 │   ├── ui/                       # shadcn/ui components
 │   ├── booking-modal.tsx         # Booking creation modal
 │   ├── chat-interface.tsx        # Booking chat with dispute modal
 │   ├── complaint-chat.tsx        # 3-way complaint chat
+│   ├── landing-animations.tsx    # Landing page animations (Framer Motion)
+│   ├── landing-page-client.tsx   # Landing page client component
 │   ├── provider-card.tsx         # Provider search result card
 │   └── theme-toggle.tsx          # Dark/light mode toggle
 │
@@ -375,6 +397,10 @@ laundry-ease/
 │   ├── escrow-auto-release.ts    # Auto-release escrow after cooling period
 │   └── no-show-check.ts          # No-show detection and handling
 │
+├── docs/                         # Documentation
+│   ├── PRD.md                    # Product Requirements Document
+│   └── PRESENTATION_HELPER.md    # Demo/presentation guide
+│
 ├── lib/                          # Shared utilities
 │   ├── api/                      # API helpers (auth, errors, response, schemas)
 │   ├── data/                     # Data fetching utilities
@@ -382,6 +408,8 @@ laundry-ease/
 │   ├── audit.ts                  # Audit logging
 │   ├── cloudinary.ts             # Image upload
 │   ├── db.ts                     # Database operations
+│   ├── delivery-otp-email.ts     # Delivery OTP email templates
+│   ├── distance.ts               # Distance calculation utilities
 │   ├── env.ts                    # Environment validation (Zod)
 │   ├── escrow-jobs.ts            # Escrow job scheduling
 │   ├── google-maps.ts            # Google Maps integration
@@ -389,6 +417,8 @@ laundry-ease/
 │   ├── mongodb.ts                # MongoDB connection
 │   ├── otp.ts                    # OTP generation/verification
 │   ├── razorpay.ts               # Razorpay payment integration
+│   ├── setup-geospatial-index.ts # MongoDB geospatial index setup
+│   ├── toast.ts                  # Toast notification utilities
 │   └── utils.ts                  # General utilities (cn, formatters)
 │
 ├── types/                        # TypeScript type definitions
@@ -397,26 +427,35 @@ laundry-ease/
 │   ├── enums.ts                  # Shared enums (Role, Status)
 │   ├── next-auth.d.ts            # NextAuth type extensions
 │   ├── order.ts                  # Order types
+│   ├── orders.ts                 # Additional order types
 │   └── provider.ts               # Provider types
 │
 ├── public/                       # Static assets
+│   └── laundryease-logo.png      # Application logo
+│
 ├── proxy.ts                      # Custom proxy middleware (replaces middleware.ts)
 ├── next.config.ts                # Next.js configuration
 ├── vercel.json                   # Vercel deployment config (cron jobs)
+├── components.json               # shadcn/ui configuration
+├── eslint.config.mjs             # ESLint configuration
+├── postcss.config.mjs            # PostCSS configuration
 ├── package.json                  # Dependencies and scripts
 ├── tsconfig.json                 # TypeScript configuration
-├── PRD.md                        # Product Requirements Document
 └── README.md                     # This file
 ```
 
 ### Key Directories Explained
 
-| Directory          | Purpose                                          |
-| ------------------ | ------------------------------------------------ |
-| `app/(dashboard)/` | Role-based dashboards with protected routes      |
-| `app/api/`         | RESTful API endpoints organized by domain        |
-| `components/ui/`   | Reusable shadcn/ui components                    |
-| `cron/`            | Scheduled background jobs (Vercel cron)          |
-| `lib/api/`         | Request validation, error handling, auth helpers |
-| `lib/db.ts`        | Core database operations (CRUD, transactions)    |
-| `types/`           | Shared TypeScript interfaces and enums           |
+| Directory                | Purpose                                            |
+| ------------------------ | -------------------------------------------------- |
+| `app/(dashboard)/`       | Role-based dashboards with protected routes        |
+| `app/api/`               | RESTful API endpoints organized by domain          |
+| `app/actions/`           | Next.js Server Actions for data mutations          |
+| `components/ui/`         | Reusable shadcn/ui components                      |
+| `components/navigation/` | Role-specific navigation (admin, provider, seeker) |
+| `cron/`                  | Scheduled background jobs (Vercel cron)            |
+| `docs/`                  | Product documentation and guides                   |
+| `lib/api/`               | Request validation, error handling, auth helpers   |
+| `lib/db.ts`              | Core database operations (CRUD, transactions)      |
+| `types/`                 | Shared TypeScript interfaces and enums             |
+| `public/`                | Static assets (logo, images)                       |
