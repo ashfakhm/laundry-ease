@@ -120,7 +120,7 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice,
-    0
+    0,
   );
   const total = Math.max(0, subtotal - discount);
 
@@ -138,7 +138,7 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
             return { ...item, photoUrl: url };
           }
           return { ...item };
-        })
+        }),
       );
 
       const payload = itemsWithUrls.map(({ photo, ...rest }) => rest);
@@ -157,7 +157,7 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to submit invoice");
+        throw new Error(data.error?.message || "Failed to submit invoice");
       }
 
       // Success: Redirect to dashboard
@@ -413,7 +413,7 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
                 value={discount}
                 onChange={(e) =>
                   setDiscount(
-                    Math.max(0, Math.min(Number(e.target.value), subtotal))
+                    Math.max(0, Math.min(Number(e.target.value), subtotal)),
                   )
                 }
                 className="input input-sm input-bordered w-24 text-right bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground focus:bg-primary-foreground/20 focus:border-primary-foreground/40 rounded-lg ml-2"

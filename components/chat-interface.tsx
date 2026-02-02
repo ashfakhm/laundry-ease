@@ -114,7 +114,7 @@ export default function BookingChat({
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to raise dispute");
+        throw new Error(data.error?.message || "Failed to raise dispute");
       }
 
       const data = await res.json();

@@ -50,7 +50,10 @@ export function ImageUpload({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("folder", variant === "profile" ? "provider-profiles" : "provider-banners");
+      formData.append(
+        "folder",
+        variant === "profile" ? "provider-profiles" : "provider-banners",
+      );
 
       const response = await fetch("/api/upload/image", {
         method: "POST",
@@ -60,7 +63,7 @@ export function ImageUpload({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Upload failed");
+        throw new Error(data.error?.message || "Upload failed");
       }
 
       onChange(data.url);
@@ -84,17 +87,21 @@ export function ImageUpload({
   return (
     <div className={cn("space-y-2", className)}>
       <label className="text-sm font-semibold text-foreground">{label}</label>
-      
+
       <div
         className={cn(
           "relative overflow-hidden rounded-2xl border-2 border-dashed border-border bg-muted/30 transition-colors hover:border-primary/50",
-          isProfile ? "aspect-square w-40 mx-auto" : "aspect-[4/1] w-full max-w-2xl"
+          isProfile
+            ? "aspect-square w-40 mx-auto"
+            : "aspect-[4/1] w-full max-w-2xl",
         )}
       >
         {uploading ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="text-sm font-medium text-muted-foreground">Uploading...</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              Uploading...
+            </span>
           </div>
         ) : value ? (
           <>
@@ -103,7 +110,7 @@ export function ImageUpload({
               alt={label}
               className={cn(
                 "h-full w-full object-cover",
-                isProfile && "rounded-full"
+                isProfile && "rounded-full",
               )}
             />
             <button

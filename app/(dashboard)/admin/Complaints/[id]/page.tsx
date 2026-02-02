@@ -65,7 +65,7 @@ export default function AdminComplaintDetailPage({
         fetchComplaint(); // Refresh
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to add provider");
+        toast.error(data.error?.message || "Failed to add provider");
       }
     } catch (error) {
       console.error("Error adding provider:", error);
@@ -94,7 +94,7 @@ export default function AdminComplaintDetailPage({
         router.push("/admin/complaints");
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to resolve complaint");
+        toast.error(data.error?.message || "Failed to resolve complaint");
       }
     } catch (error) {
       console.error("Error resolving complaint:", error);
@@ -247,7 +247,7 @@ export default function AdminComplaintDetailPage({
                         fetchComplaint();
                       } else {
                         const data = await res.json();
-                        toast.error(data.error || "Failed to accept");
+                        toast.error(data.error?.message || "Failed to accept");
                       }
                     } catch {
                       toast.error("Failed to accept complaint");

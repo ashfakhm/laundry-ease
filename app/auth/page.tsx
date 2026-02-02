@@ -74,7 +74,7 @@ export default function AuthPage() {
           setForgotSuccess(false);
         }, 3000);
       } else {
-        setError(data.error || "Failed to send reset email");
+        setError(data.error?.message || "Failed to send reset email");
       }
     } catch {
       setError("An error occurred. Please try again.");

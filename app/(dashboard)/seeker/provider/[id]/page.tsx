@@ -120,7 +120,7 @@ export default function ProviderDetailPage() {
       } else {
         toast({
           title: "Booking failed",
-          description: data.error || "Failed to create booking",
+          description: data.error?.message || "Failed to create booking",
           type: "error",
         });
       }
@@ -203,7 +203,7 @@ export default function ProviderDetailPage() {
           >
             {/* Banner & Profile Picture */}
             <ProviderHeader provider={provider} />
-            
+
             {/* Header Card */}
             <div className="rounded-3xl border border-border bg-card p-6 md:p-8 shadow-sm">
               <div className="flex flex-col md:flex-row gap-6 items-start">
@@ -254,7 +254,7 @@ export default function ProviderDetailPage() {
                     {provider.createdAt
                       ? new Date(provider.createdAt).toLocaleDateString(
                           undefined,
-                          { month: "short", year: "numeric" }
+                          { month: "short", year: "numeric" },
                         )
                       : "Recently"}
                   </p>
@@ -316,7 +316,7 @@ export default function ProviderDetailPage() {
                             ₹{rate}
                           </span>
                         </div>
-                      )
+                      ),
                     )}
                   {!provider.pricingRates && (
                     <p className="text-sm text-muted-foreground">
@@ -371,7 +371,7 @@ export default function ProviderDetailPage() {
                                   "w-3 h-3",
                                   i < review.rating
                                     ? "fill-orange-400 text-orange-400"
-                                    : "text-muted-foreground/30"
+                                    : "text-muted-foreground/30",
                                 )}
                               />
                             ))}
@@ -388,7 +388,9 @@ export default function ProviderDetailPage() {
                   </div>
                 ))}
                 {reviews.length === 0 && (
-                   <p className="text-sm text-muted-foreground text-center py-4">No reviews yet.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No reviews yet.
+                  </p>
                 )}
               </div>
             </div>

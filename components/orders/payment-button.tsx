@@ -59,7 +59,8 @@ export function PaymentButton({
       });
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || "Failed to initiate payment");
+      if (!res.ok)
+        throw new Error(data.error?.message || "Failed to initiate payment");
 
       // 2. Open Razorpay
       const options = {
@@ -99,7 +100,7 @@ export function PaymentButton({
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", function (response: RazorpayError) {
         toast.error(
-          response.error.description || "Payment failed. Please try again."
+          response.error.description || "Payment failed. Please try again.",
         );
       });
       rzp.open();
@@ -123,7 +124,7 @@ export function PaymentButton({
           "hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0",
           fullWidth ? "w-full" : "w-auto px-6",
           "py-3", // Consistent height
-          className
+          className,
         )}
       >
         {/* Shimmer Effect */}

@@ -176,7 +176,7 @@ export default function SeekerDashboardPage() {
       } else {
         toast({
           title: "Booking failed",
-          description: data.error || "Failed to create booking",
+          description: data.error?.message || "Failed to create booking",
           type: "error",
         });
       }

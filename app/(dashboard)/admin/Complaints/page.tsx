@@ -87,7 +87,7 @@ export default function ComplaintsPage() {
         await fetchComplaints();
         setFilter("accepted");
       } else {
-        toast.error(data.error || "Failed to accept complaint");
+        toast.error(data.error?.message || "Failed to accept complaint");
       }
     } catch (error) {
       console.error("Error accepting complaint:", error);
@@ -115,7 +115,7 @@ export default function ComplaintsPage() {
         setFilter(status);
       } else {
         const data = await response.json();
-        toast.error(data.error || "Failed to update status");
+        toast.error(data.error?.message || "Failed to update status");
       }
     } catch (error) {
       console.error("Error updating complaint:", error);
@@ -242,7 +242,7 @@ export default function ComplaintsPage() {
         toast.success(data.message || "Complaint resolved successfully");
         await fetchComplaints();
       } else {
-        toast.error(data.error || "Failed to resolve complaint");
+        toast.error(data.error?.message || "Failed to resolve complaint");
       }
     } catch (error) {
       console.error("Error resolving complaint:", error);

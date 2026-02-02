@@ -54,7 +54,7 @@ export default function ResetPasswordPage() {
           router.push("/auth");
         }, 2000);
       } else {
-        setError(data.error || "Failed to reset password");
+        setError(data.error?.message || "Failed to reset password");
       }
     } catch {
       setError("An error occurred. Please try again.");

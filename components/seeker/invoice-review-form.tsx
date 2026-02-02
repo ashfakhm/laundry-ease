@@ -49,7 +49,10 @@ export default function InvoiceReviewForm({
   const displayedTotal =
     invoice.total !== undefined
       ? invoice.total
-      : invoice.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+      : invoice.items.reduce(
+          (sum, item) => sum + item.unitPrice * item.quantity,
+          0,
+        );
 
   async function handleDecision(approved: boolean, reason?: string) {
     setLoading(true);
@@ -64,76 +67,86 @@ export default function InvoiceReviewForm({
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || "Failed to submit decision");
+      if (!res.ok)
+        throw new Error(data.error?.message || "Failed to submit decision");
 
       if (approved && data.orderId) {
         // Success: Initiate Payment Flow logic
         try {
-            // 1. Create Order on Backend (Get Razorpay Order ID)
-            const payRes = await fetch(`/api/orders/${data.orderId}/payment`, {
-                method: "POST",
-            });
-            const payData = await payRes.json();
+          // 1. Create Order on Backend (Get Razorpay Order ID)
+          const payRes = await fetch(`/api/orders/${data.orderId}/payment`, {
+            method: "POST",
+          });
+          const payData = await payRes.json();
 
-            if (!payRes.ok) throw new Error(payData.error || "Failed to initiate payment");
+          if (!payRes.ok)
+            throw new Error(
+              payData.error?.message || "Failed to initiate payment",
+            );
 
-            // 2. Open Razorpay
-            const options = {
-                key: payData.key,
-                amount: payData.amount,
-                currency: payData.currency,
-                name: "LaundryEase",
-                description: `Payment for Order #${data.orderId.slice(-6)}`,
-                order_id: payData.id,
-                handler: async function (response: any) {
-                    // 3. Verify Payment
-                    const verifyRes = await fetch(`/api/orders/${data.orderId}/payment`, {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature,
-                        }),
-                    });
-                    
-                    if (verifyRes.ok) {
-                        toast.success("Payment Successful!");
-                        router.push(`/seeker/orders/${data.orderId}`); // Should show "Paid" status
-                    } else {
-                        toast.error("Payment Verification Failed. Please contact support.");
-                        router.push(`/seeker/orders/${data.orderId}`);
-                    }
+          // 2. Open Razorpay
+          const options = {
+            key: payData.key,
+            amount: payData.amount,
+            currency: payData.currency,
+            name: "LaundryEase",
+            description: `Payment for Order #${data.orderId.slice(-6)}`,
+            order_id: payData.id,
+            handler: async function (response: any) {
+              // 3. Verify Payment
+              const verifyRes = await fetch(
+                `/api/orders/${data.orderId}/payment`,
+                {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                  }),
                 },
-                prefill: {
-                    name: "LaundryEase Customer", 
-                },
-                theme: {
-                    color: "#7C3AED",
-                },
-                modal: {
-                    ondismiss: function() {
-                        router.push(`/seeker/orders/${data.orderId}`);
-                    }
-                }
-            };
+              );
 
-            const rzp = new window.Razorpay(options);
-            rzp.on("payment.failed", function (response: any) {
-                toast.error(response.error.description || "Payment failed. Please try again.");
+              if (verifyRes.ok) {
+                toast.success("Payment Successful!");
+                router.push(`/seeker/orders/${data.orderId}`); // Should show "Paid" status
+              } else {
+                toast.error(
+                  "Payment Verification Failed. Please contact support.",
+                );
                 router.push(`/seeker/orders/${data.orderId}`);
-            });
-            rzp.open();
+              }
+            },
+            prefill: {
+              name: "LaundryEase Customer",
+            },
+            theme: {
+              color: "#7C3AED",
+            },
+            modal: {
+              ondismiss: function () {
+                router.push(`/seeker/orders/${data.orderId}`);
+              },
+            },
+          };
 
-        } catch (paymentError) {
-            console.error(paymentError);
-            // If payment init fails, just go to order page
+          const rzp = new window.Razorpay(options);
+          rzp.on("payment.failed", function (response: any) {
+            toast.error(
+              response.error.description || "Payment failed. Please try again.",
+            );
             router.push(`/seeker/orders/${data.orderId}`);
+          });
+          rzp.open();
+        } catch (paymentError) {
+          console.error(paymentError);
+          // If payment init fails, just go to order page
+          router.push(`/seeker/orders/${data.orderId}`);
         }
       } else {
         // Rejection: Redirect to Invoice List
         router.refresh();
-        router.push("/seeker/invoices"); 
+        router.push("/seeker/invoices");
       }
     } catch (err: unknown) {
       let msg = "Unknown error";
@@ -165,7 +178,7 @@ export default function InvoiceReviewForm({
           >
             {/* Photo Evidence */}
             <div className="shrink-0">
-               {item.photoUrl ? (
+              {item.photoUrl ? (
                 <div className="relative w-full sm:w-24 h-32 sm:h-24 rounded-lg overflow-hidden border border-border bg-muted">
                   <Image
                     src={item.photoUrl}
@@ -175,25 +188,29 @@ export default function InvoiceReviewForm({
                   />
                 </div>
               ) : (
-                 <div className="w-full sm:w-24 h-24 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground border border-border">
-                    No Photo
-                 </div>
+                <div className="w-full sm:w-24 h-24 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground border border-border">
+                  No Photo
+                </div>
               )}
             </div>
 
             {/* Item Details */}
             <div className="flex-1 flex flex-col justify-center">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h3 className="font-bold text-foreground text-lg">{item.itemType}</h3>
-                        <p className="text-sm text-muted-foreground">
-                            {item.quantity} units × ₹{item.unitPrice}
-                        </p>
-                    </div>
-                    <div className="text-right">
-                         <p className="font-mono font-bold text-primary">₹{item.quantity * item.unitPrice}</p>
-                    </div>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-bold text-foreground text-lg">
+                    {item.itemType}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {item.quantity} units × ₹{item.unitPrice}
+                  </p>
                 </div>
+                <div className="text-right">
+                  <p className="font-mono font-bold text-primary">
+                    ₹{item.quantity * item.unitPrice}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         ))}
@@ -201,57 +218,78 @@ export default function InvoiceReviewForm({
 
       {/* Summary Card */}
       <div className="p-6 bg-gradient-to-br from-card to-muted rounded-2xl border border-border shadow-lg space-y-3">
-         {invoice.notes && (
-             <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-600 dark:text-yellow-400">
-                 <span className="font-bold block text-xs uppercase tracking-wider mb-1">Provider Notes:</span>
-                 {invoice.notes}
-             </div>
-         )}
-         
-         <div className="flex justify-between items-center text-sm">
-             <span className="text-muted-foreground">Subtotal</span>
-             <span className="font-medium">₹{invoice.subtotal}</span>
-         </div>
-         {invoice.discount ? (
-             <div className="flex justify-between items-center text-sm text-green-500">
-                 <span>Discount</span>
-                 <span>- ₹{invoice.discount}</span>
-             </div>
-         ) : null}
-         <div className="pt-3 border-t border-border flex justify-between items-center">
-             <span className="font-heading font-bold text-lg">Total to Pay</span>
-             <span className="font-heading font-black text-2xl text-primary">₹{displayedTotal}</span>
-         </div>
+        {invoice.notes && (
+          <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-600 dark:text-yellow-400">
+            <span className="font-bold block text-xs uppercase tracking-wider mb-1">
+              Provider Notes:
+            </span>
+            {invoice.notes}
+          </div>
+        )}
+
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-muted-foreground">Subtotal</span>
+          <span className="font-medium">₹{invoice.subtotal}</span>
+        </div>
+        {invoice.discount ? (
+          <div className="flex justify-between items-center text-sm text-green-500">
+            <span>Discount</span>
+            <span>- ₹{invoice.discount}</span>
+          </div>
+        ) : null}
+        <div className="pt-3 border-t border-border flex justify-between items-center">
+          <span className="font-heading font-bold text-lg">Total to Pay</span>
+          <span className="font-heading font-black text-2xl text-primary">
+            ₹{displayedTotal}
+          </span>
+        </div>
       </div>
 
       {/* Error Message */}
       {error && (
         <div className="alert alert-error shadow-sm rounded-xl">
-          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
           <span>{error}</span>
         </div>
       )}
 
-       <div className="grid grid-cols-2 gap-4 pt-2">
-         <button
+      <div className="grid grid-cols-2 gap-4 pt-2">
+        <button
           onClick={() => setShowRejectDialog(true)}
           disabled={loading}
           className="btn btn-outline btn-error h-14 rounded-xl font-bold border-2 hover:bg-error hover:text-white transition-all disabled:opacity-50"
-         >
-           Reject Invoice
-         </button>
-         
-         <button
+        >
+          Reject Invoice
+        </button>
+
+        <button
           onClick={() => handleDecision(true)}
           disabled={loading}
           className="btn btn-primary h-14 rounded-xl font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-         >
-             {loading ? <span className="loading loading-spinner"></span> : "Approve & Pay"}
-         </button>
+        >
+          {loading ? (
+            <span className="loading loading-spinner"></span>
+          ) : (
+            "Approve & Pay"
+          )}
+        </button>
       </div>
-      
+
       <p className="text-xs text-center text-muted-foreground mt-4">
-          By approving, you agree to the total amount and condition of items shown.
+        By approving, you agree to the total amount and condition of items
+        shown.
       </p>
 
       {/* Rejection Confirmation Dialog */}

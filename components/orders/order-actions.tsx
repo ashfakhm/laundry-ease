@@ -13,7 +13,13 @@ interface ReviewModalProps {
   seekerId: string;
 }
 
-export function ReviewModal({ isOpen, onClose, orderId, providerId, seekerId }: ReviewModalProps) {
+export function ReviewModal({
+  isOpen,
+  onClose,
+  orderId,
+  providerId,
+  seekerId,
+}: ReviewModalProps) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +64,10 @@ export function ReviewModal({ isOpen, onClose, orderId, providerId, seekerId }: 
       <div className="bg-card w-full max-w-md rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in duration-200 border border-border">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold font-heading">Rate Experience</h3>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-muted rounded-full transition-colors"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -74,7 +83,9 @@ export function ReviewModal({ isOpen, onClose, orderId, providerId, seekerId }: 
               >
                 <Star
                   className={`w-8 h-8 ${
-                    star <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"
+                    star <= rating
+                      ? "fill-amber-400 text-amber-400"
+                      : "text-muted-foreground/30"
                   }`}
                 />
               </button>
@@ -82,7 +93,9 @@ export function ReviewModal({ isOpen, onClose, orderId, providerId, seekerId }: 
           </div>
 
           <div>
-             <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Details</label>
+            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+              Details
+            </label>
             <textarea
               className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               placeholder="How was the service? (Optional)"
@@ -122,7 +135,11 @@ const COMPLAINT_TYPES = [
 import { EvidenceUpload } from "@/components/ui/evidence-upload";
 
 // ... inside ComplaintModal
-export function ComplaintModal({ isOpen, onClose, orderId }: ComplaintModalProps) {
+export function ComplaintModal({
+  isOpen,
+  onClose,
+  orderId,
+}: ComplaintModalProps) {
   const [title, setTitle] = useState("");
   const [type, setType] = useState(COMPLAINT_TYPES[0].value);
   const [description, setDescription] = useState("");
@@ -137,8 +154,8 @@ export function ComplaintModal({ isOpen, onClose, orderId }: ComplaintModalProps
       return;
     }
     if (title.length < 5) {
-       toast.error("Title must be at least 5 characters");
-       return;
+      toast.error("Title must be at least 5 characters");
+      return;
     }
 
     setSubmitting(true);
@@ -151,7 +168,7 @@ export function ComplaintModal({ isOpen, onClose, orderId }: ComplaintModalProps
           title,
           complaint_type: type,
           description,
-          photos
+          photos,
         }),
       });
 
@@ -163,7 +180,7 @@ export function ComplaintModal({ isOpen, onClose, orderId }: ComplaintModalProps
         router.push(`/seeker/disputes/${data.data?._id || data._id}`);
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to raise complaint");
+        toast.error(data.error?.message || "Failed to raise complaint");
       }
     } catch (error) {
       toast.error("Something went wrong");
@@ -181,18 +198,24 @@ export function ComplaintModal({ isOpen, onClose, orderId }: ComplaintModalProps
           <h3 className="text-xl font-bold font-heading flex items-center gap-2 text-destructive">
             <AlertTriangle className="w-5 h-5" /> Raise Complaint
           </h3>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-muted rounded-full transition-colors"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <div className="p-3 bg-amber-500/10 text-amber-600 text-xs font-medium rounded-xl mb-4">
-           Important: Raising a complaint will verify the issue before releasing payment to the provider.
+          Important: Raising a complaint will verify the issue before releasing
+          payment to the provider.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Issue Title</label>
+            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+              Issue Title
+            </label>
             <input
               className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-destructive/20 transition-all"
               placeholder="Brief summary of issue"
@@ -204,7 +227,9 @@ export function ComplaintModal({ isOpen, onClose, orderId }: ComplaintModalProps
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Issue Type</label>
+            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+              Issue Type
+            </label>
             <select
               className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-destructive/20 transition-all"
               value={type}
@@ -219,25 +244,25 @@ export function ComplaintModal({ isOpen, onClose, orderId }: ComplaintModalProps
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Description</label>
+            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+              Description
+            </label>
             <textarea
               className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-destructive/20 transition-all"
               placeholder="Please describe the issue in detail..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-             <p className="text-[10px] text-muted-foreground mt-1 text-right">
-                {description.length}/10 min chars
-             </p>
+            <p className="text-[10px] text-muted-foreground mt-1 text-right">
+              {description.length}/10 min chars
+            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">Evidence (Optional)</label>
-            <EvidenceUpload 
-                value={photos} 
-                onChange={setPhotos} 
-                maxFiles={5}
-            />
+            <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
+              Evidence (Optional)
+            </label>
+            <EvidenceUpload value={photos} onChange={setPhotos} maxFiles={5} />
           </div>
 
           <button

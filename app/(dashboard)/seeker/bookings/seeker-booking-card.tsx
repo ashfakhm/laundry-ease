@@ -185,7 +185,7 @@ function SeekerBookingCardComponent({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
-        }
+        },
       );
 
       if (res.ok) {
@@ -246,7 +246,7 @@ function SeekerBookingCardComponent({
           });
           throw new Error("Authentication failed");
         }
-        throw new Error(data.error || "Failed to initiate payment");
+        throw new Error(data.error?.message || "Failed to initiate payment");
       }
 
       const options = {
@@ -273,7 +273,7 @@ function SeekerBookingCardComponent({
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_signature: response.razorpay_signature,
                 }),
-              }
+              },
             );
 
             if (verifyRes.ok) {
@@ -312,7 +312,7 @@ function SeekerBookingCardComponent({
       }
 
       const rzp1 = new (window as unknown as RazorpayWindow).Razorpay(
-        options as unknown as Record<string, unknown>
+        options as unknown as Record<string, unknown>,
       );
       rzp1.open();
     } catch (e: unknown) {
@@ -608,7 +608,7 @@ function SeekerBookingCardComponent({
                       quantity: number;
                       unitPrice: number;
                     },
-                    i: number
+                    i: number,
                   ) => (
                     <div
                       key={i}
@@ -624,7 +624,7 @@ function SeekerBookingCardComponent({
                         ₹{item.quantity * item.unitPrice}
                       </span>
                     </div>
-                  )
+                  ),
                 )}
                 {booking.invoice.items.length > 3 && (
                   <p className="text-xs text-center text-muted-foreground pt-1 italic">
@@ -641,9 +641,9 @@ function SeekerBookingCardComponent({
                     {booking.invoice.items.reduce(
                       (
                         acc: number,
-                        item: { quantity: number; unitPrice: number }
+                        item: { quantity: number; unitPrice: number },
                       ) => acc + item.quantity * item.unitPrice,
-                      0
+                      0,
                     )}
                   </span>
                 </div>
@@ -681,7 +681,7 @@ function SeekerBookingCardComponent({
                   try {
                     const res = await fetch(
                       `/api/bookings/${booking._id}/cancel`,
-                      { method: "POST" }
+                      { method: "POST" },
                     );
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.message);
@@ -711,7 +711,7 @@ function SeekerBookingCardComponent({
                 onClick={async () => {
                   if (
                     !confirm(
-                      "This will permanently remove the booking from your history. Continue?"
+                      "This will permanently remove the booking from your history. Continue?",
                     )
                   )
                     return;
