@@ -27,11 +27,13 @@ type Invoice = {
 interface InvoiceReviewFormProps {
   invoice: Invoice;
   bookingId: string;
+  readOnly?: boolean;
 }
 
 export default function InvoiceReviewForm({
   invoice,
   bookingId,
+  readOnly = false,
 }: InvoiceReviewFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -260,32 +262,47 @@ export default function InvoiceReviewForm({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 pt-2">
-        <button
-          onClick={() => setShowRejectDialog(true)}
-          disabled={loading}
-          className="btn btn-outline btn-error h-14 rounded-xl font-bold border-2 hover:bg-error hover:text-white transition-all disabled:opacity-50"
-        >
-          Reject Invoice
-        </button>
+      {!readOnly && (
+        <>
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            <button
+              onClick={() => setShowRejectDialog(true)}
+              disabled={loading}
+              className="btn btn-outline btn-error h-14 rounded-xl font-bold border-2 hover:bg-error hover:text-white transition-all disabled:opacity-50"
+            >
+              Reject Invoice
+            </button>
 
-        <button
-          onClick={() => handleDecision(true)}
-          disabled={loading}
-          className="btn btn-primary h-14 rounded-xl font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          {loading ? (
-            <span className="loading loading-spinner"></span>
-          ) : (
-            "Approve & Pay"
-          )}
-        </button>
-      </div>
+            <button
+              onClick={() => handleDecision(true)}
+              disabled={loading}
+              className="btn btn-primary h-14 rounded-xl font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {loading ? (
+                <span className="loading loading-spinner"></span>
+              ) : (
+                "Approve & Pay"
+              )}
+            </button>
+          </div>
 
-      <p className="text-xs text-center text-muted-foreground mt-4">
-        By approving, you agree to the total amount and condition of items
-        shown.
-      </p>
+          <p className="text-xs text-center text-muted-foreground mt-4">
+            By approving, you agree to the total amount and condition of items
+            shown.
+          </p>
+        </>
+      )}
+
+      {readOnly && (
+        <div className="pt-4">
+          <button
+            onClick={() => router.back()}
+            className="btn btn-outline w-full h-12 rounded-xl font-medium border-2 transition-all"
+          >
+            Back
+          </button>
+        </div>
+      )}
 
       {/* Rejection Confirmation Dialog */}
       <ConfirmDialog

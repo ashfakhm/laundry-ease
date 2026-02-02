@@ -11,6 +11,7 @@ import {
   Calendar,
   ChevronRight,
   ShieldAlert,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -300,12 +301,22 @@ function PendingInvoiceCard({ booking }: { booking: InvoiceBooking }) {
               ₹{total}
             </p>
           </div>
-          <Link
-            href={`/seeker/bookings/${bookingId}/invoice-review`}
-            className="h-12 px-6 bg-amber-500 hover:bg-amber-400 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-amber-500/20"
-          >
-            Pay Now <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/seeker/bookings/${bookingId}/invoice-review`}
+              className="h-12 px-4 bg-muted hover:bg-muted/80 text-foreground font-medium rounded-xl flex items-center gap-2 transition-all border border-border"
+              title="View Invoice"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="hidden sm:inline">View</span>
+            </Link>
+            <Link
+              href={`/seeker/bookings/${bookingId}/invoice-review`}
+              className="h-12 px-6 bg-amber-500 hover:bg-amber-400 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-amber-500/20"
+            >
+              Pay Now <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -356,8 +367,8 @@ function HistoryInvoiceRow({
           </div>
         </div>
 
-        {/* Right: Amount & Action */}
-        <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto mt-2 md:mt-0">
+        {/* Right: Amount & Actions */}
+        <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto mt-2 md:mt-0">
           <div className="text-right">
             <p className="text-xs text-muted-foreground mb-0.5">
               {itemCount} items
@@ -365,15 +376,25 @@ function HistoryInvoiceRow({
             <p className="text-lg font-bold text-foreground">₹{total}</p>
           </div>
 
-          <Link
-            href={`/seeker/orders/${booking.order_id || "#"}`}
-            className="h-10 w-10 md:w-auto md:px-4 md:py-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center gap-2 transition-all text-sm font-medium border border-border"
-            title="View Details"
-          >
-            <span className="hidden md:inline">View Order</span>
-            <ChevronRight className="w-4 h-4 md:hidden" />
-            <ArrowRight className="w-4 h-4 hidden md:block" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/seeker/bookings/${bookingId}/invoice-review`}
+              className="h-10 w-10 md:w-auto md:px-4 md:py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center gap-2 transition-all text-sm font-medium border border-primary/20"
+              title="View Invoice"
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden md:inline">View Invoice</span>
+            </Link>
+            <Link
+              href={`/seeker/orders/${booking.order_id || "#"}`}
+              className="h-10 w-10 md:w-auto md:px-4 md:py-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center gap-2 transition-all text-sm font-medium border border-border"
+              title="View Order"
+            >
+              <span className="hidden md:inline">View Order</span>
+              <ChevronRight className="w-4 h-4 md:hidden" />
+              <ArrowRight className="w-4 h-4 hidden md:block" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>
