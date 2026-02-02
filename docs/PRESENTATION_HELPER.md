@@ -527,7 +527,7 @@ Seeker raises complaint (status: "open")
     ↓
 Admin reviews and accepts (status: "accepted", deadline set)
     ↓
-Admin adds provider to chat (status: "in_review", old status `under_review` also works)
+Admin adds provider to chat (status: "in_review")
     ↓
 3-way chat to solve the problem
     ↓
@@ -886,7 +886,6 @@ await session.withTransaction(async () => {
 Use these points if you are asked about differences between the PRD and what is built now:
 
 - **24-hour complaint window**: Written in PRD, but the API does not block complaints after 24 hours yet. We can add a check using `delivered` + `otp_confirmed_at` times.
-- **Complaint status names**: The main flow uses `open → accepted → in_review → resolved/rejected`, but some old code still uses `under_review` as active.
 - **Error handling style**: Many API routes use `withErrorHandling`, but some still use `try/catch` directly. This can be cleaned up later.
 - **Payment retries**: Each retry makes a new Razorpay order; we handle duplicates at payout and webhook time, not by reusing order IDs.
 - **PRD vs reality**: Some future features in the PRD (like complaint window extension requests) are not fully built yet.
