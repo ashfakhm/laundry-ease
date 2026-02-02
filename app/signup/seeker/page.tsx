@@ -22,6 +22,7 @@ export default function SeekerSignupPage() {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     phone: "",
     address: {
       line1: "",
@@ -33,6 +34,46 @@ export default function SeekerSignupPage() {
     },
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
+
+  // Client-side validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Email validation
+  const isValidEmail = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  // Password validation helpers
+  const passwordChecks = {
+    minLength: form.password.length >= 8,
+    hasUppercase: /[A-Z]/.test(form.password),
+    hasNumber: /[0-9]/.test(form.password),
+    hasSpecial: /[^A-Za-z0-9]/.test(form.password),
+  };
+  const isPasswordValid = Object.values(passwordChecks).every(Boolean);
+  const passwordsMatch =
+    form.password === form.confirmPassword && form.confirmPassword.length > 0;
+
+  // Validate field on blur
+  function validateField(field: string, value: string) {
+    const errors = { ...fieldErrors };
+    switch (field) {
+      case "email":
+        if (value && !isValidEmail(value)) {
+          errors.email = "Please enter a valid email address";
+        } else {
+          delete errors.email;
+        }
+        break;
+      case "confirmPassword":
+        if (value && value !== form.password) {
+          errors.confirmPassword = "Passwords do not match";
+        } else {
+          delete errors.confirmPassword;
+        }
+        break;
+    }
+    setFieldErrors(errors);
+  }
   const [emailOtpSent, setEmailOtpSent] = useState<string | null>(null);
   const [phoneOtpSent, setPhoneOtpSent] = useState<string | null>(null);
   const [emailCode, setEmailCode] = useState("");
@@ -121,16 +162,12 @@ export default function SeekerSignupPage() {
     // Validate all required fields before submit
     if (!form.name || form.name.length < 2)
       return setError("Name must be at least 2 characters");
-    if (!form.email || !/^[^@]+@[^@]+\.[^@]+$/.test(form.email))
+    if (!form.email || !isValidEmail(form.email))
       return setError("Enter a valid email address");
-    if (!form.password || form.password.length < 8)
-      return setError("Password must be at least 8 characters");
-    if (!/[A-Z]/.test(form.password))
-      return setError("Password must contain an uppercase letter");
-    if (!/[0-9]/.test(form.password))
-      return setError("Password must contain a number");
-    if (!/[^A-Za-z0-9]/.test(form.password))
-      return setError("Password must contain a special character");
+    if (!isPasswordValid)
+      return setError("Password does not meet all requirements");
+    if (form.password !== form.confirmPassword)
+      return setError("Passwords do not match");
     if (!form.phone || !/^\+?[1-9]\d{9,14}$/.test(normalizePhone(form.phone)))
       return setError("Enter a valid phone number");
     const addr = form.address;
@@ -250,21 +287,93 @@ export default function SeekerSignupPage() {
                     <label className="text-sm font-medium">Email</label>
                     <input
                       type="email"
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                      className={`flex h-10 w-full rounded-lg border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 ${
+                        fieldErrors.email
+                          ? "border-destructive"
+                          : "border-input"
+                      }`}
                       placeholder="Enter Your Email"
                       value={form.email}
                       onChange={(e) => set("email", e.target.value)}
+                      onBlur={(e) => validateField("email", e.target.value)}
                       required
                     />
+                    {fieldErrors.email && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.email}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <PasswordInput
                       id="password"
+                      label="Password"
                       placeholder="Create a strong password"
                       value={form.password}
                       onChange={(e) => set("password", e.target.value)}
                       required
                     />
+                    {form.password && (
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div
+                          className={`text-xs flex items-center gap-1 ${passwordChecks.minLength ? "text-green-600" : "text-muted-foreground"}`}
+                        >
+                          <CheckCircle2
+                            className={`w-3 h-3 ${passwordChecks.minLength ? "" : "opacity-30"}`}
+                          />
+                          8+ characters
+                        </div>
+                        <div
+                          className={`text-xs flex items-center gap-1 ${passwordChecks.hasUppercase ? "text-green-600" : "text-muted-foreground"}`}
+                        >
+                          <CheckCircle2
+                            className={`w-3 h-3 ${passwordChecks.hasUppercase ? "" : "opacity-30"}`}
+                          />
+                          Uppercase letter
+                        </div>
+                        <div
+                          className={`text-xs flex items-center gap-1 ${passwordChecks.hasNumber ? "text-green-600" : "text-muted-foreground"}`}
+                        >
+                          <CheckCircle2
+                            className={`w-3 h-3 ${passwordChecks.hasNumber ? "" : "opacity-30"}`}
+                          />
+                          Number
+                        </div>
+                        <div
+                          className={`text-xs flex items-center gap-1 ${passwordChecks.hasSpecial ? "text-green-600" : "text-muted-foreground"}`}
+                        >
+                          <CheckCircle2
+                            className={`w-3 h-3 ${passwordChecks.hasSpecial ? "" : "opacity-30"}`}
+                          />
+                          Special character
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <PasswordInput
+                      id="confirmPassword"
+                      label="Confirm Password"
+                      placeholder="Re-enter your password"
+                      value={form.confirmPassword}
+                      onChange={(e) => set("confirmPassword", e.target.value)}
+                      onBlur={(e) =>
+                        validateField("confirmPassword", e.target.value)
+                      }
+                      required
+                    />
+                    {form.confirmPassword && (
+                      <p
+                        className={`text-xs flex items-center gap-1 ${passwordsMatch ? "text-green-600" : "text-destructive"}`}
+                      >
+                        <CheckCircle2
+                          className={`w-3 h-3 ${passwordsMatch ? "" : "opacity-30"}`}
+                        />
+                        {passwordsMatch
+                          ? "Passwords match"
+                          : "Passwords do not match"}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-sm font-medium">Phone Number</label>

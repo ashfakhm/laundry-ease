@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-interface PasswordInputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
 }
@@ -22,7 +21,7 @@ export function PasswordInput({
       {label && (
         <label
           htmlFor={props.id}
-          className="text-xs font-medium text-muted-foreground"
+          className="text-sm font-medium text-foreground"
         >
           {label}
         </label>

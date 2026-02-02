@@ -47,6 +47,7 @@ export default function ProviderSignupPage() {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     phone: "",
     businessName: "",
     bio: "",
@@ -65,6 +66,46 @@ export default function ProviderSignupPage() {
     bannerImage: "",
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
+
+  // Client-side validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Email validation
+  const isValidEmail = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  // Password validation helpers
+  const passwordChecks = {
+    minLength: form.password.length >= 8,
+    hasUppercase: /[A-Z]/.test(form.password),
+    hasNumber: /[0-9]/.test(form.password),
+    hasSpecial: /[^A-Za-z0-9]/.test(form.password),
+  };
+  const isPasswordValid = Object.values(passwordChecks).every(Boolean);
+  const passwordsMatch =
+    form.password === form.confirmPassword && form.confirmPassword.length > 0;
+
+  // Validate field on blur
+  function validateField(field: string, value: string) {
+    const errors = { ...fieldErrors };
+    switch (field) {
+      case "email":
+        if (value && !isValidEmail(value)) {
+          errors.email = "Please enter a valid email address";
+        } else {
+          delete errors.email;
+        }
+        break;
+      case "confirmPassword":
+        if (value && value !== form.password) {
+          errors.confirmPassword = "Passwords do not match";
+        } else {
+          delete errors.confirmPassword;
+        }
+        break;
+    }
+    setFieldErrors(errors);
+  }
   const [pricingRates, setPricingRates] = useState<
     { item: string; rate: string }[]
   >([
@@ -98,7 +139,13 @@ export default function ProviderSignupPage() {
 
   function set<K extends keyof typeof form>(
     k: K,
-    v: string | number | boolean | string[] | Record<string, number> | undefined
+    v:
+      | string
+      | number
+      | boolean
+      | string[]
+      | Record<string, number>
+      | undefined,
   ) {
     setForm((f) => ({ ...f, [k]: v }));
   }
@@ -190,22 +237,37 @@ export default function ProviderSignupPage() {
     if (!emailVerified || !phoneVerified)
       return setError("Please verify contact details first");
 
+    // Validate email
+    if (!form.email || !isValidEmail(form.email))
+      return setError("Please enter a valid email address");
+
+    // Validate password
+    if (!isPasswordValid)
+      return setError("Password does not meet all requirements");
+
+    // Validate password confirmation
+    if (form.password !== form.confirmPassword)
+      return setError("Passwords do not match");
+
     // Validate bank details
     if (!form.bankAccountHolder || !form.bankAccountNumber || !form.bankIFSC) {
       return setError(
-        "Bank account holder name, account number, and IFSC are required"
+        "Bank account holder name, account number, and IFSC are required",
       );
     }
 
     setLoading(true);
 
     // Convert pricing rates array to object
-    const ratesObj = pricingRates.reduce((acc, { item, rate }) => {
-      if (item && rate) {
-        acc[item] = Number(rate) || 0;
-      }
-      return acc;
-    }, {} as Record<string, number>);
+    const ratesObj = pricingRates.reduce(
+      (acc, { item, rate }) => {
+        if (item && rate) {
+          acc[item] = Number(rate) || 0;
+        }
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     const { ok, data } = await postJSON("/api/signup/provider", {
       name: form.name,
@@ -325,21 +387,93 @@ export default function ProviderSignupPage() {
                     <label className="text-sm font-medium">Email</label>
                     <input
                       type="email"
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className={`flex h-10 w-full rounded-lg border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                        fieldErrors.email
+                          ? "border-destructive"
+                          : "border-input"
+                      }`}
                       placeholder="business@example.com"
                       value={form.email}
                       onChange={(e) => set("email", e.target.value)}
+                      onBlur={(e) => validateField("email", e.target.value)}
                       required
                     />
+                    {fieldErrors.email && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.email}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <PasswordInput
                       id="password"
+                      label="Password"
                       placeholder="Create a strong password"
                       value={form.password}
                       onChange={(e) => set("password", e.target.value)}
                       required
                     />
+                    {form.password && (
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div
+                          className={`text-xs flex items-center gap-1 ${passwordChecks.minLength ? "text-green-600" : "text-muted-foreground"}`}
+                        >
+                          <CheckCircle2
+                            className={`w-3 h-3 ${passwordChecks.minLength ? "" : "opacity-30"}`}
+                          />
+                          8+ characters
+                        </div>
+                        <div
+                          className={`text-xs flex items-center gap-1 ${passwordChecks.hasUppercase ? "text-green-600" : "text-muted-foreground"}`}
+                        >
+                          <CheckCircle2
+                            className={`w-3 h-3 ${passwordChecks.hasUppercase ? "" : "opacity-30"}`}
+                          />
+                          Uppercase letter
+                        </div>
+                        <div
+                          className={`text-xs flex items-center gap-1 ${passwordChecks.hasNumber ? "text-green-600" : "text-muted-foreground"}`}
+                        >
+                          <CheckCircle2
+                            className={`w-3 h-3 ${passwordChecks.hasNumber ? "" : "opacity-30"}`}
+                          />
+                          Number
+                        </div>
+                        <div
+                          className={`text-xs flex items-center gap-1 ${passwordChecks.hasSpecial ? "text-green-600" : "text-muted-foreground"}`}
+                        >
+                          <CheckCircle2
+                            className={`w-3 h-3 ${passwordChecks.hasSpecial ? "" : "opacity-30"}`}
+                          />
+                          Special character
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <PasswordInput
+                      id="confirmPassword"
+                      label="Confirm Password"
+                      placeholder="Re-enter your password"
+                      value={form.confirmPassword}
+                      onChange={(e) => set("confirmPassword", e.target.value)}
+                      onBlur={(e) =>
+                        validateField("confirmPassword", e.target.value)
+                      }
+                      required
+                    />
+                    {form.confirmPassword && (
+                      <p
+                        className={`text-xs flex items-center gap-1 ${passwordsMatch ? "text-green-600" : "text-destructive"}`}
+                      >
+                        <CheckCircle2
+                          className={`w-3 h-3 ${passwordsMatch ? "" : "opacity-30"}`}
+                        />
+                        {passwordsMatch
+                          ? "Passwords match"
+                          : "Passwords do not match"}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-sm font-medium">Phone Number</label>
@@ -626,7 +760,7 @@ export default function ProviderSignupPage() {
                             "cursor-pointer flex items-center justify-between p-3 rounded-lg border transition-all",
                             isSelected
                               ? "bg-primary/5 border-primary shadow-sm"
-                              : "bg-muted/20 border-border hover:border-primary/50"
+                              : "bg-muted/20 border-border hover:border-primary/50",
                           )}
                         >
                           <span
@@ -634,7 +768,7 @@ export default function ProviderSignupPage() {
                               "text-xs font-medium",
                               isSelected
                                 ? "text-primary"
-                                : "text-muted-foreground"
+                                : "text-muted-foreground",
                             )}
                           >
                             {service}
