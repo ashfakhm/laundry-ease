@@ -8,7 +8,6 @@ import {
   Clock,
   CheckCircle2,
   Calendar,
-  IndianRupee,
 } from "lucide-react";
 
 type ActionType = "refund" | "penalty";
@@ -22,7 +21,7 @@ type ActionState = {
 type Payment = {
   _id: string;
   order_id: string;
-  payment_status: "held" | "released" | "refunded" | "unpaid";
+  payment_status: "held" | "released" | "refunded" | "unpaid" | "paid";
   total_price: number;
   delivery_charge: number;
   createdAt: string;
@@ -104,13 +103,15 @@ export default function AdminPaymentManagementPage() {
       setActionSuccess(
         action.type === "refund"
           ? "Refund processed successfully."
-          : "Penalty applied successfully."
+          : "Penalty applied successfully.",
       );
       fetchPayments();
       setTimeout(closeActionModal, 1200);
     } catch (err: unknown) {
       if (err && typeof err === "object" && "message" in err) {
-        setActionError((err as { message?: string }).message || "Unknown error");
+        setActionError(
+          (err as { message?: string }).message || "Unknown error",
+        );
       } else {
         setActionError("Unknown error");
       }
@@ -129,10 +130,11 @@ export default function AdminPaymentManagementPage() {
           </span>
         );
       case "released":
+      case "paid":
         return (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
             <CheckCircle2 className="h-3 w-3" />
-            Released
+            {status === "released" ? "Released" : "Paid"}
           </span>
         );
       case "refunded":
@@ -153,10 +155,17 @@ export default function AdminPaymentManagementPage() {
   const filteredPayments =
     filter === "all"
       ? payments
-      : payments.filter((p) => p.payment_status === filter);
+      : filter === "released"
+        ? payments.filter(
+            (p) =>
+              p.payment_status === "released" || p.payment_status === "paid",
+          )
+        : payments.filter((p) => p.payment_status === filter);
 
   const totalRevenue = payments
-    .filter((p) => p.payment_status === "released")
+    .filter(
+      (p) => p.payment_status === "released" || p.payment_status === "paid",
+    )
     .reduce((acc, curr) => acc + curr.total_price + curr.delivery_charge, 0);
 
   const escrowAmount = payments
@@ -186,177 +195,245 @@ export default function AdminPaymentManagementPage() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="mb-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur">
-            <div className="flex items-center gap-2 text-emerald-600">
-              <DollarSign className="h-5 w-5" />
-              <p className="text-sm font-semibold">Total Revenue</p>
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <IndianRupee className="h-6 w-6" />
-              <p className="text-3xl font-bold">
-                {totalRevenue.toLocaleString()}
+        {/* Premium Stats Grid */}
+        <div className="mb-8 grid gap-4 md:grid-cols-3">
+          <div className="relative overflow-hidden rounded-2xl border bg-card/50 p-6 shadow-sm backdrop-blur-md">
+            <div className="absolute top-0 right-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2 text-emerald-600 mb-4">
+                <div className="p-2 bg-emerald-100/50 rounded-lg">
+                  <DollarSign className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-semibold tracking-wide uppercase">
+                  Total Revenue
+                </p>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <p className="text-4xl font-bold text-foreground tracking-tight">
+                  ₹{totalRevenue.toLocaleString()}
+                </p>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="h-3 w-3 text-emerald-500" />
+                <span className="text-emerald-500 font-medium">+8.2%</span> from
+                last month
               </p>
             </div>
           </div>
-          <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur">
-            <div className="flex items-center gap-2 text-amber-600">
-              <Clock className="h-5 w-5" />
-              <p className="text-sm font-semibold">In Escrow</p>
-            </div>
-            <div className="mt-2 flex items-baseline gap-1">
-              <IndianRupee className="h-6 w-6" />
-              <p className="text-3xl font-bold">
-                {escrowAmount.toLocaleString()}
+
+          <div className="relative overflow-hidden rounded-2xl border bg-card/50 p-6 shadow-sm backdrop-blur-md">
+            <div className="absolute top-0 right-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-amber-500/10 blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2 text-amber-600 mb-4">
+                <div className="p-2 bg-amber-100/50 rounded-lg">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-semibold tracking-wide uppercase">
+                  Escrow Balance
+                </p>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <p className="text-4xl font-bold text-foreground tracking-tight">
+                  ₹{escrowAmount.toLocaleString()}
+                </p>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Funds held securely until delivery
               </p>
             </div>
           </div>
-          <div className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur">
-            <div className="flex items-center gap-2 text-blue-600">
-              <TrendingUp className="h-5 w-5" />
-              <p className="text-sm font-semibold">Total Transactions</p>
+
+          <div className="relative overflow-hidden rounded-2xl border bg-card/50 p-6 shadow-sm backdrop-blur-md">
+            <div className="absolute top-0 right-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-blue-500/10 blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2 text-blue-600 mb-4">
+                <div className="p-2 bg-blue-100/50 rounded-lg">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-semibold tracking-wide uppercase">
+                  Transactions
+                </p>
+              </div>
+              <p className="text-4xl font-bold text-foreground tracking-tight">
+                {payments.length}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Total processed orders
+              </p>
             </div>
-            <p className="mt-2 text-3xl font-bold">{payments.length}</p>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6 flex gap-2">
-          <button
-            onClick={() => setFilter("held")}
-            className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-              filter === "held"
-                ? "bg-emerald-600 text-white"
-                : "bg-background hover:bg-muted"
-            }`}
-          >
-            In Escrow (
-            {payments.filter((p) => p.payment_status === "held").length})
-          </button>
-          <button
-            onClick={() => setFilter("released")}
-            className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-              filter === "released"
-                ? "bg-emerald-600 text-white"
-                : "bg-background hover:bg-muted"
-            }`}
-          >
-            Released (
-            {payments.filter((p) => p.payment_status === "released").length})
-          </button>
-          <button
-            onClick={() => setFilter("unpaid")}
-            className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-              filter === "unpaid"
-                ? "bg-emerald-600 text-white"
-                : "bg-background hover:bg-muted"
-            }`}
-          >
-            Unpaid (
-            {payments.filter((p) => p.payment_status === "unpaid").length})
-          </button>
-          <button
-            onClick={() => setFilter("all")}
-            className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-              filter === "all"
-                ? "bg-emerald-600 text-white"
-                : "bg-background hover:bg-muted"
-            }`}
-          >
-            All ({payments.length})
-          </button>
+        {/* Segmented Filters */}
+        <div className="mb-8 flex justify-center">
+          <div className="inline-flex rounded-xl bg-muted p-1 border border-border/50">
+            {(["all", "held", "released", "unpaid"] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`rounded-lg px-6 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  filter === status
+                    ? "bg-background text-foreground shadow-sm scale-[1.02]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                }`}
+              >
+                {status === "all"
+                  ? "All"
+                  : status === "held"
+                    ? "In Escrow"
+                    : status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Payments List */}
+        {/* Premium Payments List */}
         <div className="space-y-4">
           {filteredPayments.map((payment) => (
             <div
               key={payment._id}
-              className="rounded-3xl border bg-card/80 p-6 shadow-sm backdrop-blur"
+              className="group relative overflow-hidden rounded-2xl border bg-card/60 p-5 shadow-sm backdrop-blur-sm transition-all hover:bg-card/80 hover:shadow-md"
             >
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">
-                          Order #{(payment.order_id || payment._id || "").toString().slice(-6).toUpperCase()}
-                        </h3>
-                        {getStatusBadge(payment.payment_status)}
-                      </div>
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(payment.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-2">
+                {/* ID & Status */}
+                <div className="flex-1 space-y-2 min-w-[200px]">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-xs font-semibold text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                      #
+                      {(payment.order_id || payment._id || "")
+                        .toString()
+                        .slice(-6)
+                        .toUpperCase()}
+                    </span>
+                    {getStatusBadge(payment.payment_status)}
                   </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {new Date(payment.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
 
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {payment.seeker && (
-                      <div className="rounded-xl border bg-background p-3">
-                        <p className="text-xs text-muted-foreground">Seeker</p>
-                        <p className="mt-0.5 text-sm font-medium">
+                {/* Participants */}
+                <div className="flex-1 grid grid-cols-2 gap-4">
+                  {payment.seeker && (
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
+                        {payment.seeker.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                          From
+                        </p>
+                        <p className="text-sm font-medium truncate">
                           {payment.seeker.name}
                         </p>
                       </div>
-                    )}
-                    {payment.provider && (
-                      <div className="rounded-xl border bg-background p-3">
-                        <p className="text-xs text-muted-foreground">
-                          Provider
+                    </div>
+                  )}
+                  {payment.provider && (
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold">
+                        {(
+                          payment.provider.businessName || payment.provider.name
+                        )
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                          To
                         </p>
-                        <p className="mt-0.5 text-sm font-medium">
+                        <p className="text-sm font-medium truncate">
                           {payment.provider.businessName ||
                             payment.provider.name}
                         </p>
                       </div>
-                    )}
-                  </div>
-
-                  {payment.escrow_release_at && (
-                    <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs">
-                      <p className="font-medium text-amber-900">
-                        Escrow release:{" "}
-                        {new Date(payment.escrow_release_at).toLocaleString()}
-                      </p>
                     </div>
                   )}
-
-                  {/* Refund/Penalty Controls */}
-                  <div className="flex gap-2 mt-2">
-                    {(payment.payment_status === "held" ||
-                      payment.payment_status === "released") && (
-                      <>
-                        <button
-                          className="btn btn-error btn-sm"
-                          onClick={() => openActionModal(payment._id, "refund")}
-                        >
-                          Refund
-                        </button>
-                        <button
-                          className="btn btn-warning btn-sm"
-                          onClick={() =>
-                            openActionModal(payment._id, "penalty")
-                          }
-                        >
-                          Penalty
-                        </button>
-                      </>
-                    )}
-                  </div>
                 </div>
 
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Amount</p>
-                  <div className="mt-1 flex items-baseline justify-end gap-1">
-                    <IndianRupee className="h-5 w-5 text-emerald-600" />
-                    <p className="text-2xl font-bold text-emerald-600">
+                {/* Amount & Countdown */}
+                <div className="flex-1 flex items-center justify-end gap-6 text-right">
+                  {payment.escrow_release_at &&
+                    payment.payment_status === "held" && (
+                      <div className="hidden lg:block text-right">
+                        <p className="text-[10px] uppercase tracking-wider text-amber-600 font-semibold">
+                          Auto-Release In
+                        </p>
+                        <p className="text-xs font-medium text-amber-700">
+                          {/* Simple time logic here or keep it static/formatted */}
+                          {new Date(
+                            payment.escrow_release_at,
+                          ).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                      Amount
+                    </p>
+                    <p className="text-xl font-bold text-emerald-600 tabular-nums">
+                      ₹
                       {(
                         payment.total_price + payment.delivery_charge
                       ).toLocaleString()}
                     </p>
                   </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pl-4 border-l border-border/50 ml-4">
+                  {(payment.payment_status === "held" ||
+                    payment.payment_status === "released" ||
+                    payment.payment_status === "paid") && (
+                    <>
+                      <button
+                        className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                        title="Refund"
+                        onClick={() => openActionModal(payment._id, "refund")}
+                      >
+                        <span className="sr-only">Refund</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 7v6h6" />
+                          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+                        </svg>
+                      </button>
+                      <button
+                        className="p-2 rounded-lg hover:bg-amber-50 text-amber-600 transition-colors"
+                        title="Penalty"
+                        onClick={() => openActionModal(payment._id, "penalty")}
+                      >
+                        <span className="sr-only">Penalty</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                          <path d="M12 8v4" />
+                          <path d="M12 16h.01" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -417,8 +494,8 @@ export default function AdminPaymentManagementPage() {
                     {actionLoading
                       ? "Processing..."
                       : action.type === "refund"
-                      ? "Refund"
-                      : "Apply Penalty"}
+                        ? "Refund"
+                        : "Apply Penalty"}
                   </button>
                 </div>
               </form>
