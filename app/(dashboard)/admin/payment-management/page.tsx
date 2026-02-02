@@ -27,7 +27,7 @@ type Payment = {
   createdAt: string;
   escrow_release_at?: string;
   seeker?: { name: string };
-  provider?: { name: string; businessName?: string };
+  provider?: { name: string; businessName?: string; profilePicture?: string };
 };
 
 export default function AdminPaymentManagementPage() {
@@ -333,12 +333,24 @@ export default function AdminPaymentManagementPage() {
                   )}
                   {payment.provider && (
                     <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold">
-                        {(
-                          payment.provider.businessName || payment.provider.name
-                        )
-                          .charAt(0)
-                          .toUpperCase()}
+                      <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold overflow-hidden shrink-0">
+                        {payment.provider.profilePicture ? (
+                          <img
+                            src={payment.provider.profilePicture}
+                            alt={
+                              payment.provider.businessName ||
+                              payment.provider.name
+                            }
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          (
+                            payment.provider.businessName ||
+                            payment.provider.name
+                          )
+                            .charAt(0)
+                            .toUpperCase()
+                        )}
                       </div>
                       <div className="overflow-hidden">
                         <p className="text-xs text-muted-foreground uppercase tracking-wider">

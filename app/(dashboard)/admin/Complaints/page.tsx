@@ -32,6 +32,7 @@ type Complaint = {
   provider?: {
     name: string;
     businessName?: string;
+    profilePicture?: string;
   };
 };
 
@@ -517,8 +518,19 @@ export default function ComplaintsPage() {
                       )}
                       {complaint.provider && (
                         <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 p-2.5 pr-4">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                            <Package className="h-4 w-4" />
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-600 overflow-hidden shrink-0">
+                            {complaint.provider.profilePicture ? (
+                              <img
+                                src={complaint.provider.profilePicture}
+                                alt={
+                                  complaint.provider.businessName ||
+                                  complaint.provider.name
+                                }
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <Package className="h-4 w-4" />
+                            )}
                           </div>
                           <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

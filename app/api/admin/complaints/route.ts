@@ -26,7 +26,7 @@ export async function GET() {
     if (!admin) {
       return NextResponse.json(
         { error: "Unauthorized - Admin only" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -45,13 +45,13 @@ export async function GET() {
             .collection("seekers")
             .findOne(
               { _id: new ObjectId(complaint.seeker_id) },
-              { projection: { name: 1, email: 1 } }
+              { projection: { name: 1, email: 1 } },
             ),
           db
             .collection("providers")
             .findOne(
               { _id: new ObjectId(complaint.provider_id) },
-              { projection: { name: 1, businessName: 1 } }
+              { projection: { name: 1, businessName: 1, profilePicture: 1 } },
             ),
         ]);
 
@@ -60,7 +60,7 @@ export async function GET() {
           seeker: seeker || null,
           provider: provider || null,
         };
-      })
+      }),
     );
 
     return NextResponse.json(enrichedComplaints, { status: 200 });
@@ -68,7 +68,7 @@ export async function GET() {
     logger.error("ADMIN_COMPLAINTS", "Error fetching complaints", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
