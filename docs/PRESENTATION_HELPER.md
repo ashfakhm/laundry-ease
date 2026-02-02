@@ -573,6 +573,13 @@ export const POST = withErrorHandling(async (req: Request) => {
 - **Bcrypt hashing**: Passwords are scrambled with bcrypt (10 rounds)
 - **No plain text storage**: Only the hash is saved
 - **Safe comparison**: Uses timing-safe check to prevent attacks
+- **Password confirmation**: Users must type password twice during signup
+- **Strength requirements**: Enforced client-side and server-side:
+  - Minimum 8 characters
+  - At least one uppercase letter
+  - At least one number
+  - At least one special character
+- **Real-time validation**: Users see password strength indicators as they type
 
 ```typescript
 const isValid = await bcrypt.compare(password, user.passwordHash);
@@ -964,6 +971,13 @@ requested → accepted → pickup_proposed → confirmed → invoice_created
 - `invoice_created`: Provider made invoice after pickup
 - `reschedule_requested`: Someone wants a new time
 
+**Invoice Review Flow**:
+
+- Seeker can view invoice details (items, photos, pricing)
+- Seeker can approve invoice and pay → Order created
+- Seeker can reject invoice with reason → Items returned to provider
+- Past invoices viewable in read-only mode from payment history
+
 ### Q: Explain the order lifecycle
 
 **Answer**:
@@ -1172,6 +1186,13 @@ const form = useForm<FormData>({
 
 Benefits: Less screen redraws, built-in checking, works with TypeScript.
 
+**Client-side validation features**:
+
+- Real-time email format validation with error display on blur
+- Password strength indicators (shows 4 requirements with green checkmarks)
+- Password confirmation matching (shows match status as user types)
+- Inline error messages for invalid inputs
+
 ### Q: How do you handle animations?
 
 **Answer**: Framer Motion for smooth movements:
@@ -1374,6 +1395,14 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Payment retries**: Each retry makes a new Razorpay order; we handle duplicates at payout and webhook time, not by reusing order IDs.
 - **PRD vs reality**: Some future features in the PRD (like complaint window extension requests) are not fully built yet.
 - **Shared type definitions**: External SDK types (like Razorpay) are centralized in `types/razorpay.d.ts` for consistent usage across components.
+
+## Key Features Implemented Recently
+
+- **Password confirmation**: Both seeker and provider signup require typing password twice
+- **Password strength validation**: Real-time indicators show requirements (8+ chars, uppercase, number, special char)
+- **Email validation**: Client-side format validation with inline error messages
+- **Invoice viewing**: Seekers can view pending invoices (with pay/reject actions) and completed invoices (read-only from history)
+- **View Invoice button**: Added to both pending payments and payment history sections
 
 ## Quick Presentation Tips
 
