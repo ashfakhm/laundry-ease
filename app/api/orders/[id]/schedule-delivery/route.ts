@@ -4,6 +4,9 @@ import { ObjectId } from "mongodb";
 import { Order } from "@/types/orders";
 import { logger } from "@/lib/logger";
 import { orderScheduleDeliverySchema } from "@/lib/api/schemas";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Role } from "@/types/enums";
 
 // POST /api/orders/[id]/schedule-delivery
 export async function POST(
@@ -13,6 +16,18 @@ export async function POST(
   const { id } = await params;
   let action: string | undefined;
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let orderId: ObjectId;
+    try {
+      orderId = new ObjectId(id);
+    } catch {
+      return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+    }
+
     const body = await req.json();
     const parsed = orderScheduleDeliverySchema.safeParse(body);
 
@@ -33,18 +48,28 @@ export async function POST(
     const { db } = await getDb();
     const order = await db
       .collection<Order>("orders")
-      .findOne({ _id: new ObjectId(id) });
+      .findOne({ _id: orderId });
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     if (action === "propose") {
+      if (session.user.role !== Role.PROVIDER) {
+        return NextResponse.json(
+          { error: "Only providers can propose delivery" },
+          { status: 403 }
+        );
+      }
+      if (order.provider_id.toString() !== session.user.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+
       if (!dateTime)
         return NextResponse.json({ error: "Date required" }, { status: 400 });
 
       await db.collection<Order>("orders").updateOne(
-        { _id: new ObjectId(id) },
+        { _id: orderId },
         {
           $set: {
             deliverySlot: {
@@ -58,6 +83,16 @@ export async function POST(
       );
       return NextResponse.json({ success: true, message: "Delivery proposed" });
     } else if (action === "confirm") {
+      if (session.user.role !== Role.SEEKER) {
+        return NextResponse.json(
+          { error: "Only seekers can confirm delivery slots" },
+          { status: 403 }
+        );
+      }
+      if (order.seeker_id.toString() !== session.user.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+
       if (!order.deliverySlot)
         return NextResponse.json(
           { error: "No slot proposed" },
@@ -65,7 +100,7 @@ export async function POST(
         );
 
       await db.collection<Order>("orders").updateOne(
-        { _id: new ObjectId(id) },
+        { _id: orderId },
         {
           $set: {
             "deliverySlot.confirmedAt": new Date(),
@@ -80,10 +115,12 @@ export async function POST(
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("ORDERS", "Scheduling error", error, { orderId: id, action });
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: message },
       { status: 500 }
     );
   }

@@ -65,11 +65,11 @@ export async function GET(req: NextRequest) {
 
       userCoords = { lat, lng };
 
-      // Optional: Get max radius from query param (default 50km for initial filter)
+      // Optional seeker-side search radius (provider-side radius still enforced below)
       const radiusParam = searchParams.get("radius");
-      maxRadiusKm = radiusParam ? parseFloat(radiusParam) : 50;
+      maxRadiusKm = radiusParam ? parseFloat(radiusParam) : null;
 
-      if (isNaN(maxRadiusKm!) || maxRadiusKm! <= 0) {
+      if (maxRadiusKm !== null && (isNaN(maxRadiusKm) || maxRadiusKm <= 0)) {
         return NextResponse.json(
           { error: "Invalid radius. Must be a positive number." },
           { status: 400 },
@@ -128,9 +128,33 @@ export async function GET(req: NextRequest) {
         .filter((provider) => {
           if (!provider.coordinates) return false;
           const distance = calculateDistance(userCoords!, provider.coordinates);
-          // Check if provider's radius covers the seeker's location
+          // Core contract: provider must explicitly cover the seeker location.
           const providerRadius = provider.radius_km || 10;
-          return distance <= maxRadiusKm! + providerRadius; // Include providers whose radius might reach the seeker
+          const coveredByProvider = distance <= providerRadius;
+          const withinSeekerSearchRadius =
+            maxRadiusKm === null ? true : distance <= maxRadiusKm;
+          return coveredByProvider && withinSeekerSearchRadius;
+        })
+        .map((provider) => {
+          const distance = calculateDistance(userCoords!, provider.coordinates);
+          return {
+            ...provider,
+            distanceFromSeeker: distance,
+          };
+        })
+        .sort(
+          (a, b) =>
+            (a.distanceFromSeeker || Infinity) -
+            (b.distanceFromSeeker || Infinity),
+        )
+        .slice(0, limit);
+    } else if (userCoords) {
+      providers = providers
+        .filter((provider) => {
+          if (!provider.coordinates) return false;
+          const distance = calculateDistance(userCoords!, provider.coordinates);
+          const providerRadius = provider.radius_km || 10;
+          return distance <= providerRadius;
         })
         .map((provider) => {
           const distance = calculateDistance(userCoords!, provider.coordinates);

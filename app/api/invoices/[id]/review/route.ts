@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { Order } from "@/types/orders";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -62,7 +61,7 @@ export async function POST(
         { _id: bookingId },
         {
           $set: {
-            status: "invoice_rejected",
+            status: "cancelled",
             rejection_reason: reason || "No reason provided",
             updatedAt: new Date(),
             bookingFeeStatus: "forfeited",
@@ -73,6 +72,15 @@ export async function POST(
     }
 
     // HANDLE APPROVAL -> CREATE ORDER
+    const existingOrder = await db.collection("orders").findOne({ booking_id: bookingId });
+    if (existingOrder) {
+      return NextResponse.json({
+        success: true,
+        orderId: existingOrder._id,
+        status: "approved",
+      });
+    }
+
     const invoice = booking.invoice;
     if (!invoice) {
       return NextResponse.json(
@@ -82,19 +90,26 @@ export async function POST(
     }
 
     // Map Invoice Items to Order Items
-    const orderItems = invoice.items.map((item: any) => ({
+    const orderItems = invoice.items.map(
+      (item: {
+        itemType: string;
+        quantity: number;
+        unitPrice: number;
+        photoUrl?: string;
+      }) => ({
       name: item.itemType,
       quantity: item.quantity,
       unit_price: item.unitPrice,
       line_total: item.quantity * item.unitPrice,
       photoUrl: item.photoUrl,
       notes: booking.invoice.notes, // Apply general notes to items or handle appropriately. PRD says notes per item possible, but MVP invoice has general notes.
-    }));
+      }),
+    );
 
     // Calculate totals
     const subtotal =
       invoice.subtotal ||
-      orderItems.reduce((sum: number, i: any) => sum + i.line_total, 0);
+      orderItems.reduce((sum: number, i: { line_total: number }) => sum + i.line_total, 0);
     const discount = invoice.discount || 0;
     const total = invoice.total || Math.max(0, subtotal - discount);
 
@@ -114,7 +129,7 @@ export async function POST(
       updatedAt: new Date(),
     };
 
-    const result = await db.collection("orders").insertOne(newOrder as any);
+    const result = await db.collection("orders").insertOne(newOrder);
 
     // Update Booking to link to Order
     await db.collection("bookings").updateOne(

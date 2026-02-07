@@ -141,8 +141,9 @@ export async function createSeeker(data: {
     name: data.name ?? null,
     phone: data.phone ?? null,
     passwordHash,
-    emailVerified: false,
-    phoneVerified: false,
+    // Signup routes require OTP verification before user creation.
+    emailVerified: true,
+    phoneVerified: true,
     address: data.address ?? null,
     coordinates: data.coordinates,
     createdAt: now,
@@ -192,8 +193,9 @@ export async function createProvider(data: {
     name: data.name ?? null,
     phone: data.phone ?? null,
     passwordHash,
-    emailVerified: false,
-    phoneVerified: false,
+    // Signup routes require OTP verification before user creation.
+    emailVerified: true,
+    phoneVerified: true,
     services: data.services ?? [],
     pricing: data.pricing,
     location: data.location,

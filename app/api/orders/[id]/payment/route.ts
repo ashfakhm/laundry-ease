@@ -5,6 +5,8 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
+import { paymentVerifySchema } from "@/lib/api/schemas";
+import { Role } from "@/types/enums";
 
 export const runtime = "nodejs";
 
@@ -17,39 +19,57 @@ export async function POST(
 
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { db } = await getDb();
-    const orderId = new ObjectId(id);
+    let orderId: ObjectId;
+    try {
+      orderId = new ObjectId(id);
+    } catch {
+      return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+    }
 
-    const order = await db.collection("orders").findOne({ _id: orderId });
+    const { db } = await getDb();
+    const order = await db.collection("orders").findOne({
+      _id: orderId,
+      seeker_id: new ObjectId(session.user.id),
+    });
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    if (order.seeker_id.toString() !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-
-    if (order.payment_status === "paid" || order.payment_status === "held") {
+    if (
+      order.payment_status === "paid" ||
+      order.payment_status === "held" ||
+      order.payment_status === "released" ||
+      order.payment_status === "refunded"
+    ) {
       return NextResponse.json(
         { error: "Order is already paid" },
         { status: 400 },
       );
     }
 
-    // Calculate Amount
-    // Total Price + Delivery Charge (if any) - already in order.total_price ideally,
-    // but strict type might separate them. Let's sum safely.
-    // Order Type says: total_price is the final amount.
-    // Let's verify: `total_price` should be the amount to pay.
-    const amountToPay = order.total_price + (order.delivery_charge || 0);
-    const amountInPaise = Math.round(amountToPay * 100);
+    const amountInPaise = Math.round(order.total_price * 100);
+    if (amountInPaise <= 0) {
+      return NextResponse.json(
+        { error: "Invalid order amount" },
+        { status: 400 },
+      );
+    }
 
     const razorpayOrder = await createRazorpayOrder(amountInPaise, id);
+    await db.collection("orders").updateOne(
+      { _id: orderId },
+      {
+        $set: {
+          razorpay_order_id: razorpayOrder.id,
+          updatedAt: new Date(),
+        },
+      },
+    );
 
     return NextResponse.json({
       id: razorpayOrder.id,
@@ -74,8 +94,69 @@ export async function PUT(
   const { id } = await params;
 
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let orderId: ObjectId;
+    try {
+      orderId = new ObjectId(id);
+    } catch {
+      return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+    }
+
     const body = await req.json();
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+    const parsed = paymentVerifySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid payment verification payload",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      parsed.data;
+    const { db } = await getDb();
+
+    const order = await db.collection("orders").findOne({
+      _id: orderId,
+      seeker_id: new ObjectId(session.user.id),
+    });
+
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    if (
+      (order.payment_status === "paid" ||
+        order.payment_status === "held" ||
+        order.payment_status === "released") &&
+      order.razorpay_payment_id === razorpay_payment_id
+    ) {
+      return NextResponse.json({ success: true, idempotent: true });
+    }
+
+    if (
+      order.payment_status === "paid" ||
+      order.payment_status === "held" ||
+      order.payment_status === "released"
+    ) {
+      return NextResponse.json(
+        { error: "Order is already paid" },
+        { status: 409 },
+      );
+    }
+
+    if (!order.razorpay_order_id || order.razorpay_order_id !== razorpay_order_id) {
+      return NextResponse.json(
+        { error: "Razorpay order mismatch" },
+        { status: 400 },
+      );
+    }
 
     const isValid = verifyRazorpaySignature(
       razorpay_order_id,
@@ -87,21 +168,35 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    const { db } = await getDb();
-    const orderId = new ObjectId(id);
+    const now = new Date();
 
-    // Update Order Status
-    await db.collection("orders").updateOne(
-      { _id: orderId },
+    const result = await db.collection("orders").updateOne(
+      { _id: orderId, payment_status: "unpaid" },
       {
         $set: {
           payment_status: "paid",
-          payment_made_at: new Date(),
-          process_status: "processing", // Move to processing
-          updatedAt: new Date(),
+          payment_made_at: now,
+          razorpay_payment_id,
+          process_status: order.process_status ?? "invoiced",
+          updatedAt: now,
         },
       },
     );
+
+    if (result.modifiedCount === 0) {
+      const latest = await db.collection("orders").findOne({ _id: orderId });
+      if (
+        latest?.payment_status &&
+        ["paid", "held", "released"].includes(latest.payment_status) &&
+        latest.razorpay_payment_id === razorpay_payment_id
+      ) {
+        return NextResponse.json({ success: true, idempotent: true });
+      }
+      return NextResponse.json(
+        { error: "Order payment state changed. Please refresh and retry." },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

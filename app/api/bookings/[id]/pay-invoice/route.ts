@@ -1,14 +1,28 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getBookingById, createOrder, getUserByEmail } from "@/lib/db";
+import { getBookingById } from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
-import { calculateDistance } from "@/lib/distance";
 import { Role } from "@/types/enums";
 import { OrderItem } from "@/types/orders";
 import { logger } from "@/lib/logger";
+
+type InvoiceLineItem = {
+  itemType: string;
+  quantity: number;
+  unitPrice: number;
+  photoUrl?: string;
+};
+
+function toObjectId(id: string): ObjectId | null {
+  try {
+    return new ObjectId(id);
+  } catch {
+    return null;
+  }
+}
 
 // POST: Create Razorpay Order for Invoice Amount
 export async function POST(
@@ -18,18 +32,18 @@ export async function POST(
   const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const booking_id = new ObjectId(id);
-    const booking = await getBookingById(booking_id);
+    const booking_id = toObjectId(id);
+    if (!booking_id) {
+      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+    }
 
+    const booking = await getBookingById(booking_id);
     if (!booking) {
-      return NextResponse.json(
-        { message: "Booking not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Booking not found" }, { status: 404 });
     }
 
     if (booking.seeker_id.toString() !== session.user.id) {
@@ -43,11 +57,22 @@ export async function POST(
       );
     }
 
-    // Calculate Delivery (Duplicated logic for consistency)
     const { db } = await getDb();
+    const existingOrder = await db.collection("orders").findOne({ booking_id });
+    if (existingOrder) {
+      return NextResponse.json(
+        {
+          message: "Order already exists for this booking",
+          orderId: existingOrder._id,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Calculate delivery charge from provider settings.
     const provider = await db
       .collection("providers")
-      .findOne({ _id: new ObjectId(booking.provider_id) });
+      .findOne({ _id: new ObjectId(booking.provider_id.toString()) });
 
     let delivery_charge = 0;
     if (booking.seeker_coordinates && provider?.coordinates) {
@@ -63,14 +88,29 @@ export async function POST(
     }
 
     const itemsTotal = booking.invoice.items.reduce(
-      (sum: number, item: any) => sum + item.quantity * item.unitPrice,
+      (sum: number, item: InvoiceLineItem) => sum + item.quantity * item.unitPrice,
       0
     );
     const totalAmount = itemsTotal + delivery_charge;
-
     const amountInPaise = Math.round(totalAmount * 100);
 
-    const razorpayOrder = await createRazorpayOrder(amountInPaise, id); // id is booking_id
+    if (amountInPaise <= 0) {
+      return NextResponse.json(
+        { message: "Invalid invoice amount" },
+        { status: 400 }
+      );
+    }
+
+    const razorpayOrder = await createRazorpayOrder(amountInPaise, id);
+    await db.collection("bookings").updateOne(
+      { _id: booking_id },
+      {
+        $set: {
+          razorpay_order_id: razorpayOrder.id,
+          updatedAt: new Date(),
+        },
+      }
+    );
 
     return NextResponse.json({
       id: razorpayOrder.id,
@@ -93,8 +133,52 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const booking_id = toObjectId(id);
+    if (!booking_id) {
+      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+    }
+
     const body = await req.json();
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return NextResponse.json(
+        { message: "Missing payment fields" },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await getDb();
+    const booking = await getBookingById(booking_id);
+    if (!booking) {
+      return NextResponse.json({ message: "Booking not found" }, { status: 404 });
+    }
+
+    if (booking.seeker_id.toString() !== session.user.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+    }
+
+    // Idempotency: if booking already converted, return existing order.
+    const bookingOrderId = (booking as { order_id?: ObjectId }).order_id;
+    if (bookingOrderId) {
+      return NextResponse.json({ success: true, orderId: bookingOrderId });
+    }
+
+    if (booking.status !== "invoice_created" || !booking.invoice) {
+      return NextResponse.json(
+        { message: "Booking is not in invoice payment state" },
+        { status: 400 }
+      );
+    }
+
+    if (!booking.razorpay_order_id || booking.razorpay_order_id !== razorpay_order_id) {
+      return NextResponse.json({ message: "Razorpay order mismatch" }, { status: 400 });
+    }
 
     const isValid = verifyRazorpaySignature(
       razorpay_order_id,
@@ -103,23 +187,24 @@ export async function PUT(
     );
 
     if (!isValid) {
+      return NextResponse.json({ message: "Invalid signature" }, { status: 400 });
+    }
+
+    const existingOrder = await db.collection("orders").findOne({ booking_id });
+    if (existingOrder) {
+      if (existingOrder.razorpay_payment_id === razorpay_payment_id) {
+        return NextResponse.json({ success: true, orderId: existingOrder._id });
+      }
       return NextResponse.json(
-        { message: "Invalid signature" },
-        { status: 400 }
+        { message: "Order already exists for this booking" },
+        { status: 409 }
       );
     }
 
-    const booking_id = new ObjectId(id);
-    const booking = await getBookingById(booking_id);
-    if (!booking || !booking.invoice) throw new Error("Booking invalid state");
-
-    // --- LOGIC MOVED FROM api/orders/route.ts ---
-    // 1. Calculate Delivery
     const booking_coords = booking.seeker_coordinates;
-    const { db } = await import("@/lib/mongodb").then((m) => m.getDb());
     const provider = await db
       .collection("providers")
-      .findOne({ _id: new ObjectId(booking.provider_id) });
+      .findOne({ _id: new ObjectId(booking.provider_id.toString()) });
 
     let delivery_distance_km = 0;
     let delivery_charge = 0;
@@ -136,8 +221,8 @@ export async function PUT(
     }
 
     const processedItems: OrderItem[] = booking.invoice.items.map(
-      (item: any) => ({
-        name: item.itemType, // Mapping 'itemType' from Invoice to 'name' in OrderItem
+      (item: InvoiceLineItem) => ({
+        name: item.itemType,
         quantity: item.quantity,
         unit_price: item.unitPrice,
         line_total: item.quantity * item.unitPrice,
@@ -147,15 +232,12 @@ export async function PUT(
     const total_price =
       processedItems.reduce((acc, item) => acc + item.line_total, 0) +
       delivery_charge;
-
-    // Commission Split (5%)
     const platform_commission = total_price * 0.05;
     const provider_payout_amount = total_price - platform_commission;
 
     const now = new Date();
-
-    const orderData: any = {
-      booking_id: booking_id,
+    const orderData = {
+      booking_id,
       seeker_id: new ObjectId(booking.seeker_id.toString()),
       provider_id: new ObjectId(booking.provider_id.toString()),
       items: processedItems,
@@ -163,25 +245,29 @@ export async function PUT(
       delivery_distance_km,
       delivery_charge,
       deadline: booking.deadline ? new Date(booking.deadline) : undefined,
-
-      // Payment & Escrow
       payment_status: "paid",
       payment_made_at: now,
-      process_status: "invoiced", // Start status
-
-      escrow_started_at: undefined, // Starts on Delivery? Or Now? User said "After provider completes delivery... Escrow timer starts"
-      // But payment is held NOW.
-      // We will leave escrow_started_at undefined until delivery.
-
+      process_status: "invoiced",
       platform_commission,
       provider_payout_amount,
       razorpay_order_id,
       razorpay_payment_id,
       payout_status: "pending",
       createdAt: now,
+      updatedAt: now,
     };
 
     const res = await db.collection("orders").insertOne(orderData);
+    await db.collection("bookings").updateOne(
+      { _id: booking_id, status: "invoice_created" },
+      {
+        $set: {
+          status: "completed",
+          order_id: res.insertedId,
+          updatedAt: now,
+        },
+      }
+    );
 
     return NextResponse.json({ success: true, orderId: res.insertedId });
   } catch (error) {

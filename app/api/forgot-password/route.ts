@@ -1,48 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
+import { getUserByEmail } from "@/lib/db";
 import nodemailer from "nodemailer";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+
+const GENERIC_RESPONSE = {
+  message: "If an account exists, a reset link has been sent.",
+};
 
 export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
 
-    if (!email) {
+    if (!email || typeof email !== "string") {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    const { db } = await getDb();
-    const usersCollection = db.collection("users");
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await getUserByEmail(normalizedEmail);
 
-    // Check if user exists
-    const user = await usersCollection.findOne({ email });
-
-    if (!user) {
-      // For security, don't reveal if user exists
-      return NextResponse.json(
-        { message: "If an account exists, a reset link has been sent." },
-        { status: 200 }
-      );
+    // Keep response generic to avoid account enumeration.
+    if (!user?._id || !user.passwordHash) {
+      return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
     }
 
-    // Generate reset token
     const resetToken = randomBytes(32).toString("hex");
-    const resetTokenExpiry = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+    const resetTokenHash = createHash("sha256").update(resetToken).digest("hex");
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
 
-    // Store reset token in database
-    await usersCollection.updateOne(
-      { _id: user._id },
-      {
-        $set: {
-          resetToken,
-          resetTokenExpiry,
-        },
-      }
-    );
+    const { db } = await getDb();
+    await db.collection("password_reset_tokens").insertOne({
+      email: normalizedEmail,
+      userId: user._id,
+      role: user.role,
+      tokenHash: resetTokenHash,
+      expiresAt,
+      createdAt: new Date(),
+      usedAt: null,
+    });
 
-    // Send reset email
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -53,11 +51,11 @@ export async function POST(req: NextRequest) {
 
     const resetUrl = `${
       env.NEXT_PUBLIC_BASE_URL || env.NEXTAUTH_URL || "http://localhost:3000"
-    }/reset-password?token=${resetToken}`;
+    }/reset-password?token=${encodeURIComponent(resetToken)}`;
 
     await transporter.sendMail({
       from: env.EMAIL_USER,
-      to: email,
+      to: normalizedEmail,
       subject: "LaundryEase - Password Reset Request",
       html: `
         <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -75,10 +73,7 @@ export async function POST(req: NextRequest) {
       `,
     });
 
-    return NextResponse.json(
-      { message: "If an account exists, a reset link has been sent." },
-      { status: 200 }
-    );
+    return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
   } catch (error) {
     logger.error("AUTH", "Forgot password error", error);
     return NextResponse.json(

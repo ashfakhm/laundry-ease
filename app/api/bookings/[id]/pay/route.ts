@@ -21,7 +21,12 @@ export async function POST(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const booking_id = new ObjectId(id);
+    let booking_id: ObjectId;
+    try {
+      booking_id = new ObjectId(id);
+    } catch {
+      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+    }
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
@@ -45,10 +50,33 @@ export async function POST(
       );
     }
 
-    // Amount in paise. Fallback to 5000 (50 INR) if missing.
-    const amount = booking.bookingFee ? Math.round(booking.bookingFee * 100) : 5000;
+    if (!booking.bookingFee || booking.bookingFee <= 0) {
+      return NextResponse.json(
+        { message: "Invalid booking fee amount" },
+        { status: 400 }
+      );
+    }
+
+    const amount = Math.round(booking.bookingFee * 100);
+    if (amount <= 0) {
+      return NextResponse.json(
+        { message: "Invalid booking fee amount" },
+        { status: 400 }
+      );
+    }
 
     const razorpayOrder = await createRazorpayOrder(amount, id);
+
+    const { db } = await getDb();
+    await db.collection<Booking>("bookings").updateOne(
+      { _id: booking_id },
+      {
+        $set: {
+          razorpay_order_id: razorpayOrder.id,
+          updatedAt: new Date(),
+        },
+      }
+    );
 
     return NextResponse.json({
       id: razorpayOrder.id,
@@ -76,8 +104,22 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    let booking_id: ObjectId;
+    try {
+      booking_id = new ObjectId(id);
+    } catch {
+      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+    }
+
     const body = await req.json();
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = body;
+
+    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+      return NextResponse.json(
+        { message: "Missing payment fields" },
+        { status: 400 }
+      );
+    }
 
     const isValid = verifyRazorpaySignature(
       razorpay_order_id,
@@ -90,9 +132,35 @@ export async function PUT(
     }
 
     const { db } = await getDb();
+    const booking = await db.collection<Booking>("bookings").findOne({
+      _id: booking_id,
+      seeker_id: new ObjectId(session.user.id),
+    });
+
+    if (!booking) {
+      return NextResponse.json({ message: "Booking not found" }, { status: 404 });
+    }
+
+    if (
+      booking.bookingFeeStatus === "paid" &&
+      booking.razorpay_payment_id === razorpay_payment_id
+    ) {
+      return NextResponse.json({ message: "Payment successful", idempotent: true });
+    }
+
+    if (!booking.razorpay_order_id || booking.razorpay_order_id !== razorpay_order_id) {
+      return NextResponse.json({ message: "Razorpay order mismatch" }, { status: 400 });
+    }
+
     const res = await db.collection<Booking>("bookings").updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { bookingFeeStatus: "paid" } }
+      { _id: booking_id, bookingFeeStatus: { $ne: "paid" } },
+      {
+        $set: {
+          bookingFeeStatus: "paid",
+          razorpay_payment_id,
+          updatedAt: new Date(),
+        },
+      }
     );
 
     if (res.modifiedCount > 0) {
@@ -100,7 +168,7 @@ export async function PUT(
     } else {
       return NextResponse.json(
         { message: "Failed to update booking status" },
-        { status: 500 }
+        { status: 409 }
       );
     }
   } catch (error) {

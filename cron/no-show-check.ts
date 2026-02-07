@@ -29,7 +29,7 @@ export async function checkNoShows() {
   const overdueBookings = await db
     .collection<Booking>("bookings")
     .find({
-      status: "accepted",
+      status: "confirmed",
       "pickupSlot.confirmedAt": { $exists: true },
       "pickupSlot.dateTime": { $lt: new Date(now.getTime() - bufferTime) },
       noShowStatus: { $ne: true }, // Not already marked
@@ -46,12 +46,12 @@ export async function checkNoShows() {
         .findOne({ booking_id: booking._id });
 
       if (!order) {
-        // IDEMPOTENCY: Only update if still in "accepted" status and not already marked
+        // IDEMPOTENCY: Only update if still in "confirmed" status and not already marked
         // Atomic update prevents double-processing
         const updateResult = await db.collection<Booking>("bookings").updateOne(
           {
             _id: booking._id,
-            status: "accepted", // Only update if still accepted (idempotent)
+            status: "confirmed", // Only update if still confirmed (idempotent)
             noShowStatus: { $ne: true }, // Double-check not already marked
           },
           {

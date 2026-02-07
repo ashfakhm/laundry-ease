@@ -68,6 +68,31 @@ export const POST = withErrorHandling(async (req: Request) => {
     );
   }
 
+  if (order.process_status !== "delivered") {
+    throw Errors.validation(
+      "Complaints can only be raised after delivery is confirmed",
+    );
+  }
+
+  const deliveredAtRaw = order.otp_confirmed_at || order.escrow_started_at;
+  if (!deliveredAtRaw) {
+    throw Errors.validation("Delivery timestamp missing for this order");
+  }
+
+  const deliveredAt = new Date(deliveredAtRaw);
+  if (Number.isNaN(deliveredAt.getTime())) {
+    throw Errors.validation("Invalid delivery timestamp");
+  }
+
+  const complaintDeadline = new Date(
+    deliveredAt.getTime() + 24 * 60 * 60 * 1000,
+  );
+  if (Date.now() > complaintDeadline.getTime()) {
+    throw Errors.conflict(
+      "Complaint window expired. Complaints must be raised within 24 hours of delivery.",
+    );
+  }
+
   // 2. Create Complaint
   const complaint = await createComplaint({
     order_id: orderIdObj,
@@ -104,7 +129,7 @@ export const POST = withErrorHandling(async (req: Request) => {
   return successResponse(complaint, 201);
 });
 
-export const GET = withErrorHandling(async (req: Request) => {
+export const GET = withErrorHandling(async (_req: Request) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     throw Errors.unauthorized();

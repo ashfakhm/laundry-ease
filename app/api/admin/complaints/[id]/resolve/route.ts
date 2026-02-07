@@ -49,13 +49,17 @@ export async function POST(
     if (!complaint)
       return NextResponse.json({ error: "Not Found" }, { status: 404 });
 
+    if (complaint.status === "resolved" || complaint.status === "rejected") {
+      return NextResponse.json(
+        { error: "Complaint has already been finalized" },
+        { status: 409 }
+      );
+    }
+
     const orderId = complaint.order_id;
     const order = await getOrderById(orderId);
     if (!order)
       return NextResponse.json({ error: "Order Not Found" }, { status: 404 });
-
-    // 1. Update Complaint Status FIRST (to unblock payout check)
-    const newStatus = outcome === "reject" ? "rejected" : "resolved";
 
     let dbOutcome: "refund_full" | "release_payout" | "reject" | "no_action" =
       outcome;
@@ -97,7 +101,9 @@ export async function POST(
         // We just set status to resolved/rejected, so check will pass.
         await releaseEscrowPayment(orderId);
       }
-    } catch (finError: any) {
+    } catch (finError: unknown) {
+      const details =
+        finError instanceof Error ? finError.message : "Unknown financial error";
       logger.error("ADMIN_COMPLAINTS", "Financial action failed", finError, {
         complaintId: id,
         outcome,
@@ -108,11 +114,11 @@ export async function POST(
         sender_id: dbUser!._id as ObjectId, // Assert
         sender_role: "system",
         message_type: "SYSTEM",
-        content: `Error executing financial action: ${finError.message}. Please check Dashboard.`,
+        content: `Error executing financial action: ${details}. Please check Dashboard.`,
         createdAt: new Date(),
       });
       return NextResponse.json(
-        { error: "Financial Action Failed", details: finError.message },
+        { error: "Financial Action Failed", details },
         { status: 500 }
       );
     }

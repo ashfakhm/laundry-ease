@@ -29,7 +29,7 @@ export async function GET() {
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: { $add: ["$total_price", "$delivery_charge"] } }
+          totalRevenue: { $sum: "$total_price" }
         }
       }
     ]).toArray();
@@ -49,13 +49,13 @@ export async function GET() {
     // Let's proxy it to: New Bookings (Pending) + Orders in "placed/confirmed" state (awaiting pickup/processing).
     const pendingPickups = await db.collection("bookings").countDocuments({
       provider_id: providerId,
-      status: { $in: ["pending", "confirmed", "accepted"] }
+      status: { $in: ["requested", "accepted", "pickup_proposed", "confirmed"] }
     });
     
     // We can also count "Processing" orders separately if needed
     const processingOrders = await db.collection("orders").countDocuments({
        provider_id: providerId,
-       process_status: { $in: ["washing", "ironing", "processing", "dry_cleaning"] }
+       process_status: { $in: ["washing", "ironing", "processing"] }
     });
 
     return NextResponse.json({

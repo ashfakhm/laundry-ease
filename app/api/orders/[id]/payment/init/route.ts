@@ -4,6 +4,9 @@ import { createRazorpayOrder } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
 import { Order } from "@/types/orders";
 import { logger } from "@/lib/logger";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Role } from "@/types/enums";
 
 export async function POST(
   req: NextRequest,
@@ -11,14 +14,29 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!id) {
       return NextResponse.json({ error: "Order ID required" }, { status: 400 });
+    }
+
+    let orderId: ObjectId;
+    try {
+      orderId = new ObjectId(id);
+    } catch {
+      return NextResponse.json({ error: "Invalid order ID" }, { status: 400 });
     }
 
     const { db } = await getDb();
     const order = await db
       .collection<Order>("orders")
-      .findOne({ _id: new ObjectId(id) });
+      .findOne({
+        _id: orderId,
+        seeker_id: new ObjectId(session.user.id),
+      });
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -33,6 +51,9 @@ export async function POST(
 
     // Amount in paise
     const amountInPaise = Math.round(order.total_price * 100);
+    if (amountInPaise <= 0) {
+      return NextResponse.json({ error: "Invalid order amount" }, { status: 400 });
+    }
 
     const razorpayOrder = await createRazorpayOrder(
       amountInPaise,
@@ -43,7 +64,7 @@ export async function POST(
     await db
       .collection<Order>("orders")
       .updateOne(
-        { _id: new ObjectId(id) },
+        { _id: orderId },
         { $set: { razorpay_order_id: razorpayOrder.id } }
       );
 
@@ -54,12 +75,14 @@ export async function POST(
       currency: razorpayOrder.currency,
       keyId: process.env.RAZORPAY_KEY_ID,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("ORDERS", "Error initiating order payment", error, {
       orderId: id,
     });
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: message },
       { status: 500 }
     );
   }

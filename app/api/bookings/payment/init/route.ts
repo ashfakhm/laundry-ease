@@ -6,10 +6,18 @@ import { Booking } from "@/types/bookings";
 import { logger } from "@/lib/logger";
 import { bookingPaymentInitSchema } from "@/lib/api/schemas";
 import { env } from "@/lib/env";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Role } from "@/types/enums";
 
 export async function POST(req: NextRequest) {
   let bookingId: string | undefined;
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const parsed = bookingPaymentInitSchema.safeParse(body);
 
@@ -28,7 +36,10 @@ export async function POST(req: NextRequest) {
     const { db } = await getDb();
     const booking = await db
       .collection<Booking>("bookings")
-      .findOne({ _id: new ObjectId(bookingId) });
+      .findOne({
+        _id: new ObjectId(bookingId),
+        seeker_id: new ObjectId(session.user.id),
+      });
 
     if (!booking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
@@ -71,12 +82,14 @@ export async function POST(req: NextRequest) {
       currency: razorpayOrder.currency,
       keyId: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("BOOKINGS", "Error initiating booking payment", error, {
       bookingId,
     });
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: message },
       { status: 500 }
     );
   }

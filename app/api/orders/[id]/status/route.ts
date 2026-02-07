@@ -37,6 +37,18 @@ export async function POST(
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
+    // Work progression is blocked until payment is completed.
+    if (
+      order.payment_status !== "paid" &&
+      order.payment_status !== "held" &&
+      order.payment_status !== "released"
+    ) {
+      return NextResponse.json(
+        { message: "Order must be paid before updating workflow status" },
+        { status: 400 }
+      );
+    }
+
     const body = await req.json();
     const parsed = orderStatusUpdateSchema.safeParse(body);
 

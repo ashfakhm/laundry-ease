@@ -4,10 +4,18 @@ import { verifyRazorpaySignature } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
 import { Booking } from "@/types/bookings";
 import { logger } from "@/lib/logger";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Role } from "@/types/enums";
 
 export async function POST(req: NextRequest) {
   let bookingId: string | undefined;
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     bookingId = body.bookingId;
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
@@ -35,6 +43,31 @@ export async function POST(req: NextRequest) {
     }
 
     const { db } = await getDb();
+    let bookingObjectId: ObjectId;
+    try {
+      bookingObjectId = new ObjectId(bookingId);
+    } catch {
+      return NextResponse.json({ error: "Invalid booking ID" }, { status: 400 });
+    }
+    const booking = await db.collection<Booking>("bookings").findOne({
+      _id: bookingObjectId,
+      seeker_id: new ObjectId(session.user.id),
+    });
+
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+
+    if (!booking.razorpay_order_id || booking.razorpay_order_id !== razorpayOrderId) {
+      return NextResponse.json(
+        { error: "Razorpay order mismatch" },
+        { status: 400 }
+      );
+    }
+
+    if (booking.bookingFeeStatus === "paid" && booking.razorpay_payment_id === razorpayPaymentId) {
+      return NextResponse.json({ success: true, message: "Payment verified" });
+    }
 
     // Update booking status
     /*
@@ -50,7 +83,7 @@ export async function POST(req: NextRequest) {
      */
 
     const updateRes = await db.collection<Booking>("bookings").updateOne(
-      { _id: new ObjectId(bookingId) },
+      { _id: bookingObjectId, bookingFeeStatus: { $ne: "paid" } },
       {
         $set: {
           bookingFeeStatus: "paid",
@@ -64,17 +97,19 @@ export async function POST(req: NextRequest) {
     if (updateRes.modifiedCount === 0) {
       return NextResponse.json(
         { error: "Booking update failed or already updated" },
-        { status: 500 }
+        { status: 409 }
       ); // Or 400 if already paid
     }
 
     return NextResponse.json({ success: true, message: "Payment verified" });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("BOOKINGS", "Error verifying booking payment", error, {
       bookingId,
     });
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: message },
       { status: 500 }
     );
   }
