@@ -226,6 +226,12 @@ app/
 // lib/mongodb.ts
 import { MongoClient } from "mongodb";
 import { env } from "./env";
+import { ensureDbIndexes } from "./db-indexes";
+
+declare global {
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
+  var _mongoIndexInitPromise: Promise<void> | undefined;
+}
 
 let clientPromise: Promise<MongoClient> | undefined;
 
@@ -241,8 +247,16 @@ function createClientPromise(): Promise<MongoClient> {
 }
 
 export async function getDb() {
+  if (!clientPromise) clientPromise = createClientPromise();
   const client = await clientPromise;
-  return client.db(env.MONGODB_DB);
+  const db = client.db(env.MONGODB_DB);
+
+  if (!global._mongoIndexInitPromise) {
+    global._mongoIndexInitPromise = ensureDbIndexes(db);
+  }
+
+  await global._mongoIndexInitPromise;
+  return { db, client };
 }
 ```
 
@@ -432,6 +446,7 @@ throw Errors.validation("Bad input"); // 400
 | Auth helpers           | `lib/api/auth.ts`                      |
 | Payment integration    | `lib/razorpay.ts`                      |
 | Payment API            | `app/api/orders/[id]/payment/route.ts` |
+| DB index bootstrap     | `lib/db-indexes.ts`                    |
 | Webhooks               | `app/api/webhooks/razorpay/route.ts`   |
 | OTP logic              | `lib/otp.ts`                           |
 | Location/Maps          | `lib/google-maps.ts`                   |
@@ -462,6 +477,7 @@ throw Errors.validation("Bad input"); // 400
 | `complaints`     | Problem records with chat messages                  |
 | `reviews`        | Provider ratings and feedback                       |
 | `payments`       | Payment records                                     |
+| `refunds`        | Refund records from Razorpay                        |
 | `audit_logs`     | Full history of all changes                         |
 | `webhook_events` | Incoming webhook records                            |
 
@@ -471,17 +487,22 @@ throw Errors.validation("Bad input"); // 400
 
 ```typescript
 // lib/mongodb.ts
+import { ensureDbIndexes } from "./db-indexes";
+
 let clientPromise: Promise<MongoClient> | undefined;
 
-function createClientPromise(): Promise<MongoClient> {
-  const client = new MongoClient(env.MONGODB_URI);
-  if (process.env.NODE_ENV === "development") {
-    // Reuse connection in development (when code reloads)
-    if (!global._mongoClientPromise)
-      global._mongoClientPromise = client.connect();
-    return global._mongoClientPromise;
+export async function getDb() {
+  if (!clientPromise) clientPromise = createClientPromise();
+  const client = await clientPromise;
+  const db = client.db(env.MONGODB_DB);
+
+  // One-time startup index initialization
+  if (!global._mongoIndexInitPromise) {
+    global._mongoIndexInitPromise = ensureDbIndexes(db);
   }
-  return client.connect();
+  await global._mongoIndexInitPromise;
+
+  return { db, client };
 }
 ```
 
@@ -604,6 +625,10 @@ const isValid = await bcrypt.compare(password, user.passwordHash);
 
 ```typescript
 // Safe time-equal comparison prevents timing attacks
+if (!/^[a-f0-9]{64}$/i.test(webhookSignature)) {
+  return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+}
+
 const expectedSignature = crypto
   .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
   .update(webhookBody)
@@ -611,8 +636,8 @@ const expectedSignature = crypto
 
 if (
   !crypto.timingSafeEqual(
-    Buffer.from(webhookSignature),
-    Buffer.from(expectedSignature),
+    Buffer.from(webhookSignature, "hex"),
+    Buffer.from(expectedSignature, "hex"),
   )
 ) {
   return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
@@ -709,6 +734,7 @@ await createRazorpayPayout({
    POST /api/orders/{id}/payment
    → Backend creates Razorpay order with amount
    → Returns: order_id, key, amount, currency
+   → Legacy aliases still supported: /api/orders/{id}/pay and /api/orders/{id}/payment/init
    ↓
 3. OPEN RAZORPAY CHECKOUT (Frontend)
    const rzp = new window.Razorpay(options);
@@ -724,6 +750,7 @@ await createRazorpayPayout({
 5. VERIFY SIGNATURE (Backend)
    PUT /api/orders/{id}/payment
    → Backend verifies HMAC signature
+   → Legacy alias still supported: POST /api/orders/{id}/payment/verify
    → generated_signature = HMAC_SHA256(order_id + "|" + payment_id, secret)
    → Compare with razorpay_signature
    ↓
@@ -735,7 +762,8 @@ await createRazorpayPayout({
 7. WEBHOOK BACKUP (Async)
    Razorpay sends webhook to /api/webhooks/razorpay
    → Verify webhook signature
-   → Update payment status (idempotent)
+   → Deduplicate by event_id in webhook_events
+   → Reconcile orders/bookings/payments/refunds idempotently
 ```
 
 **Code example (Frontend - invoice-review-form.tsx)**:
@@ -777,6 +805,8 @@ function verifyPaymentSignature(
   paymentId: string,
   signature: string,
 ): boolean {
+  if (!/^[a-f0-9]{64}$/i.test(signature)) return false;
+
   const body = orderId + "|" + paymentId;
   const expectedSignature = crypto
     .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
@@ -784,8 +814,8 @@ function verifyPaymentSignature(
     .digest("hex");
 
   return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature),
+    Buffer.from(signature, "hex"),
+    Buffer.from(expectedSignature, "hex"),
   );
 }
 ```
@@ -802,10 +832,10 @@ function verifyPaymentSignature(
 
 | Event              | When It Fires             | What We Do                 |
 | ------------------ | ------------------------- | -------------------------- |
-| `payment.captured` | Payment successful        | Mark order as paid         |
-| `payment.failed`   | Payment failed            | Update status, allow retry |
+| `payment.authorized` / `payment.captured` | Payment authorized/captured | Reconcile payment + order/booking status |
+| `payment.failed`   | Payment failed            | Update error state, allow retry |
+| `refund.created`   | Refund initiated          | Reconcile refund + order/booking status |
 | `payout.processed` | Provider payout completed | Mark payout as done        |
-| `payout.failed`    | Payout to provider failed | Alert admin, retry later   |
 
 **Why webhooks are needed**:
 
@@ -1034,7 +1064,7 @@ Admin decides (status: "resolved" or "rejected")
 Escrow action done (refund or release)
 ```
 
-Note: The 24-hour complaint window is a product rule; the current API does not block complaints after 24 hours yet.
+Note: The 24-hour complaint window is enforced in `POST /api/complaints` using delivery timestamps (`otp_confirmed_at` / `escrow_started_at`).
 
 ---
 
@@ -1390,19 +1420,19 @@ await session.withTransaction(async () => {
 
 Use these points if you are asked about differences between the PRD and what is built now:
 
-- **24-hour complaint window**: Written in PRD, but the API does not block complaints after 24 hours yet. We can add a check using `delivered` + `otp_confirmed_at` times.
-- **Error handling style**: Many API routes use `withErrorHandling`, but some still use `try/catch` directly. This can be cleaned up later.
-- **Payment retries**: Each retry makes a new Razorpay order; we handle duplicates at payout and webhook time, not by reusing order IDs.
-- **PRD vs reality**: Some future features in the PRD (like complaint window extension requests) are not fully built yet.
-- **Shared type definitions**: External SDK types (like Razorpay) are centralized in `types/razorpay.d.ts` for consistent usage across components.
+- **Historical data cleanup**: New unique indexes enforce integrity, but old duplicate data can still block index creation until cleaned.
+- **Automated integration testing**: Webhook replay and payment idempotency races need stronger integration test coverage.
+- **Observability depth**: We need dedicated dashboards/alerts for webhook failures and index-init issues.
+- **Webhook payload retention**: Archive policy for old `webhook_events` payloads is still a backlog item.
+- **PRD future scope**: Features like complaint window extension requests and partial refunds remain future work.
 
 ## Key Features Implemented Recently
 
-- **Password confirmation**: Both seeker and provider signup require typing password twice
-- **Password strength validation**: Real-time indicators show requirements (8+ chars, uppercase, number, special char)
-- **Email validation**: Client-side format validation with inline error messages
-- **Invoice viewing**: Seekers can view pending invoices (with pay/reject actions) and completed invoices (read-only from history)
-- **View Invoice button**: Added to both pending payments and payment history sections
+- **Canonical payment routing**: Unified around `/api/orders/:id/payment` and `/api/bookings/:id/pay` with backward-compatible aliases.
+- **Order creation guardrails**: Direct `/api/orders` creation path is disabled; order creation is tied to invoice approval/payment flow.
+- **Webhook resilience**: Razorpay webhook handling now has replay-safe idempotency, retry handling, and domain reconciliation.
+- **DB index bootstrap**: Startup index initialization now enforces critical uniqueness and TTL cleanup invariants.
+- **Complaint-window enforcement**: 24-hour complaint timing is now validated in API logic.
 
 ## Quick Presentation Tips
 
