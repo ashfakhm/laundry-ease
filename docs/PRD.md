@@ -6,8 +6,8 @@ LaundryEase turns a local laundry job into a verifiable contract.
 
 It does that by splitting the transaction into two moments:
 
-- a **handshake** (booking) where both sides agree to a slot without moving money, and
-- a **commitment** (paid invoice) where the seeker locks funds in escrow and the provider begins work.
+- a **handshake** (booking) where slot intent is created and a booking-fee payment gate controls provider acceptance, and
+- a **commitment** (paid invoice) where the seeker locks order funds in escrow and the provider begins work.
 
 From commitment to delivery, the system advances through explicit states and releases escrow only after OTP-confirmed handoff.
 
@@ -115,10 +115,13 @@ All users (Seeker and Provider) must complete a verified registration:
 2. **Request**
    Seeker requests a slot from a chosen provider.
 
-3. **Accept / Reject**
+3. **Booking fee payment**
+   Seeker must pay the booking fee before the provider can accept or act on the request.
+
+4. **Accept / Reject**
    Provider accepts to proceed or rejects to end the attempt.
 
-Outcome: both sides agree to a slot, but no commitment exists yet.
+Outcome: booking intent is validated and gated; commitment still begins only at paid invoice.
 
 ### B. Pickup, Invoice, and Escrow (Commitment)
 
@@ -190,6 +193,9 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 - **Capacity enforcement**
   Providers must define a maximum number of concurrent active jobs. The system must block acceptance beyond that capacity.
 
+- **Booking-fee gating**
+  Provider acceptance must be blocked until booking fee status is `paid`.
+
 - **Invoice immutability after payment**
   Once the seeker pays, invoice line items must not change.
 
@@ -249,6 +255,12 @@ Outcome: both sides agree to a slot, but no commitment exists yet.
 | `invoice_created`      | Provider generated invoice after pickup                      | `completed`, `cancelled`                                            |
 | `cancelled`            | Booking cancelled by either party                            | terminal                                                            |
 | `completed`            | Order created and booking lifecycle ended                    | terminal                                                            |
+
+State vector notes:
+
+- Booking status and booking-fee status are separate concerns.
+- `bookingFeeStatus` transitions: `pending` -> `paid` -> (`forfeited` or `applied` based on downstream outcomes).
+- Provider acceptance is allowed only when `bookingFeeStatus = paid`.
 
 ### Order (Commitment → Settlement) States
 
@@ -431,3 +443,34 @@ See `README.md` for detailed setup instructions.
 
 - **Partial refunds**
   Current resolution options are binary (full refund or full payout). A partial refund flow may be needed for nuanced disputes.
+
+## 14. Implementation Alignment Matrix (2026-02-07)
+
+| PRD Requirement | Expected Behavior | Current System Status |
+| --------------- | ----------------- | --------------------- |
+| Verified signup | Email + phone OTP required before account creation | Implemented (OTP required in signup APIs; created users now persist as verified) |
+| Password policy | 8+ chars, uppercase, number, special char | Implemented in signup and reset-password APIs |
+| Password reset | Reset must update real auth credential store | Implemented (reset now updates `passwordHash` in seeker/provider/admin collections) |
+| Discovery coverage | Show only providers whose radius covers seeker coordinate | Implemented (strict provider-radius filtering; optional seeker-side radius cap) |
+| Booking fee gate | Provider cannot accept unpaid booking | Implemented |
+| Capacity limit | Provider acceptance blocked when at capacity | Implemented via transactional checks |
+| Invoice review | Seeker can approve/reject invoice with reason on reject | Implemented |
+| Invoice reject outcome | Booking should terminate with booking fee forfeiture | Implemented (`cancelled` + `bookingFeeStatus=forfeited`) |
+| Order payment auth | Only order owner can initialize/verify payment | Implemented on primary payment routes |
+| Payment integrity | Verification must bind to server-created Razorpay order | Implemented on primary payment/booking routes |
+| Payment idempotency | Re-verification should not create duplicates | Implemented on payment verification paths |
+| Order activation | Paid invoice should result in active order linkage | Implemented (booking linked to order in invoice and pay-invoice paths) |
+| Delivery scheduling auth | Provider proposes, seeker confirms | Implemented |
+| Delivery OTP | Delivery requires OTP and starts escrow hold window | Implemented |
+| Complaint window | Complaint allowed only within 24h after delivery | Implemented |
+| One order one complaint | Prevent multiple complaints per order | Implemented |
+| Complaint immutability | Resolved/rejected complaints are terminal | Implemented |
+| Escrow release gating | Open complaints must block payout release | Implemented |
+| No-show automation | Missed confirmed pickup should auto-mark no-show | Implemented |
+| Auditability | State transitions and financial events should be traceable | Partial (state/escrow audits exist; webhook reconciliation still limited) |
+
+### Remaining Gaps To Prioritize
+
+1. Consolidate duplicate payment endpoints to a single canonical flow per use case (booking fee, order payment, invoice payment).
+2. Add unique DB constraints for `orders.booking_id` and complaint/order invariants to enforce idempotency at data layer.
+3. Expand webhook-to-domain reconciliation so webhook events directly reconcile order/payment records, not only auxiliary collections.
