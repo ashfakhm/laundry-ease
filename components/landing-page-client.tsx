@@ -236,25 +236,30 @@ export function LandingPageClient() {
                 How it works
               </h2>
               <p className="text-muted-foreground">
-                Automated workflow from request to delivery.
+                Contract-first workflow from request to secure settlement.
               </p>
             </div>
 
             <div className="relative border-l border-primary/20 ml-4 md:ml-0 md:pl-0 space-y-16">
               <WorkflowStep
                 number="01"
-                title="Book & Schedule"
-                description="Find a nearby provider, pick a time slot, and pay a small booking fee to confirm."
+                title="Request & Booking Fee"
+                description="Find a provider in your service area, request pickup, and pay the booking fee. Providers can accept only after fee confirmation."
               />
               <WorkflowStep
                 number="02"
-                title="Pickup & Pay"
-                description="Provider picks up your laundry, sends you an invoice—approve it and pay securely."
+                title="Pickup & Invoice Review"
+                description="Provider confirms pickup and creates a line-item invoice. You can approve it or reject with a reason."
               />
               <WorkflowStep
                 number="03"
-                title="Track & Receive"
-                description="Track your order live. Confirm delivery with OTP, and payment releases to the provider."
+                title="Pay & Track Progress"
+                description="Approved invoice payment is verified server-side, then your order moves through processing stages until out for delivery."
+              />
+              <WorkflowStep
+                number="04"
+                title="OTP Delivery & Settlement"
+                description="Confirm delivery with OTP to start the 24-hour complaint window. If no dispute is raised, escrow payout is released."
               />
             </div>
           </div>
