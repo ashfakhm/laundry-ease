@@ -1,8 +1,10 @@
 import { MongoClient } from "mongodb";
 import { env } from "./env";
+import { ensureDbIndexes } from "./db-indexes";
 
 declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
+  var _mongoIndexInitPromise: Promise<void> | undefined;
 }
 
 let clientPromise: Promise<MongoClient> | undefined;
@@ -20,5 +22,12 @@ function createClientPromise(): Promise<MongoClient> {
 export async function getDb() {
   if (!clientPromise) clientPromise = createClientPromise();
   const client = await clientPromise;
-  return { db: client.db(env.MONGODB_DB), client };
+  const db = client.db(env.MONGODB_DB);
+
+  if (!global._mongoIndexInitPromise) {
+    global._mongoIndexInitPromise = ensureDbIndexes(db);
+  }
+
+  await global._mongoIndexInitPromise;
+  return { db, client };
 }
