@@ -5,6 +5,7 @@ import { SessionProvider } from "@/components/providers/session-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { GoogleMapsProvider } from "@/components/providers/google-maps-provider";
 import JsonLd from "@/components/seo/json-ld";
+import { GlobalFooter } from "@/components/ui/global-footer";
 import "./globals.css";
 
 const inter = Inter({
@@ -132,13 +133,7 @@ export default async function RootLayout({
                 >
                   <ToastProvider>{children}</ToastProvider>
                 </main>
-                <footer
-                  role="contentinfo"
-                  className="w-full py-4 px-6 border-t border-border bg-background text-center text-xs text-muted-foreground"
-                >
-                  &copy; {new Date().getFullYear()} LaundryEase Inc. All rights
-                  reserved.
-                </footer>
+                <GlobalFooter />
               </div>
               <JsonLd />
             </ThemeProvider>

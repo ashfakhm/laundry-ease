@@ -285,7 +285,7 @@ export function LandingPageClient() {
             </span>
           </Link>
           <small className="text-sm text-muted-foreground">
-            © 2025 LaundryEase Inc. All rights reserved.
+            © {new Date().getFullYear()} LaundryEase Inc. All rights reserved.
           </small>
         </div>
       </footer>
