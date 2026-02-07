@@ -218,7 +218,7 @@ export function LandingPageClient() {
                   <MapPin className="w-6 h-6 text-primary drop-shadow-[0_0_8px_rgba(45,212,191,0.6)]" />
                 }
                 title="Geofenced Fleet"
-                description="Matched with providers strictly within your radius. Real-time tracking and optimized routing."
+                description="Matched only with providers whose service radius includes your location, with live order-status refresh and distance-prioritized routing."
                 delay={0.5}
               />
             </motion.div>

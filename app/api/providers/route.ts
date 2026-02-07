@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { calculateDistance } from "@/lib/distance";
+import { geocodeLocationText } from "@/lib/geocoding";
 
 /**
  * Search for providers based on location, name, services, and other criteria
@@ -35,11 +36,29 @@ export async function GET(req: NextRequest) {
 
     // Build query filter
     const filter: Record<string, unknown> = {};
-    const orConditions: Record<string, unknown>[] = [];
+    const hasPartialCoords =
+      (latParam && !lngParam) || (!latParam && lngParam);
+    if (hasPartialCoords) {
+      return NextResponse.json(
+        {
+          error: "Both lat and lng must be provided together.",
+        },
+        { status: 400 },
+      );
+    }
 
-    // 1. Coordinates Search (Preferred) - Validate and use for distance filtering
+    // Optional seeker-side search radius (provider-side radius is always enforced below)
+    const radiusParam = searchParams.get("radius");
+    let maxRadiusKm: number | null = radiusParam ? parseFloat(radiusParam) : null;
+    if (maxRadiusKm !== null && (isNaN(maxRadiusKm) || maxRadiusKm <= 0)) {
+      return NextResponse.json(
+        { error: "Invalid radius. Must be a positive number." },
+        { status: 400 },
+      );
+    }
+
+    // Coordinates Search (strict geofence path)
     let userCoords: { lat: number; lng: number } | null = null;
-    let maxRadiusKm: number | null = null;
 
     if (latParam && lngParam) {
       const lat = parseFloat(latParam);
@@ -64,32 +83,48 @@ export async function GET(req: NextRequest) {
       }
 
       userCoords = { lat, lng };
+    }
 
-      // Optional seeker-side search radius (provider-side radius still enforced below)
-      const radiusParam = searchParams.get("radius");
-      maxRadiusKm = radiusParam ? parseFloat(radiusParam) : null;
+    // If only location text is provided, geocode it and still enforce strict geofence checks.
+    if (!userCoords && location) {
+      userCoords = await geocodeLocationText(location);
 
-      if (maxRadiusKm !== null && (isNaN(maxRadiusKm) || maxRadiusKm <= 0)) {
+      if (!userCoords) {
+        if (debug) {
+          logger.debug(
+            "PROVIDER_SEARCH",
+            "Location geocoding failed; returning empty results",
+            { location },
+          );
+        }
+
         return NextResponse.json(
-          { error: "Invalid radius. Must be a positive number." },
-          { status: 400 },
+          {
+            providers: [],
+            total: 0,
+            warning:
+              "Unable to resolve location into coordinates. Please select a precise location.",
+          },
+          { status: 200 },
         );
       }
 
-      // Filter providers that have coordinates (required for distance calculation)
+      if (debug) {
+        logger.debug("PROVIDER_SEARCH", "Geocoded text location", {
+          location,
+          userCoords,
+        });
+      }
+    }
+
+    if (userCoords) {
+      // Distance filtering requires provider coordinates.
       filter.coordinates = { $exists: true, $ne: null };
     }
 
-    // 2. Fallback to text location if no coords (Legacy/Text behavior)
-    if (!userCoords && location) {
-      // Search with multiple strategies for robustness:
-      // a) Direct location match (case-insensitive)
-      // b) Search in any field that might contain location info
-      orConditions.push(
-        { location: { $regex: location, $options: "i" } },
-        { "address.city": { $regex: location, $options: "i" } },
-        { address: { $regex: location, $options: "i" } },
-      );
+    // Normalize search-radius behavior: only meaningful when we have resolved coordinates.
+    if (!userCoords) {
+      maxRadiusKm = null;
     }
 
     // Name search
@@ -100,11 +135,6 @@ export async function GET(req: NextRequest) {
     // Service search
     if (service) {
       filter.services = { $regex: service, $options: "i" };
-    }
-
-    // Apply $or conditions if we have location-based OR filters
-    if (orConditions.length > 0) {
-      filter.$or = orConditions;
     }
 
     // Fetch providers matching filters
@@ -122,13 +152,12 @@ export async function GET(req: NextRequest) {
       })
       .toArray();
 
-    // If coordinates provided, filter by distance and sort by proximity
-    if (userCoords && maxRadiusKm) {
+    // Enforce provider radius coverage and optional seeker search radius
+    if (userCoords) {
       providers = providers
         .filter((provider) => {
           if (!provider.coordinates) return false;
-          const distance = calculateDistance(userCoords!, provider.coordinates);
-          // Core contract: provider must explicitly cover the seeker location.
+          const distance = calculateDistance(userCoords, provider.coordinates);
           const providerRadius = provider.radius_km || 10;
           const coveredByProvider = distance <= providerRadius;
           const withinSeekerSearchRadius =
@@ -136,41 +165,20 @@ export async function GET(req: NextRequest) {
           return coveredByProvider && withinSeekerSearchRadius;
         })
         .map((provider) => {
-          const distance = calculateDistance(userCoords!, provider.coordinates);
+          const distance = calculateDistance(userCoords, provider.coordinates);
           return {
             ...provider,
+            distance_km: distance,
             distanceFromSeeker: distance,
           };
         })
         .sort(
           (a, b) =>
-            (a.distanceFromSeeker || Infinity) -
-            (b.distanceFromSeeker || Infinity),
-        )
-        .slice(0, limit);
-    } else if (userCoords) {
-      providers = providers
-        .filter((provider) => {
-          if (!provider.coordinates) return false;
-          const distance = calculateDistance(userCoords!, provider.coordinates);
-          const providerRadius = provider.radius_km || 10;
-          return distance <= providerRadius;
-        })
-        .map((provider) => {
-          const distance = calculateDistance(userCoords!, provider.coordinates);
-          return {
-            ...provider,
-            distanceFromSeeker: distance,
-          };
-        })
-        .sort(
-          (a, b) =>
-            (a.distanceFromSeeker || Infinity) -
-            (b.distanceFromSeeker || Infinity),
+            (a.distance_km || Infinity) - (b.distance_km || Infinity),
         )
         .slice(0, limit);
     } else {
-      // No coordinates - just apply limit
+      // No location filter - just apply limit
       providers = providers.slice(0, limit);
     }
 

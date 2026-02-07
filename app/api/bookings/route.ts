@@ -5,6 +5,49 @@ import { requireSeeker } from "@/lib/api/auth";
 import { successResponse, withErrorHandling } from "@/lib/api/response";
 import { createBookingSchema } from "@/lib/api/schemas";
 import { Errors } from "@/lib/api/errors";
+import { calculateDistance } from "@/lib/distance";
+import { geocodeLocationText } from "@/lib/geocoding";
+
+type Coordinates = { lat: number; lng: number };
+
+function hasValidCoordinates(value: unknown): value is Coordinates {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<Coordinates>;
+  return (
+    typeof candidate.lat === "number" &&
+    typeof candidate.lng === "number" &&
+    candidate.lat >= -90 &&
+    candidate.lat <= 90 &&
+    candidate.lng >= -180 &&
+    candidate.lng <= 180
+  );
+}
+
+function buildAddressString(address: unknown): string | null {
+  if (!address || typeof address !== "object") return null;
+  const parsed = address as Partial<{
+    line1: string;
+    landmark: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  }>;
+
+  const parts = [
+    parsed.line1,
+    parsed.landmark,
+    parsed.city,
+    parsed.state,
+    parsed.postalCode,
+    parsed.country,
+  ]
+    .filter((part): part is string => typeof part === "string")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return parts.length > 0 ? parts.join(", ") : null;
+}
 
 export const POST = withErrorHandling(async (req: Request) => {
   const session = await requireSeeker();
@@ -29,7 +72,66 @@ export const POST = withErrorHandling(async (req: Request) => {
     .findOne({ _id: providerOid });
 
   if (!provider) {
-    throw Errors.notFound("Provider not found");
+    throw Errors.notFound("Provider");
+  }
+
+  if (!hasValidCoordinates(provider.coordinates)) {
+    throw Errors.conflict(
+      "Provider service area is not configured. Please choose another provider.",
+    );
+  }
+
+  const seekerProfile = await db.collection("seekers").findOne(
+    { _id: seeker_id },
+    {
+      projection: {
+        coordinates: 1,
+        address: 1,
+      },
+    },
+  );
+
+  if (!seekerProfile) {
+    throw Errors.notFound("Seeker");
+  }
+
+  let resolvedSeekerCoordinates = seeker_coordinates;
+
+  if (!resolvedSeekerCoordinates && hasValidCoordinates(seekerProfile.coordinates)) {
+    resolvedSeekerCoordinates = seekerProfile.coordinates;
+  }
+
+  if (!resolvedSeekerCoordinates) {
+    const seekerAddress = buildAddressString(seekerProfile.address);
+    if (seekerAddress) {
+      const geocodedCoords = await geocodeLocationText(seekerAddress);
+      if (geocodedCoords) {
+        resolvedSeekerCoordinates = geocodedCoords;
+      }
+    }
+  }
+
+  if (!resolvedSeekerCoordinates) {
+    throw Errors.validation("Seeker location is required to create booking", {
+      seeker_coordinates: [
+        "Set your profile coordinates or provide precise pickup coordinates.",
+      ],
+    });
+  }
+
+  const providerRadiusKm =
+    typeof provider.radius_km === "number" && provider.radius_km > 0
+      ? provider.radius_km
+      : 10;
+  const distanceKm = calculateDistance(
+    resolvedSeekerCoordinates,
+    provider.coordinates,
+  );
+
+  if (distanceKm > providerRadiusKm) {
+    throw Errors.conflict(
+      `Provider serves within ${providerRadiusKm} km. Your pickup is ${distanceKm} km away.`,
+    );
   }
 
   const capacity = provider.capacity || 100;
@@ -41,7 +143,7 @@ export const POST = withErrorHandling(async (req: Request) => {
       seeker_id,
       provider_id: providerOid,
       deadline: deadline ? new Date(deadline) : undefined,
-      seeker_coordinates,
+      seeker_coordinates: resolvedSeekerCoordinates,
       bookingFee: provider.pricing || 0,
       capacity,
     });

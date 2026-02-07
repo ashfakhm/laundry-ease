@@ -86,6 +86,15 @@ export default function SeekerDashboardPage() {
               setSeekerLocation(location);
               setSearchLocation(location); // Auto-populate
             }
+            if (
+              typeof data.coordinates?.lat === "number" &&
+              typeof data.coordinates?.lng === "number"
+            ) {
+              setSearchCoordinates({
+                lat: data.coordinates.lat,
+                lng: data.coordinates.lng,
+              });
+            }
           }
         }
       } catch (error) {

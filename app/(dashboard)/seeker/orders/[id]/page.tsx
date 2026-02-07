@@ -20,6 +20,7 @@ import { PaymentButton } from "@/components/orders/payment-button";
 import Link from "next/link";
 import BookingChat from "@/components/chat-interface";
 import { PostDeliveryActions } from "@/components/orders/post-delivery-actions";
+import { LiveStatusRefresh } from "@/components/orders/live-status-refresh";
 import { cn } from "@/lib/utils";
 
 export default async function OrderDetailsPage({
@@ -88,6 +89,7 @@ export default async function OrderDetailsPage({
     order.payment_status
   );
   const isDelivered = !!order.otp_confirmed_at || processStatus === "delivered";
+  const isTrackingActive = !isCancelled && !isDelivered;
 
   // Tracker Logic
   const trackerSteps = [
@@ -165,6 +167,7 @@ export default async function OrderDetailsPage({
                 <h2 className="text-lg font-bold font-heading mb-8 flex items-center gap-2">
                   <Truck className="w-5 h-5 text-primary" /> Tracking
                 </h2>
+                <LiveStatusRefresh enabled={isTrackingActive} />
 
                 <div className="relative">
                   {/* Desktop Horizontal Line */}
