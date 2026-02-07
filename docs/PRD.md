@@ -457,7 +457,7 @@ See `README.md` for detailed setup instructions.
 | Invoice review | Seeker can approve/reject invoice with reason on reject | Implemented |
 | Invoice reject outcome | Booking should terminate with booking fee forfeiture | Implemented (`cancelled` + `bookingFeeStatus=forfeited`) |
 | Order payment auth | Only order owner can initialize/verify payment | Implemented on primary payment routes |
-| Payment integrity | Verification must bind to server-created Razorpay order | Implemented on primary payment/booking routes |
+| Payment integrity | Verification must bind to server-created Razorpay order | Implemented on canonical payment routes and legacy aliases |
 | Payment idempotency | Re-verification should not create duplicates | Implemented on payment verification paths |
 | Order activation | Paid invoice should result in active order linkage | Implemented (booking linked to order in invoice and pay-invoice paths) |
 | Delivery scheduling auth | Provider proposes, seeker confirms | Implemented |
@@ -467,10 +467,10 @@ See `README.md` for detailed setup instructions.
 | Complaint immutability | Resolved/rejected complaints are terminal | Implemented |
 | Escrow release gating | Open complaints must block payout release | Implemented |
 | No-show automation | Missed confirmed pickup should auto-mark no-show | Implemented |
-| Auditability | State transitions and financial events should be traceable | Partial (state/escrow audits exist; webhook reconciliation still limited) |
+| Auditability | State transitions and financial events should be traceable | Implemented (state/escrow audits + idempotent webhook event tracking/reconciliation) |
 
-### Remaining Gaps To Prioritize
+### Remaining Hardening Opportunities
 
-1. Consolidate duplicate payment endpoints to a single canonical flow per use case (booking fee, order payment, invoice payment).
-2. Add unique DB constraints for `orders.booking_id` and complaint/order invariants to enforce idempotency at data layer.
-3. Expand webhook-to-domain reconciliation so webhook events directly reconcile order/payment records, not only auxiliary collections.
+1. Add alerting/monitoring dashboards for index creation failures caused by pre-existing duplicate historical data.
+2. Add integration tests for webhook replay, duplicate payment callbacks, and booking/order idempotency races.
+3. Add archival policy for old webhook payloads to control long-term storage growth.
