@@ -13,7 +13,7 @@ export function LandingPageClient() {
     <div className="flex flex-col min-h-screen bg-background text-foreground selection:bg-primary/10 selection:text-primary overflow-x-hidden">
       {/* Navbar */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between relative">
           <div className="flex items-center gap-2">
             <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-sm">
               <Image
@@ -28,7 +28,7 @@ export function LandingPageClient() {
               LaundryEase
             </span>
           </div>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground absolute left-1/2 -translate-x-1/2">
             <Link
               href="#features"
               className="hover:text-primary hover:drop-shadow-[0_0_8px_rgba(45,212,191,0.5)] transition-all duration-300"
@@ -40,12 +40,6 @@ export function LandingPageClient() {
               className="hover:text-primary hover:drop-shadow-[0_0_8px_rgba(45,212,191,0.5)] transition-all duration-300"
             >
               How it Works
-            </Link>
-            <Link
-              href="#pricing"
-              className="hover:text-primary hover:drop-shadow-[0_0_8px_rgba(45,212,191,0.5)] transition-all duration-300"
-            >
-              Pricing
             </Link>
           </nav>
           <div className="flex items-center gap-4">
