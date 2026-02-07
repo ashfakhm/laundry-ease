@@ -115,12 +115,9 @@ Tradeoff: the flow rejects “fast but fuzzy” transactions. It favors clarity 
    - For local MongoDB: Ensure MongoDB is running on `localhost:27017`
    - For MongoDB Atlas: Update `MONGODB_URI` with your Atlas connection string
 
-   Run the geospatial index setup (if script exists):
-
-   ```bash
-   # This ensures proper indexing for location-based queries
-   npm run setup:geospatial-index
-   ```
+   Core indexes are now initialized automatically on first DB access through `lib/mongodb.ts` and `lib/db-indexes.ts`.
+   This includes integrity, query, and TTL indexes used by payments, complaints, OTP, and reset-token flows.
+   Optional geospatial migration helpers remain in `lib/setup-geospatial-index.ts` for one-off operational scripts.
 
 5. **Generate secure secrets**
 
@@ -255,20 +252,28 @@ Stable:
 - Role-based flows (seeker/provider/admin)
 - Location-based provider discovery
 - Booking → invoicing → escrow → delivery confirmation loop
+- Canonical payment APIs with backward-compatible legacy aliases
+  - Order payments: `/api/orders/:id/payment` (canonical), plus `/api/orders/:id/pay`, `/api/orders/:id/payment/init`, `/api/orders/:id/payment/verify` aliases
+  - Booking fee payments: `/api/bookings/:id/pay` (canonical), plus `/api/bookings/payment/init`, `/api/bookings/payment/verify` aliases
 - Booking reschedule requests during pickup scheduling
 - Complaint system with admin workflow (accept → add provider → resolve)
 - 3-way chat for dispute mediation (seeker, provider, admin)
 - Response deadline tracking for provider engagement
 - Escrow freeze on complaint, release on resolution
+- 24-hour complaint window enforcement at API level
+- Idempotent webhook reconciliation with retry-safe event tracking (`webhook_events`)
+- Startup DB index bootstrap for order/complaint/payment/email invariants
 - Invoice viewing (pending with actions, history in read-only mode)
 - Secure signup with password confirmation and strength validation
 - Real-time client-side form validation (email, password matching)
 
-Intentionally not finished yet:
+Remaining hardening opportunities:
 
+- Alerting/monitoring for index creation failures caused by pre-existing duplicate historical data
+- Integration tests for webhook replay, duplicate payment callbacks, and idempotency races
+- Archival policy for old webhook payloads to control long-term storage growth
 - Partial refund flow (currently only full refund or full payout)
 - Complaint window extension requests
-- Cancellation and no-show handling that enforces penalties consistently
 - Provider field UX polish (mobile-first ergonomics)
 
 ## 11. Complaint & Dispute Resolution
@@ -417,6 +422,7 @@ laundry-ease/
 │   ├── escrow-jobs.ts            # Escrow job scheduling
 │   ├── google-maps.ts            # Google Maps integration
 │   ├── logger.ts                 # Structured logging
+│   ├── db-indexes.ts             # DB index bootstrap specs (integrity/query/TTL)
 │   ├── mongodb.ts                # MongoDB connection
 │   ├── otp.ts                    # OTP generation/verification
 │   ├── razorpay.ts               # Razorpay payment integration
