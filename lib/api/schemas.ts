@@ -331,13 +331,30 @@ export const adminComplaintAccessSchema = z.object({
   granted: z.boolean(),
 });
 
-export const adminRefundSchema = z.object({
-  paymentId: z.string().min(1),
-  bookingId: objectIdSchema.optional(),
-  orderId: objectIdSchema.optional(),
-  amount: z.number().positive().optional(),
-  reason: z.string().min(5).optional(),
-});
+export const adminRefundSchema = z
+  .object({
+    paymentId: z.string().min(1),
+    bookingId: objectIdSchema.optional(),
+    orderId: objectIdSchema.optional(),
+    amount: z.number().positive().optional(),
+    reason: z.string().min(5).optional(),
+  })
+  .superRefine((data, ctx) => {
+    const hasBooking = Boolean(data.bookingId);
+    const hasOrder = Boolean(data.orderId);
+    if (hasBooking === hasOrder) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bookingId"],
+        message: "Provide exactly one of bookingId or orderId",
+      });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["orderId"],
+        message: "Provide exactly one of bookingId or orderId",
+      });
+    }
+  });
 
 // Auth schemas
 export const resetPasswordSchema = z.object({

@@ -5,6 +5,7 @@ import { releaseEscrowPayment } from "@/lib/db";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { derivePayoutAmounts } from "@/lib/payouts/amounts";
 
 const PAYOUT_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 const PAYOUT_ERROR_MAX_LENGTH = 500;
@@ -39,51 +40,6 @@ function toDate(value: unknown): Date | null {
   if (!value) return null;
   const date = new Date(String(value));
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function derivePayoutAmounts(order: Order): {
-  providerPayoutAmount: number;
-  platformCommission: number;
-} {
-  const total = Number(order.total_price || 0);
-  const storedPayout =
-    typeof order.provider_payout_amount === "number"
-      ? Number(order.provider_payout_amount)
-      : null;
-  const storedCommission =
-    typeof order.platform_commission === "number"
-      ? Number(order.platform_commission)
-      : null;
-
-  if (storedPayout !== null && Number.isFinite(storedPayout)) {
-    const normalizedPayout = round2(Math.max(0, storedPayout));
-    const derivedCommission = round2(Math.max(0, total - normalizedPayout));
-    return {
-      providerPayoutAmount: normalizedPayout,
-      platformCommission:
-        storedCommission !== null && Number.isFinite(storedCommission)
-          ? round2(Math.max(0, storedCommission))
-          : derivedCommission,
-    };
-  }
-
-  if (storedCommission !== null && Number.isFinite(storedCommission)) {
-    const normalizedCommission = round2(Math.max(0, storedCommission));
-    return {
-      providerPayoutAmount: round2(Math.max(0, total - normalizedCommission)),
-      platformCommission: normalizedCommission,
-    };
-  }
-
-  const defaultCommission = round2(Math.max(0, total * 0.05));
-  return {
-    providerPayoutAmount: round2(Math.max(0, total - defaultCommission)),
-    platformCommission: defaultCommission,
-  };
 }
 
 function normalizeErrorMessage(error: unknown): string {

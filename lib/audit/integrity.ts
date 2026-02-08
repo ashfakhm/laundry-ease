@@ -5,7 +5,10 @@ type OrderAuditShape = {
   payment_status?: string;
   payout_status?: string;
   payout_id?: string;
+  payout_lock_at?: Date | string;
+  payout_updated_at?: Date | string;
   escrow_released_at?: Date | string;
+  razorpay_payment_id?: string;
 };
 
 type BookingAuditShape = {
@@ -20,6 +23,7 @@ type ComplaintAuditShape = {
   status?: string;
   resolvedAt?: Date | string;
   response_deadline?: Date | string;
+  provider_access_granted?: boolean;
 };
 
 export type IntegritySeverity = "critical" | "high" | "medium";
@@ -55,6 +59,17 @@ function hasExpiredDeadline(
 ): boolean {
   const deadline = toDate(responseDeadline);
   return Boolean(deadline && deadline.getTime() < now.getTime());
+}
+
+const STALE_PAYOUT_PROCESSING_MS = 15 * 60 * 1000;
+
+function isOlderThan(
+  value: Date | string | undefined,
+  now: Date,
+  thresholdMs: number,
+): boolean {
+  const date = toDate(value);
+  return Boolean(date && now.getTime() - date.getTime() > thresholdMs);
 }
 
 export function auditIntegrity(input: IntegrityAuditInput): IntegrityAnomaly[] {
@@ -99,6 +114,38 @@ export function auditIntegrity(input: IntegrityAuditInput): IntegrityAnomaly[] {
         entityId: orderId,
         severity: "medium",
         message: "Order payment is released but escrow_released_at is missing.",
+      });
+    }
+
+    if (
+      (paymentStatus === "paid" ||
+        paymentStatus === "held" ||
+        paymentStatus === "released") &&
+      !order.razorpay_payment_id
+    ) {
+      anomalies.push({
+        key: "order_paid_missing_payment_reference",
+        entityType: "order",
+        entityId: orderId,
+        severity: "high",
+        message:
+          "Order is in a paid/escrow state but razorpay_payment_id is missing.",
+      });
+    }
+
+    const stalePayoutProcessing =
+      payoutStatus === "processing" &&
+      !order.payout_id &&
+      (isOlderThan(order.payout_lock_at, now, STALE_PAYOUT_PROCESSING_MS) ||
+        isOlderThan(order.payout_updated_at, now, STALE_PAYOUT_PROCESSING_MS));
+    if (stalePayoutProcessing) {
+      anomalies.push({
+        key: "order_payout_processing_stale",
+        entityType: "order",
+        entityId: orderId,
+        severity: "high",
+        message:
+          "Order payout has remained in processing without payout_id beyond threshold.",
       });
     }
   }
@@ -157,6 +204,17 @@ export function auditIntegrity(input: IntegrityAuditInput): IntegrityAnomaly[] {
         entityId: complaintId,
         severity: "high",
         message: "Complaint review deadline has passed while complaint remains unresolved.",
+      });
+    }
+
+    if (complaint.status === "in_review" && !complaint.provider_access_granted) {
+      anomalies.push({
+        key: "complaint_in_review_without_provider_access",
+        entityType: "complaint",
+        entityId: complaintId,
+        severity: "high",
+        message:
+          "Complaint is in_review but provider_access_granted is false or missing.",
       });
     }
   }

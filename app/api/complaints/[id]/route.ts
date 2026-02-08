@@ -4,8 +4,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { getUserByEmail } from "@/lib/db";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
+import { canAccessComplaintConversation } from "@/lib/complaints/access";
 
 export async function GET(
   req: Request,
@@ -40,22 +40,18 @@ export async function GET(
       );
     }
 
-    const actorId = dbUser._id.toString();
-    const userRole = dbUser.role || Role.SEEKER;
+    const access = canAccessComplaintConversation({
+      actorId: dbUser._id.toString(),
+      actorRole: dbUser.role || "seeker",
+      complaint: {
+        seekerId: complaint.seeker_id.toString(),
+        providerId: complaint.provider_id.toString(),
+        providerAccessGranted: complaint.provider_access_granted,
+        status: complaint.status,
+      },
+    });
 
-    const isSeeker = complaint.seeker_id.toString() === actorId;
-    const isProvider = complaint.provider_id.toString() === actorId;
-    const isAdmin = userRole === Role.ADMIN;
-
-    let allowed = false;
-    if (isAdmin) allowed = true;
-    else if (isSeeker) allowed = true;
-    else if (isProvider && complaint.provider_access_granted) allowed = true;
-
-    if (!allowed) {
-      // Obscurity: if provider and not granted, maybe 404 or 403?
-      // 403 tells them it exists.
-      // We'll say 403 "Access Denied".
+    if (!access.allowed) {
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
     }
 

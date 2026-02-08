@@ -68,6 +68,74 @@ describe("auditIntegrity", () => {
     );
   });
 
+  it("detects stale payout processing and missing paid payment references", () => {
+    const now = new Date("2026-02-08T00:00:00.000Z");
+    const staleLock = new Date(now.getTime() - 20 * 60 * 1000);
+
+    const anomalies = auditIntegrity({
+      orders: [
+        {
+          _id: oid("order-2"),
+          payment_status: "held",
+          payout_status: "processing",
+          payout_lock_at: staleLock,
+        },
+        {
+          _id: oid("order-3"),
+          payment_status: "released",
+          payout_status: "pending",
+          razorpay_payment_id: "",
+        },
+      ],
+      bookings: [],
+      complaints: [],
+      now,
+    });
+
+    expect(anomalies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "order_payout_processing_stale",
+          entityType: "order",
+          entityId: "order-2",
+          severity: "high",
+        }),
+        expect.objectContaining({
+          key: "order_paid_missing_payment_reference",
+          entityType: "order",
+          entityId: "order-3",
+          severity: "high",
+        }),
+      ]),
+    );
+  });
+
+  it("detects complaints in review without provider access", () => {
+    const anomalies = auditIntegrity({
+      orders: [],
+      bookings: [],
+      complaints: [
+        {
+          _id: oid("complaint-2"),
+          status: "in_review",
+          provider_access_granted: false,
+        },
+      ],
+      now: new Date("2026-02-08T00:00:00.000Z"),
+    });
+
+    expect(anomalies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "complaint_in_review_without_provider_access",
+          entityType: "complaint",
+          entityId: "complaint-2",
+          severity: "high",
+        }),
+      ]),
+    );
+  });
+
   it("returns empty when no anomalies exist", () => {
     const anomalies = auditIntegrity({
       orders: [
@@ -75,6 +143,7 @@ describe("auditIntegrity", () => {
           _id: oid("order-1"),
           payment_status: "held",
           payout_status: "pending",
+          razorpay_payment_id: "pay_ok",
         },
       ],
       bookings: [

@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const now = new Date();
+    const stalePayoutCutoff = new Date(now.getTime() - 15 * 60 * 1000);
     const { db } = await getDb();
 
     const [orders, bookings, complaints] = await Promise.all([
@@ -64,6 +65,30 @@ export async function GET(req: NextRequest) {
                 payment_status: "released",
                 escrow_released_at: { $exists: false },
               },
+              {
+                payment_status: { $in: ["paid", "held", "released"] },
+                $or: [
+                  { razorpay_payment_id: { $exists: false } },
+                  { razorpay_payment_id: null },
+                  { razorpay_payment_id: "" },
+                ],
+              },
+              {
+                payout_status: "processing",
+                $or: [
+                  { payout_id: { $exists: false } },
+                  { payout_id: null },
+                  { payout_id: "" },
+                ],
+                $and: [
+                  {
+                    $or: [
+                      { payout_lock_at: { $lt: stalePayoutCutoff } },
+                      { payout_updated_at: { $lt: stalePayoutCutoff } },
+                    ],
+                  },
+                ],
+              },
             ],
           },
           {
@@ -71,7 +96,10 @@ export async function GET(req: NextRequest) {
               payment_status: 1,
               payout_status: 1,
               payout_id: 1,
+              payout_lock_at: 1,
+              payout_updated_at: 1,
               escrow_released_at: 1,
+              razorpay_payment_id: 1,
             },
           },
         )
@@ -116,6 +144,14 @@ export async function GET(req: NextRequest) {
               {
                 status: { $in: ["accepted", "in_review"] },
               },
+              {
+                status: "in_review",
+                $or: [
+                  { provider_access_granted: { $exists: false } },
+                  { provider_access_granted: false },
+                  { provider_access_granted: null },
+                ],
+              },
             ],
           },
           {
@@ -123,6 +159,7 @@ export async function GET(req: NextRequest) {
               status: 1,
               resolvedAt: 1,
               response_deadline: 1,
+              provider_access_granted: 1,
             },
           },
         )

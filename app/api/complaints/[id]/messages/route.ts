@@ -5,11 +5,11 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { getUserByEmail } from "@/lib/db";
 import { ComplaintMessage } from "@/types/complaints";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { complaintMessageSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { canAccessComplaintConversation } from "@/lib/complaints/access";
 
 type ComplaintAccessDoc = {
   seeker_id: ObjectId;
@@ -17,42 +17,6 @@ type ComplaintAccessDoc = {
   provider_access_granted?: boolean;
   status: string;
 };
-
-function checkAccess(
-  actorId: ObjectId,
-  userRole: Role,
-  complaint: ComplaintAccessDoc,
-) {
-  const actorIdStr = actorId.toString();
-  const isSeeker = complaint.seeker_id.toString() === actorIdStr;
-  const isProvider = complaint.provider_id.toString() === actorIdStr;
-  const isAdmin = userRole === Role.ADMIN;
-
-  // 1. Audit Visibility Guard
-  // "Seeker/provider NEVER can after resolution"
-  const isResolved = ["resolved", "rejected"].includes(complaint.status);
-
-  if (isResolved && !isAdmin) {
-    return {
-      allowed: false,
-      error: "Dispute is resolved. Access is restricted to Admin only.",
-    };
-  }
-
-  // 2. Participation Guard
-  if (isAdmin) return { allowed: true, role: "admin" };
-
-  if (isSeeker) return { allowed: true, role: "seeker" };
-
-  if (isProvider) {
-    if (!complaint.provider_access_granted) {
-      return { allowed: false, error: "Provider access has not been granted." };
-    }
-    return { allowed: true, role: "provider" };
-  }
-
-  return { allowed: false, error: "Forbidden" };
-}
 
 /**
  * GET /api/complaints/[id]/messages
@@ -92,7 +56,16 @@ export async function GET(
       );
     }
 
-    const access = checkAccess(actorId, dbUser.role, complaint);
+    const access = canAccessComplaintConversation({
+      actorId: actorId.toString(),
+      actorRole: dbUser.role,
+      complaint: {
+        seekerId: complaint.seeker_id.toString(),
+        providerId: complaint.provider_id.toString(),
+        providerAccessGranted: complaint.provider_access_granted,
+        status: complaint.status,
+      },
+    });
     if (!access.allowed) {
       return NextResponse.json({ error: access.error }, { status: 403 });
     }
@@ -173,7 +146,16 @@ export async function POST(
       );
     }
 
-    const access = checkAccess(actorId, dbUser.role, complaint);
+    const access = canAccessComplaintConversation({
+      actorId: actorId.toString(),
+      actorRole: dbUser.role,
+      complaint: {
+        seekerId: complaint.seeker_id.toString(),
+        providerId: complaint.provider_id.toString(),
+        providerAccessGranted: complaint.provider_access_granted,
+        status: complaint.status,
+      },
+    });
     if (!access.allowed) {
       return NextResponse.json({ error: access.error }, { status: 403 });
     }
@@ -185,7 +167,7 @@ export async function POST(
     const message: Omit<ComplaintMessage, "_id"> = {
       complaint_id: complaintId,
       sender_id: actorId,
-      sender_role: access.role as "seeker" | "provider" | "admin",
+      sender_role: access.role,
       message_type: "TEXT",
       content,
       attachments: attachments || [],
