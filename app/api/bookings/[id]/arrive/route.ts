@@ -39,12 +39,14 @@ export async function POST(
       typeof body?.lng === "number" ? body.lng : Number.NaN;
     const hasCoordinates = Number.isFinite(lat) && Number.isFinite(lng);
 
-    let bookingQuery: any;
+    let bookingId: ObjectId;
     try {
-      bookingQuery = { _id: new ObjectId(id) };
+      bookingId = new ObjectId(id);
     } catch {
-      bookingQuery = { _id: id };
+      return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
     }
+
+    const bookingQuery = { _id: bookingId };
 
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
