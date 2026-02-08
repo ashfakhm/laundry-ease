@@ -9,6 +9,8 @@ import { logger } from "@/lib/logger";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { initiateOrderPayout } from "@/lib/payouts";
 import type { Order } from "@/types/orders";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 function toObjectId(value: unknown): ObjectId | null {
   if (value instanceof ObjectId) return value;
@@ -107,6 +109,13 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "admin:payments:action",
+      max: 40,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -283,6 +292,16 @@ export async function POST(req: Request) {
       result: { status: "penalty_recorded", amount },
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ADMIN_PAYMENTS", "Error in admin payment action", error);
     return NextResponse.json(
       { error: "Internal server error" },

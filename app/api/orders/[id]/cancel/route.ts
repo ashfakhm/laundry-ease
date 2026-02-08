@@ -5,6 +5,8 @@ import { getOrderById, cancelOrder } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const CANCELLATION_FEE = 1000; // 10 currency units
 
@@ -14,6 +16,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "orders:cancel",
+      max: 12,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
@@ -63,6 +72,16 @@ export async function POST(
       );
     }
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ORDERS", "Error cancelling order", error, { orderId: id });
     return NextResponse.json(
       { message: "Internal server error" },

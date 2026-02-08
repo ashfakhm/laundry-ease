@@ -10,6 +10,8 @@ import {
   createRazorpayFundAccount,
 } from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 export async function PATCH(
   req: Request,
@@ -17,6 +19,13 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:accept",
+      max: 25,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
@@ -196,6 +205,16 @@ export async function PATCH(
       throw error;
     }
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Error accepting booking", error, {
       bookingId: id,
     });

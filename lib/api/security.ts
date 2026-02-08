@@ -1,8 +1,12 @@
 import type { Collection } from "mongodb";
 import { AppError, ErrorCode, Errors } from "./errors";
 import { logger } from "../logger";
+import {
+  collectAllowedOriginsFromRequest,
+  extractRequestOrigin,
+  isUnsafeHttpMethod,
+} from "../security/origin";
 
-const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const RATE_LIMIT_COLLECTION = "api_rate_limits";
 const RATE_LIMIT_GRACE_MS = 60_000;
 
@@ -33,40 +37,6 @@ export type RateLimitResult = {
   retryAfterSeconds: number;
 };
 
-function normalizeOrigin(input: string | null | undefined): string | null {
-  if (!input) return null;
-  const value = input.trim();
-  if (!value || value.toLowerCase() === "null") return null;
-
-  try {
-    return new URL(value).origin.toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
-function getOriginFromReferer(referer: string | null): string | null {
-  if (!referer) return null;
-  try {
-    return new URL(referer).origin.toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
-function resolveProtocol(req: Request): string {
-  const forwardedProto = req.headers.get("x-forwarded-proto");
-  if (forwardedProto) {
-    return forwardedProto.split(",")[0].trim().toLowerCase();
-  }
-
-  try {
-    return new URL(req.url).protocol.replace(":", "").toLowerCase();
-  } catch {
-    return "https";
-  }
-}
-
 export function extractClientIp(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
@@ -87,38 +57,23 @@ export function extractClientIp(req: Request): string {
 }
 
 export function collectAllowedOrigins(req: Request): string[] {
-  const origins = new Set<string>();
-  const reqOrigin = normalizeOrigin(req.url);
-  if (reqOrigin) origins.add(reqOrigin);
-
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  if (host) {
-    const proto = resolveProtocol(req);
-    const fromHost = normalizeOrigin(`${proto}://${host}`);
-    if (fromHost) origins.add(fromHost);
-  }
-
-  const envOrigins = [
-    process.env.NEXT_PUBLIC_APP_URL,
-    process.env.NEXT_PUBLIC_BASE_URL,
-    process.env.NEXTAUTH_URL,
-  ];
-  for (const origin of envOrigins) {
-    const normalized = normalizeOrigin(origin);
-    if (normalized) origins.add(normalized);
-  }
-
-  return [...origins];
+  return collectAllowedOriginsFromRequest({
+    requestUrl: req.url,
+    headers: req.headers,
+    envOrigins: [
+      process.env.NEXT_PUBLIC_APP_URL,
+      process.env.NEXT_PUBLIC_BASE_URL,
+      process.env.NEXTAUTH_URL,
+    ],
+  });
 }
 
 export function getRequestOrigin(req: Request): string | null {
-  const fromOriginHeader = normalizeOrigin(req.headers.get("origin"));
-  if (fromOriginHeader) return fromOriginHeader;
-  return getOriginFromReferer(req.headers.get("referer"));
+  return extractRequestOrigin(req.headers);
 }
 
 export async function requireSameOrigin(req: Request): Promise<void> {
-  if (!UNSAFE_METHODS.has(req.method.toUpperCase())) return;
+  if (!isUnsafeHttpMethod(req.method)) return;
 
   const requestOrigin = getRequestOrigin(req);
   if (!requestOrigin) {

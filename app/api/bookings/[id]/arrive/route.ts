@@ -8,6 +8,8 @@ import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
 import { Role } from "@/types/enums";
 import { calculateDistance } from "@/lib/distance";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 // POST: Provider marks themselves as arrived at pickup location
 export async function POST(
@@ -16,6 +18,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:arrive",
+      max: 30,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
@@ -197,6 +206,16 @@ export async function POST(
       payoutInitiated: Boolean(payoutId),
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Mark arrived error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },

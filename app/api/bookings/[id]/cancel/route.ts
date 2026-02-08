@@ -9,6 +9,7 @@ import { Role } from "@/types/enums";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { evaluateCancellationPolicy } from "@/lib/bookings/cancellation-policy";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -16,14 +17,6 @@ function toValidDate(value: unknown): Date | null {
   if (!value) return null;
   const parsed = new Date(String(value));
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function isSameCalendarDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
 }
 
 export async function POST(
@@ -140,28 +133,22 @@ export async function POST(
       );
     }
 
-    if (booking.bookingFeeStatus === "applied") {
+    const policy = evaluateCancellationPolicy({
+      actor: isProvider ? "provider" : "seeker",
+      bookingFeeStatus: booking.bookingFeeStatus,
+      pickupSlotTime,
+      now,
+    });
+
+    if (!policy.allowed) {
       return NextResponse.json(
-        {
-          message:
-            "Booking fee has already been released to provider and cannot be auto-refunded on cancellation.",
-        },
+        { message: policy.message || "Cancellation is not allowed." },
         { status: 409 },
       );
     }
 
-    const seekerSameDayCancellation =
-      !isProvider &&
-      pickupSlotTime !== null &&
-      isSameCalendarDay(now, pickupSlotTime);
-
-    const shouldAttemptRefund =
-      booking.bookingFeeStatus === "paid" &&
-      (isProvider || !seekerSameDayCancellation);
-    const shouldForfeitFee =
-      booking.bookingFeeStatus === "paid" &&
-      !isProvider &&
-      seekerSameDayCancellation;
+    const shouldAttemptRefund = policy.refundAction === "refund";
+    const shouldForfeitFee = policy.refundAction === "forfeit";
 
     let refundId: string | null = null;
     let shouldMarkRefunded = false;

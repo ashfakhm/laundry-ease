@@ -2,6 +2,11 @@ import { getToken } from "next-auth/jwt";
 import type { JWT } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  collectAllowedOriginsFromRequest,
+  extractRequestOrigin,
+  isUnsafeHttpMethod,
+} from "@/lib/security/origin";
 
 /* ================= ROUTE MATCHER ================= */
 
@@ -37,12 +42,41 @@ const isPublicRoute = createRouteMatcher([
 const isAdminRoute = createRouteMatcher(["/admin"]);
 const isProviderRoute = createRouteMatcher(["/provider"]);
 const isSeekerRoute = createRouteMatcher(["/seeker"]);
+const bypassApiOriginGuard = createRouteMatcher([
+  /^\/api\/webhooks\//,
+  /^\/api\/cron\//,
+  /^\/api\/escrow\/release$/,
+  /^\/api\/auth\//,
+]);
 
 /* ================= PROXY (Next.js 16+) ================= */
 
 export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const token = (await getToken({ req })) as JWT | null;
+
+  if (
+    pathname.startsWith("/api/") &&
+    isUnsafeHttpMethod(req.method) &&
+    !bypassApiOriginGuard(req)
+  ) {
+    const requestOrigin = extractRequestOrigin(req.headers);
+    const allowedOrigins = new Set(
+      collectAllowedOriginsFromRequest({
+        requestUrl: req.url,
+        headers: req.headers,
+        envOrigins: [
+          process.env.NEXT_PUBLIC_APP_URL,
+          process.env.NEXT_PUBLIC_BASE_URL,
+          process.env.NEXTAUTH_URL,
+        ],
+      }),
+    );
+
+    if (!requestOrigin || !allowedOrigins.has(requestOrigin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   // Role-based redirects for authenticated users after sign-in
   if (token && token.role && pathname === "/") {

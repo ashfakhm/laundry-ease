@@ -13,6 +13,8 @@ import {
   type OrderProcessStatus,
 } from "@/lib/orders/status-machine";
 import { sendDeliveryOtpEmail } from "@/lib/delivery-otp-email";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -21,6 +23,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "orders:status:update",
+      max: 30,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session || !session.user || session.user.role !== Role.PROVIDER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -153,6 +162,16 @@ export async function POST(
       allowedNextStates: getAllowedNextStates(status as OrderProcessStatus),
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ORDERS", "Error updating order status", error, {
       orderId: id,
     });
