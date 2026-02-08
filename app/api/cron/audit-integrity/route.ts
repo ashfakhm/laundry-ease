@@ -1,0 +1,256 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getDb } from "@/lib/mongodb";
+import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
+import { auditIntegrity, type IntegrityAnomaly } from "@/lib/audit/integrity";
+
+type SystemAlertDocument = {
+  kind: "integrity";
+  key: string;
+  entityType: "order" | "booking" | "complaint";
+  entityId: string;
+  severity: "critical" | "high" | "medium";
+  message: string;
+  status: "open" | "resolved";
+  firstSeenAt: Date;
+  lastSeenAt: Date;
+  resolvedAt?: Date;
+  updatedAt: Date;
+  createdAt: Date;
+};
+
+function anomalyId(anomaly: IntegrityAnomaly): string {
+  return `${anomaly.key}:${anomaly.entityType}:${anomaly.entityId}`;
+}
+
+// GET /api/cron/audit-integrity
+// Runs integrity checks on payout/refund/complaint consistency.
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  if (!env.CRON_SECRET) {
+    logger.error(
+      "CRON",
+      "CRON_SECRET not configured - integrity audit endpoint disabled",
+    );
+    return NextResponse.json(
+      { error: "Cron endpoint not configured" },
+      { status: 503 },
+    );
+  }
+
+  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const now = new Date();
+    const { db } = await getDb();
+
+    const [orders, bookings, complaints] = await Promise.all([
+      db
+        .collection("orders")
+        .find(
+          {
+            $or: [
+              {
+                payment_status: "refunded",
+                payout_status: { $in: ["processing", "paid"] },
+              },
+              {
+                payment_status: { $in: ["unpaid", "refunded"] },
+                payout_id: { $exists: true, $ne: null },
+              },
+              {
+                payment_status: "released",
+                escrow_released_at: { $exists: false },
+              },
+            ],
+          },
+          {
+            projection: {
+              payment_status: 1,
+              payout_status: 1,
+              payout_id: 1,
+              escrow_released_at: 1,
+            },
+          },
+        )
+        .toArray(),
+      db
+        .collection("bookings")
+        .find(
+          {
+            $or: [
+              {
+                bookingFeeStatus: "applied",
+                $or: [
+                  { payout_id: { $exists: false } },
+                  { payout_id: null },
+                  { payout_id: "" },
+                ],
+              },
+              {
+                bookingFeeStatus: "refunded",
+                status: { $nin: ["cancelled", "rejected"] },
+              },
+            ],
+          },
+          {
+            projection: {
+              status: 1,
+              bookingFeeStatus: 1,
+              payout_id: 1,
+            },
+          },
+        )
+        .toArray(),
+      db
+        .collection("complaints")
+        .find(
+          {
+            $or: [
+              {
+                status: { $in: ["resolved", "rejected"] },
+                $or: [{ resolvedAt: { $exists: false } }, { resolvedAt: null }],
+              },
+              {
+                status: { $in: ["accepted", "in_review"] },
+              },
+            ],
+          },
+          {
+            projection: {
+              status: 1,
+              resolvedAt: 1,
+              response_deadline: 1,
+            },
+          },
+        )
+        .toArray(),
+    ]);
+
+    const anomalies = auditIntegrity({
+      orders,
+      bookings,
+      complaints,
+      now,
+    });
+
+    const alertCollection = db.collection<SystemAlertDocument>("system_alerts");
+    const activeKeys = new Set(anomalies.map(anomalyId));
+
+    let openedOrUpdated = 0;
+    if (anomalies.length > 0) {
+      const openOps = anomalies.map((anomaly) => ({
+        updateOne: {
+          filter: {
+            kind: "integrity" as const,
+            key: anomaly.key,
+            entityType: anomaly.entityType,
+            entityId: anomaly.entityId,
+            status: "open" as const,
+          },
+          update: {
+            $set: {
+              severity: anomaly.severity,
+              message: anomaly.message,
+              lastSeenAt: now,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              kind: "integrity" as const,
+              key: anomaly.key,
+              entityType: anomaly.entityType,
+              entityId: anomaly.entityId,
+              status: "open" as const,
+              firstSeenAt: now,
+              createdAt: now,
+            },
+          },
+          upsert: true,
+        },
+      }));
+
+      const openResult = await alertCollection.bulkWrite(openOps, {
+        ordered: false,
+      });
+      openedOrUpdated = (openResult.upsertedCount || 0) + (openResult.modifiedCount || 0);
+    }
+
+    const existingOpenAlerts = await alertCollection
+      .find(
+        {
+          kind: "integrity",
+          status: "open",
+        },
+        {
+          projection: {
+            key: 1,
+            entityType: 1,
+            entityId: 1,
+          },
+        },
+      )
+      .toArray();
+
+    const resolveOps = existingOpenAlerts
+      .filter((alert) => {
+        const id = `${alert.key}:${alert.entityType}:${alert.entityId}`;
+        return !activeKeys.has(id);
+      })
+      .map((alert) => ({
+        updateOne: {
+          filter: {
+            kind: "integrity" as const,
+            key: alert.key,
+            entityType: alert.entityType,
+            entityId: alert.entityId,
+            status: "open" as const,
+          },
+          update: {
+            $set: {
+              status: "resolved" as const,
+              resolvedAt: now,
+              updatedAt: now,
+            },
+          },
+        },
+      }));
+
+    let resolvedCount = 0;
+    if (resolveOps.length > 0) {
+      const resolveResult = await alertCollection.bulkWrite(resolveOps, {
+        ordered: false,
+      });
+      resolvedCount = resolveResult.modifiedCount || 0;
+    }
+
+    const severitySummary = anomalies.reduce(
+      (acc, anomaly) => {
+        acc[anomaly.severity] += 1;
+        return acc;
+      },
+      { critical: 0, high: 0, medium: 0 },
+    );
+
+    logger.info("CRON", "Integrity audit completed", {
+      anomalies: anomalies.length,
+      openedOrUpdated,
+      resolvedCount,
+      severitySummary,
+    });
+
+    return NextResponse.json({
+      success: true,
+      anomalies: anomalies.length,
+      openedOrUpdated,
+      resolvedCount,
+      severitySummary,
+      sample: anomalies.slice(0, 25),
+      at: now.toISOString(),
+    });
+  } catch (error) {
+    logger.error("CRON", "Integrity audit failed", error);
+    return NextResponse.json({ error: "Integrity audit failed" }, { status: 500 });
+  }
+}
