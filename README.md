@@ -171,6 +171,7 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 - `NEXTAUTH_URL` - Application base URL (defaults to `http://localhost:3000`)
 - `NEXT_PUBLIC_BASE_URL` - Public URL for email links
 - `NEXT_PUBLIC_APP_URL` - Alternative app URL
+- `CSP_ENFORCE` - Set to `true` to switch CSP header from Report-Only to enforcement mode
 - `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name
 - `CLOUDINARY_API_KEY` - Cloudinary API key
 - `CLOUDINARY_API_SECRET` - Cloudinary API secret
@@ -274,12 +275,20 @@ Stable:
 - Invoice viewing (pending with actions, history in read-only mode)
 - Secure signup with password confirmation and strength validation
 - Real-time client-side form validation (email, password matching)
+- CSP telemetry pipeline (`Content-Security-Policy-Report-Only` + `/api/security/csp-report`)
+
+Quality snapshot (2026-02-08):
+
+- `17` test files, `75` tests passing
+- `npm test`, `npm run lint`, `npm run build` all passing on `Mainv2`
 
 Remaining hardening opportunities:
 
 - Alerting/monitoring for index creation failures caused by pre-existing duplicate historical data
 - End-to-end financial tests for payout lock recovery, webhook replay, and refund/payout race conditions
 - Archival policy for old webhook payloads to control long-term storage growth
+- Password-recovery anti-abuse hardening (rate-limit/captcha strategy)
+- Promote CSP from report-only to enforce mode after violation cleanup
 - Partial refund flow (currently only full refund or full payout)
 - Complaint window extension requests
 - Provider field UX polish (mobile-first ergonomics)
@@ -373,6 +382,7 @@ laundry-ease/
 │   │   ├── providers/            # Provider search, discovery
 │   │   ├── reset-password/       # Password reset execution
 │   │   ├── reviews/              # Review submission
+│   │   ├── security/             # Security telemetry endpoints (CSP reports)
 │   │   ├── signup/               # Registration endpoints
 │   │   ├── upload/               # Image upload (Cloudinary)
 │   │   └── webhooks/             # Payment webhooks (Razorpay)
@@ -417,7 +427,9 @@ laundry-ease/
 │
 ├── docs/                         # Documentation
 │   ├── PRD.md                    # Product Requirements Document
-│   └── PRESENTATION_HELPER.md    # Demo/presentation guide
+│   ├── PRESENTATION_HELPER.md    # Demo/presentation guide
+│   ├── HONEST_ASSESSMENT.md      # Current technical assessment and A+ gates
+│   └── ML_AI_INTEGRATION.md      # Future AI/ML integration opportunities
 │
 ├── lib/                          # Shared utilities
 │   ├── api/                      # API helpers (auth, errors, response, schemas)
