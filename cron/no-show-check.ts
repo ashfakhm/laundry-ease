@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/mongodb";
 import { Booking } from "@/types/bookings";
 import { logger } from "@/lib/logger";
+import { refundRazorpayPayment } from "@/lib/razorpay";
 
 /**
  * SIMULATED CRON JOB
@@ -65,6 +66,46 @@ export async function checkNoShows() {
 
         // If update didn't match, booking was already processed (idempotent - skip)
         if (updateResult.matchedCount > 0) {
+          if (
+            booking.bookingFeeStatus === "paid" &&
+            booking.razorpay_payment_id &&
+            !booking.refundProcessedAt
+          ) {
+            try {
+              const refund = await refundRazorpayPayment(
+                booking.razorpay_payment_id,
+                undefined,
+                {
+                  reason: "provider_no_show_auto_reject",
+                  booking_id: booking._id.toString(),
+                },
+              );
+
+              await db.collection<Booking>("bookings").updateOne(
+                {
+                  _id: booking._id,
+                  bookingFeeStatus: "paid",
+                },
+                {
+                  $set: {
+                    bookingFeeStatus: "refunded",
+                    refundProcessedAt: new Date(),
+                    ...(refund.id ? { booking_fee_refund_id: refund.id } : {}),
+                  },
+                },
+              );
+            } catch (refundError) {
+              logger.error(
+                "NO-SHOW",
+                "Failed to refund booking fee for no-show booking",
+                refundError,
+                {
+                  bookingId: booking._id.toString(),
+                },
+              );
+            }
+          }
+
           results.push(`Marked Booking ${booking._id} as No-Show`);
           logger.info("NO-SHOW", `Booking marked as No-Show`, {
             bookingId: booking._id.toString(),

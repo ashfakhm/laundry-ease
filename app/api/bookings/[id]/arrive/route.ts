@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
 import { Role } from "@/types/enums";
+import { calculateDistance } from "@/lib/distance";
 
 // POST: Provider marks themselves as arrived at pickup location
 export async function POST(
@@ -22,6 +23,13 @@ export async function POST(
     }
 
     const { db } = await getDb();
+    const body = await req.json().catch(() => null);
+    const lat =
+      typeof body?.lat === "number" ? body.lat : Number.NaN;
+    const lng =
+      typeof body?.lng === "number" ? body.lng : Number.NaN;
+    const hasCoordinates = Number.isFinite(lat) && Number.isFinite(lng);
+
     let bookingQuery: any;
     try {
       bookingQuery = { _id: new ObjectId(id) };
@@ -68,6 +76,31 @@ export async function POST(
         { error: "Booking fee must be paid before marking arrival" },
         { status: 400 }
       );
+    }
+
+    if (booking.seeker_coordinates) {
+      if (!hasCoordinates) {
+        return NextResponse.json(
+          { error: "Current location coordinates are required." },
+          { status: 400 }
+        );
+      }
+
+      const distanceKm = calculateDistance(
+        { lat, lng },
+        booking.seeker_coordinates
+      );
+      const distanceMeters = distanceKm * 1000;
+      if (distanceMeters > 200) {
+        return NextResponse.json(
+          {
+            error: "Too far from location",
+            distanceMeters: Math.round(distanceMeters),
+            allowedMeters: 200,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const now = new Date();

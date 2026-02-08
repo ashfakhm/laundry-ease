@@ -20,7 +20,6 @@ import Link from "next/link";
 import {
   updateBookingStatus,
   proposePickupSlot,
-  markProviderArrived,
 } from "@/app/actions/booking-actions";
 
 interface BookingCardProps {
@@ -89,18 +88,70 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
 
   const handleArrive = () => {
     startTransition(async () => {
-      const result = await markProviderArrived(booking._id.toString());
-      if (result.success) {
+      try {
+        if (!navigator.geolocation) {
+          toast({
+            title: "Location unavailable",
+            description: "Geolocation is not supported in this browser.",
+            type: "error",
+          });
+          return;
+        }
+
+        const position = await new Promise<GeolocationPosition>(
+          (resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0,
+            });
+          },
+        );
+
+        const res = await fetch("/api/bookings/arrived", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingId: booking._id.toString(),
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast({
+            title: "Failed to mark arrival",
+            description:
+              data?.error || data?.message || "Please retry from location.",
+            type: "error",
+          });
+          return;
+        }
+
         toast({
           title: "Arrival Confirmed",
-          description: result.message,
+          description: data?.message || "Marked as arrived successfully",
           type: "success",
         });
         onRefresh();
-      } else {
+      } catch (error) {
+        const isGeolocationError =
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          "message" in error;
+
+        const description =
+          isGeolocationError
+            ? "Unable to access location. Please enable location permission."
+            : error instanceof Error
+              ? error.message
+              : "Please retry.";
+
         toast({
           title: "Failed to mark arrival",
-          description: result.error,
+          description,
           type: "error",
         });
       }

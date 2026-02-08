@@ -15,6 +15,7 @@ import { acceptBookingWithCapacityCheck } from "@/lib/db";
 import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { calculateDistance } from "@/lib/distance";
 
 export type ActionResponse = {
   success: boolean;
@@ -469,6 +470,7 @@ export async function proposePickupSlot(
  */
 export async function markProviderArrived(
   bookingId: string,
+  coordinates?: { lat: number; lng: number },
 ): Promise<ActionResponse> {
   try {
     const session = await getServerSession(authOptions);
@@ -521,6 +523,31 @@ export async function markProviderArrived(
         success: false,
         error: "Booking fee must be paid before marking arrival",
       };
+    }
+
+    if (booking.seeker_coordinates) {
+      if (
+        !coordinates ||
+        !Number.isFinite(coordinates.lat) ||
+        !Number.isFinite(coordinates.lng)
+      ) {
+        return {
+          success: false,
+          error: "Current location coordinates are required.",
+        };
+      }
+
+      const distanceKm = calculateDistance(
+        { lat: coordinates.lat, lng: coordinates.lng },
+        booking.seeker_coordinates,
+      );
+      const distanceMeters = distanceKm * 1000;
+      if (distanceMeters > 200) {
+        return {
+          success: false,
+          error: `Too far from location (${Math.round(distanceMeters)}m > 200m)`,
+        };
+      }
     }
 
     const now = new Date();

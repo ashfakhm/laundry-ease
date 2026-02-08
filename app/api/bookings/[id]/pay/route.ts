@@ -43,6 +43,16 @@ export async function POST(
       );
     }
 
+    if (booking.status !== "requested") {
+      return NextResponse.json(
+        {
+          message:
+            "Booking fee can only be paid while booking is waiting for provider response.",
+        },
+        { status: 409 }
+      );
+    }
+
     if (
       booking.bookingFeeStatus === "paid" ||
       booking.bookingFeeStatus === "applied"
@@ -50,6 +60,19 @@ export async function POST(
       return NextResponse.json(
         { message: "Booking fee already paid" },
         { status: 400 }
+      );
+    }
+
+    if (
+      booking.bookingFeeStatus === "refunded" ||
+      booking.bookingFeeStatus === "forfeited"
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Booking fee payment is not allowed for refunded or forfeited bookings.",
+        },
+        { status: 409 }
       );
     }
 
@@ -152,6 +175,16 @@ export async function PUT(
       return NextResponse.json({ message: "Payment successful", idempotent: true });
     }
 
+    if (booking.status !== "requested") {
+      return NextResponse.json(
+        {
+          message:
+            "Booking fee cannot be captured because booking is no longer pending provider response.",
+        },
+        { status: 409 }
+      );
+    }
+
     if (!booking.razorpay_order_id || booking.razorpay_order_id !== razorpay_order_id) {
       return NextResponse.json({ message: "Razorpay order mismatch" }, { status: 400 });
     }
@@ -159,9 +192,11 @@ export async function PUT(
     const res = await db.collection<Booking>("bookings").updateOne(
       {
         _id: booking_id,
-        bookingFeeStatus: {
-          $nin: ["paid", "applied", "refunded", "forfeited"],
-        },
+        status: "requested",
+        $or: [
+          { bookingFeeStatus: "pending" },
+          { bookingFeeStatus: { $exists: false } },
+        ],
       },
       {
         $set: {

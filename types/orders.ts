@@ -47,6 +47,9 @@ export type Order = {
   razorpay_payment_id?: string;
   payout_status?: "pending" | "processing" | "paid" | "failed";
   payout_id?: string;
+  payout_lock_at?: Date;
+  payout_failure_reason?: string;
+  payout_failure_at?: Date;
   deliverySlot?: {
     proposedAt: Date;
     proposedBy: "provider"; // Only provider usually proposes delivery in this flow
