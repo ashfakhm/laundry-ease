@@ -41,9 +41,10 @@ export async function POST(req: NextRequest) {
     bannerImage,
     coordinates,
   } = parsed.data;
+  const normalizedEmail = email.trim().toLowerCase();
 
   // Require verified OTPs for email and phone
-  const emailOk = await isOtpVerifiedRecently(email, "email");
+  const emailOk = await isOtpVerifiedRecently(normalizedEmail, "email");
   const phoneOk = await isOtpVerifiedRecently(phone, "phone");
   if (!emailOk || !phoneOk) {
     return NextResponse.json(
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Check if email already exists in any collection
-  const exists = await emailExists(email);
+  const exists = await emailExists(normalizedEmail);
   if (exists) {
     return NextResponse.json(
       { error: "Email already in use" },
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
 
   // Create provider in providers collection
   await createProvider({
-    email,
+    email: normalizedEmail,
     name,
     password,
     phone,
@@ -92,13 +93,13 @@ export async function POST(req: NextRequest) {
     const { db } = await getDb();
     const newProvider = await db
       .collection<Provider>("providers")
-      .findOne({ email });
+      .findOne({ email: normalizedEmail });
 
     if (newProvider) {
       // 1. Create Contact
       const contact = await createRazorpayContact({
         name: name || businessName || "Provider",
-        email: email,
+        email: normalizedEmail,
         contact: phone || "",
         type: "vendor",
         reference_id: newProvider._id?.toString(),
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
         // 3. Update Provider with Razorpay IDs
         if (fundAccountId) {
           await db.collection("providers").updateOne(
-            { email },
+            { email: normalizedEmail },
             {
               $set: {
                 razorpay_contact_id: contact.id,
@@ -136,7 +137,12 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (error) {
-    logger.error("SIGNUP", "Error syncing with Razorpay during signup", error, { email });
+    logger.error(
+      "SIGNUP",
+      "Error syncing with Razorpay during signup",
+      error,
+      { email: normalizedEmail }
+    );
     // We do NOT fail the signup here, just log it.
     // They can retry syncing by updating their profile later.
   }

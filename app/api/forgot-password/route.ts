@@ -5,6 +5,7 @@ import nodemailer from "nodemailer";
 import { createHash, randomBytes } from "crypto";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { forgotPasswordSchema } from "@/lib/api/schemas";
 
 const GENERIC_RESPONSE = {
   message: "If an account exists, a reset link has been sent.",
@@ -12,13 +13,16 @@ const GENERIC_RESPONSE = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
-
-    if (!email || typeof email !== "string") {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    const payload = await req.json();
+    const parsed = forgotPasswordSchema.safeParse(payload);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Valid email is required" },
+        { status: 400 }
+      );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = parsed.data.email.trim().toLowerCase();
     const user = await getUserByEmail(normalizedEmail);
 
     // Keep response generic to avoid account enumeration.

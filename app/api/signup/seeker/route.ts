@@ -13,9 +13,10 @@ export async function POST(req: NextRequest) {
     );
   }
   const { name, email, password, phone, address, coordinates } = parsed.data;
+  const normalizedEmail = email.trim().toLowerCase();
 
   // Require verified OTPs for email and phone
-  const emailOk = await isOtpVerifiedRecently(email, "email");
+  const emailOk = await isOtpVerifiedRecently(normalizedEmail, "email");
   const phoneOk = await isOtpVerifiedRecently(phone, "phone");
   if (!emailOk || !phoneOk) {
     return NextResponse.json(
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Check if email already exists in any collection
-  const exists = await emailExists(email);
+  const exists = await emailExists(normalizedEmail);
   if (exists) {
     return NextResponse.json(
       { error: "Email already in use" },
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   // Create seeker in seekers collection
   await createSeeker({
-    email,
+    email: normalizedEmail,
     name,
     phone,
     password,

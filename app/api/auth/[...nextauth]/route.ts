@@ -23,7 +23,8 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials.password) {
           throw new Error("Invalid credentials");
         }
-        const { email, password } = credentials;
+        const email = credentials.email.trim().toLowerCase();
+        const { password } = credentials;
 
         // Check seekers → providers → admins collections in order
         const user = await getUserByEmail(email);

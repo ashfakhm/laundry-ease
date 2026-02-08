@@ -10,6 +10,12 @@ import {
 import { Provider } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { updateProviderProfileSchema } from "@/lib/api/schemas";
+import {
+  isStrongPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/auth/password-policy";
+import { Role } from "@/types/enums";
+import bcrypt from "bcrypt";
 
 /**
  * GET /api/profile/provider
@@ -21,6 +27,9 @@ export async function GET() {
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== Role.PROVIDER) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { db } = await getDb();
@@ -71,21 +80,15 @@ export async function GET() {
  * PATCH /api/profile/provider
  * Update the logged-in provider's profile
  */
-// ... imports
-import bcrypt from "bcrypt";
-
-// ... GET function
-
-/**
- * PATCH /api/profile/provider
- * Update the logged-in provider's profile
- */
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== Role.PROVIDER) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -250,6 +253,13 @@ export async function PATCH(req: Request) {
 
     // Secure Password Change Logic
     if (newPassword) {
+      if (!isStrongPassword(newPassword)) {
+        return NextResponse.json(
+          { error: PASSWORD_POLICY_MESSAGE },
+          { status: 400 }
+        );
+      }
+
       if (!currentPassword) {
         return NextResponse.json(
           { error: "Current password is required to set a new password" },

@@ -5,6 +5,10 @@ import { createHash } from "crypto";
 import { logger } from "@/lib/logger";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
+import {
+  isStrongPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/auth/password-policy";
 
 type PasswordResetTokenDoc = {
   _id: ObjectId;
@@ -32,23 +36,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (typeof password !== "string" || password.length < 8) {
+    if (!isStrongPassword(password)) {
       return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
-        { status: 400 }
-      );
-    }
-
-    if (
-      !/[A-Z]/.test(password) ||
-      !/[0-9]/.test(password) ||
-      !/[^A-Za-z0-9]/.test(password)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Password must contain at least one uppercase letter, one number, and one special character",
-        },
+        { error: PASSWORD_POLICY_MESSAGE },
         { status: 400 }
       );
     }

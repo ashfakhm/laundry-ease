@@ -7,6 +7,10 @@ import bcrypt from "bcrypt";
 import { logger } from "@/lib/logger";
 import { updateSeekerProfileSchema } from "@/lib/api/schemas";
 import { ObjectId, type Filter } from "mongodb";
+import {
+  isStrongPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/auth/password-policy";
 
 /**
  * GET /api/profile/seeker
@@ -108,6 +112,13 @@ export async function PUT(req: Request) {
 
     // Secure Password Change Logic
     if (newPassword) {
+      if (!isStrongPassword(newPassword)) {
+        return NextResponse.json(
+          { error: PASSWORD_POLICY_MESSAGE },
+          { status: 400 }
+        );
+      }
+
       if (!currentPassword) {
         return NextResponse.json(
           { error: "Current password is required to set a new password" },

@@ -10,6 +10,10 @@ import { Loader2, User, MapPin, Lock, Save, Sparkles } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { cn } from "@/lib/utils";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
+import {
+  isStrongPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/auth/password-policy";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -26,12 +30,12 @@ const profileSchema = z.object({
   newPassword: z.string().optional(),
   confirmPassword: z.string().optional(),
 }).refine((data) => {
-    if (data.newPassword && data.newPassword.length < 8) {
+    if (data.newPassword && !isStrongPassword(data.newPassword)) {
         return false;
     }
     return true;
 }, {
-    message: "New password must be at least 8 characters",
+    message: PASSWORD_POLICY_MESSAGE,
     path: ["newPassword"],
 }).refine((data) => {
     if (data.newPassword && !data.currentPassword) {

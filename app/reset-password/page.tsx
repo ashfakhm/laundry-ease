@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { AppHeader } from "@/components/ui/app-header";
+import {
+  isStrongPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/auth/password-policy";
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
@@ -32,8 +36,8 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (!isStrongPassword(password)) {
+      setError(PASSWORD_POLICY_MESSAGE);
       return;
     }
 
@@ -54,7 +58,10 @@ export default function ResetPasswordPage() {
           router.push("/auth");
         }, 2000);
       } else {
-        setError(data.error?.message || "Failed to reset password");
+        setError(
+          (typeof data?.error === "string" && data.error) ||
+            "Failed to reset password",
+        );
       }
     } catch {
       setError("An error occurred. Please try again.");
@@ -111,13 +118,9 @@ export default function ResetPasswordPage() {
               </p>
             </div>
             <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-              <li>• Use at least 6 characters.</li>
-              <li>
-                • Mix uppercase and lowercase letters for better security.
-              </li>
-              <li>
-                • Include numbers or special characters for extra protection.
-              </li>
+              <li>• Use at least 8 characters.</li>
+              <li>• Include at least one uppercase letter.</li>
+              <li>• Include at least one number and one special character.</li>
             </ul>
           </section>
 

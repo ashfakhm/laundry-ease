@@ -71,6 +71,10 @@ export type UserWithRole = (Seeker | Provider | Admin) & {
   role: Role;
 };
 
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Find user by email across all collections (seekers → providers → admins)
  * Returns user with their role
@@ -80,9 +84,18 @@ export async function getUserByEmail(
 ): Promise<UserWithRole | null> {
   if (!email) return null;
   const { db } = await getDb();
+  const normalizedEmail = email.trim().toLowerCase();
+  const caseInsensitiveQuery = {
+    $regex: `^${escapeRegex(normalizedEmail)}$`,
+    $options: "i",
+  };
 
   // Check seekers collection first
-  const seeker = await db.collection<Seeker>("seekers").findOne({ email });
+  const seeker =
+    (await db.collection<Seeker>("seekers").findOne({ email: normalizedEmail })) ||
+    (await db.collection<Seeker>("seekers").findOne({
+      email: caseInsensitiveQuery,
+    }));
   if (seeker) {
     return { ...seeker, role: Role.SEEKER };
   }
@@ -90,13 +103,20 @@ export async function getUserByEmail(
   // Check providers collection
   const provider = await db
     .collection<Provider>("providers")
-    .findOne({ email });
+    .findOne({ email: normalizedEmail }) ||
+    (await db.collection<Provider>("providers").findOne({
+      email: caseInsensitiveQuery,
+    }));
   if (provider) {
     return { ...provider, role: Role.PROVIDER };
   }
 
   // Check admins collection
-  const admin = await db.collection<Admin>("admins").findOne({ email });
+  const admin =
+    (await db.collection<Admin>("admins").findOne({ email: normalizedEmail })) ||
+    (await db.collection<Admin>("admins").findOne({
+      email: caseInsensitiveQuery,
+    }));
   if (admin) {
     return { ...admin, role: Role.ADMIN };
   }
@@ -137,7 +157,7 @@ export async function createSeeker(data: {
     : null;
 
   const seeker: Seeker = {
-    email: data.email,
+    email: data.email.trim().toLowerCase(),
     name: data.name ?? null,
     phone: data.phone ?? null,
     passwordHash,
@@ -189,7 +209,7 @@ export async function createProvider(data: {
     : null;
 
   const provider: Provider = {
-    email: data.email,
+    email: data.email.trim().toLowerCase(),
     name: data.name ?? null,
     phone: data.phone ?? null,
     passwordHash,

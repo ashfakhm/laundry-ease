@@ -186,7 +186,16 @@ export const updateSeekerProfileSchema = z.object({
     })
     .optional(),
   currentPassword: z.string().optional(),
-  newPassword: z.string().min(8).optional(),
+  newPassword: z
+    .string()
+    .min(8)
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(
+      /[^A-Za-z0-9]/,
+      "Password must contain at least one special character",
+    )
+    .optional(),
 });
 
 export const updateProviderProfileSchema = z.object({
@@ -208,7 +217,16 @@ export const updateProviderProfileSchema = z.object({
     .optional(),
   pricing: z.number().nonnegative().optional(),
   currentPassword: z.string().optional(),
-  newPassword: z.string().min(8).optional(),
+  newPassword: z
+    .string()
+    .min(8)
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(
+      /[^A-Za-z0-9]/,
+      "Password must contain at least one special character",
+    )
+    .optional(),
   capacity: z.number().int().positive().max(100).optional(),
   phone: phoneSchema.optional(),
   profilePicture: z.string().url().optional(),
@@ -324,7 +342,15 @@ export const adminRefundSchema = z.object({
 // Auth schemas
 export const resetPasswordSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(8),
+  password: z
+    .string()
+    .min(8)
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(
+      /[^A-Za-z0-9]/,
+      "Password must contain at least one special character",
+    ),
 });
 
 export const forgotPasswordSchema = z.object({

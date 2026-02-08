@@ -25,6 +25,10 @@ import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/image-upload";
+import {
+  isStrongPassword,
+  PASSWORD_POLICY_MESSAGE,
+} from "@/lib/auth/password-policy";
 
 const LAUNDRY_SERVICES = [
   "Wash",
@@ -94,13 +98,13 @@ const providerProfileSchema = z
   })
   .refine(
     (data) => {
-      if (data.newPassword && data.newPassword.length < 8) {
+      if (data.newPassword && !isStrongPassword(data.newPassword)) {
         return false;
       }
       return true;
     },
     {
-      message: "New password must be at least 8 characters",
+      message: PASSWORD_POLICY_MESSAGE,
       path: ["newPassword"],
     },
   )
