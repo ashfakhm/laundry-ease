@@ -65,7 +65,7 @@ export default function AdminComplaintDetailPage({
         fetchComplaint(); // Refresh
       } else {
         const data = await res.json();
-        toast.error(data.error?.message || "Failed to add provider");
+        toast.error(getApiErrorMessage(data, "Failed to add provider"));
       }
     } catch (error) {
       console.error("Error adding provider:", error);
@@ -94,7 +94,7 @@ export default function AdminComplaintDetailPage({
         router.push("/admin/complaints");
       } else {
         const data = await res.json();
-        toast.error(data.error?.message || "Failed to resolve complaint");
+        toast.error(getApiErrorMessage(data, "Failed to resolve complaint"));
       }
     } catch (error) {
       console.error("Error resolving complaint:", error);
@@ -340,6 +340,24 @@ export default function AdminComplaintDetailPage({
       </div>
     </div>
   );
+}
+
+function getApiErrorMessage(payload: unknown, fallback: string): string {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    typeof (payload as { error?: unknown }).error === "string"
+  ) {
+    return (payload as { error: string }).error;
+  }
+  if (
+    payload &&
+    typeof payload === "object" &&
+    (payload as { error?: { message?: string } }).error?.message
+  ) {
+    return (payload as { error: { message: string } }).error.message;
+  }
+  return fallback;
 }
 
 function StatusBadge({ status }: { status: string }) {

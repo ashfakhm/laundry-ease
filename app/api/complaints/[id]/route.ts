@@ -14,7 +14,16 @@ export async function GET(
   const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
+    }
+
+    const dbUser = await getUserByEmail(session.user.email);
+    if (!dbUser?._id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -31,12 +40,11 @@ export async function GET(
       );
     }
 
-    const userId = session.user.id;
-    const dbUser = await getUserByEmail(session.user.email);
-    const userRole = dbUser?.role || Role.SEEKER;
+    const actorId = dbUser._id.toString();
+    const userRole = dbUser.role || Role.SEEKER;
 
-    const isSeeker = complaint.seeker_id.toString() === userId;
-    const isProvider = complaint.provider_id.toString() === userId;
+    const isSeeker = complaint.seeker_id.toString() === actorId;
+    const isProvider = complaint.provider_id.toString() === actorId;
     const isAdmin = userRole === Role.ADMIN;
 
     let allowed = false;

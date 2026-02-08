@@ -15,8 +15,12 @@ export async function POST(
   const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id)
+    if (!session?.user?.email)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
+    }
 
     // Verify Admin
     const dbUser = await getUserByEmail(session.user.email);
@@ -33,11 +37,25 @@ export async function POST(
     if (!complaint)
       return NextResponse.json({ error: "Not Found" }, { status: 404 });
 
+    if (complaint.status === "resolved" || complaint.status === "rejected") {
+      return NextResponse.json(
+        { error: "Cannot add provider after complaint is finalized" },
+        { status: 409 },
+      );
+    }
+
+    if (complaint.status !== "accepted" && complaint.status !== "in_review") {
+      return NextResponse.json(
+        { error: "Complaint must be accepted before adding provider" },
+        { status: 409 },
+      );
+    }
+
     // Check if provider already has access
     if (complaint.provider_access_granted) {
       return NextResponse.json(
-        { error: "Provider already has access" },
-        { status: 400 },
+        { success: true, idempotent: true, message: "Provider already added" },
+        { status: 200 },
       );
     }
 

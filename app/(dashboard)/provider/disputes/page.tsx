@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ChevronRight, CheckCircle, Smartphone } from "lucide-react";
+import { AlertCircle, ChevronRight, CheckCircle } from "lucide-react";
 import { Complaint } from "@/types/complaints";
 import { cn } from "@/lib/utils";
 
@@ -13,12 +13,10 @@ export default function ProviderDisputesPage() {
   useEffect(() => {
     async function fetchDisputes() {
       try {
-        const res = await fetch("/api/complaints");
+        const res = await fetch("/api/complaints", { cache: "no-store" });
         if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            setDisputes(data);
-          }
+          const payload = await res.json();
+          setDisputes(extractComplaints(payload));
         }
       } catch (error) {
         console.error("Error fetching disputes:", error);
@@ -92,7 +90,7 @@ export default function ProviderDisputesPage() {
 function StatusBadge({ status }: { status: string }) {
   const styles = {
     open: "bg-blue-500/10 text-blue-500",
-    verified: "bg-purple-500/10 text-purple-500",
+    accepted: "bg-purple-500/10 text-purple-500",
     in_review: "bg-amber-500/10 text-amber-500",
     resolved: "bg-emerald-500/10 text-emerald-500",
     rejected: "bg-gray-500/10 text-gray-500",
@@ -100,7 +98,7 @@ function StatusBadge({ status }: { status: string }) {
   
   const labels = {
     open: "Opened",
-    verified: "Verified",
+    accepted: "Accepted",
     in_review: "In Review",
     resolved: "Resolved",
     rejected: "Rejected"
@@ -113,4 +111,20 @@ function StatusBadge({ status }: { status: string }) {
       {labels[key] || status}
     </span>
   );
+}
+
+function extractComplaints(payload: unknown): Complaint[] {
+  if (Array.isArray(payload)) {
+    return payload as Complaint[];
+  }
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: Complaint[] }).data;
+  }
+
+  return [];
 }

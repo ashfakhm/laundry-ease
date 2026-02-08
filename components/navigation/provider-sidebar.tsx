@@ -67,6 +67,45 @@ interface ProviderSidebarProps {
   className?: string;
 }
 
+function getComplaintCount(payload: unknown): number {
+  if (Array.isArray(payload)) return payload.length;
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: unknown[] }).data.length;
+  }
+  return 0;
+}
+
+function buildProviderNavigation(activeDisputes: number): NavGroup[] {
+  const cloned = navigation.map((group) => ({
+    ...group,
+    items: group.items.map((item) => ({ ...item })),
+  }));
+
+  if (activeDisputes <= 0) {
+    return cloned;
+  }
+
+  if (!cloned[0].items.some((item) => item.href === "/provider/disputes")) {
+    const messageIndex = cloned[0].items.findIndex(
+      (item) => item.href === "/provider/messages",
+    );
+    const insertAt = messageIndex >= 0 ? messageIndex : cloned[0].items.length;
+
+    cloned[0].items.splice(insertAt, 0, {
+      label: "Disputes",
+      href: "/provider/disputes",
+      icon: AlertCircle,
+      badge: activeDisputes,
+    });
+  }
+
+  return cloned;
+}
+
 export function ProviderSidebar({ className }: ProviderSidebarProps) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -75,42 +114,22 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
   useEffect(() => {
     const fetchDisputes = async () => {
       try {
-        const res = await fetch("/api/complaints");
+        const res = await fetch("/api/complaints", { cache: "no-store" });
         if (res.ok) {
-          const data = await res.json();
-          // We only care about active ones, which GET /api/complaints returns by default based on my implementation
-          if (Array.isArray(data)) {
-            setActiveDisputes(data.length);
-          }
+          const payload = await res.json();
+          setActiveDisputes(getComplaintCount(payload));
         }
       } catch (error) {
         console.error("Failed to fetch disputes:", error);
       }
     };
+
     fetchDisputes();
+    const interval = setInterval(fetchDisputes, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Clone navigation to avoid mutating static global
-  const dynamicNavigation = navigation.map((group) => ({
-    ...group,
-    items: group.items.map((item) => ({ ...item })), // Deep clone items too
-  }));
-
-  // Logic: "only admin clicks something add provider ... then provider will also have a menu ... after fixing ... removed"
-  if (activeDisputes > 0) {
-    // Inject into the first group (Main)
-    // Check if already exists to prevent dupe if re-render (though cloning prevents it)
-    if (
-      !dynamicNavigation[0].items.find((i) => i.href === "/provider/disputes")
-    ) {
-      dynamicNavigation[0].items.push({
-        label: "Disputes",
-        href: "/provider/disputes",
-        icon: AlertCircle,
-        badge: activeDisputes,
-      });
-    }
-  }
+  const dynamicNavigation = buildProviderNavigation(activeDisputes);
 
   return (
     <aside
@@ -247,8 +266,31 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
 export function ProviderMobileNav() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [activeDisputes, setActiveDisputes] = useState(0);
 
-  const mobileNavItems = navigation[0].items.slice(0, 4);
+  useEffect(() => {
+    const fetchDisputes = async () => {
+      try {
+        const res = await fetch("/api/complaints", { cache: "no-store" });
+        if (res.ok) {
+          const payload = await res.json();
+          setActiveDisputes(getComplaintCount(payload));
+        }
+      } catch (error) {
+        console.error("Failed to fetch disputes:", error);
+      }
+    };
+
+    fetchDisputes();
+    const interval = setInterval(fetchDisputes, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const dynamicNavigation = buildProviderNavigation(activeDisputes);
+  const mobileNavItems = dynamicNavigation[0].items.slice(
+    0,
+    activeDisputes > 0 ? 5 : 4,
+  );
 
   return (
     <>
@@ -297,7 +339,7 @@ export function ProviderMobileNav() {
             </div>
 
             <nav className="flex-1 overflow-y-auto p-6 space-y-8">
-              {navigation.map((group, groupIndex) => (
+              {dynamicNavigation.map((group, groupIndex) => (
                 <div key={groupIndex}>
                   {group.title && (
                     <h3 className="px-2 mb-4 text-xs font-bold text-muted-foreground uppercase tracking-widest">

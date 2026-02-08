@@ -1,4 +1,9 @@
-import { createComplaint, getOrderById, freezeEscrow } from "@/lib/db";
+import {
+  createComplaint,
+  getOrderById,
+  freezeEscrow,
+  getUserByEmail,
+} from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";
@@ -8,9 +13,15 @@ import { Errors } from "@/lib/api/errors";
 import { ComplaintMessage } from "@/types/complaints";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Role } from "@/types/enums";
 
 export const POST = withErrorHandling(async (req: Request) => {
   const session = await requireSeeker();
+  const dbUser = await getUserByEmail(session.user.email);
+  if (!dbUser?._id || dbUser.role !== Role.SEEKER) {
+    throw Errors.unauthorized();
+  }
+  const seekerId = new ObjectId(dbUser._id);
 
   const body = await req.json();
   const result = createComplaintSchema.safeParse(body);
@@ -62,7 +73,7 @@ export const POST = withErrorHandling(async (req: Request) => {
     throw Errors.notFound("Order not found");
   }
 
-  if (order.seeker_id.toString() !== session.user.id) {
+  if (order.seeker_id.toString() !== seekerId.toString()) {
     throw Errors.forbidden(
       "You are not authorized to raise a complaint for this order",
     );
@@ -97,7 +108,7 @@ export const POST = withErrorHandling(async (req: Request) => {
   const complaint = await createComplaint({
     order_id: orderIdObj,
     booking_id: order.booking_id, // Order has booking_id
-    seeker_id: new ObjectId(session.user.id),
+    seeker_id: seekerId,
     provider_id: order.provider_id,
     complaint_type,
     title,
@@ -113,7 +124,7 @@ export const POST = withErrorHandling(async (req: Request) => {
 
   const initialMessage: Omit<ComplaintMessage, "_id"> = {
     complaint_id: complaint._id as ObjectId,
-    sender_id: new ObjectId(session.user.id),
+    sender_id: seekerId,
     sender_role: "seeker",
     message_type: "TEXT",
     content: initialContent,
@@ -131,50 +142,42 @@ export const POST = withErrorHandling(async (req: Request) => {
 
 export const GET = withErrorHandling(async (_req: Request) => {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  if (!session?.user?.email) {
+    throw Errors.unauthorized();
+  }
+
+  const dbUser = await getUserByEmail(session.user.email);
+  if (!dbUser?._id) {
     throw Errors.unauthorized();
   }
 
   const { db } = await getDb();
-  const userId = new ObjectId(session.user.id);
+  const userId = new ObjectId(dbUser._id);
 
-  // Determine Role (Optimization: Session usually has role, but we check specific collections if needed)
-  // We'll query generic based on ID match.
+  const activeStatuses = ["open", "accepted", "in_review"] as const;
 
-  const activeStatuses = ["open", "accepted", "in_review"];
-
-  // 1. Seeker Logic
-  const seekerComplaints = await db
-    .collection("complaints")
-    .find({
-      seeker_id: userId,
-      status: { $in: activeStatuses },
-    })
-    .toArray();
-
-  if (seekerComplaints.length > 0) {
-    return successResponse(seekerComplaints); // Seeker found
+  if (dbUser.role === Role.SEEKER) {
+    const seekerComplaints = await db
+      .collection("complaints")
+      .find({
+        seeker_id: userId,
+        status: { $in: activeStatuses },
+      })
+      .toArray();
+    return successResponse(seekerComplaints);
   }
 
-  // 2. Provider Logic (Only check if no seeker complaints found, or just query both?)
-  // A user could potentially be both? Unlikely in this app context.
-  // Provider can ONLY see if access granted.
-  const providerComplaints = await db
-    .collection("complaints")
-    .find({
-      provider_id: userId,
-      status: { $in: activeStatuses },
-      provider_access_granted: true,
-    })
-    .toArray();
+  if (dbUser.role === Role.PROVIDER) {
+    const providerComplaints = await db
+      .collection("complaints")
+      .find({
+        provider_id: userId,
+        status: { $in: activeStatuses },
+        provider_access_granted: true,
+      })
+      .toArray();
+    return successResponse(providerComplaints);
+  }
 
-  // 3. Admin logic? Admin uses /api/admin/complaints.
-
-  const allFound = [...seekerComplaints, ...providerComplaints];
-  // Deduplicate by ID just in case
-  const unique = Array.from(
-    new Map(allFound.map((item) => [item._id.toString(), item])).values(),
-  );
-
-  return successResponse(unique);
+  return successResponse([]);
 });

@@ -9,9 +9,21 @@ import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { complaintMessageSchema } from "@/lib/api/schemas";
 
-async function checkAccess(userId: string, userRole: string, complaint: any) {
-  const isSeeker = complaint.seeker_id.toString() === userId;
-  const isProvider = complaint.provider_id.toString() === userId;
+type ComplaintAccessDoc = {
+  seeker_id: ObjectId;
+  provider_id: ObjectId;
+  provider_access_granted?: boolean;
+  status: string;
+};
+
+function checkAccess(
+  actorId: ObjectId,
+  userRole: Role,
+  complaint: ComplaintAccessDoc,
+) {
+  const actorIdStr = actorId.toString();
+  const isSeeker = complaint.seeker_id.toString() === actorIdStr;
+  const isProvider = complaint.provider_id.toString() === actorIdStr;
   const isAdmin = userRole === Role.ADMIN;
 
   // 1. Audit Visibility Guard
@@ -50,15 +62,26 @@ export async function GET(
   const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
+    }
+
+    const dbUser = await getUserByEmail(session.user.email);
+    if (!dbUser?._id || !dbUser.role) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const actorId = new ObjectId(dbUser._id);
 
     const { db } = await getDb();
     const complaintId = new ObjectId(id);
 
     const complaint = await db
-      .collection("complaints")
+      .collection<ComplaintAccessDoc>("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
       return NextResponse.json(
@@ -67,11 +90,7 @@ export async function GET(
       );
     }
 
-    // Robust Role Check
-    const dbUser = await getUserByEmail(session.user.email);
-    const userRole = dbUser?.role || Role.SEEKER; // Fallback, but getUserByEmail returns correct role
-
-    const access = await checkAccess(session.user.id, userRole, complaint);
+    const access = checkAccess(actorId, dbUser.role, complaint);
     if (!access.allowed) {
       return NextResponse.json({ error: access.error }, { status: 403 });
     }
@@ -103,7 +122,16 @@ export async function POST(
   const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
+    }
+
+    const dbUser = await getUserByEmail(session.user.email);
+    if (!dbUser?._id || !dbUser.role) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -121,12 +149,13 @@ export async function POST(
     }
 
     const { content, attachments } = parsed.data;
+    const actorId = new ObjectId(dbUser._id);
 
     const { db } = await getDb();
     const complaintId = new ObjectId(id);
 
     const complaint = await db
-      .collection("complaints")
+      .collection<ComplaintAccessDoc>("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
       return NextResponse.json(
@@ -135,10 +164,7 @@ export async function POST(
       );
     }
 
-    const dbUser = await getUserByEmail(session.user.email);
-    const userRole = dbUser?.role || Role.SEEKER;
-
-    const access = await checkAccess(session.user.id, userRole, complaint);
+    const access = checkAccess(actorId, dbUser.role, complaint);
     if (!access.allowed) {
       return NextResponse.json({ error: access.error }, { status: 403 });
     }
@@ -149,7 +175,7 @@ export async function POST(
 
     const message: Omit<ComplaintMessage, "_id"> = {
       complaint_id: complaintId,
-      sender_id: new ObjectId(session.user.id),
+      sender_id: actorId,
       sender_role: access.role as "seeker" | "provider" | "admin",
       message_type: "TEXT",
       content,

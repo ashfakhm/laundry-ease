@@ -26,27 +26,36 @@ export default function ComplaintChat({
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isResolved, setIsResolved] = useState(false);
+  const [isAccessBlocked, setIsAccessBlocked] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch(`/api/complaints/${complaintId}/messages`);
+      const res = await fetch(`/api/complaints/${complaintId}/messages`, {
+        cache: "no-store",
+      });
       if (res.status === 403) {
         const data = await res.json();
         if (data.error?.includes("resolved")) {
           setIsResolved(true);
+          setIsAccessBlocked(true);
           setError("Dispute is resolved. Chat is archived.");
         } else {
-          setError("Access Denied");
+          setIsAccessBlocked(true);
+          setError(data.error || "Access Denied");
         }
         return;
       }
       if (!res.ok) throw new Error("Failed to fetch messages");
       const data = await res.json();
       setMessages(data);
+      setError(null);
+      setIsResolved(false);
+      setIsAccessBlocked(false);
     } catch (err) {
       console.error(err);
-      // Don't overwrite specific error if set
+      setError("Failed to load messages. Retrying...");
+      setIsAccessBlocked(false);
     }
   }, [complaintId]);
 
@@ -58,7 +67,7 @@ export default function ComplaintChat({
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() && !isResolved) return;
+    if (isResolved || isAccessBlocked || !input.trim()) return;
     setLoading(true);
     setError(null);
     try {
@@ -77,7 +86,7 @@ export default function ComplaintChat({
 
       setInput("");
       setShouldAutoScroll(true); // Always scroll to bottom after sending
-      fetchMessages();
+      await fetchMessages();
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not send message";
@@ -169,7 +178,7 @@ export default function ComplaintChat({
       </div>
 
       {/* Input Area */}
-      {!isResolved && !error && (
+      {!isResolved && !isAccessBlocked && (
         <form
           onSubmit={sendMessage}
           className="flex gap-2 p-3 border-t bg-card/80 backdrop-blur-sm"

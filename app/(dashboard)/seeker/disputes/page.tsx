@@ -5,8 +5,6 @@ import Link from "next/link";
 import {
   AlertCircle,
   ChevronRight,
-  MessageSquare,
-  Clock,
   CheckCircle,
 } from "lucide-react";
 import { Complaint } from "@/types/complaints";
@@ -19,12 +17,10 @@ export default function SeekerDisputesPage() {
   useEffect(() => {
     async function fetchDisputes() {
       try {
-        const res = await fetch("/api/complaints");
+        const res = await fetch("/api/complaints", { cache: "no-store" });
         if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            setDisputes(data);
-          }
+          const payload = await res.json();
+          setDisputes(extractComplaints(payload));
         }
       } catch (error) {
         console.error("Error fetching disputes:", error);
@@ -111,6 +107,22 @@ export default function SeekerDisputesPage() {
       )}
     </div>
   );
+}
+
+function extractComplaints(payload: unknown): Complaint[] {
+  if (Array.isArray(payload)) {
+    return payload as Complaint[];
+  }
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: Complaint[] }).data;
+  }
+
+  return [];
 }
 
 function StatusBadge({ status }: { status: string }) {

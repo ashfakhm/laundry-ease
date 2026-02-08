@@ -12,7 +12,6 @@ import {
   Menu,
   X,
   LogOut,
-  Home,
   User,
   Receipt,
   AlertCircle,
@@ -43,18 +42,19 @@ export function SeekerTopNav() {
   useEffect(() => {
     const fetchDisputes = async () => {
       try {
-        const res = await fetch("/api/complaints");
+        const res = await fetch("/api/complaints", { cache: "no-store" });
         if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data)) {
-            setActiveDisputes(data.length);
-          }
+          const payload = await res.json();
+          setActiveDisputes(getComplaintCount(payload));
         }
       } catch (error) {
         console.error("Failed to fetch disputes:", error);
       }
     };
+
     fetchDisputes();
+    const interval = setInterval(fetchDisputes, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const dynamicNavigation = [...navigation];
@@ -186,4 +186,16 @@ export function SeekerTopNav() {
       <div className="h-16" />
     </>
   );
+}
+
+function getComplaintCount(payload: unknown): number {
+  if (Array.isArray(payload)) return payload.length;
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: unknown[] }).data.length;
+  }
+  return 0;
 }

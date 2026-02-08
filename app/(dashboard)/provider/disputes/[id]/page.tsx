@@ -62,7 +62,7 @@ export default function ProviderDisputeDetailPage({ params }: { params: Promise<
 function StatusBadge({ status }: { status: string }) {
   const styles = {
     open: "bg-blue-500/10 text-blue-500",
-    verified: "bg-purple-500/10 text-purple-500",
+    accepted: "bg-purple-500/10 text-purple-500",
     in_review: "bg-amber-500/10 text-amber-500",
     resolved: "bg-emerald-500/10 text-emerald-500",
     rejected: "bg-gray-500/10 text-gray-500",
@@ -70,7 +70,7 @@ function StatusBadge({ status }: { status: string }) {
   
   const labels = {
     open: "Opened",
-    verified: "Verified",
+    accepted: "Accepted",
     in_review: "In Review",
     resolved: "Resolved",
     rejected: "Rejected"
