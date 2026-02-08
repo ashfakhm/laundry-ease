@@ -47,6 +47,7 @@ const bypassApiOriginGuard = createRouteMatcher([
   /^\/api\/cron\//,
   /^\/api\/escrow\/release$/,
   /^\/api\/auth\//,
+  /^\/api\/security\/csp-report$/,
 ]);
 
 /* ================= PROXY (Next.js 16+) ================= */

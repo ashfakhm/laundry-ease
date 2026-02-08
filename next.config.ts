@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import { getCspHeader } from "./lib/security/csp";
+
+const cspHeader = getCspHeader();
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
@@ -36,6 +39,7 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains; preload",
           },
+          cspHeader,
         ],
       },
     ];
