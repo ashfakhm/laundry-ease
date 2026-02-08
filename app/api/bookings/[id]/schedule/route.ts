@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
-import { ObjectId, type Filter, type Document } from "mongodb";
+import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { bookingScheduleSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 export async function POST(
   req: Request,
@@ -12,6 +14,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:schedule",
+      max: 30,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id && !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -32,15 +41,15 @@ export async function POST(
 
     const { dateTime, action } = parsed.data;
 
-    const { db } = await getDb();
-    let bookingQuery: Filter<Document>;
-    // Try to use ObjectId if valid, else fallback to string
+    let bookingId: ObjectId;
     try {
-      bookingQuery = { _id: new ObjectId(id) };
+      bookingId = new ObjectId(id);
     } catch {
-      // Some environments may store _id as a string; keep this fallback.
-      bookingQuery = { _id: id } as unknown as Filter<Document>;
+      return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
     }
+
+    const { db } = await getDb();
+    const bookingQuery = { _id: bookingId };
 
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
@@ -50,7 +59,7 @@ export async function POST(
     // If seeker is confirming the slot
     if (action === "confirm") {
       // Check if user is the seeker
-      const seekerOr: Filter<unknown>[] = [];
+      const seekerOr: Array<{ _id?: ObjectId; email?: string }> = [];
       if (session.user.id && ObjectId.isValid(String(session.user.id))) {
         seekerOr.push({ _id: new ObjectId(String(session.user.id)) });
       }
@@ -152,6 +161,16 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Schedule pickup error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },

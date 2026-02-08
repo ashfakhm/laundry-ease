@@ -5,6 +5,8 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { invoiceCreateSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 // POST: Provider creates invoice for a confirmed booking
 export async function POST(
@@ -13,6 +15,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:invoice:create",
+      max: 20,
+      windowMs: 5 * 60 * 1000,
+    });
+
     // Always use ObjectId for MongoDB queries
     let bookingQuery: { _id: ObjectId };
     try {
@@ -85,7 +94,7 @@ export async function POST(
 
     // Invoice structure - validated by Zod schema
     const invoice = {
-      items: items.map((it: any) => ({
+      items: items.map((it) => ({
         itemType: it.itemType,
         quantity: it.quantity,
         unitPrice: it.unitPrice,
@@ -111,6 +120,16 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Create invoice error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },

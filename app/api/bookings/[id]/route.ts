@@ -5,6 +5,8 @@ import { getBookingById } from "@/lib/db";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 export async function DELETE(
   req: Request,
@@ -12,6 +14,17 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:delete",
+      max: 10,
+      windowMs: 5 * 60 * 1000,
+    });
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+    }
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -88,6 +101,16 @@ export async function DELETE(
       );
     }
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Error deleting booking", error, {
       bookingId: id,
     });

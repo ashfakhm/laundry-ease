@@ -8,6 +8,8 @@ import { ComplaintMessage } from "@/types/complaints";
 import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { adminComplaintAcceptSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 /**
  * POST /api/admin/complaints/:id/accept
@@ -27,6 +29,17 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "admin:complaints:accept",
+      max: 40,
+      windowMs: 5 * 60 * 1000,
+    });
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
+    }
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -124,6 +137,16 @@ export async function POST(
       response_deadline: responseDeadline,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ADMIN_COMPLAINTS", "Error accepting complaint", error, {
       complaintId: id,
     });

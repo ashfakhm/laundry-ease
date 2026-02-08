@@ -7,6 +7,8 @@ import { orderScheduleDeliverySchema } from "@/lib/api/schemas";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Role } from "@/types/enums";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 // POST /api/orders/[id]/schedule-delivery
 export async function POST(
@@ -16,6 +18,13 @@ export async function POST(
   const { id } = await params;
   let action: string | undefined;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "orders:schedule-delivery",
+      max: 30,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -116,6 +125,16 @@ export async function POST(
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     const message =
       error instanceof Error ? error.message : "Internal Server Error";
     logger.error("ORDERS", "Scheduling error", error, { orderId: id, action });

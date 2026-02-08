@@ -4,6 +4,9 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { invoiceReviewSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 export const runtime = "nodejs";
 
@@ -14,12 +17,35 @@ export async function POST(
   const { id } = await params;
 
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "invoices:review",
+      max: 15,
+      windowMs: 5 * 60 * 1000,
+    });
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
+    }
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { approved, reason } = await req.json();
+    const body = await req.json();
+    const parsed = invoiceReviewSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid invoice review data",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      );
+    }
+
+    const { approved, reason } = parsed.data;
 
     const { db } = await getDb();
     const bookingId = new ObjectId(id);
@@ -150,6 +176,16 @@ export async function POST(
       status: "approved",
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("INVOICES", "Invoice review error", error, { bookingId: id });
     return NextResponse.json(
       { error: "Internal server error" },

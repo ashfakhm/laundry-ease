@@ -371,6 +371,15 @@ export const complaintMessageSchema = z.object({
   attachments: z.array(z.string().url()).max(5).optional(),
 });
 
+export const bookingChatMessageSchema = z.object({
+  message: z.string().min(1).max(2000),
+});
+
+export const bookingDisputeSchema = z.object({
+  reason: z.string().min(3).max(120),
+  details: z.string().min(10).max(5000),
+});
+
 // Type exports for use in components
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

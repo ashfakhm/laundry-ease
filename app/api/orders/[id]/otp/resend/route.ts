@@ -7,6 +7,8 @@ import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { sendDeliveryOtpEmail } from "@/lib/delivery-otp-email";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const MIN_RESEND_INTERVAL_MS = 60_000; // 1 minute
 const MAX_RESENDS = 5;
@@ -31,12 +33,23 @@ type OrderWithDeliveryOtpMeta = Awaited<ReturnType<typeof getOrderById>> & {
 
 // POST: Resend delivery OTP without changing order status
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
 
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "orders:otp:resend",
+      max: 25,
+      windowMs: 5 * 60 * 1000,
+    });
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
+    }
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.PROVIDER) {
@@ -158,6 +171,16 @@ export async function POST(
       resendCount: resendCount + 1,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ORDERS", "Error resending delivery OTP", error, {
       orderId: id,
     });

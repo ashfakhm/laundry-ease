@@ -5,6 +5,8 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { adminComplaintStatusSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 /**
  * PATCH /api/admin/complaints/:id
@@ -16,6 +18,17 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "admin:complaints:update-status",
+      max: 40,
+      windowMs: 5 * 60 * 1000,
+    });
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
+    }
+
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -63,6 +76,16 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ADMIN_COMPLAINTS", "Error updating complaint", error, {
       complaintId: id,
     });
