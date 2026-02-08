@@ -728,7 +728,8 @@ await createRazorpayPayout({
 **Answer**:
 
 - **Complaint raised** → Escrow timer stops right away
-- **Admin reviews** → 3-way chat with Seeker and Provider
+- **Admin accepts** → Case enters `accepted` with a response deadline (Admin + Seeker chat)
+- **Admin adds provider** → Case moves to `in_review` and becomes 3-way chat
 - **Result**:
   - `release_payout`: Pay provider (complaint not valid)
   - `refund_full`: Full refund to seeker (provider did wrong)
@@ -1081,6 +1082,11 @@ Escrow action done (refund or release)
 ```
 
 Note: The 24-hour complaint window is enforced in `POST /api/complaints` using delivery timestamps (`otp_confirmed_at` / `escrow_started_at`).
+
+Operational detail from current code:
+- Seeker/provider complaint menus show only ongoing cases (`open`, `accepted`, `in_review`).
+- Provider sees complaint navigation only after admin grants provider access.
+- After `resolved`/`rejected`, seeker/provider chat input is locked and the thread is archived in UI.
 
 ---
 
