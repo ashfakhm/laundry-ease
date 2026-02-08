@@ -1,61 +1,99 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getDb } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
-import { Role } from "@/types/enums";
-import { logger } from "@/lib/logger";
 import { z } from "zod";
-import { razorpay } from "@/lib/razorpay";
-import { updateOrderPaymentStatus, getOrderById } from "@/lib/db";
+import { ObjectId } from "mongodb";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Role } from "@/types/enums";
+import { getDb } from "@/lib/mongodb";
+import { logger } from "@/lib/logger";
+import { refundRazorpayPayment } from "@/lib/razorpay";
+import { initiateOrderPayout } from "@/lib/payouts";
+import type { Order } from "@/types/orders";
 
-interface Order extends Record<string, unknown> {
-  _id: ObjectId;
-  seeker_id: string;
-  provider_id: string;
-  total_price: number;
-  delivery_charge: number;
+function toObjectId(value: unknown): ObjectId | null {
+  if (value instanceof ObjectId) return value;
+  if (typeof value === "string" && ObjectId.isValid(value)) {
+    return new ObjectId(value);
+  }
+  return null;
 }
+
+const actionSchema = z.object({
+  orderId: z.string().min(1, "Order ID required"),
+  action: z.enum(["refund", "penalty", "release_payout"]),
+  amount: z.number().positive().optional(),
+  reason: z.string().min(3).optional(),
+});
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== Role.ADMIN) {
+    if (!session?.user || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { db } = await getDb();
-
     const orders = await db
-      .collection("orders")
+      .collection<Order>("orders")
       .find({})
       .sort({ createdAt: -1 })
       .toArray();
 
-    // Enrich with seeker and provider data
-    const enrichedOrders = await Promise.all(
-      (orders as Order[]).map(async (order: Order) => {
-        const seeker = await db
-          .collection("seekers")
-          .findOne(
-            { _id: new ObjectId(order.seeker_id) },
-            { projection: { name: 1 } },
-          );
+    const seekerIds = Array.from(
+      new Set(
+        orders
+          .map((order) => toObjectId(order.seeker_id))
+          .filter((id): id is ObjectId => Boolean(id))
+          .map((id) => id.toString()),
+      ),
+    ).map((id) => new ObjectId(id));
 
-        const provider = await db
-          .collection("providers")
-          .findOne(
-            { _id: new ObjectId(order.provider_id) },
-            { projection: { name: 1, businessName: 1, profilePicture: 1 } },
-          );
+    const providerIds = Array.from(
+      new Set(
+        orders
+          .map((order) => toObjectId(order.provider_id))
+          .filter((id): id is ObjectId => Boolean(id))
+          .map((id) => id.toString()),
+      ),
+    ).map((id) => new ObjectId(id));
 
-        return {
-          ...order,
-          seeker,
-          provider,
-        };
-      }),
+    const [seekers, providers] = await Promise.all([
+      seekerIds.length > 0
+        ? db
+            .collection("seekers")
+            .find(
+              { _id: { $in: seekerIds } },
+              { projection: { name: 1 } },
+            )
+            .toArray()
+        : Promise.resolve([]),
+      providerIds.length > 0
+        ? db
+            .collection("providers")
+            .find(
+              { _id: { $in: providerIds } },
+              { projection: { name: 1, businessName: 1, profilePicture: 1 } },
+            )
+            .toArray()
+        : Promise.resolve([]),
+    ]);
+
+    const seekerMap = new Map(
+      seekers.map((seeker) => [seeker._id.toString(), seeker]),
     );
+    const providerMap = new Map(
+      providers.map((provider) => [provider._id.toString(), provider]),
+    );
+
+    const enrichedOrders = orders.map((order) => {
+      const seekerId = toObjectId(order.seeker_id);
+      const providerId = toObjectId(order.provider_id);
+      return {
+        ...order,
+        seeker: seekerId ? seekerMap.get(seekerId.toString()) : null,
+        provider: providerId ? providerMap.get(providerId.toString()) : null,
+      };
+    });
 
     return NextResponse.json(enrichedOrders);
   } catch (error) {
@@ -67,23 +105,10 @@ export async function GET() {
   }
 }
 
-// Zod schema for refund/penalty actions
-const actionSchema = z.object({
-  orderId: z.string().min(1, "Order ID required"),
-  action: z.enum(["refund", "penalty"]),
-  amount: z.number().positive("Amount must be positive"),
-  reason: z.string().min(3, "Reason required"),
-});
-
-/**
- * POST /api/admin/payments
- * Body: { orderId, action: "refund"|"penalty", amount, reason }
- * Only admin can trigger. Updates order/payment status and integrates with Razorpay if needed.
- */
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== Role.ADMIN) {
+    if (!session?.user || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -91,84 +116,161 @@ export async function POST(req: Request) {
     const parsed = actionSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.flatten() },
+        { error: parsed.error.flatten().fieldErrors },
         { status: 400 },
       );
     }
+
     const { orderId, action, amount, reason } = parsed.data;
+    if (!ObjectId.isValid(orderId)) {
+      return NextResponse.json({ error: "Invalid order ID" }, { status: 400 });
+    }
 
     const { db } = await getDb();
-    const order = await db
-      .collection("orders")
-      .findOne({ _id: new ObjectId(orderId) });
+    const orderObjectId = new ObjectId(orderId);
+    const order = await db.collection<Order>("orders").findOne({
+      _id: orderObjectId,
+    });
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Only allow refund/penalty if payment is held or released
-    if (!["held", "released", "paid"].includes(order.payment_status)) {
+    if (action === "release_payout") {
+      const payoutResult = await initiateOrderPayout(orderObjectId, {
+        ignoreEscrowDate: true,
+        source: "admin_payments_manual_release",
+      });
+
+      const successStatuses = new Set([
+        "payout_initiated",
+        "already_paid_out",
+        "already_processing",
+      ]);
+
+      if (!successStatuses.has(payoutResult.status)) {
+        return NextResponse.json(
+          {
+            error:
+              payoutResult.message ||
+              `Unable to initiate payout (${payoutResult.status})`,
+            result: payoutResult,
+          },
+          { status: 409 },
+        );
+      }
+
+      await db.collection("admin_logs").insertOne({
+        admin: session.user.email || null,
+        orderId,
+        action,
+        amount: 0,
+        reason: reason || "Manual payout release",
+        at: new Date(),
+      });
+
+      return NextResponse.json({ ok: true, result: payoutResult });
+    }
+
+    if (action === "refund") {
+      if (order.payment_status === "refunded") {
+        return NextResponse.json({
+          ok: true,
+          result: "already_refunded",
+          idempotent: true,
+        });
+      }
+
+      if (!["paid", "held", "released"].includes(order.payment_status)) {
+        return NextResponse.json(
+          { error: "Order payment is not in a refundable state" },
+          { status: 409 },
+        );
+      }
+
+      if (order.payout_id && order.payout_status !== "failed") {
+        return NextResponse.json(
+          {
+            error:
+              "Cannot auto-refund after payout has been initiated. Resolve manually with provider recovery.",
+          },
+          { status: 409 },
+        );
+      }
+
+      if (!order.razorpay_payment_id) {
+        return NextResponse.json(
+          { error: "Payment reference missing on order" },
+          { status: 409 },
+        );
+      }
+
+      const refundAmount = typeof amount === "number" ? amount : Number(order.total_price || 0);
+      if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+        return NextResponse.json(
+          { error: "Invalid refund amount" },
+          { status: 400 },
+        );
+      }
+
+      const refund = await refundRazorpayPayment(
+        order.razorpay_payment_id,
+        Math.round(refundAmount * 100),
+        {
+          reason: reason || "admin_refund",
+          order_id: orderId,
+        },
+      );
+
+      await db.collection<Order>("orders").updateOne(
+        { _id: orderObjectId },
+        {
+          $set: {
+            payment_status: "refunded",
+            refund_reason: reason || "Admin refund",
+            refund_amount: refundAmount,
+            refund_at: new Date(),
+            updatedAt: new Date(),
+            ...(refund.id ? { razorpay_refund_id: refund.id } : {}),
+          },
+          $unset: {
+            payout_lock_at: "",
+          },
+        },
+      );
+
+      await db.collection("admin_logs").insertOne({
+        admin: session.user.email || null,
+        orderId,
+        action,
+        amount: refundAmount,
+        reason: reason || "Admin refund",
+        at: new Date(),
+      });
+
+      return NextResponse.json({ ok: true, result: refund });
+    }
+
+    if (typeof amount !== "number" || !reason) {
       return NextResponse.json(
-        { error: "Refund/Penalty not allowed for this payment status" },
+        { error: "Penalty amount and reason are required" },
         { status: 400 },
       );
     }
 
-    // Integrate with Razorpay for refund if needed
-    let razorpayResult = null;
-    if (action === "refund") {
-      // Find paymentId from order
-      const paymentId = order.razorpay_payment_id;
-      if (!paymentId) {
-        return NextResponse.json(
-          { error: "No Razorpay payment ID found for this order" },
-          { status: 400 },
-        );
-      }
-      try {
-        // Refund amount in paise (Razorpay expects smallest currency unit)
-        const refund = await razorpay.payments.refund(paymentId, {
-          amount: Math.round(amount * 100),
-        });
-        razorpayResult = refund;
-        await db.collection("orders").updateOne(
-          { _id: new ObjectId(orderId) },
-          {
-            $set: {
-              payment_status: "refunded",
-              refund_reason: reason,
-              refund_amount: amount,
-              refund_at: new Date(),
-              razorpay_refund_id: refund.id,
-            },
-          },
-        );
-      } catch (err: any) {
-        return NextResponse.json(
-          {
-            error: "Razorpay refund failed",
-            details: err?.message || String(err),
-          },
-          { status: 500 },
-        );
-      }
-    } else if (action === "penalty") {
-      // Apply penalty: update order with penalty, optionally deduct from provider payout
-      await db.collection("orders").updateOne(
-        { _id: new ObjectId(orderId) },
-        {
-          $set: {
-            latePenalty: amount,
-            penalty_reason: reason,
-            penalty_at: new Date(),
-          },
+    await db.collection<Order>("orders").updateOne(
+      { _id: orderObjectId },
+      {
+        $set: {
+          latePenalty: amount,
+          penalty_reason: reason,
+          penalty_at: new Date(),
+          updatedAt: new Date(),
         },
-      );
-      razorpayResult = { status: "penalty_recorded", amount };
-    }
+      },
+    );
 
-    // Optionally, log admin action
     await db.collection("admin_logs").insertOne({
-      admin: session.user.email,
+      admin: session.user.email || null,
       orderId,
       action,
       amount,
@@ -176,9 +278,12 @@ export async function POST(req: Request) {
       at: new Date(),
     });
 
-    return NextResponse.json({ ok: true, result: razorpayResult });
+    return NextResponse.json({
+      ok: true,
+      result: { status: "penalty_recorded", amount },
+    });
   } catch (error) {
-    logger.error("ADMIN_PAYMENTS", "Error in admin refund/penalty", error);
+    logger.error("ADMIN_PAYMENTS", "Error in admin payment action", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
