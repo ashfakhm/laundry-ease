@@ -10,6 +10,7 @@ import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 
 const schema = z.object({
   otp: z.string().regex(/^\d{6}$/, "OTP must be 6 digits"),
@@ -105,10 +106,6 @@ export async function POST(
 
     const now = new Date();
     const orderDeadline = order.deadline ? new Date(order.deadline) : null;
-    const deadlineBreached =
-      !!orderDeadline &&
-      !Number.isNaN(orderDeadline.getTime()) &&
-      now.getTime() > orderDeadline.getTime();
 
     const alreadyCompensated =
       Boolean(
@@ -121,22 +118,21 @@ export async function POST(
 
     const paidAmount = Number(order.total_price || 0);
     let refundId: string | null = null;
-    const shouldRefund =
-      deadlineBreached &&
-      !alreadyCompensated &&
-      order.payment_status === "paid" &&
-      paidAmount > 0;
+    const compensationDecision = evaluateDeadlineCompensation({
+      now,
+      deadline: orderDeadline,
+      paymentStatus: order.payment_status,
+      alreadyCompensated,
+      paidAmount,
+    });
+    const { deadlineBreached, shouldRefund } = compensationDecision;
 
-    if (
-      deadlineBreached &&
-      !alreadyCompensated &&
-      order.payment_status !== "paid" &&
-      paidAmount > 0
-    ) {
+    if (compensationDecision.blocked) {
       return NextResponse.json(
         {
           message:
-            "Deadline was missed, but payment state is not refundable automatically. Please contact support.",
+            compensationDecision.blockedMessage ||
+            "Deadline compensation cannot be applied automatically.",
         },
         { status: 409 }
       );
