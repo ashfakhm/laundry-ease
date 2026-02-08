@@ -368,20 +368,21 @@ export interface PopulatedBooking {
 
 **Answer**: Cron jobs are in **two places**:
 
-| Location        | Purpose                       |
-| --------------- | ----------------------------- |
-| `app/api/cron/` | API endpoints that cron calls |
-| `cron/`         | Business logic for each job   |
-| `vercel.json`   | Cron schedule configuration   |
+| Location         | Purpose                                                        |
+| ---------------- | -------------------------------------------------------------- |
+| `app/api/cron/`  | API endpoints that cron calls                                  |
+| `lib/payouts.ts` | Unified escrow release + payout orchestration logic            |
+| `cron/`          | Script-style background helpers (no-show, auto-reject, legacy) |
+| `vercel.json`    | Cron schedule configuration                                    |
 
 **Example flow**:
 
 ```text
-vercel.json → schedules "/api/cron/release-payouts" every 15 min
+vercel.json → schedules "/api/cron/process-payouts" every 15 min
     ↓
-app/api/cron/release-payouts/route.ts → verifies CRON_SECRET, calls logic
+app/api/cron/process-payouts/route.ts → verifies CRON_SECRET, calls logic
     ↓
-cron/escrow-auto-release.ts → actual payout logic
+lib/payouts.ts (processEligibleEscrowPayouts) → lock + complaint checks + escrow release + payout initiation
 ```
 
 ### Q: Where is environment variable validation?
@@ -454,6 +455,7 @@ throw Errors.validation("Bad input"); // 400
 | Type definitions       | `types/*.ts`                           |
 | Environment validation | `lib/env.ts`                           |
 | Error handling         | `lib/api/errors.ts`                    |
+| Escrow payout engine   | `lib/payouts.ts`                       |
 | Cron job logic         | `cron/*.ts`                            |
 | Cron API endpoints     | `app/api/cron/*.ts`                    |
 | Audit logging          | `lib/audit.ts`                         |
@@ -655,15 +657,18 @@ if (
 ```
 1. Seeker pays for order
    ↓
-2. Money is held in Razorpay (payment_status: "paid" → "held")
+2. Payment is captured and stored as payment_status: "paid"
    ↓
 3. Provider finishes work and delivers
    ↓
-4. Seeker confirms with OTP (escrow_started_at is set)
+4. Seeker confirms with OTP
+   → payment_status: "held"
+   → escrow_started_at + escrow_release_at are set
    ↓
-5. 24-hour waiting period (escrow_release_at is set)
+5. 24-hour waiting period
    ↓
-6. If no complaint: Money goes to provider via RazorpayX payout
+6. If no complaint and timer elapsed:
+   unified payout processor releases escrow and initiates RazorpayX payout
    ─ OR ─
    If complaint raised: Escrow frozen until admin decides
 ```
@@ -681,24 +686,31 @@ if (
 **Answer**: Many safety checks:
 
 ```typescript
-// 1. Check if payout was already done
+// 1. Already paid out? stop
 if (order.payout_id) {
-  results.push({ status: "skipped_payout_exists" });
-  continue;
+  return { status: "already_paid_out" };
 }
 
-// 2. Update only if no payout exists yet
-await db.collection("orders").updateOne(
+// 2. Acquire payout lock (or fail fast if another worker holds it)
+const lock = await db.collection("orders").updateOne(
   {
     _id: order._id,
-    payout_id: { $exists: false }, // Only if no payout yet
+    payout_id: { $exists: false },
+    $or: [{ payout_lock_at: { $exists: false } }, { payout_lock_at: { $lt: staleCutoff } }],
   },
-  { $set: { payout_id: payout.id } },
+  { $set: { payout_lock_at: now, payout_status: "processing" } },
+);
+if (lock.modifiedCount === 0) return { status: "already_processing" };
+
+// 3. Final write still requires payout_id not set
+await db.collection("orders").updateOne(
+  { _id: order._id, payout_id: { $exists: false } },
+  { $set: { payout_id: payout.id, payout_status: "processing" } },
 );
 
-// 3. Razorpay reference_id (rejects copies)
+// 4. Razorpay reference_id protects against accidental duplicates too
 await createRazorpayPayout({
-  reference_id: order._id.toString(), // Razorpay says no if it saw this before
+  reference_id: order._id.toString(),
 });
 ```
 
@@ -756,10 +768,14 @@ await createRazorpayPayout({
    ↓
 6. UPDATE DATABASE
    → payment_status: "paid"
-   → escrow_status: "held"
    → Save razorpay_payment_id
    ↓
-7. WEBHOOK BACKUP (Async)
+7. DELIVERY CONFIRMATION (OTP)
+   POST /api/orders/{id}/confirm-delivery OR /api/orders/{id}/otp/verify
+   → payment_status moves to "held"
+   → escrow_started_at + escrow_release_at set
+   ↓
+8. WEBHOOK BACKUP (Async)
    Razorpay sends webhook to /api/webhooks/razorpay
    → Verify webhook signature
    → Deduplicate by event_id in webhook_events
@@ -1148,8 +1164,9 @@ if (!result.success) {
 {
   "crons": [
     { "path": "/api/cron/auto-reject-bookings", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/release-payouts", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/process-payouts", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/monitor-abuse", "schedule": "0 2 * * *" }
   ]
 }
 ```
@@ -1159,9 +1176,10 @@ if (!result.success) {
 **Jobs**:
 
 - `auto-reject-bookings`: Cancel pending requests after timeout
-- `release-payouts`: Release escrow money after 24 hours
+- `process-payouts`: Run unified escrow release + payout orchestration
 - `no-show`: Handle when provider doesn't show up
 - `monitor-abuse`: Find suspicious activity (runs at 2 AM)
+- `release-payouts`: Protected compatibility endpoint (manual/legacy trigger path; same payout engine)
 
 ---
 
