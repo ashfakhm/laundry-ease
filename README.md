@@ -11,7 +11,7 @@ LaundryEase is an escrow-backed workflow system that turns a local laundry job i
 ## 3. Core Principles
 
 1. **Commitment before labor**
-   We lock payment in escrow only after the provider inspects items and issues an invoice. Providers don’t work on a maybe.
+   We require verified invoice payment only after the provider inspects items and issues an invoice. Providers don’t work on a maybe.
 
 2. **Every physical step has a recorded state**
    “In progress” creates panic and phone calls. We use explicit lifecycle states so both sides share the same reality.
@@ -33,21 +33,23 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
    A seeker requests a booking. A provider accepts. After inspection and invoicing, the job advances through a fixed lifecycle (washing → ironing → ready → out for delivery → delivered). Nobody “says” it’s done; the system records it.
 
 3. **Money follows state, not messaging**
-   The seeker pays the invoice. The system holds funds in escrow while the provider executes. Delivery completes only when the seeker confirms with an OTP. That confirmation triggers settlement.
+   The seeker pays the invoice (`payment_status: paid`). Delivery completes only when the seeker confirms with OTP, which starts the escrow hold window (`payment_status: held`) and timed payout processing.
 
 ## 5. Key Capabilities
 
 - **Radius-true discovery**
   Seekers stop calling providers who don’t actually serve their area. The system filters by coverage before the first message.
 
-- **Invoice then escrow**
-  Providers stop debating price after pickup. They issue a precise invoice and get a locked commitment before they spend time and supplies.
+- **Invoice then controlled settlement**
+  Providers stop debating price after pickup. They issue a precise invoice and get a verified payment commitment before they spend time and supplies.
 
 - **Deterministic order tracking**
   Seekers stop chasing updates. Providers stop answering the same question all day. The job tells its own story through state.
 
 - **Delivery authentication**
   Providers stop fearing “delivered but unpaid.” Seekers stop fearing “paid but not delivered.” OTP ties the final handoff to a recorded confirmation.
+- **Arrival-gated booking-fee release**
+  Booking-fee payout starts only when the provider marks arrival (with geofence checks when seeker coordinates are available).
 - **Complaint & dispute resolution**
   Seekers can raise complaints within 24 hours of delivery. Escrow freezes immediately. Admin mediates through a 3-way chat system with response deadlines.
 - **Reschedule without cancellation (booking-level)**
@@ -251,7 +253,7 @@ Stable:
 
 - Role-based flows (seeker/provider/admin)
 - Location-based provider discovery
-- Booking → invoicing → escrow → delivery confirmation loop
+- Booking → invoicing → payment capture → delivery confirmation → escrow hold/release loop
 - Canonical payment APIs with backward-compatible legacy aliases
   - Order payments: `/api/orders/:id/payment` (canonical), plus `/api/orders/:id/pay`, `/api/orders/:id/payment/init`, `/api/orders/:id/payment/verify` aliases
   - Booking fee payments: `/api/bookings/:id/pay` (canonical), plus `/api/bookings/payment/init`, `/api/bookings/payment/verify` aliases
@@ -260,6 +262,10 @@ Stable:
 - 3-way chat for dispute mediation (seeker, provider, admin)
 - Response deadline tracking for provider engagement
 - Escrow freeze on complaint, release on resolution
+- Unified payout orchestration for cron/manual/admin flows (`lib/payouts.ts`)
+- Booking cancellation rules with enforced refund/forfeiture policy
+- Geofenced provider arrival checks before booking-fee payout release
+- Admin refund/payout guardrails to prevent unsafe post-payout auto-refunds
 - 24-hour complaint window enforcement at API level
 - Idempotent webhook reconciliation with retry-safe event tracking (`webhook_events`)
 - Startup DB index bootstrap for order/complaint/payment/email invariants
@@ -270,7 +276,7 @@ Stable:
 Remaining hardening opportunities:
 
 - Alerting/monitoring for index creation failures caused by pre-existing duplicate historical data
-- Integration tests for webhook replay, duplicate payment callbacks, and idempotency races
+- End-to-end financial tests for payout lock recovery, webhook replay, and refund/payout race conditions
 - Archival policy for old webhook payloads to control long-term storage growth
 - Partial refund flow (currently only full refund or full payout)
 - Complaint window extension requests
@@ -347,7 +353,7 @@ laundry-ease/
 │   │   ├── order-actions.ts      # Order operations
 │   │   └── profile-actions.ts    # Profile operations
 │   ├── api/                      # API routes
-│   │   ├── admin/                # Admin endpoints (complaints, users, dashboard-stats, refund)
+│   │   ├── admin/                # Admin endpoints (complaints, users, dashboard-stats, payments, refund)
 │   │   ├── auth/                 # NextAuth configuration
 │   │   ├── bookings/             # Booking CRUD, chat, reschedule, dispute
 │   │   ├── complaints/           # Complaint creation, messages
@@ -402,7 +408,7 @@ laundry-ease/
 │
 ├── cron/                         # Cron job logic
 │   ├── auto-reject-bookings.ts   # Auto-reject expired booking requests
-│   ├── escrow-auto-release.ts    # Auto-release escrow after cooling period
+│   ├── escrow-auto-release.ts    # Script trigger for unified escrow payout processing
 │   └── no-show-check.ts          # No-show detection and handling
 │
 ├── docs/                         # Documentation
@@ -419,12 +425,13 @@ laundry-ease/
 │   ├── delivery-otp-email.ts     # Delivery OTP email templates
 │   ├── distance.ts               # Distance calculation utilities
 │   ├── env.ts                    # Environment validation (Zod)
-│   ├── escrow-jobs.ts            # Escrow job scheduling
+│   ├── escrow-jobs.ts            # Script adapter for unified payout processing
 │   ├── google-maps.ts            # Google Maps integration
 │   ├── logger.ts                 # Structured logging
 │   ├── db-indexes.ts             # DB index bootstrap specs (integrity/query/TTL)
 │   ├── mongodb.ts                # MongoDB connection
 │   ├── otp.ts                    # OTP generation/verification
+│   ├── payouts.ts                # Unified escrow release + payout orchestration
 │   ├── razorpay.ts               # Razorpay payment integration
 │   ├── setup-geospatial-index.ts # MongoDB geospatial index setup
 │   ├── toast.ts                  # Toast notification utilities
