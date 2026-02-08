@@ -121,6 +121,9 @@ All users (Seeker and Provider) must complete a verified registration:
 4. **Accept / Reject**
    Provider accepts to proceed or rejects to end the attempt.
 
+5. **Arrival and booking-fee release**
+   After a booking is confirmed, provider marks arrival (geofence-checked when seeker coordinates exist). This initiates provider payout for booking fee.
+
 Outcome: booking intent is validated and gated; commitment still begins only at paid invoice.
 
 ### B. Pickup, Invoice, and Escrow (Commitment)
@@ -143,8 +146,8 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
    - **Approves & Pays**: Proceeds to payment
    - **Rejects**: Returns items to provider with a required reason
 
-5. **Payment into escrow**
-   On approval, seeker pays. The system holds funds in escrow.
+5. **Payment capture**
+   On approval, seeker pays. Payment is captured and linked to the order (`payment_status = paid`) to fund the commitment.
 
 6. **Order activation**
    The job becomes an active order. Work begins.
@@ -163,8 +166,8 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 3. **OTP confirmation**
    Seeker shares a one-time code to confirm handoff.
 
-4. **Escrow release**
-   The system verifies OTP and releases funds to the provider payout flow (with any configured cooling period).
+4. **Escrow hold and release**
+   OTP confirmation marks delivery, starts the escrow cooling window (`payment_status = held`, `escrow_release_at`), and background payout processing releases/initiates payout when due.
 
 ### D. Complaint & Dispute Resolution
 
@@ -204,8 +207,14 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
   - Pending invoices: Viewable with payment/rejection actions
   - Completed invoices: Viewable in read-only mode from payment history
 
-- **Escrow gating**
-  Work must start only after escrow holds the paid invoice amount.
+- **Payment-before-work gating**
+  Work must start only after invoice payment is captured and verified.
+
+- **Cancellation and booking-fee policy**
+  Provider rejection/cancellation must refund paid booking fee; seeker cancellation before slot-time is refundable except same-day cancellations (forfeiture rule).
+
+- **Unified payout orchestration**
+  Escrow release, payout initiation, complaint gating, and admin-triggered manual release must use a shared idempotent payout processor.
 
 - **OTP delivery authentication**
   Delivery must require a one-time code.
@@ -259,7 +268,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 State vector notes:
 
 - Booking status and booking-fee status are separate concerns.
-- `bookingFeeStatus` transitions: `pending` -> `paid` -> (`forfeited` or `applied` based on downstream outcomes).
+- `bookingFeeStatus` transitions: `pending` -> `paid` -> (`refunded`, `forfeited`, or `applied` based on downstream outcomes).
 - Provider acceptance is allowed only when `bookingFeeStatus = paid`.
 
 ### Order (Commitment → Settlement) States
@@ -278,6 +287,7 @@ Rules:
 
 - The system must enforce valid transitions.
 - The system must time-stamp every transition and record the actor.
+- Payment status lifecycle is tracked separately from process status: `unpaid` -> `paid` -> (`held` after OTP confirmation) -> `released` -> payout completion, with `refunded` as a terminal financial branch when applicable.
 
 Reschedule rules:
 
@@ -430,10 +440,10 @@ See `README.md` for detailed setup instructions.
   If providers accept cash outside escrow, the trust contract breaks and the platform loses its enforcement mechanism.
 
 - **No-show policy**
-  The system needs a consistent rule for seeker no-shows at pickup and provider no-shows at delivery. Cron jobs auto-check for no-shows, but policy enforcement needs refinement.
+  No-show automation is implemented, but operational policy still needs tuning for false positives (timezone drift, late manual overrides, and retriable refund failures).
 
-- **Cancellation semantics**
-  We need explicit policy for who can cancel at each state and what happens to escrow when cancellation occurs.
+- **Post-payout reversals**
+  Refund requests after payout initiation are currently blocked for automatic safety and require manual clawback operations.
 
 - **Reschedule abuse / infinite loops**
   The platform needs a policy for excessive reschedule requests (caps, cooldowns, or admin escalation) to prevent griefing.
@@ -444,7 +454,7 @@ See `README.md` for detailed setup instructions.
 - **Partial refunds**
   Current resolution options are binary (full refund or full payout). A partial refund flow may be needed for nuanced disputes.
 
-## 14. Implementation Alignment Matrix (2026-02-07)
+## 14. Implementation Alignment Matrix (2026-02-08)
 
 | PRD Requirement | Expected Behavior | Current System Status |
 | --------------- | ----------------- | --------------------- |
@@ -453,6 +463,8 @@ See `README.md` for detailed setup instructions.
 | Password reset | Reset must update real auth credential store | Implemented (reset now updates `passwordHash` in seeker/provider/admin collections) |
 | Discovery coverage | Show only providers whose radius covers seeker coordinate | Implemented (strict provider-radius filtering; optional seeker-side radius cap) |
 | Booking fee gate | Provider cannot accept unpaid booking | Implemented |
+| Booking cancellation policy | Seeker can cancel only before slot time; same-day seeker cancellation forfeits fee; provider cancellation/refusal refunds fee | Implemented |
+| Booking-fee release control | Booking-fee payout should trigger only on provider arrival and geofence compliance | Implemented |
 | Capacity limit | Provider acceptance blocked when at capacity | Implemented via transactional checks |
 | Invoice review | Seeker can approve/reject invoice with reason on reject | Implemented |
 | Invoice reject outcome | Booking should terminate with booking fee forfeiture | Implemented (`cancelled` + `bookingFeeStatus=forfeited`) |
@@ -467,11 +479,13 @@ See `README.md` for detailed setup instructions.
 | One order one complaint | Prevent multiple complaints per order | Implemented |
 | Complaint immutability | Resolved/rejected complaints are terminal | Implemented |
 | Escrow release gating | Open complaints must block payout release | Implemented |
+| Escrow payout orchestration | Cron/manual/admin payout actions must run through one idempotent processor with lock + failure recording | Implemented (`lib/payouts.ts`) |
+| Admin refund safety | Admin refunds must enforce payment-state and payout-state guardrails | Implemented |
 | No-show automation | Missed confirmed pickup should auto-mark no-show | Implemented |
 | Auditability | State transitions and financial events should be traceable | Implemented (state/escrow audits + idempotent webhook event tracking/reconciliation) |
 
 ### Remaining Hardening Opportunities
 
 1. Add alerting/monitoring dashboards for index creation failures caused by pre-existing duplicate historical data.
-2. Add integration tests for webhook replay, duplicate payment callbacks, and booking/order idempotency races.
+2. Add end-to-end financial tests for payout lock recovery, webhook replay, and refund/payout race conditions.
 3. Add archival policy for old webhook payloads to control long-term storage growth.
