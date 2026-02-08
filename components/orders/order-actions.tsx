@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Star, AlertTriangle, X, Check } from "lucide-react";
+import { Star, AlertTriangle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -50,7 +50,7 @@ export function ReviewModal({
       } else {
         toast.error("Failed to submit review");
       }
-    } catch (error) {
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setSubmitting(false);
@@ -182,7 +182,7 @@ export function ComplaintModal({
         const data = await res.json();
         toast.error(data.error?.message || "Failed to raise complaint");
       }
-    } catch (error) {
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setSubmitting(false);

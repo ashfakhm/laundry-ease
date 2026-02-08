@@ -20,12 +20,10 @@ import { useEffect, useState } from "react";
 export default function ReviewsManagePage() {
   const { data: session } = useSession();
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchReviews() {
       if (!session?.user?.id) return;
-      setLoading(true);
       try {
         const res = await fetch(`/api/reviews?provider_id=${session.user.id}`);
         if (res.ok) {
@@ -35,8 +33,6 @@ export default function ReviewsManagePage() {
       } catch (error) {
         console.error("Failed to fetch reviews", error);
         setReviews([]);
-      } finally {
-        setLoading(false);
       }
     }
     fetchReviews();

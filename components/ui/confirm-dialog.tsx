@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,18 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const [isConfirming, setIsConfirming] = useState(false);
 
+  const handleConfirm = useCallback(async () => {
+    setIsConfirming(true);
+    try {
+      await onConfirm();
+      onClose();
+    } catch (error) {
+      console.error("Confirmation action failed:", error);
+    } finally {
+      setIsConfirming(false);
+    }
+  }, [onConfirm, onClose]);
+
   // Handle keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,19 +58,7 @@ export function ConfirmDialog({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isConfirming]);
-
-  const handleConfirm = async () => {
-    setIsConfirming(true);
-    try {
-      await onConfirm();
-      onClose();
-    } catch (error) {
-      console.error("Confirmation action failed:", error);
-    } finally {
-      setIsConfirming(false);
-    }
-  };
+  }, [handleConfirm, isOpen, isConfirming, onClose]);
 
   const variantStyles = {
     danger: {

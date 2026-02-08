@@ -22,8 +22,10 @@ export default function ProviderDisputeDetailPage({ params }: { params: Promise<
         }
         const data = await res.json();
         setComplaint(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to load dispute";
+        setError(message);
       } finally {
         setLoading(false);
       }

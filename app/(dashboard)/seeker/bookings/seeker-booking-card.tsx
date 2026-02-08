@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 interface SeekerBookingCardProps {
   booking: PopulatedSeekerBooking;
@@ -347,11 +348,13 @@ function SeekerBookingCardComponent({
         <div className="space-y-4 flex-1">
           <div className="flex items-center gap-5">
             {/* Provider Profile Picture */}
-            <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted shadow-lg shrink-0">
+            <div className="relative h-14 w-14 rounded-full overflow-hidden border-2 border-border bg-muted shadow-lg shrink-0">
               {booking.provider.profilePicture ? (
-                <img
+                <Image
                   src={booking.provider.profilePicture}
                   alt={booking.provider.name}
+                  fill
+                  sizes="56px"
                   className="h-full w-full object-cover"
                 />
               ) : (

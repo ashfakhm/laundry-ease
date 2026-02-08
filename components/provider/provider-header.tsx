@@ -1,4 +1,5 @@
 import { Package } from "lucide-react";
+import Image from "next/image";
 
 interface ProviderHeaderProps {
   provider: {
@@ -15,9 +16,11 @@ export function ProviderHeader({ provider }: ProviderHeaderProps) {
       {/* Banner Image */}
       <div className="relative h-48 md:h-64 w-full rounded-3xl overflow-hidden bg-gradient-to-r from-primary/20 to-purple-600/20 border border-border">
         {provider.bannerImage ? (
-          <img
+          <Image
             src={provider.bannerImage}
             alt={`${provider.businessName || provider.name} banner`}
+            fill
+            sizes="(max-width: 768px) 100vw, 1024px"
             className="h-full w-full object-cover"
           />
         ) : (
@@ -30,11 +33,13 @@ export function ProviderHeader({ provider }: ProviderHeaderProps) {
       {/* Profile Picture - Overlapping Banner */}
       <div className="absolute -bottom-16 left-6 md:left-8">
         <div className="relative">
-          <div className="h-32 w-32 rounded-full border-4 border-background bg-card shadow-xl overflow-hidden">
+          <div className="relative h-32 w-32 rounded-full border-4 border-background bg-card shadow-xl overflow-hidden">
             {provider.profilePicture ? (
-              <img
+              <Image
                 src={provider.profilePicture}
                 alt={provider.name}
+                fill
+                sizes="128px"
                 className="h-full w-full object-cover"
               />
             ) : (

@@ -16,7 +16,7 @@ import {
   Package,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ProviderHeader } from "@/components/provider/provider-header";
 
@@ -102,7 +102,7 @@ export default function ProviderDetailPage() {
           const data = await res.json();
           setReviews(Array.isArray(data) ? data : []);
         }
-      } catch (err) {
+      } catch {
         setReviews([]);
       }
     }
@@ -419,7 +419,7 @@ export default function ProviderDetailPage() {
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground pl-10">
-                      "{review.comment}"
+                      &quot;{review.comment}&quot;
                     </p>
                   </div>
                 ))}
@@ -507,7 +507,8 @@ export default function ProviderDetailPage() {
               </button>
 
               <p className="text-xs text-center text-muted-foreground mt-4">
-                You won't be charged until the provider accepts your request.
+                You won&apos;t be charged until the provider accepts your
+                request.
               </p>
             </motion.div>
           </div>

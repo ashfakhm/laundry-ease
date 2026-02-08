@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { PaymentButton } from "@/components/orders/payment-button";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Package,
   Clock,
@@ -289,11 +290,13 @@ export default function ViewOrdersPage() {
                             {/* Provider Mini-Card */}
                             <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 flex items-start gap-4">
                                 {/* Provider Profile Picture */}
-                                <div className="h-10 w-10 rounded-full overflow-hidden border border-border/50 bg-background shadow-sm shrink-0">
+                                <div className="relative h-10 w-10 rounded-full overflow-hidden border border-border/50 bg-background shadow-sm shrink-0">
                                   {order.provider?.profilePicture ? (
-                                    <img
+                                    <Image
                                       src={order.provider.profilePicture}
                                       alt={order.provider.name}
+                                      fill
+                                      sizes="40px"
                                       className="h-full w-full object-cover"
                                     />
                                   ) : (

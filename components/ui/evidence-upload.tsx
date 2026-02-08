@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, X, Loader2, ImagePlus } from "lucide-react";
+import { X, Loader2, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
@@ -33,7 +33,6 @@ export function EvidenceUpload({
 
     setError(null);
     setUploading(true);
-    const newUrls: string[] = [];
 
     // Upload files sequentially or parallel
     try {
@@ -60,9 +59,11 @@ export function EvidenceUpload({
 
       const uploadedUrls = await Promise.all(uploadPromises);
       onChange([...value, ...uploadedUrls]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Upload Error:", err);
-      setError(err.message || "Failed to upload some images");
+      const message =
+        err instanceof Error ? err.message : "Failed to upload some images";
+      setError(message);
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";

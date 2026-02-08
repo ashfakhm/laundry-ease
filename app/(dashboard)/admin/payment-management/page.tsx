@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import React from "react";
+import Image from "next/image";
 import {
   DollarSign,
   TrendingUp,
@@ -333,14 +334,16 @@ export default function AdminPaymentManagementPage() {
                   )}
                   {payment.provider && (
                     <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold overflow-hidden shrink-0">
+                      <div className="relative h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold overflow-hidden shrink-0">
                         {payment.provider.profilePicture ? (
-                          <img
+                          <Image
                             src={payment.provider.profilePicture}
                             alt={
                               payment.provider.businessName ||
                               payment.provider.name
                             }
+                            fill
+                            sizes="32px"
                             className="h-full w-full object-cover"
                           />
                         ) : (

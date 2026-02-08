@@ -18,9 +18,10 @@ export const InteractiveGridPattern = () => {
   
   useEffect(() => {
     const canvas = canvasRef.current;
+    const container = containerRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx || !container) return;
 
     let particles: Particle[] = [];
     let animationFrameId: number;
@@ -36,13 +37,11 @@ export const InteractiveGridPattern = () => {
     let mouseY = -1000;
 
     const resize = () => {
-      if (containerRef.current && canvas) {
-        width = containerRef.current.clientWidth;
-        height = containerRef.current.clientHeight;
-        canvas.width = width;
-        canvas.height = height;
-        initParticles();
-      }
+      width = container.clientWidth;
+      height = container.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+      initParticles();
     };
 
     const initParticles = () => {
@@ -124,11 +123,9 @@ export const InteractiveGridPattern = () => {
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-        if (containerRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            mouseX = e.clientX - rect.left;
-            mouseY = e.clientY - rect.top;
-        }
+        const rect = container.getBoundingClientRect();
+        mouseX = e.clientX - rect.left;
+        mouseY = e.clientY - rect.top;
     };
     
     const handleMouseLeave = () => {
@@ -137,20 +134,16 @@ export const InteractiveGridPattern = () => {
     };
 
     window.addEventListener("resize", resize);
-    if(containerRef.current) {
-        containerRef.current.addEventListener("mousemove", handleMouseMove);
-        containerRef.current.addEventListener("mouseleave", handleMouseLeave);
-    }
+    container.addEventListener("mousemove", handleMouseMove);
+    container.addEventListener("mouseleave", handleMouseLeave);
     
     resize();
     draw();
 
     return () => {
       window.removeEventListener("resize", resize);
-      if(containerRef.current) {
-          containerRef.current.removeEventListener("mousemove", handleMouseMove);
-          containerRef.current.removeEventListener("mouseleave", handleMouseLeave);
-      }
+      container.removeEventListener("mousemove", handleMouseMove);
+      container.removeEventListener("mouseleave", handleMouseLeave);
       cancelAnimationFrame(animationFrameId);
     };
   }, [theme]);

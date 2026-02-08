@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { InvoiceForm } from "@/components/providers/invoice-form";
-import { revalidatePath } from "next/cache";
 import BookingChat from "../Chat";
 
 export default async function CreateInvoicePage({

@@ -90,10 +90,12 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ url: imageUrl }, { status: 200 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error("UPLOAD", "Image upload error", error);
+    const details =
+      error instanceof Error ? error.message : "Unknown upload error";
     return NextResponse.json(
-      { error: "Failed to upload image", details: error.message },
+      { error: "Failed to upload image", details },
       { status: 500 }
     );
   }

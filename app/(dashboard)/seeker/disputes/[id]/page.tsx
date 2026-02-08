@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
-import { ChevronLeft, AlertCircle } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { Complaint } from "@/types/complaints";
 import ComplaintChat from "@/components/complaint-chat";
 import { cn } from "@/lib/utils";
@@ -26,8 +26,10 @@ export default function DisputeDetailPage({
         }
         const data = await res.json();
         setComplaint(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to load dispute";
+        setError(message);
       } finally {
         setLoading(false);
       }

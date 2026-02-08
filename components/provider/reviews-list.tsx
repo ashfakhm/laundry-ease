@@ -2,8 +2,15 @@
 import { useEffect, useState } from "react";
 import { Star, User } from "lucide-react";
 
+type ReviewItem = {
+  seeker?: { name?: string };
+  rating: number;
+  createdAt: string;
+  comment: string;
+};
+
 export function ReviewsList({ providerId }: { providerId: string }) {
-    const [reviews, setReviews] = useState<any[]>([]);
+    const [reviews, setReviews] = useState<ReviewItem[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -11,7 +18,7 @@ export function ReviewsList({ providerId }: { providerId: string }) {
         fetch(`/api/reviews?provider_id=${providerId}`)
             .then(res => res.json())
             .then(data => {
-                if (Array.isArray(data)) setReviews(data);
+                if (Array.isArray(data)) setReviews(data as ReviewItem[]);
             })
             .catch(err => console.error(err))
             .finally(() => setLoading(false));

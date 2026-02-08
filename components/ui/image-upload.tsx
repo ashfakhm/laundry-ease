@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, X, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
+import { X, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface ImageUploadProps {
   label: string;
@@ -67,9 +68,13 @@ export function ImageUpload({
       }
 
       onChange(data.url);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Upload error:", err);
-      setError(err.message || "Failed to upload image. Please try again.");
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to upload image. Please try again.";
+      setError(message);
     } finally {
       setUploading(false);
     }
@@ -105,9 +110,11 @@ export function ImageUpload({
           </div>
         ) : value ? (
           <>
-            <img
+            <Image
               src={value}
               alt={label}
+              fill
+              sizes={isProfile ? "160px" : "(max-width: 1024px) 100vw, 1024px"}
               className={cn(
                 "h-full w-full object-cover",
                 isProfile && "rounded-full",

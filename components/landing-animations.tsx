@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { ReactNode } from "react";
+import type { MotionProps } from "framer-motion";
 
 // Motion wrappers for server component pages
 export function MotionDiv({
@@ -15,11 +16,11 @@ export function MotionDiv({
 }: {
   children: ReactNode;
   className?: string;
-  initial?: any;
-  animate?: any;
-  whileInView?: any;
-  viewport?: any;
-  transition?: any;
+  initial?: MotionProps["initial"];
+  animate?: MotionProps["animate"];
+  whileInView?: MotionProps["whileInView"];
+  viewport?: MotionProps["viewport"];
+  transition?: MotionProps["transition"];
 }) {
   return (
     <motion.div

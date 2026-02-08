@@ -46,7 +46,7 @@ import { getProviderProfile } from "@/app/actions/profile-actions";
 
 export default function InvoiceGenerationPage() {
   const { data: session } = useSession();
-  const [orders, setOrders] = useState<any[]>([]); // Use appropriate type if possible, or any for now to match action return
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
 

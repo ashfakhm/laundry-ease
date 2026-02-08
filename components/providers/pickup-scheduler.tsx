@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Loader2, Calendar } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -61,8 +61,10 @@ export function PickupScheduler({
       toast.success("Pickup time proposed! Waiting for seeker confirmation.");
       router.refresh();
       onClose();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to propose pickup time");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to propose pickup time";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -116,7 +118,7 @@ export function PickupScheduler({
             <p className="text-xs text-muted-foreground">
               • Pickup must be at least 2 hours from now
               <br />
-              • Pickup cannot be after seeker's deadline
+              • Pickup cannot be after seeker&apos;s deadline
               <br />• Seeker must confirm before you visit
             </p>
           </div>

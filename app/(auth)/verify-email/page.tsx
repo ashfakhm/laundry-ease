@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 
@@ -9,6 +9,37 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
+
+  const verifyEmail = useCallback(
+    async (token: string) => {
+      try {
+        const res = await fetch("/api/auth/verify-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "Verification failed");
+        }
+
+        setStatus("success");
+        setMessage("Email verified successfully!");
+
+        // Redirect after 2 seconds
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 2000);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Verification failed";
+        setStatus("error");
+        setMessage(errorMessage);
+      }
+    },
+    [router],
+  );
 
   useEffect(() => {
     const token = searchParams.get("token");
@@ -20,33 +51,7 @@ export default function VerifyEmailPage() {
     }
 
     verifyEmail(token);
-  }, [searchParams]);
-
-  async function verifyEmail(token: string) {
-    try {
-      const res = await fetch("/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Verification failed");
-      }
-
-      setStatus("success");
-      setMessage("Email verified successfully!");
-      
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 2000);
-    } catch (error: any) {
-      setStatus("error");
-      setMessage(error.message || "Verification failed");
-    }
-  }
+  }, [searchParams, verifyEmail]);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/5 via-background to-secondary/5">

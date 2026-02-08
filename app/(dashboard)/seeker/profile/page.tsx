@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Loader2, User, MapPin, Lock, Save, Sparkles } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
-import { cn } from "@/lib/utils";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import {
   isStrongPassword,
@@ -102,7 +101,7 @@ export default function SeekerProfilePage() {
             newPassword: "",
             confirmPassword: ""
         });
-      } catch (error) {
+      } catch {
         toast.error("Could not load profile");
       } finally {
         setIsLoading(false);
@@ -115,7 +114,7 @@ export default function SeekerProfilePage() {
     setIsSaving(true);
     try {
       // Clean up empty password fields before sending
-      const payload: any = { ...data };
+      const payload: ProfileFormValues = { ...data };
       if (!data.newPassword) {
           delete payload.currentPassword;
           delete payload.newPassword;
@@ -138,8 +137,10 @@ export default function SeekerProfilePage() {
       form.setValue("currentPassword", "");
       form.setValue("newPassword", "");
       form.setValue("confirmPassword", "");
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update profile";
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }

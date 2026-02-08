@@ -247,7 +247,9 @@ export default function ProviderEditProfilePage() {
     setIsSaving(true);
     try {
       // Clean up empty password fields
-      const payload: any = { ...data };
+      const payload: Partial<ProviderProfileValues> & {
+        pricingRates?: Record<string, number>;
+      } = { ...data };
 
       // Transform items array back to Record<string, number>
       if (data.items) {

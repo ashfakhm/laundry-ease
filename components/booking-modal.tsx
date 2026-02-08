@@ -41,7 +41,7 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
           toast.error("Could not geocode address");
           return null;
         }
-      } catch (e) {
+      } catch {
         toast.error("Geocoding failed");
         return null;
       } finally {
@@ -84,7 +84,7 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
       toast.success("Booking requested! Waiting for provider approval.");
       setIsOpen(false);
       router.push("/seeker/bookings");
-    } catch (error) {
+    } catch {
       toast.error("Failed to create booking");
     } finally {
       setIsSubmitting(false);

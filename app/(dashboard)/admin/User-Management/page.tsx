@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Users,
   UserCheck,
@@ -221,16 +222,18 @@ export default function UserManagementPage() {
               {/* Profile Header */}
               <div className="flex items-center gap-4 mb-4">
                 <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold shadow-inner overflow-hidden shrink-0 ${
+                  className={`relative flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold shadow-inner overflow-hidden shrink-0 ${
                     user.role === "provider"
                       ? "bg-linear-to-br from-purple-100 to-purple-200 text-purple-700"
                       : "bg-linear-to-br from-emerald-100 to-emerald-200 text-emerald-700"
                   }`}
                 >
                   {user.profilePicture ? (
-                    <img
+                    <Image
                       src={user.profilePicture}
                       alt={user.businessName || user.name}
+                      fill
+                      sizes="56px"
                       className="h-full w-full object-cover"
                     />
                   ) : (

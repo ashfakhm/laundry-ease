@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState,MouseEvent } from "react";
+import React, { type MouseEvent } from "react";
 import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ export const SpotlightCard = ({
     <div
       className={cn(
         "group relative border border-border bg-card overflow-hidden",
-        className
+        className,
       )}
       onMouseMove={handleMouseMove}
     >

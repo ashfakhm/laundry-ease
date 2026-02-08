@@ -14,11 +14,9 @@ import {
   CheckCircle2,
   TrendingUp,
   Package,
-  ShieldCheck,
   Eye,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { ProviderHeader } from "@/components/provider/provider-header";
 
 type Provider = {
@@ -281,7 +279,7 @@ export default function ProviderProfilePage() {
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
                   This page reflects exactly what seekers see when they visit your profile. 
-                  Use the "Edit Profile" button to update any incorrect information.
+                  Use the &quot;Edit Profile&quot; button to update any incorrect information.
                 </p>
               </div>
             </div>
