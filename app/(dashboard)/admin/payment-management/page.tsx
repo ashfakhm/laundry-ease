@@ -168,6 +168,9 @@ export default function AdminPaymentManagementPage() {
       (p) => p.payment_status === "released" || p.payment_status === "paid",
     )
     .reduce((acc, curr) => acc + curr.total_price + curr.delivery_charge, 0);
+  const settledTransactions = payments.filter(
+    (p) => p.payment_status === "released" || p.payment_status === "paid",
+  ).length;
 
   const escrowAmount = payments
     .filter((p) => p.payment_status === "held")
@@ -216,8 +219,7 @@ export default function AdminPaymentManagementPage() {
               </div>
               <p className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
                 <TrendingUp className="h-3 w-3 text-emerald-500" />
-                <span className="text-emerald-500 font-medium">+8.2%</span> from
-                last month
+                <span>{settledTransactions} settled transactions</span>
               </p>
             </div>
           </div>

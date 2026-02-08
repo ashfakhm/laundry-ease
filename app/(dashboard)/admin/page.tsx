@@ -1,30 +1,73 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
+interface ActiveComplaintPreview {
+  _id: string;
+  title: string | null;
+  status: "open" | "accepted" | "in_review" | "resolved" | "rejected" | string;
+  createdAt: string | null;
+  seekerName: string;
+  providerName: string;
+}
+
 interface AdminStats {
+  activeComplaints: number;
   openComplaints: number;
   escrowBalance: number;
   activeProviders: number;
+  totalProviders: number;
+  providerUtilizationPct: number;
   totalOrders: number;
   totalRevenue: number;
+  recentActiveComplaints: ActiveComplaintPreview[];
+}
+
+function getComplaintStatusLabel(status: string) {
+  if (status === "in_review") return "In Review";
+  if (status === "accepted") return "Accepted";
+  if (status === "open") return "Open";
+  return status;
+}
+
+function getComplaintStatusTone(status: string) {
+  if (status === "open") {
+    return "bg-red-500/10 text-red-600 border border-red-500/20";
+  }
+  if (status === "accepted") {
+    return "bg-blue-500/10 text-blue-600 border border-blue-500/20";
+  }
+  if (status === "in_review") {
+    return "bg-amber-500/10 text-amber-600 border border-amber-500/20";
+  }
+  return "bg-muted text-muted-foreground border border-border";
 }
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchStats() {
       try {
-        const response = await fetch("/api/admin/dashboard-stats");
+        const response = await fetch("/api/admin/dashboard-stats", {
+          cache: "no-store",
+        });
         if (response.ok) {
           const data = await response.json();
           setStats(data);
+          setLoadError(null);
+        } else {
+          setStats(null);
+          setLoadError("Unable to load live admin metrics.");
         }
       } catch (error) {
         console.error("Failed to fetch admin stats:", error);
+        setStats(null);
+        setLoadError("Unable to load live admin metrics.");
       } finally {
         setLoading(false);
       }
@@ -33,11 +76,29 @@ export default function AdminDashboardPage() {
     fetchStats();
   }, []);
 
+  const activeComplaints = stats?.activeComplaints ?? 0;
+  const totalProviders = stats?.totalProviders ?? 0;
+  const utilizationPct = stats?.providerUtilizationPct ?? 0;
+  const recentActiveComplaints = stats?.recentActiveComplaints ?? [];
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
+          <h1 className="text-xl font-bold text-foreground">Admin Overview</h1>
+          <p className="text-sm text-muted-foreground">
+            {loadError || "Unable to load live admin metrics."}
+          </p>
+        </div>
+      </main>
     );
   }
 
@@ -50,7 +111,7 @@ export default function AdminDashboardPage() {
               Admin Overview
             </h1>
             <p className="text-sm text-muted-foreground font-medium">
-              Welcome back, here&apos;s what isn&apos;t happening today.
+              Live platform metrics, payouts, and dispute activity.
             </p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/20 shadow-sm backdrop-blur-sm">
@@ -68,16 +129,16 @@ export default function AdminDashboardPage() {
             <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative z-10">
               <p className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
-                Open Complaints
+                Active Complaints
               </p>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="text-4xl font-bold tracking-tight text-foreground">
-                  {stats?.openComplaints ?? 0}
-                </span>
-                <span className="text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                  -2% vs last week
+                  {activeComplaints}
                 </span>
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Includes open, accepted, and in-review disputes
+              </p>
             </div>
           </div>
 
@@ -105,10 +166,12 @@ export default function AdminDashboardPage() {
                 <span className="text-4xl font-bold tracking-tight text-foreground">
                   {stats?.activeProviders ?? 0}
                 </span>
-                <span className="text-xs font-medium text-muted-foreground">
-                  92% utilization
-                </span>
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {totalProviders > 0
+                  ? `${utilizationPct}% of ${totalProviders} providers active in last 7 days`
+                  : "No providers onboarded yet"}
+              </p>
             </div>
           </div>
         </section>
@@ -126,9 +189,12 @@ export default function AdminDashboardPage() {
                   Platform earnings overview
                 </p>
               </div>
-              <button className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors bg-primary/10 px-3 py-1.5 rounded-full">
+              <Link
+                href="/admin/payment-management"
+                className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors bg-primary/10 px-3 py-1.5 rounded-full"
+              >
                 View Reports
-              </button>
+              </Link>
             </div>
 
             <div className="flex-1 min-h-[240px] flex items-center justify-center rounded-2xl border border-dashed border-border/50 bg-muted/20">
@@ -155,13 +221,16 @@ export default function AdminDashboardPage() {
                 </h2>
                 <p className="text-sm text-muted-foreground">Active disputes</p>
               </div>
-              <button className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+              <Link
+                href="/admin/complaints"
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              >
                 View All
-              </button>
+              </Link>
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6 rounded-2xl bg-muted/20 border border-dashed border-border/50">
-              {stats?.openComplaints === 0 ? (
+              {activeComplaints === 0 ? (
                 <div className="space-y-2">
                   <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center mx-auto mb-2">
                     <svg
@@ -185,16 +254,44 @@ export default function AdminDashboardPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-3xl font-bold text-destructive">
-                    {stats?.openComplaints}
-                  </p>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Pending Resolution
-                  </p>
-                  <button className="mt-2 text-xs bg-destructive text-destructive-foreground px-4 py-2 rounded-full font-medium hover:bg-destructive/90 transition-colors">
-                    Process Queue
-                  </button>
+                <div className="w-full space-y-3 text-left">
+                  {recentActiveComplaints.map((complaint) => (
+                    <Link
+                      key={complaint._id}
+                      href={`/admin/complaints/${complaint._id}`}
+                      className="block rounded-xl border border-border/60 bg-background/70 p-3 hover:bg-background transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {complaint.title || "Complaint"}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {complaint.seekerName} vs {complaint.providerName}
+                          </p>
+                          {complaint.createdAt && (
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              {new Date(complaint.createdAt).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${getComplaintStatusTone(
+                            complaint.status,
+                          )}`}
+                        >
+                          {getComplaintStatusLabel(complaint.status)}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+
+                  {activeComplaints > recentActiveComplaints.length && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      +{activeComplaints - recentActiveComplaints.length} more
+                      active complaints
+                    </p>
+                  )}
                 </div>
               )}
             </div>

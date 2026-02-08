@@ -52,6 +52,15 @@ export default function UserManagementPage() {
     if (filter === "all") return true;
     return u.role === filter;
   });
+  const totalUsers = users.length;
+  const seekerCount = users.filter((u) => u.role === "seeker").length;
+  const providerCount = users.filter((u) => u.role === "provider").length;
+  const blockedUsers = users.filter(
+    (u) => u.blocked_until && new Date(u.blocked_until) > new Date(),
+  ).length;
+  const seekerShare = totalUsers > 0 ? Math.round((seekerCount / totalUsers) * 100) : 0;
+  const providerShare =
+    totalUsers > 0 ? Math.round((providerCount / totalUsers) * 100) : 0;
 
   if (loading) {
     return (
@@ -116,12 +125,12 @@ export default function UserManagementPage() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Total Users
                 </p>
-                <div className="flex items-center gap-2">
-                  <p className="text-2xl font-bold">{users.length}</p>
-                  <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                    +12.5%
-                  </span>
-                </div>
+                <p className="text-2xl font-bold">{totalUsers}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {blockedUsers > 0
+                    ? `${blockedUsers} currently blocked`
+                    : "No active bans"}
+                </p>
               </div>
             </div>
           </div>
@@ -135,14 +144,10 @@ export default function UserManagementPage() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Seekers
                 </p>
-                <div className="flex items-center gap-2">
-                  <p className="text-2xl font-bold">
-                    {users.filter((u) => u.role === "seeker").length}
-                  </p>
-                  <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                    +8%
-                  </span>
-                </div>
+                <p className="text-2xl font-bold">{seekerCount}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {seekerShare}% of total users
+                </p>
               </div>
             </div>
           </div>
@@ -156,14 +161,10 @@ export default function UserManagementPage() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Providers
                 </p>
-                <div className="flex items-center gap-2">
-                  <p className="text-2xl font-bold">
-                    {users.filter((u) => u.role === "provider").length}
-                  </p>
-                  <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                    +15%
-                  </span>
-                </div>
+                <p className="text-2xl font-bold">{providerCount}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {providerShare}% of total users
+                </p>
               </div>
             </div>
           </div>
@@ -191,8 +192,10 @@ export default function UserManagementPage() {
                   className={`text-xs px-1.5 py-0.5 rounded-full ${filter === role ? "bg-muted text-foreground" : "bg-background text-muted-foreground"}`}
                 >
                   {role === "all"
-                    ? users.length
-                    : users.filter((u) => u.role === role).length}
+                    ? totalUsers
+                    : role === "seeker"
+                      ? seekerCount
+                      : providerCount}
                 </span>
               </button>
             ))}

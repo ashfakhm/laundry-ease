@@ -128,6 +128,13 @@ export default function ComplaintsPage() {
     if (filter === "all") return true;
     return c.status === filter;
   });
+  const openCount = complaints.filter((c) => c.status === "open").length;
+  const acceptedCount = complaints.filter((c) => c.status === "accepted").length;
+  const inReviewCount = complaints.filter((c) => c.status === "in_review").length;
+  const inProgressCount = acceptedCount + inReviewCount;
+  const resolvedCount = complaints.filter((c) => c.status === "resolved").length;
+  const rejectedCount = complaints.filter((c) => c.status === "rejected").length;
+  const activeCount = openCount + inProgressCount;
 
   function getStatusBadge(status: string) {
     switch (status) {
@@ -372,14 +379,14 @@ export default function ComplaintsPage() {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Total Complaints
             </p>
-            <div className="mt-3 flex items-baseline gap-2">
+            <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold tracking-tight text-foreground">
                 {complaints.length}
               </span>
-              <span className="text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                +12%
-              </span>
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {activeCount} active complaints
+            </p>
           </div>
           <div className="rounded-2xl border bg-card/50 p-5 shadow-sm backdrop-blur-md">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -387,10 +394,10 @@ export default function ComplaintsPage() {
             </p>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-bold tracking-tight text-red-600">
-                {complaints.filter((c) => c.status === "open").length}
+                {openCount}
               </span>
               <span className="text-xs text-muted-foreground">
-                Action needed
+                {openCount > 0 ? "Action needed" : "No open issues"}
               </span>
             </div>
           </div>
@@ -400,14 +407,12 @@ export default function ComplaintsPage() {
             </p>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-bold tracking-tight text-amber-600">
-                {" "}
-                {
-                  complaints.filter(
-                    (c) => c.status === "in_review" || c.status === "accepted",
-                  ).length
-                }
+                {inProgressCount}
               </span>
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {acceptedCount} accepted, {inReviewCount} in review
+            </p>
           </div>
           <div className="rounded-2xl border bg-card/50 p-5 shadow-sm backdrop-blur-md">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -415,9 +420,12 @@ export default function ComplaintsPage() {
             </p>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-bold tracking-tight text-emerald-600">
-                {complaints.filter((c) => c.status === "resolved").length}
+                {resolvedCount}
               </span>
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {rejectedCount} rejected
+            </p>
           </div>
         </div>
 
