@@ -343,6 +343,12 @@ Complaint workflow rules:
 - **Escrow freeze on dispute**
   Any complaint or dispute must halt settlement timers until the admin decides the outcome.
 
+- **Origin and abuse controls on unsafe actions**
+  Unsafe API methods must enforce same-origin checks and endpoint-specific rate limits.
+
+- **CSP staged rollout**
+  The platform must run Content Security Policy in report-only mode first, collect violations, then move to enforced mode once violations are cleaned.
+
 - **Complaint access control**
   Provider can only view complaint details after admin explicitly grants access. Seeker and admin have access from creation.
 
@@ -430,6 +436,7 @@ Note: TypeScript type definitions for the Razorpay SDK are maintained in `types/
 
 - `NEXT_PUBLIC_BASE_URL` - Public application URL for email links
 - `NEXT_PUBLIC_APP_URL` - Alternative application URL
+- `CSP_ENFORCE` - Set to `true` to switch CSP from report-only to enforced header mode
 - `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name (for image uploads)
 - `CLOUDINARY_API_KEY` - Cloudinary API key
 - `CLOUDINARY_API_SECRET` - Cloudinary API secret
@@ -439,7 +446,7 @@ Note: TypeScript type definitions for the Razorpay SDK are maintained in `types/
 1. Copy `.env.example` to `.env.local`
 2. Fill in all required variables with actual values
 3. Ensure all external services (Razorpay, Twilio, Google Cloud) are configured
-4. Run MongoDB setup script if needed: `npm run setup:geospatial-index` (if script exists)
+4. Start the app once so startup index bootstrap can initialize integrity/query/TTL indexes automatically
 5. Start the development server: `npm run dev`
 
 See `README.md` for detailed setup instructions.
@@ -478,9 +485,10 @@ See `README.md` for detailed setup instructions.
 | Capacity limit | Provider acceptance blocked when at capacity | Implemented via transactional checks |
 | Invoice review | Seeker can approve/reject invoice with reason on reject | Implemented |
 | Invoice reject outcome | Booking should terminate with booking fee forfeiture | Implemented (`cancelled` + `bookingFeeStatus=forfeited`) |
-| Order payment auth | Only order owner can initialize/verify payment | Implemented on primary payment routes |
+| Order payment auth | Only order owner can initialize/verify payment | Implemented on canonical payment routes and legacy aliases |
 | Payment integrity | Verification must bind to server-created Razorpay order | Implemented on canonical payment routes and legacy aliases |
 | Payment idempotency | Re-verification should not create duplicates | Implemented on payment verification paths |
+| CSP telemetry pipeline | Security policy should be staged with violation reporting before enforcement | Implemented (`next.config.ts` CSP Report-Only + `/api/security/csp-report`; enforce mode behind `CSP_ENFORCE`) |
 | Order activation | Paid invoice should result in active order linkage | Implemented (booking linked to order in invoice and pay-invoice paths) |
 | Deadline guarantee | Booking requires deadline; pickup must respect deadline; late delivery auto-compensates seeker | Implemented (deadline required at booking, enforced in pickup scheduling, propagated to orders, and compensated at OTP delivery confirmation with idempotent safeguards) |
 | Delivery scheduling auth | Provider proposes, seeker confirms | Implemented |
@@ -501,3 +509,5 @@ See `README.md` for detailed setup instructions.
 1. Add alerting/monitoring dashboards for index creation failures caused by pre-existing duplicate historical data.
 2. Add end-to-end financial tests for payout lock recovery, webhook replay, and refund/payout race conditions.
 3. Add archival policy for old webhook payloads to control long-term storage growth.
+4. Add abuse hardening on password-recovery endpoints (rate limits/captcha strategy).
+5. Promote CSP from report-only to enforced mode after violation cleanup.
