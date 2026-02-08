@@ -460,6 +460,7 @@ See `README.md` for detailed setup instructions.
 | Payment integrity | Verification must bind to server-created Razorpay order | Implemented on canonical payment routes and legacy aliases |
 | Payment idempotency | Re-verification should not create duplicates | Implemented on payment verification paths |
 | Order activation | Paid invoice should result in active order linkage | Implemented (booking linked to order in invoice and pay-invoice paths) |
+| Deadline guarantee | Booking requires deadline; pickup must respect deadline; late delivery auto-compensates seeker | Implemented (deadline required at booking, enforced in pickup scheduling, propagated to orders, and compensated at OTP delivery confirmation with idempotent safeguards) |
 | Delivery scheduling auth | Provider proposes, seeker confirms | Implemented |
 | Delivery OTP | Delivery requires OTP and starts escrow hold window | Implemented |
 | Complaint window | Complaint allowed only within 24h after delivery | Implemented |
