@@ -616,7 +616,8 @@ const isValid = await bcrypt.compare(password, user.passwordHash);
 | ------------------ | -------------------------------------------------- |
 | **SQL Injection**  | Not possible (MongoDB), but we clean all inputs    |
 | **XSS**            | React escapes output by default                    |
-| **CSRF**           | NextAuth handles CSRF tokens                       |
+| **CSRF-like abuse** | Same-origin guard (`requireSameOrigin` + `proxy.ts` checks) on unsafe API methods |
+| **CSP hardening**  | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint |
 | **Timing Attacks** | `crypto.timingSafeEqual()` for checking signatures |
 | **Fake Webhooks**  | HMAC signature check                               |
 | **Wrong Access**   | Role checks on every protected route               |
@@ -1340,6 +1341,13 @@ Logs include: time, category, message, extra data.
 2. **ESLint**: Makes sure code style is consistent
 3. **Zod checking**: Checks data while app runs
 4. **Error boundaries**: Handles errors nicely without crashing
+5. **Automated tests**: Vitest suite now covers critical payment, complaint, escrow, webhook-adjacent, and security paths
+
+Current quality snapshot (2026-02-08):
+
+- `17` test files
+- `75` tests passing
+- `npm test`, `npm run lint`, and `npm run build` all passing
 
 ### Q: How do you handle errors in production?
 
@@ -1448,6 +1456,8 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Automated integration testing**: Webhook replay and payment idempotency races need stronger integration test coverage.
 - **Observability depth**: We need dedicated dashboards/alerts for webhook failures and index-init issues.
 - **Webhook payload retention**: Archive policy for old `webhook_events` payloads is still a backlog item.
+- **CSP rollout**: CSP is currently in Report-Only mode; enforcement requires violation cleanup.
+- **Password-recovery abuse hardening**: Forgot-password flow needs dedicated anti-abuse strategy (rate-limit/captcha policy).
 - **PRD future scope**: Features like complaint window extension requests and partial refunds remain future work.
 
 ## Key Features Implemented Recently
@@ -1455,6 +1465,8 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Canonical payment routing**: Unified around `/api/orders/:id/payment` and `/api/bookings/:id/pay` with backward-compatible aliases.
 - **Order creation guardrails**: Direct `/api/orders` creation path is disabled; order creation is tied to invoice approval/payment flow.
 - **Webhook resilience**: Razorpay webhook handling now has replay-safe idempotency, retry handling, and domain reconciliation.
+- **Payment verification coverage**: Added deep route tests for canonical and legacy payment verification paths (including idempotency and signature validation).
+- **Security policy telemetry**: Added Report-Only CSP header pipeline with violation capture endpoint (`/api/security/csp-report`).
 - **DB index bootstrap**: Startup index initialization now enforces critical uniqueness and TTL cleanup invariants.
 - **Complaint-window enforcement**: 24-hour complaint timing is now validated in API logic.
 
