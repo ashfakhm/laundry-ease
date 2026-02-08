@@ -19,6 +19,13 @@ interface ComplaintData {
   createdAt: string;
   response_deadline?: string;
   provider_access_granted?: boolean;
+  seeker?: {
+    name?: string;
+  } | null;
+  provider?: {
+    name?: string;
+    businessName?: string | null;
+  } | null;
 }
 
 export default function AdminComplaintDetailPage({
@@ -136,6 +143,11 @@ export default function AdminComplaintDetailPage({
   const isResolved =
     complaint.status === "resolved" || complaint.status === "rejected";
   const providerAdded = complaint.provider_access_granted;
+  const seekerLabel = complaint.seeker?.name?.trim() || "Seeker";
+  const providerLabel =
+    complaint.provider?.businessName?.trim() ||
+    complaint.provider?.name?.trim() ||
+    "Provider";
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -329,8 +341,8 @@ export default function AdminComplaintDetailPage({
             <h3 className="font-bold">Conversation</h3>
             <p className="text-xs text-muted-foreground mt-1">
               {providerAdded
-                ? "3-way chat (Admin, Seeker, Provider)"
-                : "2-way chat (Admin, Seeker)"}
+                ? `3-way chat (Admin, ${seekerLabel} (Seeker), ${providerLabel} (Provider))`
+                : `2-way chat (Admin, ${seekerLabel} (Seeker))`}
             </p>
           </div>
           <div className="h-150">

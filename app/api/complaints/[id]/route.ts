@@ -59,7 +59,31 @@ export async function GET(
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
     }
 
-    return NextResponse.json(complaint);
+    const [seeker, provider] = await Promise.all([
+      db.collection("seekers").findOne(
+        { _id: complaint.seeker_id },
+        { projection: { name: 1 } },
+      ),
+      db.collection("providers").findOne(
+        { _id: complaint.provider_id },
+        { projection: { name: 1, businessName: 1 } },
+      ),
+    ]);
+
+    return NextResponse.json({
+      ...complaint,
+      seeker: seeker
+        ? {
+            name: seeker.name || "Seeker",
+          }
+        : null,
+      provider: provider
+        ? {
+            name: provider.name || "Provider",
+            businessName: provider.businessName || null,
+          }
+        : null,
+    });
   } catch (error) {
     logger.error("COMPLAINTS", "Error fetching complaint", error, {
       complaintId: id,
