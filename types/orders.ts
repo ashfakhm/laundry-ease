@@ -34,6 +34,12 @@ export type Order = {
     | "delivered";
   deadline?: Date;
   latePenalty?: number;
+  deadline_breached_at?: Date;
+  deadline_compensated_at?: Date;
+  deadline_compensation_mode?: "full_refund" | "no_charge";
+  refund_amount?: number;
+  refund_reason?: string;
+  razorpay_refund_id?: string;
   delivery_otp?: string;
   platform_commission?: number;
   provider_payout_amount?: number;

@@ -65,6 +65,23 @@ export const POST = withErrorHandling(async (req: Request) => {
   const { provider_id, deadline, seeker_coordinates } = result.data;
   const seeker_id = new ObjectId(session.user.id);
   const providerOid = new ObjectId(provider_id);
+  const parsedDeadline = new Date(deadline);
+
+  if (Number.isNaN(parsedDeadline.getTime())) {
+    throw Errors.validation("Invalid booking deadline");
+  }
+
+  const minAllowedDeadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  if (parsedDeadline < minAllowedDeadline) {
+    throw Errors.validation(
+      "Deadline must be at least 2 hours from now",
+      {
+        deadline: [
+          "Choose a deadline at least 2 hours from now to allow pickup scheduling.",
+        ],
+      },
+    );
+  }
 
   const { db } = await getDb();
   const provider = await db
@@ -142,7 +159,7 @@ export const POST = withErrorHandling(async (req: Request) => {
     const booking = await createBooking({
       seeker_id,
       provider_id: providerOid,
-      deadline: deadline ? new Date(deadline) : undefined,
+      deadline: parsedDeadline,
       seeker_coordinates: resolvedSeekerCoordinates,
       bookingFee: provider.pricing || 0,
       capacity,

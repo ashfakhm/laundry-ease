@@ -17,6 +17,11 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const router = useRouter();
+  const minDeadlineValue = (() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 2);
+    return d.toISOString().slice(0, 16);
+  })();
 
   async function geocodeAddress(
     address: string
@@ -206,9 +211,10 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
               Deadline Date
             </label>
             <input
-              type="date"
+              type="datetime-local"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              min={minDeadlineValue}
               className="w-full h-10 px-3 rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all"
               required
             />

@@ -125,6 +125,7 @@ export async function POST(
       total_price: total,
       payment_status: "unpaid",
       process_status: "invoiced",
+      deadline: booking.deadline ? new Date(booking.deadline) : undefined,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

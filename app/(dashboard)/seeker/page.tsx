@@ -61,6 +61,12 @@ export default function SeekerDashboardPage() {
     return d.toISOString().slice(0, 16);
   });
 
+  const minDeadlineValue = (() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 2);
+    return d.toISOString().slice(0, 16);
+  })();
+
   // FAANG Practice: Get User Coordinates
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -161,6 +167,14 @@ export default function SeekerDashboardPage() {
 
   async function handleBookProvider(providerId: string) {
     if (bookingInProgress) return;
+    if (!deadline) {
+      toast({
+        title: "Deadline required",
+        description: "Please select a service deadline before booking.",
+        type: "warning",
+      });
+      return;
+    }
 
     setBookingInProgress(providerId);
     try {
@@ -169,6 +183,7 @@ export default function SeekerDashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider_id: providerId,
+          deadline: new Date(deadline).toISOString(),
           seeker_coordinates: coordinates,
         }),
       });
@@ -279,7 +294,7 @@ export default function SeekerDashboardPage() {
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                min={new Date().toISOString().slice(0, 16)}
+                min={minDeadlineValue}
                 className="w-full h-11 rounded-xl border border-input bg-background px-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
               />
             </div>

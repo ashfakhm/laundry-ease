@@ -16,7 +16,7 @@ const emailSchema = z.email("Invalid email address");
 // Booking schemas
 export const createBookingSchema = z.object({
   provider_id: objectIdSchema,
-  deadline: z.string().datetime().optional(),
+  deadline: z.string().datetime("Deadline must be a valid ISO datetime"),
   seeker_coordinates: z
     .object({
       lat: z.number().min(-90).max(90),

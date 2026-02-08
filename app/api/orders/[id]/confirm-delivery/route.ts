@@ -7,6 +7,8 @@ import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { confirmDeliverySchema } from "@/lib/api/schemas";
 import { revalidatePath } from "next/cache";
+import { refundRazorpayPayment } from "@/lib/razorpay";
+import { getDb } from "@/lib/mongodb";
 
 export async function POST(
   req: Request,
@@ -51,6 +53,29 @@ export async function POST(
       );
     }
 
+    if ((order.process_status || "invoiced") === "delivered") {
+      return NextResponse.json({
+        message: "Delivery already confirmed",
+        idempotent: true,
+        deadlineCompensationApplied:
+          order.payment_status === "refunded" ||
+          Boolean(
+            (order as unknown as { deadline_compensated_at?: Date })
+              .deadline_compensated_at,
+          ),
+      });
+    }
+
+    if ((order.process_status || "invoiced") !== "out_for_delivery") {
+      return NextResponse.json(
+        {
+          message: "Delivery can only be confirmed when order is out for delivery",
+          currentStatus: order.process_status || "invoiced",
+        },
+        { status: 409 },
+      );
+    }
+
     // If escrow has already started, payment_status will be "held" (or later "released").
     // Confirming delivery should still be allowed in these post-payment states so the UI can reach "Delivered".
     if (
@@ -69,9 +94,124 @@ export async function POST(
       return NextResponse.json({ message: "Invalid OTP" }, { status: 400 });
     }
 
+    const now = new Date();
+    const orderDeadline = order.deadline ? new Date(order.deadline) : null;
+    const deadlineBreached =
+      !!orderDeadline &&
+      !Number.isNaN(orderDeadline.getTime()) &&
+      now.getTime() > orderDeadline.getTime();
+
+    const alreadyCompensated =
+      order.payment_status === "refunded" ||
+      Boolean(
+        (order as unknown as { deadline_compensated_at?: Date })
+          .deadline_compensated_at,
+      ) ||
+      Boolean(
+        (order as unknown as { razorpay_refund_id?: string }).razorpay_refund_id,
+      );
+
+    const paidAmount = Number(order.total_price || 0);
+    let refundId: string | null = null;
+    const shouldRefund =
+      deadlineBreached &&
+      !alreadyCompensated &&
+      order.payment_status === "paid" &&
+      paidAmount > 0;
+
+    if (
+      deadlineBreached &&
+      !alreadyCompensated &&
+      order.payment_status !== "paid" &&
+      paidAmount > 0
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Deadline was missed, but payment state is not refundable automatically. Please contact support.",
+        },
+        { status: 409 },
+      );
+    }
+
+    if (shouldRefund) {
+      if (!order.razorpay_payment_id) {
+        return NextResponse.json(
+          {
+            message:
+              "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support.",
+          },
+          { status: 409 },
+        );
+      }
+
+      try {
+        const refund = await refundRazorpayPayment(
+          order.razorpay_payment_id,
+          Math.round(paidAmount * 100),
+          {
+            reason: "deadline_breach_full_refund",
+            order_id: id,
+          },
+        );
+        refundId = refund.id || null;
+      } catch (error) {
+        logger.error(
+          "ORDERS",
+          "Failed to refund late-delivery order before confirmation",
+          error,
+          { orderId: id },
+        );
+        return NextResponse.json(
+          {
+            message:
+              "Deadline was missed, but refund could not be processed right now. Please retry.",
+          },
+          { status: 502 },
+        );
+      }
+    }
+
     const success = await confirmDelivery(order_id);
 
     if (success) {
+      if (deadlineBreached && !alreadyCompensated) {
+        const { db } = await getDb();
+        await db.collection("orders").updateOne(
+          { _id: order_id },
+          {
+            $set: {
+              deadline_breached_at: now,
+              deadline_compensated_at: new Date(),
+              deadline_compensation_mode: shouldRefund
+                ? "full_refund"
+                : "no_charge",
+              refund_amount: shouldRefund ? paidAmount : 0,
+              refund_reason: shouldRefund
+                ? "Delivery confirmed after seeker deadline"
+                : "Delivery confirmed after seeker deadline (no captured amount)",
+              ...(refundId ? { razorpay_refund_id: refundId } : {}),
+              ...(shouldRefund
+                ? {
+                    payment_status: "refunded",
+                    latePenalty: paidAmount,
+                  }
+                : {}),
+              updatedAt: new Date(),
+            },
+          },
+        );
+
+        revalidatePath(`/seeker/orders/${id}`);
+        return NextResponse.json({
+          message: shouldRefund
+            ? "Delivery confirmed. Deadline was missed and a full refund has been issued."
+            : "Delivery confirmed. Deadline was missed and marked for no-charge completion.",
+          deadlineCompensationApplied: shouldRefund,
+          deadlineBreached: true,
+        });
+      }
+
       revalidatePath(`/seeker/orders/${id}`);
       return NextResponse.json({
         message: "Delivery confirmed, escrow started",

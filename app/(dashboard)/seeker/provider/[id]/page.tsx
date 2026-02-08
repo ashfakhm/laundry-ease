@@ -57,6 +57,20 @@ export default function ProviderDetailPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
+  const [seekerCoordinates, setSeekerCoordinates] = useState<
+    { lat: number; lng: number } | undefined
+  >(undefined);
+  const [deadline, setDeadline] = useState(() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 24);
+    return d.toISOString().slice(0, 16);
+  });
+
+  const minDeadlineValue = (() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 2);
+    return d.toISOString().slice(0, 16);
+  })();
 
   useEffect(() => {
     async function fetchProviderDetails() {
@@ -97,15 +111,37 @@ export default function ProviderDetailPage() {
     fetchProviderDetails();
   }, [providerId]);
 
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition((position) => {
+      setSeekerCoordinates({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    });
+  }, []);
+
   async function handleBookProvider() {
     if (booking) return;
+    if (!deadline) {
+      toast({
+        title: "Deadline required",
+        description: "Please select your required deadline before booking.",
+        type: "warning",
+      });
+      return;
+    }
     setBooking(true);
 
     try {
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider_id: providerId }),
+        body: JSON.stringify({
+          provider_id: providerId,
+          deadline: new Date(deadline).toISOString(),
+          seeker_coordinates: seekerCoordinates,
+        }),
       });
 
       const data = await response.json();
@@ -443,6 +479,19 @@ export default function ProviderDetailPage() {
                     {provider.email}
                   </span>
                 </div>
+              </div>
+
+              <div className="mb-5">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
+                  Required Deadline
+                </label>
+                <input
+                  type="datetime-local"
+                  value={deadline}
+                  min={minDeadlineValue}
+                  onChange={(e) => setDeadline(e.target.value)}
+                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                />
               </div>
 
               <button
