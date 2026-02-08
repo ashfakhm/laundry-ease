@@ -176,9 +176,11 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 
 2. **Admin review**
    Admin reviews the complaint and accepts it, setting a 7-day response deadline for the provider.
+   During `accepted`, the conversation is Admin + Seeker only.
 
 3. **Provider engagement**
-   Admin adds the provider to the complaint chat. The complaint moves to `in_review` and becomes a 3-party conversation.
+   Admin adds the provider to the complaint chat (from `accepted`; idempotent if already added).
+   The complaint moves to `in_review` and becomes a 3-party conversation.
 
 4. **Resolution**
    Admin decides the outcome:
@@ -224,6 +226,10 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 
 - **Complaint chat audit trail**
   All messages in a complaint thread must be recorded with sender role and timestamp for dispute evidence.
+
+- **Role-scoped complaint visibility**
+  Seeker/provider complaint menus and list pages must show only ongoing complaints (`open`, `accepted`, `in_review`).
+  Provider visibility additionally requires admin-granted provider access.
 
 - **Account security**
   User registration must enforce:
@@ -316,6 +322,7 @@ Complaint workflow rules:
 - **3-way chat**: Once provider is added, the complaint becomes a 3-way conversation (Admin, Seeker, Provider).
 - **Resolution outcomes**: Admin can resolve with: `release_payout` (pay provider), `refund_full` (refund seeker), or `reject` (dismiss complaint, release to provider).
 - **Immutable resolution**: Once resolved or rejected, the complaint cannot be reopened.
+- **Finalized-thread access**: After `resolved`/`rejected`, seeker/provider chat posting is blocked and UI is archived/read-only; admin retains audit visibility.
 
 ## 7. Data & Integrity Rules
 
@@ -338,6 +345,9 @@ Complaint workflow rules:
 
 - **Complaint access control**
   Provider can only view complaint details after admin explicitly grants access. Seeker and admin have access from creation.
+
+- **Finalized complaint chat protection**
+  Resolved/rejected complaint message access is restricted to admin for audit-only handling.
 
 - **Response deadline tracking**
   System tracks provider response deadline (default 7 days from acceptance) and surfaces overdue complaints to admin.
@@ -478,6 +488,8 @@ See `README.md` for detailed setup instructions.
 | Complaint window | Complaint allowed only within 24h after delivery | Implemented |
 | One order one complaint | Prevent multiple complaints per order | Implemented |
 | Complaint immutability | Resolved/rejected complaints are terminal | Implemented |
+| Complaint navigation visibility | Seeker/provider menus show complaints only for ongoing cases; provider only after admin grants access | Implemented |
+| Finalized complaint chat lock | Seeker/provider cannot continue messaging after resolve/reject; UI archived | Implemented |
 | Escrow release gating | Open complaints must block payout release | Implemented |
 | Escrow payout orchestration | Cron/manual/admin payout actions must run through one idempotent processor with lock + failure recording | Implemented (`lib/payouts.ts`) |
 | Admin refund safety | Admin refunds must enforce payment-state and payout-state guardrails | Implemented |
