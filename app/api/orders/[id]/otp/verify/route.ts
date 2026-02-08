@@ -8,6 +8,8 @@ import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const schema = z.object({
   otp: z.string().regex(/^\d{6}$/, "OTP must be 6 digits"),
@@ -21,6 +23,13 @@ export async function POST(
   const { id } = await params;
 
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "orders:otp-verify",
+      max: 20,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.PROVIDER) {
@@ -230,6 +239,16 @@ export async function POST(
       message: "Delivery confirmed",
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ORDERS", "Error verifying delivery OTP", error, {
       orderId: id,
     });

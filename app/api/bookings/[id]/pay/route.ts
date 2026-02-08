@@ -8,6 +8,18 @@ import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { Booking } from "@/types/bookings";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+
+function appErrorResponse(error: AppError) {
+  return NextResponse.json(
+    {
+      message: error.message,
+      ...(error.details ? { details: error.details } : {}),
+    },
+    { status: error.statusCode },
+  );
+}
 
 // POST: Create Razorpay Order for Booking Fee
 export async function POST(
@@ -16,6 +28,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:fee:init",
+      max: 8,
+      windowMs: 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -110,6 +129,10 @@ export async function POST(
       currency: razorpayOrder.currency,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return appErrorResponse(error);
+    }
+
     logger.error("BOOKINGS", "Error creating booking fee order", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
@@ -125,6 +148,13 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:fee:verify",
+      max: 10,
+      windowMs: 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -216,6 +246,10 @@ export async function PUT(
       );
     }
   } catch (error) {
+    if (error instanceof AppError) {
+      return appErrorResponse(error);
+    }
+
     logger.error("BOOKINGS", "Error verifying booking fee", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },

@@ -9,6 +9,8 @@ import { confirmDeliverySchema } from "@/lib/api/schemas";
 import { revalidatePath } from "next/cache";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 export async function POST(
   req: Request,
@@ -16,6 +18,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "orders:confirm-delivery",
+      max: 15,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
@@ -223,6 +232,16 @@ export async function POST(
       );
     }
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ORDERS", "Error confirming delivery", error, { orderId: id });
     return NextResponse.json(
       { message: "Internal server error" },

@@ -7,15 +7,24 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { refundRazorpayPayment } from "@/lib/razorpay";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
 export async function PATCH(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:reject",
+      max: 15,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
@@ -233,6 +242,16 @@ export async function PATCH(
 
     return NextResponse.json({ message: "Booking rejected and fee refunded" });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Error rejecting booking", error, {
       bookingId: id,
     });

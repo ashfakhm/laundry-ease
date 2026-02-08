@@ -8,6 +8,8 @@ import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
 import { OrderItem } from "@/types/orders";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -24,6 +26,16 @@ function toObjectId(id: string): ObjectId | null {
   }
 }
 
+function appErrorResponse(error: AppError) {
+  return NextResponse.json(
+    {
+      message: error.message,
+      ...(error.details ? { details: error.details } : {}),
+    },
+    { status: error.statusCode },
+  );
+}
+
 // POST: Create Razorpay Order for Invoice Amount
 export async function POST(
   req: Request,
@@ -31,6 +43,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:invoice-payment:init",
+      max: 8,
+      windowMs: 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -118,6 +137,10 @@ export async function POST(
       currency: razorpayOrder.currency,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return appErrorResponse(error);
+    }
+
     logger.error("BOOKINGS", "Payment init error", error, { bookingId: id });
     return NextResponse.json(
       { message: "Internal server error" },
@@ -133,6 +156,13 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:invoice-payment:verify",
+      max: 10,
+      windowMs: 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -271,6 +301,10 @@ export async function PUT(
 
     return NextResponse.json({ success: true, orderId: res.insertedId });
   } catch (error) {
+    if (error instanceof AppError) {
+      return appErrorResponse(error);
+    }
+
     logger.error("BOOKINGS", "Payment verification error", error, {
       bookingId: id,
     });

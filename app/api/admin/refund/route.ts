@@ -7,6 +7,8 @@ import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { adminRefundSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import type { Order } from "@/types/orders";
 import type { Booking } from "@/types/bookings";
 
@@ -27,6 +29,13 @@ export async function POST(req: Request) {
   let orderId: string | undefined;
 
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "admin:refund",
+      max: 30,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== Role.ADMIN) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -248,6 +257,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, refund });
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ADMIN_REFUND", "Refund error", error, {
       paymentId,
       bookingId,

@@ -10,6 +10,8 @@ import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { adminComplaintResolveSchema } from "@/lib/api/schemas";
 import { initiateOrderPayout } from "@/lib/payouts";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 function buildComplaintRevertUpdate(complaint: Record<string, unknown>) {
   const setFields: Record<string, unknown> = {
@@ -41,6 +43,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "admin:complaints:resolve",
+      max: 40,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -62,6 +71,10 @@ export async function POST(
         },
         { status: 400 },
       );
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
     }
 
     const { outcome } = parsed.data;
@@ -193,6 +206,16 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ADMIN_COMPLAINTS", "Error resolving dispute", error, {
       complaintId: id,
     });

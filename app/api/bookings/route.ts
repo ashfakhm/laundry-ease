@@ -5,6 +5,7 @@ import { requireSeeker } from "@/lib/api/auth";
 import { successResponse, withErrorHandling } from "@/lib/api/response";
 import { createBookingSchema } from "@/lib/api/schemas";
 import { Errors } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { calculateDistance } from "@/lib/distance";
 import { geocodeLocationText } from "@/lib/geocoding";
 
@@ -50,6 +51,13 @@ function buildAddressString(address: unknown): string | null {
 }
 
 export const POST = withErrorHandling(async (req: Request) => {
+  await requireSameOrigin(req);
+  await enforceRateLimit(req, {
+    bucket: "bookings:create",
+    max: 12,
+    windowMs: 15 * 60 * 1000,
+  });
+
   const session = await requireSeeker();
 
   const body = await req.json();

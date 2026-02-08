@@ -7,6 +7,8 @@ import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { Role } from "@/types/enums";
 import { refundRazorpayPayment } from "@/lib/razorpay";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -30,6 +32,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:cancel",
+      max: 15,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -340,6 +349,16 @@ export async function POST(
       { status: 409 },
     );
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Error cancelling booking", error, {
       bookingId: id,
     });
