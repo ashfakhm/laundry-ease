@@ -10,6 +10,20 @@ import { refundRazorpayPayment } from "@/lib/razorpay";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
+function toValidDate(value: unknown): Date | null {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isSameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -54,6 +68,8 @@ export async function POST(
 
     const isProvider = session.user.role === Role.PROVIDER;
     const { db } = await getDb();
+    const now = new Date();
+    const pickupSlotTime = toValidDate(booking.pickupSlot?.dateTime);
 
     let cancelledBy: "seeker" | "provider" = "seeker";
     let allowedStatuses: string[] = ["requested", "pickup_proposed"];
@@ -90,7 +106,20 @@ export async function POST(
         return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
       }
       cancelledBy = "seeker";
-      allowedStatuses = ["requested", "pickup_proposed"];
+      allowedStatuses = [
+        "requested",
+        "accepted",
+        "pickup_proposed",
+        "reschedule_requested",
+        "confirmed",
+      ];
+
+      if (pickupSlotTime && now >= pickupSlotTime) {
+        return NextResponse.json(
+          { message: "Seeker can cancel only before the booked slot time." },
+          { status: 409 },
+        );
+      }
     }
 
     if (!allowedStatuses.includes(booking.status)) {
@@ -112,9 +141,22 @@ export async function POST(
       );
     }
 
+    const seekerSameDayCancellation =
+      !isProvider &&
+      pickupSlotTime !== null &&
+      isSameCalendarDay(now, pickupSlotTime);
+
+    const shouldAttemptRefund =
+      booking.bookingFeeStatus === "paid" &&
+      (isProvider || !seekerSameDayCancellation);
+    const shouldForfeitFee =
+      booking.bookingFeeStatus === "paid" &&
+      !isProvider &&
+      seekerSameDayCancellation;
+
     let refundId: string | null = null;
     let shouldMarkRefunded = false;
-    if (booking.bookingFeeStatus === "paid") {
+    if (shouldAttemptRefund) {
       if (!booking.razorpay_payment_id) {
         return NextResponse.json(
           {
@@ -205,7 +247,6 @@ export async function POST(
       }
     }
 
-    const now = new Date();
     const result = await db.collection("bookings").updateOne(
       { _id: booking_id, status: booking.status },
       {
@@ -221,9 +262,14 @@ export async function POST(
                 ...(refundId ? { booking_fee_refund_id: refundId } : {}),
               }
             : {}),
+          ...(shouldForfeitFee
+            ? {
+                bookingFeeStatus: "forfeited",
+              }
+            : {}),
           updatedAt: now,
         },
-        ...(booking.bookingFeeStatus === "paid"
+        ...(shouldAttemptRefund
           ? { $unset: { refund_in_progress_at: "" } }
           : {}),
       },
@@ -234,7 +280,9 @@ export async function POST(
         success: true,
         message: shouldMarkRefunded
           ? "Booking cancelled and booking fee refunded"
-          : "Booking cancelled successfully",
+          : shouldForfeitFee
+            ? "Booking cancelled. Same-day cancellation is non-refundable."
+            : "Booking cancelled successfully",
       });
     }
 
@@ -250,6 +298,16 @@ export async function POST(
             updatedAt: now,
           },
           $unset: { refund_in_progress_at: "" },
+        }
+      );
+    } else if (shouldForfeitFee && latest?.bookingFeeStatus === "paid") {
+      await db.collection("bookings").updateOne(
+        { _id: booking_id, bookingFeeStatus: "paid" },
+        {
+          $set: {
+            bookingFeeStatus: "forfeited",
+            updatedAt: now,
+          },
         }
       );
     } else if (shouldMarkRefunded || latest?.refund_in_progress_at) {
@@ -275,6 +333,8 @@ export async function POST(
       {
         message: shouldMarkRefunded
           ? "Booking status changed. Refund has been processed; please refresh and retry."
+          : shouldForfeitFee
+            ? "Booking status changed. Same-day cancellation is non-refundable; please refresh and retry."
           : "Booking status changed. Please refresh and retry.",
       },
       { status: 409 },
