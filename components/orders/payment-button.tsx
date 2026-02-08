@@ -43,7 +43,7 @@ export function PaymentButton({
       const options = {
         key: data.key,
         amount: data.amount,
-        currency: data.currency,
+        currency: data.currency ?? currency,
         name: "LaundryEase",
         description: `Payment for Order #${orderId.slice(-6)}`,
         order_id: data.id,

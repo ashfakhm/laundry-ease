@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowUpRight, ArrowDownRight, Package, Truck, Wallet, Clock, Loader2 } from "lucide-react";
+import { Package, Truck, Wallet, Clock, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 

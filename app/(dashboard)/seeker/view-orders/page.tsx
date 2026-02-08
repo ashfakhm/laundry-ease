@@ -10,16 +10,10 @@ import {
   CheckCircle2,
   Truck,
   XCircle,
-  IndianRupee,
   Calendar,
-  User,
-  Phone,
-  Mail,
   Loader2,
-  ShieldAlert,
   ChevronRight,
   ArrowRight,
-  Store,
   ShieldCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";

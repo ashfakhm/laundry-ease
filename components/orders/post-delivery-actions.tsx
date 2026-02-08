@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ReviewModal, ComplaintModal } from "./order-actions";
-import { Star, AlertTriangle, MessageSquarePlus } from "lucide-react";
+import { Star, AlertTriangle } from "lucide-react";
 
 interface PostDeliveryActionsProps {
   orderId: string;

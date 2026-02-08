@@ -141,7 +141,7 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
         }),
       );
 
-      const payload = itemsWithUrls.map(({ photo, ...rest }) => rest);
+      const payload = itemsWithUrls.map(({ photo: _photo, ...rest }) => rest);
 
       const res = await fetch(`/api/bookings/${bookingId}/invoice`, {
         method: "POST",
