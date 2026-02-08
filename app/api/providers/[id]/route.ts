@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
-import { maskBankDetails } from "@/lib/utils";
 
 /**
  * GET /api/providers/:id

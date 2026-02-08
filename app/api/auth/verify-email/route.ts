@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 
 const JWT_SECRET = env.NEXTAUTH_SECRET;
+
+type EmailVerificationTokenPayload = jwt.JwtPayload & {
+  email: string;
+  type: string;
+};
 
 export async function POST(req: Request) {
   try {
@@ -20,17 +23,36 @@ export async function POST(req: Request) {
     }
 
     // Verify JWT token
-    let decoded: any;
+    let decoded: jwt.JwtPayload | string;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 400 }
       );
     }
 
-    const { email, type } = decoded;
+    if (typeof decoded === "string") {
+      return NextResponse.json(
+        { error: "Invalid token payload" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof decoded.email !== "string" ||
+      typeof decoded.type !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "Invalid token payload" },
+        { status: 400 }
+      );
+    }
+
+    const payload = decoded as EmailVerificationTokenPayload;
+
+    const { email, type } = payload;
 
     if (type !== "email_verification") {
       return NextResponse.json(

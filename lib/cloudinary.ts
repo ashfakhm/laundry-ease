@@ -9,7 +9,7 @@ cloudinary.v2.config({
 export async function uploadInvoicePhoto(
   file: Buffer,
   filename: string,
-  mimetype: string
+  _mimetype: string
 ) {
   return new Promise<string>((resolve, reject) => {
     cloudinary.v2.uploader

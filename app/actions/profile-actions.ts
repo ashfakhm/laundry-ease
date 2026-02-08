@@ -7,7 +7,7 @@ import { getDb } from "@/lib/mongodb";
 export async function getProviderProfile() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user || (session.user as any).role !== "provider") {
+  if (!session?.user || session.user.role !== "provider") {
     throw new Error("Unauthorized");
   }
 

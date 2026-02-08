@@ -7,7 +7,6 @@ import { Role } from "@/types/enums";
 import bcrypt from "bcrypt";
 import {
   auditBookingStateChange,
-  auditOrderStateChange,
   auditEscrowStateChange,
 } from "./audit";
 
