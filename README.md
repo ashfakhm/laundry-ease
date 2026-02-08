@@ -259,9 +259,11 @@ Stable:
   - Booking fee payments: `/api/bookings/:id/pay` (canonical), plus `/api/bookings/payment/init`, `/api/bookings/payment/verify` aliases
 - Booking reschedule requests during pickup scheduling
 - Complaint system with admin workflow (accept → add provider → resolve)
-- 3-way chat for dispute mediation (seeker, provider, admin)
+- Staged complaint chat (Admin+Seeker in `accepted`, 3-way after provider is added)
 - Response deadline tracking for provider engagement
 - Escrow freeze on complaint, release on resolution
+- Role-scoped complaint navigation (ongoing-only visibility, provider only after admin grants access)
+- Archived complaint threads for seeker/provider after resolution
 - Unified payout orchestration for cron/manual/admin flows (`lib/payouts.ts`)
 - Booking cancellation rules with enforced refund/forfeiture policy
 - Geofenced provider arrival checks before booking-fee payout release
@@ -306,10 +308,10 @@ LaundryEase provides a structured dispute resolution workflow for post-delivery 
 2. **Admin accepts complaint**
    - Sets 7-day response deadline for provider
    - Status moves to `accepted`
-   - Seeker notified of acceptance
+   - Conversation remains Admin + Seeker during this stage
 
 3. **Admin adds provider to chat**
-   - Provider gains access to complaint details
+   - Provider gains access to complaint details (only after admin action)
    - Status moves to `in_review`
    - 3-way conversation begins (Admin, Seeker, Provider)
 
@@ -333,6 +335,8 @@ LaundryEase provides a structured dispute resolution workflow for post-delivery 
 - **One order, one complaint**: Each order can have at most one complaint
 - **Escrow freeze**: Raising a complaint halts the escrow release timer
 - **Provider access control**: Provider only sees complaint after admin explicitly grants access
+- **Role-scoped visibility**: Seeker/provider complaint menus list only ongoing complaints (`open`, `accepted`, `in_review`)
+- **Finalized thread lock**: After `resolved`/`rejected`, seeker/provider chat is archived/read-only
 - **Response deadline**: Default 7 days from acceptance; overdue complaints surfaced to admin
 
 ## 12. Project Structure
