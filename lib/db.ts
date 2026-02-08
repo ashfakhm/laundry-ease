@@ -366,7 +366,7 @@ export async function updateBookingStatus(
  * @throws Error if provider capacity is exceeded
  */
 export async function acceptBookingWithCapacityCheck(data: {
-  booking_id: ObjectId;
+  booking_id: ObjectId | string;
   provider_id: ObjectId;
   maxCapacity: number;
   platform_commission: number;
@@ -400,6 +400,39 @@ export async function acceptBookingWithCapacityCheck(data: {
         );
       }
 
+      if (booking.bookingFeeStatus !== "paid") {
+        throw new Error(
+          "PAYMENT_NOT_SETTLED:Booking fee must be paid before provider can accept",
+        );
+      }
+
+      const refundLockRaw = booking.refund_in_progress_at;
+      if (refundLockRaw) {
+        const refundLockAt = new Date(refundLockRaw);
+        const lockIsFresh =
+          !Number.isNaN(refundLockAt.getTime()) &&
+          Date.now() - refundLockAt.getTime() < 5 * 60 * 1000;
+
+        if (lockIsFresh) {
+          throw new Error(
+            "REFUND_IN_PROGRESS:Booking refund is in progress; cannot accept now",
+          );
+        }
+
+        await db.collection<Booking>("bookings").updateOne(
+          {
+            _id: data.booking_id,
+            status: "requested",
+            refund_in_progress_at: booking.refund_in_progress_at,
+          },
+          {
+            $unset: { refund_in_progress_at: "" },
+            $set: { updatedAt: new Date() },
+          },
+          { session },
+        );
+      }
+
       // Atomic capacity check within transaction
       const activeBookingsCount = await db
         .collection("bookings")
@@ -421,7 +454,12 @@ export async function acceptBookingWithCapacityCheck(data: {
       const updateResult = await db
         .collection<Booking>("bookings")
         .findOneAndUpdate(
-          { _id: data.booking_id, status: "requested" }, // Double-check status hasn't changed
+          {
+            _id: data.booking_id,
+            status: "requested",
+            bookingFeeStatus: "paid",
+            refund_in_progress_at: { $exists: false },
+          }, // Double-check status/payment/lock hasn't changed
           {
             $set: {
               status: "accepted",
@@ -445,18 +483,27 @@ export async function acceptBookingWithCapacityCheck(data: {
 
     // Audit log - booking accepted (fire-and-forget, non-blocking)
     if (updatedBooking) {
-      auditBookingStateChange({
-        booking_id: data.booking_id,
-        previous_state: "requested",
-        next_state: "accepted",
-        action: "booking_accepted",
-        actor_type: "provider",
-        actor_id: data.provider_id,
-        metadata: {
-          platform_commission: data.platform_commission,
-          provider_payout_amount: data.provider_payout_amount,
-        },
-      });
+      const bookingIdForAudit =
+        data.booking_id instanceof ObjectId
+          ? data.booking_id
+          : ObjectId.isValid(String(data.booking_id))
+            ? new ObjectId(String(data.booking_id))
+            : null;
+
+      if (bookingIdForAudit) {
+        auditBookingStateChange({
+          booking_id: bookingIdForAudit,
+          previous_state: "requested",
+          next_state: "accepted",
+          action: "booking_accepted",
+          actor_type: "provider",
+          actor_id: data.provider_id,
+          metadata: {
+            platform_commission: data.platform_commission,
+            provider_payout_amount: data.provider_payout_amount,
+          },
+        });
+      }
     }
 
     return updatedBooking;
@@ -738,7 +785,7 @@ export async function getBookingsForProvider(email: string) {
     .collection<Booking>("bookings")
     .find({
       provider_id: provider._id,
-      bookingFeeStatus: "paid",
+      bookingFeeStatus: { $in: ["paid", "applied"] },
     })
     .sort({ createdAt: -1 })
     .toArray();

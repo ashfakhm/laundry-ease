@@ -62,6 +62,9 @@ export type Booking = {
     };
   };
   arrivedAt?: Date | string; // Provider arrival timestamp
+  cancelledAt?: Date | string;
+  cancelledBy?: "seeker" | "provider";
+  cancellation_reason?: string;
 
   invoice?: InvoiceData;
   seeker_coordinates?: { lat: number; lng: number };
@@ -77,6 +80,14 @@ export type Booking = {
   razorpay_payment_id?: string;
   payout_status?: "pending" | "processing" | "paid" | "failed";
   payout_id?: string;
+  payout_utr?: string;
+  payout_initiated_at?: Date | string;
+  payout_updated_at?: Date | string;
+  booking_fee_released_at?: Date | string;
+  booking_fee_applied_at?: Date | string;
+  refundProcessedAt?: Date | string;
+  booking_fee_refund_id?: string;
+  refund_in_progress_at?: Date | string;
 };
 
 export type PopulatedBooking = Omit<Booking, "seeker_id"> & {

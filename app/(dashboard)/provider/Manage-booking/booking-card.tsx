@@ -146,7 +146,61 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
     });
   };
 
+  const handleCancelBooking = () => {
+    if (
+      !confirm(
+        "Cancel this booking? If booking fee was paid, it will be refunded to the seeker.",
+      )
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/bookings/${booking._id.toString()}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reason: "Provider cancelled booking from dashboard",
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          toast({
+            title: "Failed to cancel booking",
+            description:
+              data?.message || data?.error || "Please try again",
+            type: "error",
+          });
+          return;
+        }
+
+        toast({
+          title: "Booking cancelled",
+          description: data?.message || "Booking cancelled successfully",
+          type: "success",
+        });
+        onRefresh();
+      } catch {
+        toast({
+          title: "Failed to cancel booking",
+          description: "Network error. Please try again.",
+          type: "error",
+        });
+      }
+    });
+  };
+
   const loading = isPending;
+  const canProviderCancel =
+    !booking.arrivedAt &&
+    [
+      "accepted",
+      "pickup_proposed",
+      "reschedule_requested",
+      "confirmed",
+    ].includes(booking.status);
 
   return (
     <motion.article
@@ -379,6 +433,18 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
           <div className="flex items-center gap-3 rounded-xl bg-destructive/10 p-4 border border-destructive/20 text-sm">
             <XCircle className="h-5 w-5 text-destructive" />
             <p className="font-bold text-destructive">Booking Declined</p>
+          </div>
+        )}
+
+        {canProviderCancel && (
+          <div className="mt-3">
+            <button
+              onClick={handleCancelBooking}
+              disabled={loading}
+              className="w-full h-10 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-bold hover:bg-red-100 transition-colors disabled:opacity-50"
+            >
+              {loading ? "Cancelling..." : "Cancel Booking"}
+            </button>
           </div>
         )}
       </div>

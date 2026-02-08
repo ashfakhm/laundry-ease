@@ -43,7 +43,10 @@ export async function POST(
       );
     }
 
-    if (booking.bookingFeeStatus === "paid") {
+    if (
+      booking.bookingFeeStatus === "paid" ||
+      booking.bookingFeeStatus === "applied"
+    ) {
       return NextResponse.json(
         { message: "Booking fee already paid" },
         { status: 400 }
@@ -142,7 +145,8 @@ export async function PUT(
     }
 
     if (
-      booking.bookingFeeStatus === "paid" &&
+      (booking.bookingFeeStatus === "paid" ||
+        booking.bookingFeeStatus === "applied") &&
       booking.razorpay_payment_id === razorpay_payment_id
     ) {
       return NextResponse.json({ message: "Payment successful", idempotent: true });
@@ -153,7 +157,12 @@ export async function PUT(
     }
 
     const res = await db.collection<Booking>("bookings").updateOne(
-      { _id: booking_id, bookingFeeStatus: { $ne: "paid" } },
+      {
+        _id: booking_id,
+        bookingFeeStatus: {
+          $nin: ["paid", "applied", "refunded", "forfeited"],
+        },
+      },
       {
         $set: {
           bookingFeeStatus: "paid",

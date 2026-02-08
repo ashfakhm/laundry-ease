@@ -33,17 +33,6 @@ export async function DELETE(
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
-    // Only allow accept/reject if booking fee is paid
-    if (booking.bookingFeeStatus !== "paid") {
-      return NextResponse.json(
-        {
-          message:
-            "Booking fee must be paid before provider can accept/reject.",
-        },
-        { status: 400 }
-      );
-    }
-
     // Validation: Can only delete if Cancelled or Rejected
     // "completed" might be history we want to keep, but "cancelled"/"rejected" is often clutter.
     const allowedStatuses = ["cancelled", "rejected"];

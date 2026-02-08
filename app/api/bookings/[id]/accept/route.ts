@@ -37,7 +37,12 @@ export async function PATCH(
       );
     }
 
-    const booking_id = new ObjectId(id);
+    let booking_id: ObjectId;
+    try {
+      booking_id = new ObjectId(id);
+    } catch {
+      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+    }
 
     // Get booking to calculate commission
     const booking = await getBookingById(booking_id);
@@ -173,6 +178,18 @@ export async function PATCH(
           return NextResponse.json(
             { message: error.message.replace("CAPACITY_EXCEEDED:", "") },
             { status: 400 },
+          );
+        }
+        if (error.message.startsWith("PAYMENT_NOT_SETTLED:")) {
+          return NextResponse.json(
+            { message: error.message.replace("PAYMENT_NOT_SETTLED:", "") },
+            { status: 409 },
+          );
+        }
+        if (error.message.startsWith("REFUND_IN_PROGRESS:")) {
+          return NextResponse.json(
+            { message: error.message.replace("REFUND_IN_PROGRESS:", "") },
+            { status: 409 },
           );
         }
       }

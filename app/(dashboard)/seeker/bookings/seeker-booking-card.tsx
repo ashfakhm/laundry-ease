@@ -464,12 +464,15 @@ function SeekerBookingCardComponent({
               </div>
             </div>
 
-            {booking.bookingFeeStatus === "paid" ? (
+            {booking.bookingFeeStatus === "paid" ||
+            booking.bookingFeeStatus === "applied" ? (
               <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 rounded-xl text-green-600 font-bold border border-green-500/20">
                 <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white p-1">
                   <CheckCircle className="w-full h-full" strokeWidth={3} />
                 </div>
-                <span className="text-sm">Paid</span>
+                <span className="text-sm">
+                  {booking.bookingFeeStatus === "applied" ? "Released" : "Paid"}
+                </span>
               </div>
             ) : booking.status === "rejected" ||
               booking.status === "cancelled" ? (

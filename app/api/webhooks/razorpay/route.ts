@@ -15,6 +15,9 @@ import { env } from "@/lib/env";
  * - order.paid
  * - refund.created
  * - payout.processed
+ * - payout.failed
+ * - payout.reversed
+ * - payout.rejected
  */
 export async function POST(req: NextRequest) {
   let eventId: string | undefined;
@@ -261,12 +264,17 @@ export async function POST(req: NextRequest) {
         await db.collection("bookings").updateOne(
           {
             razorpay_payment_id: refund.payment_id,
-            bookingFeeStatus: "paid",
+            bookingFeeStatus: { $in: ["paid", "applied"] },
           },
           {
             $set: {
               bookingFeeStatus: "refunded",
+              refundProcessedAt: new Date(),
+              booking_fee_refund_id: refund.id,
               updatedAt: new Date(),
+            },
+            $unset: {
+              refund_in_progress_at: "",
             },
           }
         );
@@ -274,8 +282,38 @@ export async function POST(req: NextRequest) {
         break;
       }
 
-      case "payout.processed": {
+      case "payout.processed":
+      case "payout.failed":
+      case "payout.reversed":
+      case "payout.rejected": {
         const payout = event.payload.payout.entity;
+        const isProcessed = payout.status === "processed";
+        const isFailedLike =
+          payout.status === "failed" ||
+          payout.status === "rejected" ||
+          payout.status === "reversed" ||
+          payout.status === "cancelled";
+        const normalizedBookingPayoutStatus = isProcessed
+          ? "paid"
+          : isFailedLike
+            ? "failed"
+            : "processing";
+
+        const bookingSet: Record<string, unknown> = {
+          payout_status: normalizedBookingPayoutStatus,
+          payout_utr: payout.utr,
+          payout_updated_at: new Date(),
+          bookingFeeStatus: isProcessed ? "applied" : "paid",
+          updatedAt: new Date(),
+        };
+
+        const bookingUnset: Record<string, string> = {};
+        if (isProcessed) {
+          bookingSet.booking_fee_applied_at = new Date();
+        } else {
+          bookingUnset.booking_fee_applied_at = "";
+        }
+
         // Update payout status in orders
         await db.collection("orders").updateOne(
           { payout_id: payout.id },
@@ -287,7 +325,18 @@ export async function POST(req: NextRequest) {
             },
           }
         );
-        logger.info("WEBHOOK", "Payout processed", {
+
+        await db.collection("bookings").updateOne(
+          { payout_id: payout.id },
+          {
+            $set: bookingSet,
+            ...(Object.keys(bookingUnset).length > 0
+              ? { $unset: bookingUnset }
+              : {}),
+          }
+        );
+
+        logger.info("WEBHOOK", "Payout status reconciled", {
           payoutId: payout.id,
           status: payout.status,
           utr: payout.utr,

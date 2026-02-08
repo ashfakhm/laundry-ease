@@ -33,7 +33,7 @@ export async function getProviderBookings(): Promise<{
       .collection("bookings")
       .find({
         provider_id: provider._id,
-        bookingFeeStatus: "paid",
+        bookingFeeStatus: { $in: ["paid", "applied"] },
       })
       .sort({ createdAt: -1 })
       .toArray();
