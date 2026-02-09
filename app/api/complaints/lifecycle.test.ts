@@ -54,11 +54,25 @@ type ComplaintMessageDoc = {
   [key: string]: unknown;
 };
 
+type NotificationDoc = {
+  _id: ObjectId;
+  recipient_id: ObjectId;
+  recipient_role: "seeker" | "provider";
+  complaint_id: ObjectId;
+  category: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: Date;
+  [key: string]: unknown;
+};
+
 type InMemoryStore = {
   usersByEmail: Record<string, UserDoc>;
   orders: OrderDoc[];
   complaints: ComplaintDoc[];
   complaint_messages: ComplaintMessageDoc[];
+  notifications: NotificationDoc[];
   seekers: UserDoc[];
   providers: UserDoc[];
   admins: UserDoc[];
@@ -85,6 +99,7 @@ const {
       orders: [] as OrderDoc[],
       complaints: [] as ComplaintDoc[],
       complaint_messages: [] as ComplaintMessageDoc[],
+      notifications: [] as NotificationDoc[],
       seekers: [] as UserDoc[],
       providers: [] as UserDoc[],
       admins: [] as UserDoc[],
@@ -250,6 +265,8 @@ function getCollectionData(name: string): Record<string, unknown>[] {
       return ctx.store.complaints as unknown as Record<string, unknown>[];
     case "complaint_messages":
       return ctx.store.complaint_messages as unknown as Record<string, unknown>[];
+    case "notifications":
+      return ctx.store.notifications as unknown as Record<string, unknown>[];
     case "seekers":
       return ctx.store.seekers as unknown as Record<string, unknown>[];
     case "providers":
@@ -281,6 +298,22 @@ function makeDb() {
           };
           collectionData.push(nextDoc);
           return { acknowledged: true, insertedId: nextDoc._id };
+        },
+        async insertMany(docs: Record<string, unknown>[]) {
+          const insertedIds: Record<number, unknown> = {};
+          docs.forEach((doc, index) => {
+            const nextDoc = {
+              _id: doc._id || new ObjectId(),
+              ...doc,
+            };
+            collectionData.push(nextDoc);
+            insertedIds[index] = nextDoc._id;
+          });
+          return {
+            acknowledged: true,
+            insertedCount: docs.length,
+            insertedIds,
+          };
         },
         async updateOne(
           filter: Record<string, unknown>,
@@ -393,6 +426,7 @@ beforeEach(() => {
     ],
     complaints: [],
     complaint_messages: [],
+    notifications: [],
   };
 
   setActor("seeker");

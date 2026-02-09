@@ -21,7 +21,7 @@ import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
  * 3. Update status to 'accepted'
  * 4. Set response deadline (default 7 days)
  * 5. Create system message
- * 6. TODO: Send notification to seeker and provider
+ * 6. Create in-app notifications for seeker and provider
  */
 export async function POST(
   req: Request,
@@ -104,11 +104,14 @@ export async function POST(
       },
     );
 
-    // Get seeker name for system message
-    const seeker = await db
-      .collection("seekers")
-      .findOne({ _id: complaint.seeker_id });
+    // Get seeker/provider details for system message + notifications
+    const [seeker, provider] = await Promise.all([
+      db.collection("seekers").findOne({ _id: complaint.seeker_id }),
+      db.collection("providers").findOne({ _id: complaint.provider_id }),
+    ]);
     const seekerName = seeker?.name || "Customer";
+    const providerDisplayName =
+      provider?.businessName || provider?.name || "Provider";
 
     // Create system message
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
@@ -116,19 +119,42 @@ export async function POST(
       sender_id: dbUser._id as ObjectId,
       sender_role: "system",
       message_type: "SYSTEM",
-      content: `Admin has accepted this complaint. ${seekerName}'s issue is now under review. Provider will be notified and has ${deadlineDays} days to respond.`,
+      content: `Admin has accepted this complaint. ${seekerName}'s issue with ${providerDisplayName} is now under review. Provider has ${deadlineDays} days to respond.`,
       createdAt: now,
     };
 
     await db.collection("complaint_messages").insertOne(systemMsg);
 
-    // TODO: Send notifications to seeker (confirmation) and provider (alert)
-    // await sendComplaintAcceptedNotification(complaint.seeker_id, complaint.provider_id, complaintId);
+    const notifications = [
+      {
+        recipient_id: complaint.seeker_id,
+        recipient_role: "seeker",
+        complaint_id: complaintId,
+        category: "complaint_accepted",
+        title: "Complaint accepted by admin",
+        message: `Your complaint is now accepted and under review. Provider response deadline: ${responseDeadline.toLocaleDateString()}.`,
+        read: false,
+        createdAt: now,
+      },
+      {
+        recipient_id: complaint.provider_id,
+        recipient_role: "provider",
+        complaint_id: complaintId,
+        category: "complaint_accepted",
+        title: "Complaint requires your response",
+        message: `An admin accepted complaint from ${seekerName}. Please respond by ${responseDeadline.toLocaleDateString()}.`,
+        read: false,
+        createdAt: now,
+      },
+    ];
+
+    await db.collection("notifications").insertMany(notifications);
 
     logger.info("ADMIN_COMPLAINTS", "Complaint accepted", {
       complaintId: id,
       adminId: session.user.id,
       responseDeadline: responseDeadline.toISOString(),
+      notificationsCreated: notifications.length,
     });
 
     return NextResponse.json({

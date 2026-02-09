@@ -2,6 +2,7 @@ const DEFAULT_REPORT_URI = "/api/security/csp-report";
 
 export type CspBuildOptions = {
   reportUri?: string;
+  enforce?: boolean;
 };
 
 function directive(name: string, values: string[]): string {
@@ -10,6 +11,18 @@ function directive(name: string, values: string[]): string {
 
 export function buildCspPolicy(options: CspBuildOptions = {}): string {
   const reportUri = options.reportUri ?? DEFAULT_REPORT_URI;
+  const enforce = options.enforce ?? false;
+  const allowUnsafeEval = process.env.CSP_ALLOW_UNSAFE_EVAL === "true";
+
+  const scriptSrc = [
+    "'self'",
+    "'unsafe-inline'",
+    "https://checkout.razorpay.com",
+    "https://maps.googleapis.com",
+  ];
+  if (!enforce || allowUnsafeEval) {
+    scriptSrc.splice(2, 0, "'unsafe-eval'");
+  }
 
   const directives: string[] = [
     directive("default-src", ["'self'"]),
@@ -17,13 +30,7 @@ export function buildCspPolicy(options: CspBuildOptions = {}): string {
     directive("form-action", ["'self'"]),
     directive("frame-ancestors", ["'none'"]),
     directive("object-src", ["'none'"]),
-    directive("script-src", [
-      "'self'",
-      "'unsafe-inline'",
-      "'unsafe-eval'",
-      "https://checkout.razorpay.com",
-      "https://maps.googleapis.com",
-    ]),
+    directive("script-src", scriptSrc),
     directive("style-src", ["'self'", "'unsafe-inline'"]),
     directive("img-src", [
       "'self'",
@@ -65,7 +72,6 @@ export function getCspHeader() {
     key: enforce
       ? "Content-Security-Policy"
       : "Content-Security-Policy-Report-Only",
-    value: buildCspPolicy(),
+    value: buildCspPolicy({ enforce }),
   };
 }
-

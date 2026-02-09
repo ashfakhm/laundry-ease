@@ -2,12 +2,19 @@ import { afterEach, describe, expect, it } from "vitest";
 import { buildCspPolicy, getCspHeader } from "./csp";
 
 const ORIGINAL_CSP_ENFORCE = process.env.CSP_ENFORCE;
+const ORIGINAL_CSP_ALLOW_UNSAFE_EVAL = process.env.CSP_ALLOW_UNSAFE_EVAL;
 
 afterEach(() => {
   if (ORIGINAL_CSP_ENFORCE === undefined) {
     delete process.env.CSP_ENFORCE;
   } else {
     process.env.CSP_ENFORCE = ORIGINAL_CSP_ENFORCE;
+  }
+
+  if (ORIGINAL_CSP_ALLOW_UNSAFE_EVAL === undefined) {
+    delete process.env.CSP_ALLOW_UNSAFE_EVAL;
+  } else {
+    process.env.CSP_ALLOW_UNSAFE_EVAL = ORIGINAL_CSP_ALLOW_UNSAFE_EVAL;
   }
 });
 
@@ -22,6 +29,14 @@ describe("buildCspPolicy", () => {
     );
     expect(policy).toContain("report-uri /api/security/csp-report");
   });
+
+  it("drops unsafe-eval in enforce mode by default", () => {
+    const policy = buildCspPolicy({ enforce: true });
+    expect(policy).not.toContain("'unsafe-eval'");
+    expect(policy).toContain(
+      "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://maps.googleapis.com",
+    );
+  });
 });
 
 describe("getCspHeader", () => {
@@ -35,9 +50,19 @@ describe("getCspHeader", () => {
 
   it("returns enforcement header when CSP_ENFORCE=true", () => {
     process.env.CSP_ENFORCE = "true";
+    delete process.env.CSP_ALLOW_UNSAFE_EVAL;
 
     const header = getCspHeader();
     expect(header.key).toBe("Content-Security-Policy");
+    expect(header.value).not.toContain("'unsafe-eval'");
+  });
+
+  it("allows unsafe-eval override in enforce mode when explicitly enabled", () => {
+    process.env.CSP_ENFORCE = "true";
+    process.env.CSP_ALLOW_UNSAFE_EVAL = "true";
+
+    const header = getCspHeader();
+    expect(header.key).toBe("Content-Security-Policy");
+    expect(header.value).toContain("'unsafe-eval'");
   });
 });
-
