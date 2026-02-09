@@ -187,9 +187,10 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
    - **Release payout** (`release_payout`): Provider receives full distributable amount
    - **Split settlement** (`refund_partial`): Admin sets seeker refund amount between `0` and distributable amount; remaining distributable goes to provider
    - **Seeker full distributable award** (`refund_full`): Seeker receives full distributable amount (provider gets `0`)
-   - **Reject** (`reject`): Complaint is invalid; payout proceeds to provider
+   - **Reject** (`reject`): Complaint is invalid; provider receives full distributable amount through the same payout rail as `release_payout`. Case is hidden from ongoing lists.
 
    Settlement math is commission-aware: commission is retained first, and the slider applies only on the distributable amount (`invoice_total - platform_commission`).
+   With default commission at 5%, successful/no-complaint or rejected-complaint outcomes pay provider 95% of invoice value (plus delivery charge handling per order math).
 
 ## 5. System Requirements
 
@@ -326,6 +327,7 @@ Complaint workflow rules:
 - **Resolution outcomes**: Admin can resolve with: `release_payout`, `refund_partial` (slider-based split), `refund_full` (full distributable to seeker), or `reject`.
 - **Immutable resolution**: Once resolved or rejected, the complaint cannot be reopened.
 - **Finalized-thread access**: After `resolved`/`rejected`, seeker/provider chat posting is blocked and UI is archived/read-only; admin retains audit visibility.
+- **Finalized visibility/access revocation**: On `resolved`/`rejected`, provider chat access grant is revoked and seeker/provider complaint menus hide the case (ongoing-only listing).
 
 ## 7. Data & Integrity Rules
 
@@ -476,37 +478,39 @@ See `README.md` for detailed setup instructions.
 
 ## 14. Implementation Alignment Matrix (2026-02-09)
 
-| PRD Requirement | Expected Behavior | Current System Status |
-| --------------- | ----------------- | --------------------- |
-| Verified signup | Email + phone OTP required before account creation | Implemented (OTP required in signup APIs; created users now persist as verified) |
-| Password policy | 8+ chars, uppercase, number, special char | Implemented in signup and reset-password APIs |
-| Password reset | Reset must update real auth credential store | Implemented (reset now updates `passwordHash` in seeker/provider/admin collections) |
-| Discovery coverage | Show only providers whose radius covers seeker coordinate | Implemented (strict provider-radius filtering; optional seeker-side radius cap) |
-| Booking fee gate | Provider cannot accept unpaid booking | Implemented |
-| Booking cancellation policy | Seeker can cancel only before slot time; same-day seeker cancellation forfeits fee; provider cancellation/refusal refunds fee | Implemented |
-| Booking-fee release control | Booking-fee payout should trigger only on provider arrival and geofence compliance | Implemented |
-| Capacity limit | Provider acceptance blocked when at capacity | Implemented via transactional checks |
-| Invoice review | Seeker can approve/reject invoice with reason on reject | Implemented |
-| Invoice reject outcome | Booking should terminate with booking fee forfeiture | Implemented (`cancelled` + `bookingFeeStatus=forfeited`) |
-| Order payment auth | Only order owner can initialize/verify payment | Implemented on canonical payment routes and legacy aliases |
-| Payment integrity | Verification must bind to server-created Razorpay order | Implemented on canonical payment routes and legacy aliases |
-| Payment idempotency | Re-verification should not create duplicates | Implemented on payment verification paths |
-| CSP telemetry pipeline | Security policy should be staged with violation reporting before enforcement | Implemented (`next.config.ts` CSP Report-Only + `/api/security/csp-report`; enforce mode behind `CSP_ENFORCE`) |
-| Order activation | Paid invoice should result in active order linkage | Implemented (booking linked to order in invoice and pay-invoice paths) |
-| Deadline guarantee | Booking requires deadline; pickup must respect deadline; late delivery auto-compensates seeker | Implemented (deadline required at booking, enforced in pickup scheduling, propagated to orders, and compensated at OTP delivery confirmation with idempotent safeguards) |
-| Delivery scheduling auth | Provider proposes, seeker confirms | Implemented |
-| Delivery OTP | Delivery requires OTP and starts escrow hold window | Implemented |
-| Complaint window | Complaint allowed only within 24h after delivery | Implemented |
-| One order one complaint | Prevent multiple complaints per order | Implemented |
-| Complaint immutability | Resolved/rejected complaints are terminal | Implemented |
-| Complaint navigation visibility | Seeker/provider menus show complaints only for ongoing cases; provider only after admin grants access | Implemented |
-| Finalized complaint chat lock | Seeker/provider cannot continue messaging after resolve/reject; UI archived | Implemented |
-| Complaint split settlement | Admin can split distributable amount between seeker and provider (`refund_partial`) with commission preserved | Implemented |
-| Escrow release gating | Open complaints must block payout release | Implemented |
-| Escrow payout orchestration | Cron/manual/admin payout actions must run through one idempotent processor with lock + failure recording | Implemented (`lib/payouts.ts`) |
-| Admin refund safety | Admin refunds must enforce payment-state and payout-state guardrails | Implemented |
-| No-show automation | Missed confirmed pickup should auto-mark no-show | Implemented |
-| Auditability | State transitions and financial events should be traceable | Implemented (state/escrow audits + idempotent webhook event tracking/reconciliation) |
+| PRD Requirement                 | Expected Behavior                                                                                                                | Current System Status                                                                                                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Verified signup                 | Email + phone OTP required before account creation                                                                               | Implemented (OTP required in signup APIs; created users now persist as verified)                                                                                         |
+| Password policy                 | 8+ chars, uppercase, number, special char                                                                                        | Implemented in signup and reset-password APIs                                                                                                                            |
+| Password reset                  | Reset must update real auth credential store                                                                                     | Implemented (reset now updates `passwordHash` in seeker/provider/admin collections)                                                                                      |
+| Discovery coverage              | Show only providers whose radius covers seeker coordinate                                                                        | Implemented (strict provider-radius filtering; optional seeker-side radius cap)                                                                                          |
+| Booking fee gate                | Provider cannot accept unpaid booking                                                                                            | Implemented                                                                                                                                                              |
+| Booking cancellation policy     | Seeker can cancel only before slot time; same-day seeker cancellation forfeits fee; provider cancellation/refusal refunds fee    | Implemented                                                                                                                                                              |
+| Booking-fee release control     | Booking-fee payout should trigger only on provider arrival and geofence compliance                                               | Implemented                                                                                                                                                              |
+| Capacity limit                  | Provider acceptance blocked when at capacity                                                                                     | Implemented via transactional checks                                                                                                                                     |
+| Invoice review                  | Seeker can approve/reject invoice with reason on reject                                                                          | Implemented                                                                                                                                                              |
+| Invoice reject outcome          | Booking should terminate with booking fee forfeiture                                                                             | Implemented (`cancelled` + `bookingFeeStatus=forfeited`)                                                                                                                 |
+| Order payment auth              | Only order owner can initialize/verify payment                                                                                   | Implemented on canonical payment routes and legacy aliases                                                                                                               |
+| Payment integrity               | Verification must bind to server-created Razorpay order                                                                          | Implemented on canonical payment routes and legacy aliases                                                                                                               |
+| Payment idempotency             | Re-verification should not create duplicates                                                                                     | Implemented on payment verification paths                                                                                                                                |
+| CSP telemetry pipeline          | Security policy should be staged with violation reporting before enforcement                                                     | Implemented (`next.config.ts` CSP Report-Only + `/api/security/csp-report`; enforce mode behind `CSP_ENFORCE`)                                                           |
+| Order activation                | Paid invoice should result in active order linkage                                                                               | Implemented (booking linked to order in invoice and pay-invoice paths)                                                                                                   |
+| Deadline guarantee              | Booking requires deadline; pickup must respect deadline; late delivery auto-compensates seeker                                   | Implemented (deadline required at booking, enforced in pickup scheduling, propagated to orders, and compensated at OTP delivery confirmation with idempotent safeguards) |
+| Delivery scheduling auth        | Provider proposes, seeker confirms                                                                                               | Implemented                                                                                                                                                              |
+| Delivery OTP                    | Delivery requires OTP and starts escrow hold window                                                                              | Implemented                                                                                                                                                              |
+| Complaint window                | Complaint allowed only within 24h after delivery                                                                                 | Implemented                                                                                                                                                              |
+| One order one complaint         | Prevent multiple complaints per order                                                                                            | Implemented                                                                                                                                                              |
+| Complaint immutability          | Resolved/rejected complaints are terminal                                                                                        | Implemented                                                                                                                                                              |
+| Complaint navigation visibility | Seeker/provider menus show complaints only for ongoing cases; provider only after admin grants access                            | Implemented                                                                                                                                                              |
+| Finalized complaint chat lock   | Seeker/provider cannot continue messaging after resolve/reject; UI archived                                                      | Implemented                                                                                                                                                              |
+| Complaint split settlement      | Admin can split distributable amount between seeker and provider (`refund_partial`) with commission preserved                    | Implemented                                                                                                                                                              |
+| Reject complaint outcome        | Rejecting a complaint pays provider full distributable amount (post-commission) and finalizes case as hidden for seeker/provider | Implemented                                                                                                                                                              |
+| Reject complaint outcome        | Rejecting a complaint pays provider full distributable amount (post-commission) and finalizes case as hidden for seeker/provider | Implemented                                                                                                                                                              |
+| Escrow release gating           | Open complaints must block payout release                                                                                        | Implemented                                                                                                                                                              |
+| Escrow payout orchestration     | Cron/manual/admin payout actions must run through one idempotent processor with lock + failure recording                         | Implemented (`lib/payouts.ts`)                                                                                                                                           |
+| Admin refund safety             | Admin refunds must enforce payment-state and payout-state guardrails                                                             | Implemented                                                                                                                                                              |
+| No-show automation              | Missed confirmed pickup should auto-mark no-show                                                                                 | Implemented                                                                                                                                                              |
+| Auditability                    | State transitions and financial events should be traceable                                                                       | Implemented (state/escrow audits + idempotent webhook event tracking/reconciliation)                                                                                     |
 
 ### Remaining Hardening Opportunities
 
