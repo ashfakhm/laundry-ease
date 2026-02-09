@@ -184,9 +184,12 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 
 4. **Resolution**
    Admin decides the outcome:
-   - **Release payout**: Provider receives funds (complaint dismissed or resolved in provider's favor)
-   - **Full refund**: Seeker receives full refund (provider at fault)
-   - **Reject**: Complaint is invalid; funds released to provider
+   - **Release payout** (`release_payout`): Provider receives full distributable amount
+   - **Split settlement** (`refund_partial`): Admin sets seeker refund amount between `0` and distributable amount; remaining distributable goes to provider
+   - **Seeker full distributable award** (`refund_full`): Seeker receives full distributable amount (provider gets `0`)
+   - **Reject** (`reject`): Complaint is invalid; payout proceeds to provider
+
+   Settlement math is commission-aware: commission is retained first, and the slider applies only on the distributable amount (`invoice_total - platform_commission`).
 
 ## 5. System Requirements
 
@@ -320,7 +323,7 @@ Complaint workflow rules:
 - **Response deadline**: When admin accepts a complaint, a response deadline is set (default 7 days). Provider is notified.
 - **Provider access control**: Provider enters the complaint chat only when admin explicitly grants access (moves to `in_review`).
 - **3-way chat**: Once provider is added, the complaint becomes a 3-way conversation (Admin, Seeker, Provider).
-- **Resolution outcomes**: Admin can resolve with: `release_payout` (pay provider), `refund_full` (refund seeker), or `reject` (dismiss complaint, release to provider).
+- **Resolution outcomes**: Admin can resolve with: `release_payout`, `refund_partial` (slider-based split), `refund_full` (full distributable to seeker), or `reject`.
 - **Immutable resolution**: Once resolved or rejected, the complaint cannot be reopened.
 - **Finalized-thread access**: After `resolved`/`rejected`, seeker/provider chat posting is blocked and UI is archived/read-only; admin retains audit visibility.
 
@@ -468,10 +471,10 @@ See `README.md` for detailed setup instructions.
 - **Complaint window extension requests**
   If a seeker misses the 24-hour complaint window due to legitimate reasons (travel, illness), there's no current mechanism to request an extension.
 
-- **Partial refunds**
-  Current resolution options are binary (full refund or full payout). A partial refund flow may be needed for nuanced disputes.
+- **Split-settlement reconciliation**
+  If one financial leg succeeds (for example payout initiated) and the second leg fails (for example refund failure), admin follow-up tooling is still required to fully reconcile the case.
 
-## 14. Implementation Alignment Matrix (2026-02-08)
+## 14. Implementation Alignment Matrix (2026-02-09)
 
 | PRD Requirement | Expected Behavior | Current System Status |
 | --------------- | ----------------- | --------------------- |
@@ -498,6 +501,7 @@ See `README.md` for detailed setup instructions.
 | Complaint immutability | Resolved/rejected complaints are terminal | Implemented |
 | Complaint navigation visibility | Seeker/provider menus show complaints only for ongoing cases; provider only after admin grants access | Implemented |
 | Finalized complaint chat lock | Seeker/provider cannot continue messaging after resolve/reject; UI archived | Implemented |
+| Complaint split settlement | Admin can split distributable amount between seeker and provider (`refund_partial`) with commission preserved | Implemented |
 | Escrow release gating | Open complaints must block payout release | Implemented |
 | Escrow payout orchestration | Cron/manual/admin payout actions must run through one idempotent processor with lock + failure recording | Implemented (`lib/payouts.ts`) |
 | Admin refund safety | Admin refunds must enforce payment-state and payout-state guardrails | Implemented |
