@@ -732,8 +732,9 @@ await createRazorpayPayout({
 - **Admin accepts** → Case enters `accepted` with a response deadline (Admin + Seeker chat)
 - **Admin adds provider** → Case moves to `in_review` and becomes 3-way chat
 - **Result**:
-  - `release_payout`: Pay provider (complaint not valid)
-  - `refund_full`: Full refund to seeker (provider did wrong)
+  - `release_payout`: Pay provider full distributable amount
+  - `refund_partial`: Slider-based split between seeker and provider (commission already retained)
+  - `refund_full`: Full distributable amount to seeker (provider gets 0)
   - `reject`: Invalid complaint, pay provider
 
 ### Q: Walk me through the complete payment flow (step by step)
@@ -1077,9 +1078,9 @@ Admin adds provider to chat (status: "in_review")
     ↓
 3-way chat to solve the problem
     ↓
-Admin decides (status: "resolved" or "rejected")
+Admin decides with payout/refund split (status: "resolved" or "rejected")
     ↓
-Escrow action done (refund or release)
+Escrow action done (release, partial split, or seeker full distributable award)
 ```
 
 Note: The 24-hour complaint window is enforced in `POST /api/complaints` using delivery timestamps (`otp_confirmed_at` / `escrow_started_at`).
@@ -1458,7 +1459,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Webhook payload retention**: Archive policy for old `webhook_events` payloads is still a backlog item.
 - **CSP rollout**: CSP is currently in Report-Only mode; enforcement requires violation cleanup.
 - **Password-recovery abuse hardening**: Forgot-password flow needs dedicated anti-abuse strategy (rate-limit/captcha policy).
-- **PRD future scope**: Features like complaint window extension requests and partial refunds remain future work.
+- **PRD future scope**: Complaint window extension requests and split-settlement reconciliation tooling remain future work.
 
 ## Key Features Implemented Recently
 
@@ -1469,6 +1470,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Security policy telemetry**: Added Report-Only CSP header pipeline with violation capture endpoint (`/api/security/csp-report`).
 - **DB index bootstrap**: Startup index initialization now enforces critical uniqueness and TTL cleanup invariants.
 - **Complaint-window enforcement**: 24-hour complaint timing is now validated in API logic.
+- **Complaint split settlement**: Admin complaint resolution now supports commission-aware partial splits (`refund_partial`) with slider-based seeker/provider allocation.
 
 ## Quick Presentation Tips
 
