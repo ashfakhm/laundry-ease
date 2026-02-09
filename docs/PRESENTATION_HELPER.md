@@ -730,6 +730,40 @@ await createRazorpayPayout({
 3. User can retry payment from their dashboard
 4. No double payouts; each payment try is checked by signature and matched via webhooks
 
+### Q: How does the split settlement math work? (Advanced)
+
+**Answer**: We use a strict "Commission First" logic:
+
+```typescript
+// 1. Calculate Distributable Amount
+// Total - Platform Commission (5%) = Distributable
+const total = 500;
+const commission = 25; // 5%
+const distributable = 475;
+
+// 2. Apply Refunds (if any)
+// If admin refunds 100 to seeker:
+const seekerRefund = 100;
+const providerPayout = distributable - seekerRefund; // 375
+
+// Result:
+// Platform keeps: 25 (Commission is protected)
+// Seeker gets: 100
+// Provider gets: 375
+```
+
+### Q: What if the cron job fails?
+
+**Answer**: The system is designed to be **self-healing**:
+
+1. **Idempotency**: All payout functions check `payout_id` before running. Running the same job twice does nothing safe.
+2. **Next Run**: The cron runs every hour. If it fails or times out, the next run will pick up any pending "held" orders that have passed their 24h window.
+3. **Manual Trigger**: Admins can manually trigger `POST /api/cron/process-payouts` if needed.
+
+### Q: Why is commission deducted even on rejected complaints?
+
+**Answer**: The platform fee covers the service of hosting the booking, processing the payment, and handling the dispute. Even if a complaint is invalid, the platform provided its infrastructure. The provider receives the full _distributable_ amount, which is the fair share agreed upon by using the platform.
+
 ### Q: How does the complaint affect escrow?
 
 **Answer**:
