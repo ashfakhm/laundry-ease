@@ -6,6 +6,8 @@ import { createHash, randomBytes } from "crypto";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { forgotPasswordSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const GENERIC_RESPONSE = {
   message: "If an account exists, a reset link has been sent.",
@@ -13,6 +15,13 @@ const GENERIC_RESPONSE = {
 
 export async function POST(req: NextRequest) {
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "auth:forgot-password:ip",
+      max: 10,
+      windowMs: 15 * 60 * 1000,
+    });
+
     const payload = await req.json();
     const parsed = forgotPasswordSchema.safeParse(payload);
     if (!parsed.success) {
@@ -23,6 +32,18 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
+    const emailFingerprint = createHash("sha256")
+      .update(normalizedEmail)
+      .digest("hex")
+      .slice(0, 24);
+
+    await enforceRateLimit(req, {
+      bucket: "auth:forgot-password:email",
+      max: 4,
+      windowMs: 60 * 60 * 1000,
+      identifier: emailFingerprint,
+    });
+
     const user = await getUserByEmail(normalizedEmail);
 
     // Keep response generic to avoid account enumeration.
@@ -79,6 +100,16 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode }
+      );
+    }
+
     logger.error("AUTH", "Forgot password error", error);
     return NextResponse.json(
       { error: "An error occurred. Please try again later." },

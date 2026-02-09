@@ -9,6 +9,9 @@ import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/auth/password-policy";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { resetPasswordSchema } from "@/lib/api/schemas";
 
 type PasswordResetTokenDoc = {
   _id: ObjectId;
@@ -27,14 +30,31 @@ function roleToCollection(role: Role): "seekers" | "providers" | "admins" {
 
 export async function POST(req: NextRequest) {
   try {
-    const { token, password } = await req.json();
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "auth:reset-password:ip",
+      max: 15,
+      windowMs: 15 * 60 * 1000,
+    });
 
-    if (!token || !password) {
+    const payload = await req.json();
+    const parsed = resetPasswordSchema.safeParse(payload);
+    if (!parsed.success) {
       return NextResponse.json(
         { error: "Token and password are required" },
         { status: 400 }
       );
     }
+
+    const { token, password } = parsed.data;
+
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    await enforceRateLimit(req, {
+      bucket: "auth:reset-password:token",
+      max: 6,
+      windowMs: 60 * 60 * 1000,
+      identifier: tokenHash.slice(0, 24),
+    });
 
     if (!isStrongPassword(password)) {
       return NextResponse.json(
@@ -43,7 +63,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tokenHash = createHash("sha256").update(token).digest("hex");
     const { db } = await getDb();
 
     const resetDoc = await db
@@ -107,6 +126,16 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode }
+      );
+    }
+
     logger.error("AUTH", "Reset password error", error);
     return NextResponse.json(
       { error: "An error occurred. Please try again later." },
