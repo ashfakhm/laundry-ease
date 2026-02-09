@@ -329,7 +329,7 @@ LaundryEase provides a structured dispute resolution workflow for post-delivery 
    - `release_payout` - Funds go to provider (complaint dismissed or resolved in provider's favor)
    - `refund_partial` - Admin chooses seeker refund amount via slider; remaining distributable amount goes to provider
    - `refund_full` - Seeker receives full distributable amount (provider gets zero)
-   - `reject` - Complaint invalid; funds released to provider. Case is hidden from ongoing lists.
+   - `reject` - Complaint invalid; funds released to provider (minus standard commission). Case is hidden from ongoing lists.
    - Commission remains retained by the platform (default 5%) before split logic is applied.
 
 ### API endpoints

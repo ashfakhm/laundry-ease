@@ -740,7 +740,7 @@ await createRazorpayPayout({
   - `release_payout`: Pay provider full distributable amount
   - `refund_partial`: Slider-based split between seeker and provider (commission already retained)
   - `refund_full`: Full distributable amount to seeker (provider gets 0)
-  - `reject`: Invalid complaint, pay provider (case hidden from ongoing lists)
+  - `reject`: Invalid complaint, pay provider (minus standard commission). Case is hidden from ongoing lists.
 
 ### Q: Walk me through the complete payment flow (step by step)
 
