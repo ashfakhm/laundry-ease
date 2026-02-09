@@ -428,56 +428,55 @@ laundry-ease/
 │   ├── escrow-auto-release.ts    # Script trigger for unified escrow payout processing
 │   └── no-show-check.ts          # No-show detection and handling
 │
-├── docs/                         # Documentation
-│   ├── PRD.md                    # Product Requirements Document
-│   ├── PRESENTATION_HELPER.md    # Demo/presentation guide
-│   ├── HONEST_ASSESSMENT.md      # Current technical assessment and A+ gates
-│   └── ML_AI_INTEGRATION.md      # Future AI/ML integration opportunities
+├── app/                      # Next.js App Router
+│   ├── (dashboard)/          # Protected dashboard routes (seeker, provider, admin)
+│   ├── api/                  # API Routes (auth, bookings, orders, payments, webhooks)
+│   ├── auth/                 # Authentication pages
+│   ├── globals.css           # Global styles (Tailwind)
+│   └── layout.tsx            # Root layout
 │
-├── lib/                          # Shared utilities
-│   ├── api/                      # API helpers (auth, errors, response, schemas)
-│   ├── data/                     # Data fetching utilities
-│   ├── orders/                   # Order-specific utilities
-│   ├── audit.ts                  # Audit logging
-│   ├── cloudinary.ts             # Image upload
-│   ├── db.ts                     # Database operations
-│   ├── delivery-otp-email.ts     # Delivery OTP email templates
-│   ├── distance.ts               # Distance calculation utilities
-│   ├── env.ts                    # Environment validation (Zod)
-│   ├── escrow-jobs.ts            # Script adapter for unified payout processing
-│   ├── google-maps.ts            # Google Maps integration
-│   ├── logger.ts                 # Structured logging
-│   ├── db-indexes.ts             # DB index bootstrap specs (integrity/query/TTL)
-│   ├── mongodb.ts                # MongoDB connection
-│   ├── otp.ts                    # OTP generation/verification
-│   ├── payouts.ts                # Unified escrow release + payout orchestration
-│   ├── razorpay.ts               # Razorpay payment integration
-│   ├── setup-geospatial-index.ts # MongoDB geospatial index setup
-│   ├── toast.ts                  # Toast notification utilities
-│   └── utils.ts                  # General utilities (cn, formatters)
+├── components/               # React components
+│   ├── ui/                   # shadcn/ui generic components
+│   ├── bookings/             # Booking-related components
+│   ├── navigation/           # Sidebar and navbar components
+│   ├── orders/               # Order management components
+│   ├── provider/             # Provider-specific components
+│   ├── seeker/               # Seeker-specific components
+│   └── shared/               # Shared logic components
 │
-├── types/                        # TypeScript type definitions
-│   ├── bookings.ts               # Booking types and states
-│   ├── complaints.ts             # Complaint types and states
-│   ├── enums.ts                  # Shared enums (Role, Status)
-│   ├── next-auth.d.ts            # NextAuth type extensions
-│   ├── order.ts                  # Order types
-│   ├── orders.ts                 # Additional order types
-│   ├── provider.ts               # Provider types
-│   └── razorpay.d.ts             # Razorpay SDK type definitions
+├── cron/                     # Standalone cron scripts
+│   ├── auto-reject-bookings.ts
+│   ├── escrow-auto-release.ts
+│   └── no-show-check.ts
 │
-├── public/                       # Static assets
-│   └── laundryease-logo.png      # Application logo
+├── docs/                     # Documentation
+│   ├── HONEST_ASSESSMENT.md  # Codebase quality assessment
+│   ├── ML_AI_INTEGRATION.md  # Future ML capabilities
+│   ├── PRD.md                # Product Requirements Document
+│   └── PRESENTATION_HELPER.md # Q&A and demo guide
 │
-├── proxy.ts                      # Custom proxy middleware (replaces middleware.ts)
-├── next.config.ts                # Next.js configuration
-├── vercel.json                   # Vercel deployment config (cron jobs)
-├── components.json               # shadcn/ui configuration
-├── eslint.config.mjs             # ESLint configuration
-├── postcss.config.mjs            # PostCSS configuration
-├── package.json                  # Dependencies and scripts
-├── tsconfig.json                 # TypeScript configuration
-└── README.md                     # This file
+├── e2e/                      # End-to-end tests (Playwright)
+│
+├── lib/                      # Core business logic & utilities
+│   ├── api/                  # API helpers (errors, response, security)
+│   ├── auth/                 # Auth policies
+│   ├── bookings/             # Booking logic (cancellation)
+│   ├── complaints/           # Complaint access control
+│   ├── orders/               # Order state machine & compensation
+│   ├── payouts/              # Payout calculation logic
+│   ├── security/             # CSP and origin checks
+│   ├── db.ts                 # Database client & Repo pattern
+│   ├── env.ts                # Environment variable validation
+│   └── payouts.ts            # Payout orchestration
+│
+├── public/                   # Static assets
+│
+├── types/                    # TypeScript definitions
+│
+├── proxy.ts                  # Custom proxy middleware
+├── next.config.ts            # Next.js config
+├── vercel.json               # Vercel config & cron definitions
+└── package.json              # Dependencies
 ```
 
 ### Key Directories Explained
