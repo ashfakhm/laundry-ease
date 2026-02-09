@@ -26,6 +26,26 @@ interface ComplaintData {
     name?: string;
     businessName?: string | null;
   } | null;
+  settlement_window?: {
+    total_amount: number;
+    distributable_amount: number;
+    platform_commission: number;
+    default_provider_payout: number;
+  } | null;
+}
+
+type ResolveOutcome =
+  | "release_payout"
+  | "refund_full"
+  | "refund_partial"
+  | "reject";
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function formatInr(value: number): string {
+  return `INR ${round2(value).toFixed(2)}`;
 }
 
 export default function AdminComplaintDetailPage({
@@ -38,6 +58,7 @@ export default function AdminComplaintDetailPage({
   const [complaint, setComplaint] = useState<ComplaintData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [seekerRefundAmount, setSeekerRefundAmount] = useState(0);
 
   const fetchComplaint = useCallback(async () => {
     try {
@@ -45,6 +66,7 @@ export default function AdminComplaintDetailPage({
       if (res.ok) {
         const data = await res.json();
         setComplaint(data);
+        setSeekerRefundAmount(0);
       } else {
         toast.error("Failed to load complaint");
       }
@@ -83,24 +105,40 @@ export default function AdminComplaintDetailPage({
   }
 
   async function handleResolve(
-    outcome: "release_payout" | "refund_full" | "reject",
+    outcome: ResolveOutcome,
+    seekerRefundOverride?: number,
   ) {
     if (!confirm(`Are you sure you want to ${outcome.replace(/_/g, " ")}?`))
       return;
 
     setActionLoading(true);
     try {
+      const payload: { outcome: ResolveOutcome; seeker_refund_amount?: number } = {
+        outcome,
+      };
+      if (typeof seekerRefundOverride === "number") {
+        payload.seeker_refund_amount = round2(seekerRefundOverride);
+      }
+
       const res = await fetch(`/api/admin/complaints/${id}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcome }),
+        body: JSON.stringify(payload),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        toast.success("Complaint resolved successfully");
+        const settlement = data?.settlement;
+        if (settlement) {
+          toast.success(
+            `Complaint finalized. Seeker ${formatInr(Number(settlement.seeker_refund_amount || 0))}, Provider ${formatInr(Number(settlement.provider_payout_amount || 0))}.`,
+          );
+        } else {
+          toast.success("Complaint resolved successfully");
+        }
         router.push("/admin/complaints");
       } else {
-        const data = await res.json();
         toast.error(getApiErrorMessage(data, "Failed to resolve complaint"));
       }
     } catch (error) {
@@ -109,6 +147,25 @@ export default function AdminComplaintDetailPage({
     } finally {
       setActionLoading(false);
     }
+  }
+
+  async function handleApplySettlement() {
+    if (distributableAmount <= 0) {
+      toast.error("No distributable amount available for settlement.");
+      return;
+    }
+
+    if (clampedSeekerRefund <= 0.01) {
+      await handleResolve("release_payout");
+      return;
+    }
+
+    if (Math.abs(clampedSeekerRefund - distributableAmount) <= 0.01) {
+      await handleResolve("refund_full");
+      return;
+    }
+
+    await handleResolve("refund_partial", clampedSeekerRefund);
   }
 
   if (loading) {
@@ -148,6 +205,19 @@ export default function AdminComplaintDetailPage({
     complaint.provider?.businessName?.trim() ||
     complaint.provider?.name?.trim() ||
     "Provider";
+  const distributableAmount = round2(
+    Number(complaint.settlement_window?.distributable_amount || 0),
+  );
+  const platformCommission = round2(
+    Number(complaint.settlement_window?.platform_commission || 0),
+  );
+  const clampedSeekerRefund =
+    distributableAmount <= 0
+      ? 0
+      : round2(Math.min(Math.max(0, seekerRefundAmount), distributableAmount));
+  const providerPayoutAmount = round2(
+    Math.max(0, distributableAmount - clampedSeekerRefund),
+  );
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -296,23 +366,89 @@ export default function AdminComplaintDetailPage({
                   complaint.status,
                 )) && (
                 <>
-                  <button
-                    onClick={() => handleResolve("release_payout")}
-                    disabled={actionLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    Release Payout
-                  </button>
+                  <div className="w-full rounded-xl border border-border/70 bg-muted/20 p-4 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">
+                        Settlement split (post-commission)
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Commission retained: {formatInr(platformCommission)}
+                      </p>
+                    </div>
 
-                  <button
-                    onClick={() => handleResolve("refund_full")}
-                    disabled={actionLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
-                  >
-                    <Ban className="w-4 h-4" />
-                    Full Refund
-                  </button>
+                    <div className="grid gap-2 text-sm sm:grid-cols-2">
+                      <div className="rounded-lg border border-border/70 bg-background/80 px-3 py-2">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Seeker Refund
+                        </p>
+                        <p className="text-base font-semibold text-red-600">
+                          {formatInr(clampedSeekerRefund)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border/70 bg-background/80 px-3 py-2">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Provider Payout
+                        </p>
+                        <p className="text-base font-semibold text-emerald-600">
+                          {formatInr(providerPayoutAmount)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min={0}
+                        max={distributableAmount}
+                        step={0.01}
+                        value={clampedSeekerRefund}
+                        onChange={(event) =>
+                          setSeekerRefundAmount(Number(event.target.value))
+                        }
+                        disabled={actionLoading || distributableAmount <= 0}
+                        className="w-full accent-primary disabled:opacity-60"
+                      />
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{formatInr(0)} seeker</span>
+                        <span>{formatInr(distributableAmount)} seeker</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSeekerRefundAmount(0)}
+                        type="button"
+                        className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-background/80"
+                      >
+                        Provider Full
+                      </button>
+                      <button
+                        onClick={() =>
+                          setSeekerRefundAmount(round2(distributableAmount / 2))
+                        }
+                        type="button"
+                        className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-background/80"
+                      >
+                        50 / 50
+                      </button>
+                      <button
+                        onClick={() => setSeekerRefundAmount(distributableAmount)}
+                        type="button"
+                        className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-background/80"
+                      >
+                        Seeker Full
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={handleApplySettlement}
+                      disabled={actionLoading || distributableAmount <= 0}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Apply Settlement
+                    </button>
+                  </div>
 
                   <button
                     onClick={() => handleResolve("reject")}

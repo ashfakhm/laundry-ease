@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  adminComplaintResolveSchema,
   adminRefundSchema,
   complaintMessageSchema,
   paymentVerifySchema,
@@ -48,6 +49,25 @@ describe("api schema contracts", () => {
     });
   });
 
+  describe("adminComplaintResolveSchema", () => {
+    it("accepts split settlement payload with seeker refund amount", () => {
+      const result = adminComplaintResolveSchema.safeParse({
+        outcome: "refund_partial",
+        seeker_refund_amount: 149.5,
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects split settlement payload without seeker refund amount", () => {
+      const result = adminComplaintResolveSchema.safeParse({
+        outcome: "refund_partial",
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
+
   describe("paymentVerifySchema", () => {
     it("accepts canonical snake_case payment verify payload", () => {
       const result = paymentVerifySchema.safeParse({
@@ -92,4 +112,3 @@ describe("api schema contracts", () => {
     });
   });
 });
-

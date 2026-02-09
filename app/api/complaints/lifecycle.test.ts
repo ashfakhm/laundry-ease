@@ -673,4 +673,78 @@ describe("complaint ticket lifecycle", () => {
     );
     expect(providerMessagesAfterResolve.status).toBe(403);
   });
+
+  it("supports commission-aware partial settlement during complaint resolution", async () => {
+    const createRes = await createComplaint(
+      jsonRequest("POST", "https://laundryease.test/api/complaints", {
+        order_id: ORDER_ID,
+        complaint_type: "late_delivery",
+        title: "Arrived late and some items still damp",
+        description: "Need partial compensation for the issue.",
+      }),
+    );
+    expect(createRes.status).toBe(201);
+    const createData = await createRes.json();
+    const complaintId = String(createData.data._id);
+
+    setActor("admin");
+    const acceptRes = await acceptComplaint(
+      jsonRequest(
+        "POST",
+        `https://laundryease.test/api/admin/complaints/${complaintId}/accept`,
+        { deadlineDays: 5 },
+      ),
+      routeParams(complaintId),
+    );
+    expect(acceptRes.status).toBe(200);
+
+    const addProviderRes = await addProviderToComplaint(
+      jsonRequest(
+        "POST",
+        `https://laundryease.test/api/admin/complaints/${complaintId}/add-provider`,
+      ),
+      routeParams(complaintId),
+    );
+    expect(addProviderRes.status).toBe(200);
+
+    const resolveRes = await resolveComplaint(
+      jsonRequest(
+        "POST",
+        `https://laundryease.test/api/admin/complaints/${complaintId}/resolve`,
+        { outcome: "refund_partial", seeker_refund_amount: 200 },
+      ),
+      routeParams(complaintId),
+    );
+    const resolveData = await resolveRes.json();
+
+    expect(resolveRes.status).toBe(200);
+    expect(resolveData.outcome).toBe("refund_partial");
+    expect(resolveData.settlement.seeker_refund_amount).toBe(200);
+    expect(resolveData.settlement.provider_payout_amount).toBe(275);
+    expect(resolveData.settlement.platform_commission).toBe(25);
+
+    const payoutCall = mockInitiateOrderPayout.mock.calls.at(-1);
+    expect(payoutCall).toBeDefined();
+    expect(String(payoutCall?.[0])).toBe(ORDER_ID);
+    expect(payoutCall?.[1]).toMatchObject({
+      ignoreEscrowDate: true,
+      source: "complaint_refund_partial",
+      overrideProviderPayoutAmount: 275,
+      overridePlatformCommission: 25,
+    });
+
+    expect(mockRefundRazorpayPayment).toHaveBeenCalledWith(
+      "pay_order_1",
+      20000,
+      expect.objectContaining({
+        source: "complaint_resolution",
+        complaint_id: complaintId,
+        outcome: "refund_partial",
+      }),
+    );
+
+    expect(ctx.store.orders[0].refund_amount).toBe(200);
+    expect(ctx.store.orders[0].provider_payout_amount).toBe(275);
+    expect(ctx.store.orders[0].platform_commission).toBe(25);
+  });
 });

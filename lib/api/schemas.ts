@@ -324,7 +324,19 @@ export const adminComplaintAcceptSchema = z.object({
 });
 
 export const adminComplaintResolveSchema = z.object({
-  outcome: z.enum(["refund_full", "release_payout", "reject"]),
+  outcome: z.enum(["refund_full", "refund_partial", "release_payout", "reject"]),
+  seeker_refund_amount: z.number().nonnegative().optional(),
+}).superRefine((data, ctx) => {
+  if (
+    data.outcome === "refund_partial" &&
+    typeof data.seeker_refund_amount !== "number"
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["seeker_refund_amount"],
+      message: "seeker_refund_amount is required for refund_partial outcome",
+    });
+  }
 });
 
 export const adminComplaintAccessSchema = z.object({

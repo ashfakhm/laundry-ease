@@ -6,6 +6,8 @@ import { ObjectId } from "mongodb";
 import { getUserByEmail } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { canAccessComplaintConversation } from "@/lib/complaints/access";
+import { derivePayoutAmounts } from "@/lib/payouts/amounts";
+import { Role } from "@/types/enums";
 
 export async function GET(
   req: Request,
@@ -66,6 +68,41 @@ export async function GET(
       ),
     ]);
 
+    let settlementWindow: {
+      total_amount: number;
+      distributable_amount: number;
+      platform_commission: number;
+      default_provider_payout: number;
+    } | null = null;
+
+    if (dbUser.role === Role.ADMIN) {
+      const order = await db.collection("orders").findOne(
+        { _id: complaint.order_id },
+        {
+          projection: {
+            total_price: 1,
+            provider_payout_amount: 1,
+            platform_commission: 1,
+          },
+        },
+      );
+
+      if (order) {
+        const payoutAmounts = derivePayoutAmounts({
+          total_price: Number(order.total_price || 0),
+          provider_payout_amount: Number(order.provider_payout_amount ?? NaN),
+          platform_commission: Number(order.platform_commission ?? NaN),
+        });
+
+        settlementWindow = {
+          total_amount: Number(order.total_price || 0),
+          distributable_amount: payoutAmounts.providerPayoutAmount,
+          platform_commission: payoutAmounts.platformCommission,
+          default_provider_payout: payoutAmounts.providerPayoutAmount,
+        };
+      }
+    }
+
     return NextResponse.json({
       ...complaint,
       seeker: seeker
@@ -79,6 +116,7 @@ export async function GET(
             businessName: provider.businessName || null,
           }
         : null,
+      settlement_window: settlementWindow,
     });
   } catch (error) {
     logger.error("COMPLAINTS", "Error fetching complaint", error, {

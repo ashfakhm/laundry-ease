@@ -4,6 +4,12 @@ import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 
+const MONEY_EPSILON = 0.01;
+
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 /**
  * Razorpay Webhook Handler
  * Verifies webhook signatures and processes payment events
@@ -228,12 +234,13 @@ export async function POST(req: NextRequest) {
 
       case "refund.created": {
         const refund = event.payload.refund.entity;
+        const refundAmount = round2(refund.amount / 100);
         await db.collection("refunds").updateOne(
           { razorpay_refund_id: refund.id },
           {
             $set: {
               payment_id: refund.payment_id,
-              amount: refund.amount / 100,
+              amount: refundAmount,
               currency: refund.currency,
               status: refund.status,
               notes: refund.notes,
@@ -248,18 +255,49 @@ export async function POST(req: NextRequest) {
         );
         logger.info("WEBHOOK", "Refund created", {
           refundId: refund.id,
-          amount: refund.amount / 100,
+          amount: refundAmount,
         });
 
-        await db.collection("orders").updateOne(
+        const order = await db.collection("orders").findOne(
           { razorpay_payment_id: refund.payment_id },
           {
-            $set: {
-              payment_status: "refunded",
-              updatedAt: new Date(),
+            projection: {
+              _id: 1,
+              total_price: 1,
+              refund_amount: 1,
+              razorpay_refund_id: 1,
             },
-          }
+          },
         );
+
+        if (order?._id) {
+          const existingRefundAmount = Number(order.refund_amount || 0);
+          const alreadyApplied = order.razorpay_refund_id === refund.id;
+          const nextRefundAmount = alreadyApplied
+            ? round2(existingRefundAmount)
+            : round2(existingRefundAmount + refundAmount);
+          const totalAmount = round2(Number(order.total_price || 0));
+          const isFullRefund =
+            totalAmount > 0 && nextRefundAmount >= totalAmount - MONEY_EPSILON;
+
+          const orderSet: Record<string, unknown> = {
+            refund_amount: nextRefundAmount,
+            razorpay_refund_id: refund.id,
+            refund_at: new Date(),
+            updatedAt: new Date(),
+          };
+
+          if (isFullRefund) {
+            orderSet.payment_status = "refunded";
+          }
+
+          await db.collection("orders").updateOne(
+            { _id: order._id },
+            {
+              $set: orderSet,
+            },
+          );
+        }
 
         await db.collection("bookings").updateOne(
           {

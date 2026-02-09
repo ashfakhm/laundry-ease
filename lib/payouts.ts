@@ -9,6 +9,7 @@ import { derivePayoutAmounts } from "@/lib/payouts/amounts";
 
 const PAYOUT_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 const PAYOUT_ERROR_MAX_LENGTH = 500;
+const PAISE_MULTIPLIER = 100;
 
 type PayoutResultStatus =
   | "payout_initiated"
@@ -35,6 +36,10 @@ export type PayoutBatchResult = {
   processed: number;
   results: PayoutResult[];
 };
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 function toDate(value: unknown): Date | null {
   if (!value) return null;
@@ -91,6 +96,8 @@ export async function initiateOrderPayout(
   options?: {
     ignoreEscrowDate?: boolean;
     source?: string;
+    overrideProviderPayoutAmount?: number;
+    overridePlatformCommission?: number;
   },
 ): Promise<PayoutResult> {
   const now = new Date();
@@ -217,9 +224,36 @@ export async function initiateOrderPayout(
       };
     }
 
-    const { providerPayoutAmount, platformCommission } =
-      derivePayoutAmounts(currentOrder);
-    const amountInPaise = Math.round(providerPayoutAmount * 100);
+    let providerPayoutAmount: number;
+    let platformCommission: number;
+
+    if (
+      typeof options?.overrideProviderPayoutAmount === "number" &&
+      Number.isFinite(options.overrideProviderPayoutAmount)
+    ) {
+      providerPayoutAmount = round2(
+        Math.max(0, options.overrideProviderPayoutAmount),
+      );
+
+      if (
+        typeof options?.overridePlatformCommission === "number" &&
+        Number.isFinite(options.overridePlatformCommission)
+      ) {
+        platformCommission = round2(
+          Math.max(0, options.overridePlatformCommission),
+        );
+      } else {
+        platformCommission = round2(
+          Math.max(0, Number(currentOrder.total_price || 0) - providerPayoutAmount),
+        );
+      }
+    } else {
+      const derived = derivePayoutAmounts(currentOrder);
+      providerPayoutAmount = derived.providerPayoutAmount;
+      platformCommission = derived.platformCommission;
+    }
+
+    const amountInPaise = Math.round(providerPayoutAmount * PAISE_MULTIPLIER);
     if (amountInPaise <= 0) {
       await releasePayoutLock(orderId, {
         payout_status: "failed",

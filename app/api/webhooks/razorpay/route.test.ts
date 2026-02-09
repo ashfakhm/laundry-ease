@@ -31,6 +31,7 @@ function makeDbMock() {
   const webhookInsertOne = vi.fn();
   const webhookUpdateOne = vi.fn();
   const paymentsUpdateOne = vi.fn();
+  const ordersFindOne = vi.fn();
   const ordersUpdateOne = vi.fn();
   const bookingsUpdateOne = vi.fn();
   const refundsUpdateOne = vi.fn();
@@ -51,6 +52,7 @@ function makeDbMock() {
       }
       if (name === "orders") {
         return {
+          findOne: ordersFindOne,
           updateOne: ordersUpdateOne,
         };
       }
@@ -74,6 +76,7 @@ function makeDbMock() {
     webhookInsertOne,
     webhookUpdateOne,
     paymentsUpdateOne,
+    ordersFindOne,
     ordersUpdateOne,
     bookingsUpdateOne,
     refundsUpdateOne,
@@ -102,6 +105,31 @@ function makePaymentCapturedEvent(id: string) {
           currency: "INR",
           method: "card",
           captured_at: 1_707_000_000,
+        },
+      },
+    },
+  };
+}
+
+function makeRefundCreatedEvent(
+  id: string,
+  options?: { amountPaise?: number; paymentId?: string; refundId?: string },
+) {
+  return {
+    id,
+    event: "refund.created",
+    entity: "event",
+    payload: {
+      refund: {
+        entity: {
+          id: options?.refundId || "rfnd_123",
+          payment_id: options?.paymentId || "pay_123",
+          amount: options?.amountPaise ?? 5000,
+          currency: "INR",
+          status: "processed",
+          notes: {
+            source: "test",
+          },
         },
       },
     },
@@ -218,5 +246,72 @@ describe("POST /api/webhooks/razorpay", () => {
         }),
       }),
     );
+  });
+
+  it("keeps order active on partial refund events", async () => {
+    const dbMock = makeDbMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    dbMock.webhookFindOne.mockResolvedValue(null);
+    dbMock.webhookInsertOne.mockResolvedValue({ acknowledged: true });
+    dbMock.webhookUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.refundsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.ordersFindOne.mockResolvedValue({
+      _id: "order_1",
+      total_price: 500,
+      refund_amount: 100,
+      razorpay_refund_id: "rfnd_old",
+    });
+    dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+
+    const res = await POST(
+      makeRequest(
+        makeRefundCreatedEvent("evt_partial_refund", {
+          amountPaise: 5000,
+          refundId: "rfnd_partial",
+        }),
+      ) as never,
+    );
+    expect(res.status).toBe(200);
+
+    const orderUpdatePayload = dbMock.ordersUpdateOne.mock.calls.at(-1)?.[1] as {
+      $set: Record<string, unknown>;
+    };
+    expect(orderUpdatePayload.$set.refund_amount).toBe(150);
+    expect(orderUpdatePayload.$set.razorpay_refund_id).toBe("rfnd_partial");
+    expect(orderUpdatePayload.$set.payment_status).toBeUndefined();
+  });
+
+  it("marks order as refunded when webhook refunds full paid amount", async () => {
+    const dbMock = makeDbMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    dbMock.webhookFindOne.mockResolvedValue(null);
+    dbMock.webhookInsertOne.mockResolvedValue({ acknowledged: true });
+    dbMock.webhookUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.refundsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.ordersFindOne.mockResolvedValue({
+      _id: "order_2",
+      total_price: 500,
+      refund_amount: 460,
+      razorpay_refund_id: "rfnd_old",
+    });
+    dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+
+    const res = await POST(
+      makeRequest(
+        makeRefundCreatedEvent("evt_full_refund", {
+          amountPaise: 4000,
+          refundId: "rfnd_full",
+        }),
+      ) as never,
+    );
+    expect(res.status).toBe(200);
+
+    const orderUpdatePayload = dbMock.ordersUpdateOne.mock.calls.at(-1)?.[1] as {
+      $set: Record<string, unknown>;
+    };
+    expect(orderUpdatePayload.$set.refund_amount).toBe(500);
+    expect(orderUpdatePayload.$set.payment_status).toBe("refunded");
   });
 });
