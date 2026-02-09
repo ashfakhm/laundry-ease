@@ -39,7 +39,7 @@ const navigation: NavGroup[] = [
   {
     items: [
       { label: "Dashboard", href: "/provider", icon: LayoutDashboard },
-      { label: "Bookings", href: "/provider/Manage-booking", icon: Calendar },
+      { label: "Bookings", href: "/provider/manage-booking", icon: Calendar },
       { label: "Orders", href: "/provider/order-status", icon: Package },
       {
         label: "Invoices",
@@ -55,7 +55,7 @@ const navigation: NavGroup[] = [
   },
   {
     title: "Business",
-    items: [{ label: "Reviews", href: "/provider/Reviews-Manage", icon: Star }],
+    items: [{ label: "Reviews", href: "/provider/reviews-manage", icon: Star }],
   },
   {
     title: "Account",

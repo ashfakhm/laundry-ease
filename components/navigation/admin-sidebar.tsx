@@ -46,7 +46,7 @@ const baseNavigation: NavGroup[] = [
       },
       {
         label: "Users",
-        href: "/admin/User-Management",
+        href: "/admin/user-management",
         icon: Users,
       },
     ],
