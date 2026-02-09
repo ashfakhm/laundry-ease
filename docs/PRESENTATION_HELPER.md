@@ -612,15 +612,15 @@ const isValid = await bcrypt.compare(password, user.passwordHash);
 
 **Answer**:
 
-| Problem            | How We Prevent It                                  |
-| ------------------ | -------------------------------------------------- |
-| **SQL Injection**  | Not possible (MongoDB), but we clean all inputs    |
-| **XSS**            | React escapes output by default                    |
+| Problem             | How We Prevent It                                                                 |
+| ------------------- | --------------------------------------------------------------------------------- |
+| **SQL Injection**   | Not possible (MongoDB), but we clean all inputs                                   |
+| **XSS**             | React escapes output by default                                                   |
 | **CSRF-like abuse** | Same-origin guard (`requireSameOrigin` + `proxy.ts` checks) on unsafe API methods |
-| **CSP hardening**  | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint |
-| **Timing Attacks** | `crypto.timingSafeEqual()` for checking signatures |
-| **Fake Webhooks**  | HMAC signature check                               |
-| **Wrong Access**   | Role checks on every protected route               |
+| **CSP hardening**   | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint           |
+| **Timing Attacks**  | `crypto.timingSafeEqual()` for checking signatures                                |
+| **Fake Webhooks**   | HMAC signature check                                                              |
+| **Wrong Access**    | Role checks on every protected route                                              |
 
 ### Q: How do you check webhook signatures?
 
@@ -697,17 +697,22 @@ const lock = await db.collection("orders").updateOne(
   {
     _id: order._id,
     payout_id: { $exists: false },
-    $or: [{ payout_lock_at: { $exists: false } }, { payout_lock_at: { $lt: staleCutoff } }],
+    $or: [
+      { payout_lock_at: { $exists: false } },
+      { payout_lock_at: { $lt: staleCutoff } },
+    ],
   },
   { $set: { payout_lock_at: now, payout_status: "processing" } },
 );
 if (lock.modifiedCount === 0) return { status: "already_processing" };
 
 // 3. Final write still requires payout_id not set
-await db.collection("orders").updateOne(
-  { _id: order._id, payout_id: { $exists: false } },
-  { $set: { payout_id: payout.id, payout_status: "processing" } },
-);
+await db
+  .collection("orders")
+  .updateOne(
+    { _id: order._id, payout_id: { $exists: false } },
+    { $set: { payout_id: payout.id, payout_status: "processing" } },
+  );
 
 // 4. Razorpay reference_id protects against accidental duplicates too
 await createRazorpayPayout({
@@ -735,7 +740,7 @@ await createRazorpayPayout({
   - `release_payout`: Pay provider full distributable amount
   - `refund_partial`: Slider-based split between seeker and provider (commission already retained)
   - `refund_full`: Full distributable amount to seeker (provider gets 0)
-  - `reject`: Invalid complaint, pay provider
+  - `reject`: Invalid complaint, pay provider (case hidden from ongoing lists)
 
 ### Q: Walk me through the complete payment flow (step by step)
 
@@ -849,12 +854,12 @@ function verifyPaymentSignature(
 
 **Answer**: Webhooks are HTTP callbacks Razorpay sends when events happen:
 
-| Event              | When It Fires             | What We Do                 |
-| ------------------ | ------------------------- | -------------------------- |
+| Event                                     | When It Fires               | What We Do                               |
+| ----------------------------------------- | --------------------------- | ---------------------------------------- |
 | `payment.authorized` / `payment.captured` | Payment authorized/captured | Reconcile payment + order/booking status |
-| `payment.failed`   | Payment failed            | Update error state, allow retry |
-| `refund.created`   | Refund initiated          | Reconcile refund + order/booking status |
-| `payout.processed` | Provider payout completed | Mark payout as done        |
+| `payment.failed`                          | Payment failed              | Update error state, allow retry          |
+| `refund.created`                          | Refund initiated            | Reconcile refund + order/booking status  |
+| `payout.processed`                        | Provider payout completed   | Mark payout as done                      |
 
 **Why webhooks are needed**:
 
@@ -1086,6 +1091,7 @@ Escrow action done (release, partial split, or seeker full distributable award)
 Note: The 24-hour complaint window is enforced in `POST /api/complaints` using delivery timestamps (`otp_confirmed_at` / `escrow_started_at`).
 
 Operational detail from current code:
+
 - Seeker/provider complaint menus show only ongoing cases (`open`, `accepted`, `in_review`).
 - Provider sees complaint navigation only after admin grants provider access.
 - After `resolved`/`rejected`, seeker/provider chat input is locked and the thread is archived in UI.
