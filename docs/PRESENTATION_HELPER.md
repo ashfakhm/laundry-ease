@@ -190,7 +190,8 @@
 - **`components/`**: Reusable UI parts
 - **`lib/`**: Business logic, helpers, outside service connections
 - **`types/`**: TypeScript type definitions
-- **`cron/`**: Scheduled job logic
+- **`cron/`**: Scheduled job logic (e.g. payouts)
+- **`e2e/`**: End-to-end tests (Playwright)
 
 Each part has one job and doesn't depend much on other parts.
 
@@ -1106,19 +1107,21 @@ Operational detail from current code:
 
 ```
 app/api/
-├── admin/          # Admin-only endpoints
-│   └── complaints/ # Managing complaints
+├── admin/          # Admin-only endpoints (complaints, users)
 ├── auth/           # NextAuth handlers
-├── bookings/       # Booking create/read/update/delete, chat, schedule
-├── complaints/     # Creating complaints, messages
-├── cron/           # Scheduled jobs (protected with CRON_SECRET)
+├── bookings/       # Booking operations (create, chat, status)
+├── complaints/     # Dispute resolution logic
+├── cron/           # Scheduled jobs (payouts, auto-reject)
 ├── escrow/         # Manual escrow actions
-├── orders/         # Order lifecycle, payment
-├── otp/            # Send/check OTP
-├── payments/       # Razorpay work
-├── providers/      # Provider search, profile
-├── reviews/        # Rating submission
-└── webhooks/       # Razorpay webhooks
+├── invoices/       # Invoice generation and management
+├── orders/         # Order lifecycle and payment status
+├── otp/            # SMS OTP generation/verification
+├── payments/       # Razorpay integration
+├── profile/        # User profile management
+├── providers/      # Provider search and listing
+├── reviews/        # Rating and review submission
+├── security/       # Security checks (CSP violations)
+└── webhooks/       # Razorpay payment events
 ```
 
 ### Q: How do you handle API errors?
