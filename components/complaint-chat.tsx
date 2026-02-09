@@ -20,10 +20,12 @@ type ComplaintParticipants = {
 
 type SenderRole = "seeker" | "provider" | "admin" | "system";
 
-function getProviderParticipantName(provider?: {
-  name?: string;
-  businessName?: string | null;
-} | null): string {
+function getProviderParticipantName(
+  provider?: {
+    name?: string | null;
+    businessName?: string | null;
+  } | null,
+): string {
   const name = provider?.name?.trim();
   const businessName = provider?.businessName?.trim();
 
@@ -49,7 +51,8 @@ function getSenderLabel(
 ): string {
   if (senderRole === "admin") return "Admin";
   if (senderRole === "seeker") return `${participants.seekerName} (Seeker)`;
-  if (senderRole === "provider") return `${participants.providerName} (Provider)`;
+  if (senderRole === "provider")
+    return `${participants.providerName} (Provider)`;
   return "System";
 }
 
@@ -112,7 +115,10 @@ export default function ComplaintChat({
 
       const data = (await res.json()) as {
         seeker?: { name?: string | null } | null;
-        provider?: { name?: string | null; businessName?: string | null } | null;
+        provider?: {
+          name?: string | null;
+          businessName?: string | null;
+        } | null;
       };
 
       const seekerName = data?.seeker?.name?.trim() || "Seeker";
@@ -219,7 +225,9 @@ export default function ComplaintChat({
                 {!isSystemMessage && (
                   <p
                     className={`mb-1 px-1 text-[11px] font-semibold tracking-wide ${
-                      isSelfMessage ? "text-primary text-right" : "text-foreground/80"
+                      isSelfMessage
+                        ? "text-primary text-right"
+                        : "text-foreground/80"
                     }`}
                   >
                     {senderLabel}

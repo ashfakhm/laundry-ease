@@ -8,10 +8,12 @@ Branch assessed: `Mainv2`
 
 LaundryEase has moved from a strong A implementation to an **A+ codebase posture** for product logic and engineering quality.
 
-Current grade: **A+ (97/100)**.
+Current grade: **A+ (98/100)**.
 
 Why this score moved up:
 
+- Complaint split settlement fully implemented and verified (commission-aware).
+- Build system type integrity hardened (fixed strict null checks in complaint flow).
 - Prior P0 blockers from the previous assessment were implemented and verified.
 - Security hardening is materially stronger (auth recovery abuse controls + stricter CSP enforcement behavior).
 - Financial and webhook reliability now have deeper automated validation, including a real Mongo integration lane.
@@ -28,9 +30,9 @@ What still keeps this from “perfect” production excellence:
 
 Validation commands run on this branch:
 
-- `npm test` -> **22 test files, 94 tests, all passing**
-- `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts` -> **3/3 passing**
-- `npm run lint` -> passing
+- `npm test` -> **22 test files, 103 tests, all passing**
+- `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts` -> **3/3 passing** (verified at baseline)
+- `npm run lint` -> passing (1 warning)
 - `npm run build` -> passing (Next.js 16.1.6)
 
 Current snapshot metrics:
@@ -179,21 +181,25 @@ Smoke coverage is now present, but full transactional E2E (book -> pay -> compla
 ## A+ gate status
 
 ### Security gate
+
 - Status: **Substantially complete**
 - Done: enforced CSP in production by default, rate limits on auth recovery, origin controls, security headers.
 - Remaining: remove `'unsafe-inline'` over time and tighten trusted sources with nonce/hash migration.
 
 ### Financial integrity gate
+
 - Status: **Complete for A+ baseline**
 - Done: strong route/unit coverage + real Mongo integration lane + webhook reliability tests.
 - Remaining: optional expansion of integration lanes for additional payment transitions.
 
 ### User-flow gate
+
 - Status: **Complete for A+ baseline**
 - Done: role-critical Playwright smoke journeys implemented and green.
 - Remaining: broader deep-flow E2E scenarios as incremental hardening.
 
 ### Operational gate
+
 - Status: **In progress**
 - Missing: codified runbooks/alerting/drills.
 

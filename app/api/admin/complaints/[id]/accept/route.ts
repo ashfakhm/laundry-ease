@@ -11,10 +11,12 @@ import { adminComplaintAcceptSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
-function getProviderDisplayName(provider?: {
-  name?: string;
-  businessName?: string;
-} | null): string {
+function getProviderDisplayName(
+  provider?: {
+    name?: string;
+    businessName?: string;
+  } | null,
+): string {
   const name = provider?.name?.trim();
   const businessName = provider?.businessName?.trim();
 
@@ -55,7 +57,10 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid complaint id" },
+        { status: 400 },
+      );
     }
 
     const session = await getServerSession(authOptions);
@@ -128,7 +133,7 @@ export async function POST(
       db.collection("providers").findOne({ _id: complaint.provider_id }),
     ]);
     const seekerName = seeker?.name || "Customer";
-    const providerDisplayName = getProviderDisplayName(provider);
+    const providerDisplayName = getProviderDisplayName(provider as any);
 
     // Create system message
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
