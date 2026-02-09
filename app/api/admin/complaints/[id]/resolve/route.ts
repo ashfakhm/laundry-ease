@@ -22,8 +22,7 @@ type RequestOutcome = "refund_full" | "refund_partial" | "release_payout" | "rej
 type ComplaintDbOutcome =
   | "refund_full"
   | "refund_partial"
-  | "release_payout"
-  | "no_action";
+  | "release_payout";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -123,8 +122,8 @@ function resolveDbOutcome(
   if (requestedOutcome === "reject") {
     return {
       dbStatus: "rejected",
-      dbOutcome: "no_action",
-      statusMessage: "Complaint rejected",
+      dbOutcome: "release_payout",
+      statusMessage: "Complaint rejected in provider favor",
     };
   }
 
@@ -254,20 +253,27 @@ export async function POST(
       providerPayoutAmount,
     );
 
+    const complaintSetFields: Record<string, unknown> = {
+      status: resolved.dbStatus,
+      resolution_outcome: resolved.dbOutcome,
+      resolvedAt: new Date(),
+      resolution_breakdown: {
+        seeker_refund_amount: seekerRefundAmount,
+        provider_payout_amount: providerPayoutAmount,
+        platform_commission: round2(platformCommission),
+        distributable_amount: normalizedDistributableAmount,
+      },
+    };
+
+    // Close participant access once complaint is finalized.
+    if (resolved.dbStatus === "resolved" || resolved.dbStatus === "rejected") {
+      complaintSetFields.provider_access_granted = false;
+    }
+
     await db.collection("complaints").updateOne(
       { _id: complaintId },
       {
-        $set: {
-          status: resolved.dbStatus,
-          resolution_outcome: resolved.dbOutcome,
-          resolvedAt: new Date(),
-          resolution_breakdown: {
-            seeker_refund_amount: seekerRefundAmount,
-            provider_payout_amount: providerPayoutAmount,
-            platform_commission: round2(platformCommission),
-            distributable_amount: normalizedDistributableAmount,
-          },
-        },
+        $set: complaintSetFields,
       },
     );
 

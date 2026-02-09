@@ -84,6 +84,17 @@ describe("requireSameOrigin", () => {
     await expect(requireSameOrigin(req)).resolves.toBeUndefined();
   });
 
+  it("allows same-origin fetch metadata fallback when origin and referer are missing", async () => {
+    const req = new Request("https://laundryease.test/api/bookings", {
+      method: "POST",
+      headers: {
+        "sec-fetch-site": "same-origin",
+      },
+    });
+
+    await expect(requireSameOrigin(req)).resolves.toBeUndefined();
+  });
+
   it("rejects POST from untrusted origin", async () => {
     const req = new Request("https://laundryease.test/api/bookings", {
       method: "POST",
@@ -95,6 +106,20 @@ describe("requireSameOrigin", () => {
     await expect(requireSameOrigin(req)).rejects.toMatchObject({
       statusCode: 403,
       message: "Invalid request origin",
+    });
+  });
+
+  it("rejects missing origin when fetch metadata is not same-origin", async () => {
+    const req = new Request("https://laundryease.test/api/bookings", {
+      method: "POST",
+      headers: {
+        "sec-fetch-site": "cross-site",
+      },
+    });
+
+    await expect(requireSameOrigin(req)).rejects.toMatchObject({
+      statusCode: 403,
+      message: "Missing request origin",
     });
   });
 });

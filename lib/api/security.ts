@@ -76,14 +76,23 @@ export async function requireSameOrigin(req: Request): Promise<void> {
   if (!isUnsafeHttpMethod(req.method)) return;
 
   const requestOrigin = getRequestOrigin(req);
-  if (!requestOrigin) {
-    throw Errors.forbidden("Missing request origin");
+  const allowedOrigins = new Set(collectAllowedOrigins(req));
+
+  if (requestOrigin) {
+    if (!allowedOrigins.has(requestOrigin)) {
+      throw Errors.forbidden("Invalid request origin");
+    }
+    return;
   }
 
-  const allowedOrigins = new Set(collectAllowedOrigins(req));
-  if (!allowedOrigins.has(requestOrigin)) {
-    throw Errors.forbidden("Invalid request origin");
+  // Some clients can strip Origin/Referer even for same-origin requests.
+  // Accept only explicit same-origin browser metadata as a strict fallback.
+  const fetchSite = req.headers.get("sec-fetch-site")?.toLowerCase().trim();
+  if (fetchSite === "same-origin") {
+    return;
   }
+
+  throw Errors.forbidden("Missing request origin");
 }
 
 function getWindowStart(nowMs: number, windowMs: number): Date {
@@ -143,7 +152,6 @@ async function incrementCounter(
         $setOnInsert: {
           key,
           windowStart,
-          count: 0,
           createdAt: new Date(),
         },
       },

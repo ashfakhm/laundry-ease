@@ -48,6 +48,24 @@ function formatInr(value: number): string {
   return `INR ${round2(value).toFixed(2)}`;
 }
 
+function getProviderDisplayName(provider?: {
+  name?: string;
+  businessName?: string | null;
+} | null): string {
+  const name = provider?.name?.trim();
+  const businessName = provider?.businessName?.trim();
+
+  if (
+    name &&
+    businessName &&
+    name.toLowerCase() !== businessName.toLowerCase()
+  ) {
+    return `${name} (${businessName})`;
+  }
+
+  return name || businessName || "Provider";
+}
+
 export default function AdminComplaintDetailPage({
   params,
 }: {
@@ -201,10 +219,7 @@ export default function AdminComplaintDetailPage({
     complaint.status === "resolved" || complaint.status === "rejected";
   const providerAdded = complaint.provider_access_granted;
   const seekerLabel = complaint.seeker?.name?.trim() || "Seeker";
-  const providerLabel =
-    complaint.provider?.businessName?.trim() ||
-    complaint.provider?.name?.trim() ||
-    "Provider";
+  const providerLabel = getProviderDisplayName(complaint.provider);
   const distributableAmount = round2(
     Number(complaint.settlement_window?.distributable_amount || 0),
   );

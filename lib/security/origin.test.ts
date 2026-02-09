@@ -54,4 +54,21 @@ describe("origin helpers", () => {
     expect(allowed).toContain("https://laundryease.test");
     expect(allowed).toContain("https://app.laundryease.test");
   });
+
+  it("expands localhost loopback aliases for local development", () => {
+    const headers = new Headers({
+      host: "localhost:3000",
+      "x-forwarded-proto": "http",
+    });
+
+    const allowed = collectAllowedOriginsFromRequest({
+      requestUrl: "http://localhost:3000/api/complaints/1/messages",
+      headers,
+      envOrigins: [],
+    });
+
+    expect(allowed).toContain("http://localhost:3000");
+    expect(allowed).toContain("http://127.0.0.1:3000");
+    expect(allowed).toContain("http://[::1]:3000");
+  });
 });

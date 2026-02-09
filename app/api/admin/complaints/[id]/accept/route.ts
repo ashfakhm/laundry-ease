@@ -11,6 +11,24 @@ import { adminComplaintAcceptSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
+function getProviderDisplayName(provider?: {
+  name?: string;
+  businessName?: string;
+} | null): string {
+  const name = provider?.name?.trim();
+  const businessName = provider?.businessName?.trim();
+
+  if (
+    name &&
+    businessName &&
+    name.toLowerCase() !== businessName.toLowerCase()
+  ) {
+    return `${name} (${businessName})`;
+  }
+
+  return name || businessName || "Provider";
+}
+
 /**
  * POST /api/admin/complaints/:id/accept
  * Accept a complaint and set response deadline for provider
@@ -110,8 +128,7 @@ export async function POST(
       db.collection("providers").findOne({ _id: complaint.provider_id }),
     ]);
     const seekerName = seeker?.name || "Customer";
-    const providerDisplayName =
-      provider?.businessName || provider?.name || "Provider";
+    const providerDisplayName = getProviderDisplayName(provider);
 
     // Create system message
     const systemMsg: Omit<ComplaintMessage, "_id"> = {

@@ -10,8 +10,6 @@ import {
   Package,
   Calendar,
 } from "lucide-react";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useToast } from "@/components/ui/toast";
 
 type Complaint = {
   _id: string;
@@ -37,19 +35,30 @@ type Complaint = {
   };
 };
 
+function getProviderDisplayName(provider?: {
+  name?: string;
+  businessName?: string;
+}): string {
+  const name = provider?.name?.trim();
+  const businessName = provider?.businessName?.trim();
+
+  if (
+    name &&
+    businessName &&
+    name.toLowerCase() !== businessName.toLowerCase()
+  ) {
+    return `${name} (${businessName})`;
+  }
+
+  return name || businessName || "Provider";
+}
+
 export default function ComplaintsPage() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<
     "all" | "open" | "accepted" | "in_review" | "resolved" | "rejected"
   >("all");
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const toast = useToast();
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    complaintId: string;
-    outcome: "refund_full" | "release_payout" | "reject";
-  }>({ isOpen: false, complaintId: "", outcome: "release_payout" });
 
   useEffect(() => {
     fetchComplaints();
@@ -66,61 +75,6 @@ export default function ComplaintsPage() {
       console.error("Error fetching complaints:", error);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function acceptComplaint(complaintId: string) {
-    setActionLoading(complaintId);
-    try {
-      const response = await fetch(
-        `/api/admin/complaints/${complaintId}/accept`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ deadlineDays: 7 }),
-        },
-      );
-
-      const data = await response.json();
-      if (response.ok) {
-        toast.success("Complaint accepted. Provider has 7 days to respond.");
-        await fetchComplaints();
-        setFilter("accepted");
-      } else {
-        toast.error(getApiErrorMessage(data, "Failed to accept complaint"));
-      }
-    } catch (error) {
-      console.error("Error accepting complaint:", error);
-      toast.error("Failed to accept complaint");
-    } finally {
-      setActionLoading(null);
-    }
-  }
-
-  // Reserved for future manual status updates if needed
-  async function _updateComplaintStatus(
-    complaintId: string,
-    status: "in_review" | "resolved",
-  ) {
-    setActionLoading(complaintId);
-    try {
-      const response = await fetch(`/api/admin/complaints/${complaintId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-
-      if (response.ok) {
-        await fetchComplaints();
-        setFilter(status);
-      } else {
-        const data = await response.json();
-        toast.error(getApiErrorMessage(data, "Failed to update status"));
-      }
-    } catch (error) {
-      console.error("Error updating complaint:", error);
-    } finally {
-      setActionLoading(null);
     }
   }
 
@@ -184,38 +138,6 @@ export default function ComplaintsPage() {
     }
   }
 
-  function getDeadlineStatus(deadline: string | undefined) {
-    if (!deadline) return null;
-    const deadlineDate = new Date(deadline);
-    const now = new Date();
-    const daysLeft = Math.ceil(
-      (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-    );
-
-    if (daysLeft < 0) {
-      return (
-        <span className="text-xs text-red-500 font-medium">
-          Overdue by {Math.abs(daysLeft)} days
-        </span>
-      );
-    } else if (daysLeft === 0) {
-      return (
-        <span className="text-xs text-red-500 font-medium">Due today</span>
-      );
-    } else if (daysLeft <= 2) {
-      return (
-        <span className="text-xs text-amber-500 font-medium">
-          {daysLeft} days left
-        </span>
-      );
-    } else {
-      return (
-        <span className="text-xs text-muted-foreground">
-          {daysLeft} days left
-        </span>
-      );
-    }
-  }
   if (loading) {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
@@ -229,136 +151,16 @@ export default function ComplaintsPage() {
     );
   }
 
-  async function resolveComplaint(
-    complaintId: string,
-    outcome: "refund_full" | "release_payout" | "reject",
-  ) {
-    try {
-      const response = await fetch(
-        `/api/admin/complaints/${complaintId}/resolve`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ outcome }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success(data.message || "Complaint resolved successfully");
-        await fetchComplaints();
-      } else {
-        toast.error(getApiErrorMessage(data, "Failed to resolve complaint"));
-      }
-    } catch (error) {
-      console.error("Error resolving complaint:", error);
-      toast.error("Failed to resolve complaint. Please try again.");
-    }
-  }
-
-  // ... (keeping existing filters logic)
-
   // Helper for action buttons
   function renderActions(complaint: Complaint) {
-    const isLoading = actionLoading === complaint._id;
-
-    // For resolved/rejected - just show view link
-    if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return (
-        <div className="flex flex-col gap-2 w-full lg:w-52 shrink-0">
-          <a
-            href={`/admin/complaints/${complaint._id}`}
-            className="rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-center text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700"
-          >
-            View Details
-          </a>
-        </div>
-      );
-    }
-
     return (
       <div className="flex flex-col gap-2 w-full lg:w-52 shrink-0">
-        {/* Always show View Details */}
         <a
           href={`/admin/complaints/${complaint._id}`}
           className="rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-center text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           View Details
         </a>
-
-        {/* Open → Accept */}
-        {complaint.status === "open" && (
-          <button
-            onClick={() => acceptComplaint(complaint._id)}
-            disabled={isLoading}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-          >
-            {isLoading ? "Accepting..." : "Accept Complaint"}
-          </button>
-        )}
-
-        {/* Accepted → Add Provider options */}
-        {complaint.status === "accepted" && (
-          <>
-            <a
-              href={`/admin/complaints/${complaint._id}`}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 text-center"
-            >
-              Add Provider to Chat
-            </a>
-            {complaint.response_deadline && (
-              <div className="text-center">
-                {getDeadlineStatus(complaint.response_deadline)}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* In Review → Resolution Actions */}
-        {complaint.status === "in_review" && (
-          <>
-            <button
-              onClick={() =>
-                setConfirmDialog({
-                  isOpen: true,
-                  complaintId: complaint._id,
-                  outcome: "release_payout",
-                })
-              }
-              disabled={isLoading}
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-            >
-              Release Payout
-            </button>
-            <button
-              onClick={() =>
-                setConfirmDialog({
-                  isOpen: true,
-                  complaintId: complaint._id,
-                  outcome: "refund_full",
-                })
-              }
-              disabled={isLoading}
-              className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
-            >
-              Full Refund
-            </button>
-            <button
-              onClick={() =>
-                setConfirmDialog({
-                  isOpen: true,
-                  complaintId: complaint._id,
-                  outcome: "reject",
-                })
-              }
-              disabled={isLoading}
-              className="rounded-xl border-2 border-gray-400 bg-gray-100 dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-            >
-              Reject Complaint
-            </button>
-          </>
-        )}
       </div>
     );
   }
@@ -532,8 +334,7 @@ export default function ComplaintsPage() {
                               <Image
                                 src={complaint.provider.profilePicture}
                                 alt={
-                                  complaint.provider.businessName ||
-                                  complaint.provider.name
+                                  getProviderDisplayName(complaint.provider)
                                 }
                                 width={32}
                                 height={32}
@@ -548,8 +349,7 @@ export default function ComplaintsPage() {
                               Provider
                             </p>
                             <p className="text-sm font-semibold">
-                              {complaint.provider.businessName ||
-                                complaint.provider.name}
+                              {getProviderDisplayName(complaint.provider)}
                             </p>
                           </div>
                         </div>
@@ -568,41 +368,6 @@ export default function ComplaintsPage() {
         )}
       </div>
 
-      {/* Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
-        onConfirm={async () => {
-          await resolveComplaint(
-            confirmDialog.complaintId,
-            confirmDialog.outcome,
-          );
-          setConfirmDialog({ ...confirmDialog, isOpen: false });
-        }}
-        title={`Confirm ${confirmDialog.outcome === "release_payout" ? "Payout Release" : confirmDialog.outcome === "reject" ? "Rejection" : "Refund"}`}
-        message={`Are you sure you want to proceed with: ${confirmDialog.outcome.replace(/_/g, " ")}?`}
-        confirmText="Proceed"
-        cancelText="Cancel"
-        variant={confirmDialog.outcome === "refund_full" ? "danger" : "warning"}
-      />
     </main>
   );
-}
-
-function getApiErrorMessage(payload: unknown, fallback: string): string {
-  if (
-    payload &&
-    typeof payload === "object" &&
-    typeof (payload as { error?: unknown }).error === "string"
-  ) {
-    return (payload as { error: string }).error;
-  }
-  if (
-    payload &&
-    typeof payload === "object" &&
-    (payload as { error?: { message?: string } }).error?.message
-  ) {
-    return (payload as { error: { message: string } }).error.message;
-  }
-  return fallback;
 }

@@ -747,4 +747,105 @@ describe("complaint ticket lifecycle", () => {
     expect(ctx.store.orders[0].provider_payout_amount).toBe(275);
     expect(ctx.store.orders[0].platform_commission).toBe(25);
   });
+
+  it("rejects complaint, releases provider payout, and hides it from seeker/provider", async () => {
+    const createRes = await createComplaint(
+      jsonRequest("POST", "https://laundryease.test/api/complaints", {
+        order_id: ORDER_ID,
+        complaint_type: "quality_issue",
+        title: "Reject flow regression guard",
+        description: "Used to validate reject behavior end-to-end.",
+      }),
+    );
+    expect(createRes.status).toBe(201);
+    const createData = await createRes.json();
+    const complaintId = String(createData.data._id);
+
+    setActor("admin");
+    const acceptRes = await acceptComplaint(
+      jsonRequest(
+        "POST",
+        `https://laundryease.test/api/admin/complaints/${complaintId}/accept`,
+        { deadlineDays: 5 },
+      ),
+      routeParams(complaintId),
+    );
+    expect(acceptRes.status).toBe(200);
+
+    const addProviderRes = await addProviderToComplaint(
+      jsonRequest(
+        "POST",
+        `https://laundryease.test/api/admin/complaints/${complaintId}/add-provider`,
+      ),
+      routeParams(complaintId),
+    );
+    expect(addProviderRes.status).toBe(200);
+
+    const resolveRes = await resolveComplaint(
+      jsonRequest(
+        "POST",
+        `https://laundryease.test/api/admin/complaints/${complaintId}/resolve`,
+        { outcome: "reject" },
+      ),
+      routeParams(complaintId),
+    );
+    const resolveData = await resolveRes.json();
+
+    expect(resolveRes.status).toBe(200);
+    expect(resolveData.status).toBe("rejected");
+    expect(resolveData.outcome).toBe("release_payout");
+    expect(resolveData.settlement.seeker_refund_amount).toBe(0);
+    expect(resolveData.settlement.provider_payout_amount).toBe(475);
+    expect(resolveData.settlement.platform_commission).toBe(25);
+    expect(mockInitiateOrderPayout).toHaveBeenCalledWith(
+      expect.any(ObjectId),
+      expect.objectContaining({
+        ignoreEscrowDate: true,
+        source: "complaint_reject",
+        overrideProviderPayoutAmount: 475,
+        overridePlatformCommission: 25,
+      }),
+    );
+    expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
+
+    const storedComplaint = ctx.store.complaints.find(
+      (item) => String(item._id) === complaintId,
+    );
+    expect(storedComplaint?.status).toBe("rejected");
+    expect(storedComplaint?.provider_access_granted).toBe(false);
+
+    setActor("seeker");
+    const seekerListAfterReject = await listComplaints(
+      jsonRequest("GET", "https://laundryease.test/api/complaints"),
+    );
+    const seekerListData = await seekerListAfterReject.json();
+    expect(seekerListAfterReject.status).toBe(200);
+    expect(seekerListData.data).toHaveLength(0);
+
+    const seekerMessagesAfterReject = await getComplaintMessages(
+      jsonRequest(
+        "GET",
+        `https://laundryease.test/api/complaints/${complaintId}/messages`,
+      ),
+      routeParams(complaintId),
+    );
+    expect(seekerMessagesAfterReject.status).toBe(403);
+
+    setActor("provider");
+    const providerListAfterReject = await listComplaints(
+      jsonRequest("GET", "https://laundryease.test/api/complaints"),
+    );
+    const providerListData = await providerListAfterReject.json();
+    expect(providerListAfterReject.status).toBe(200);
+    expect(providerListData.data).toHaveLength(0);
+
+    const providerMessagesAfterReject = await getComplaintMessages(
+      jsonRequest(
+        "GET",
+        `https://laundryease.test/api/complaints/${complaintId}/messages`,
+      ),
+      routeParams(complaintId),
+    );
+    expect(providerMessagesAfterReject.status).toBe(403);
+  });
 });

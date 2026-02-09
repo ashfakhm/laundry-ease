@@ -6,11 +6,51 @@ import Image from "next/image";
 interface ChatMessage {
   _id: string;
   sender_id: string;
-  sender_role: "seeker" | "provider" | "admin" | "system";
-  message_type: "TEXT" | "IMAGE" | "SYSTEM";
+  sender_role: string;
+  message_type: string;
   content: string;
   attachments?: string[];
   createdAt: string;
+}
+
+type ComplaintParticipants = {
+  seekerName: string;
+  providerName: string;
+};
+
+type SenderRole = "seeker" | "provider" | "admin" | "system";
+
+function getProviderParticipantName(provider?: {
+  name?: string;
+  businessName?: string | null;
+} | null): string {
+  const name = provider?.name?.trim();
+  const businessName = provider?.businessName?.trim();
+
+  if (name && !["provider", "laundry"].includes(name.toLowerCase())) {
+    return name;
+  }
+
+  return businessName || name || "Provider";
+}
+
+function normalizeSenderRole(senderRole: unknown): SenderRole {
+  if (typeof senderRole !== "string") return "system";
+  const normalized = senderRole.trim().toLowerCase();
+  if (normalized === "admin") return "admin";
+  if (normalized === "provider") return "provider";
+  if (normalized === "seeker") return "seeker";
+  return "system";
+}
+
+function getSenderLabel(
+  senderRole: SenderRole,
+  participants: ComplaintParticipants,
+): string {
+  if (senderRole === "admin") return "Admin";
+  if (senderRole === "seeker") return `${participants.seekerName} (Seeker)`;
+  if (senderRole === "provider") return `${participants.providerName} (Provider)`;
+  return "System";
 }
 
 export default function ComplaintChat({
@@ -28,6 +68,10 @@ export default function ComplaintChat({
   const [isResolved, setIsResolved] = useState(false);
   const [isAccessBlocked, setIsAccessBlocked] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
+  const [participants, setParticipants] = useState<ComplaintParticipants>({
+    seekerName: "Seeker",
+    providerName: "Provider",
+  });
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -59,11 +103,36 @@ export default function ComplaintChat({
     }
   }, [complaintId]);
 
+  const fetchParticipants = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/complaints/${complaintId}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+
+      const data = (await res.json()) as {
+        seeker?: { name?: string | null } | null;
+        provider?: { name?: string | null; businessName?: string | null } | null;
+      };
+
+      const seekerName = data?.seeker?.name?.trim() || "Seeker";
+      const providerName = getProviderParticipantName(data?.provider);
+
+      setParticipants({
+        seekerName,
+        providerName,
+      });
+    } catch {
+      // Keep safe fallback labels.
+    }
+  }, [complaintId]);
+
   useEffect(() => {
+    fetchParticipants();
     fetchMessages();
     const interval = setInterval(fetchMessages, 5000); // Polling
     return () => clearInterval(interval);
-  }, [fetchMessages]);
+  }, [fetchMessages, fetchParticipants]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -77,12 +146,22 @@ export default function ComplaintChat({
         body: JSON.stringify({ content: input, attachments: [] }), // Attachments UI TBD
       });
 
-      if (res.status === 403 || res.status === 400) {
-        const d = await res.json();
-        throw new Error(d.error || "Failed");
+      if (!res.ok) {
+        let message = "Failed to send message";
+        try {
+          const d = (await res.json()) as {
+            error?: string | { message?: string };
+          };
+          if (typeof d.error === "string") {
+            message = d.error;
+          } else if (d.error?.message) {
+            message = d.error.message;
+          }
+        } catch {
+          // Keep fallback message.
+        }
+        throw new Error(message);
       }
-
-      if (!res.ok) throw new Error("Failed to send message");
 
       setInput("");
       setShouldAutoScroll(true); // Always scroll to bottom after sending
@@ -90,6 +169,10 @@ export default function ComplaintChat({
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not send message";
+      if (message.toLowerCase().includes("resolved")) {
+        setIsResolved(true);
+        setIsAccessBlocked(true);
+      }
       setError(message);
     } finally {
       setLoading(false);
@@ -119,61 +202,80 @@ export default function ComplaintChat({
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div
-            key={msg._id || i}
-            className={`flex ${
-              msg.sender_role === selfRole ? "justify-end" : "justify-start"
-            }`}
-          >
+        {messages.map((msg, i) => {
+          const senderRole = normalizeSenderRole(msg.sender_role);
+          const isSystemMessage =
+            senderRole === "system" ||
+            String(msg.message_type).toUpperCase() === "SYSTEM";
+          const isSelfMessage = senderRole === selfRole;
+          const senderLabel = getSenderLabel(senderRole, participants);
+
+          return (
             <div
-              className={`rounded-2xl px-4 py-2.5 max-w-[85%] text-sm shadow-sm transition-all ${
-                msg.sender_role === selfRole
-                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                  : msg.sender_role === "system"
-                    ? "bg-muted text-muted-foreground w-full text-center mx-auto text-xs py-1"
-                    : "bg-background border border-border rounded-bl-sm"
-              }`}
+              key={msg._id || i}
+              className={`flex ${isSelfMessage ? "justify-end" : "justify-start"}`}
             >
-              {msg.sender_role === "system" ? (
-                <span className="italic">{msg.content}</span>
-              ) : (
-                <>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                  {msg.attachments && msg.attachments.length > 0 && (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      {msg.attachments.map((url, idx) => (
-                        <div
-                          key={idx}
-                          className="relative w-full aspect-square rounded-lg overflow-hidden border border-white/20"
-                        >
-                          <Image
-                            src={url}
-                            alt="Complaint evidence image"
-                            width={128}
-                            height={128}
-                            className="object-cover"
-                          />
+              <div className={isSystemMessage ? "w-full" : "max-w-[85%]"}>
+                {!isSystemMessage && (
+                  <p
+                    className={`mb-1 px-1 text-[11px] font-semibold tracking-wide ${
+                      isSelfMessage ? "text-primary text-right" : "text-foreground/80"
+                    }`}
+                  >
+                    {senderLabel}
+                  </p>
+                )}
+
+                <div
+                  className={`rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all ${
+                    isSelfMessage
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : isSystemMessage
+                        ? "bg-muted text-muted-foreground w-full text-center mx-auto text-xs py-1"
+                        : "bg-background border border-border rounded-bl-sm"
+                  }`}
+                >
+                  {isSystemMessage ? (
+                    <span className="italic">{msg.content}</span>
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          {msg.attachments.map((url, idx) => (
+                            <div
+                              key={idx}
+                              className="relative w-full aspect-square rounded-lg overflow-hidden border border-white/20"
+                            >
+                              <Image
+                                src={url}
+                                alt="Complaint evidence image"
+                                width={128}
+                                height={128}
+                                className="object-cover"
+                              />
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+                    </>
+                  )}
+
+                  {!isSystemMessage && (
+                    <div
+                      className={`text-[10px] mt-1 text-right opacity-60 leading-none`}
+                    >
+                      {new Date(msg.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                   )}
-                </>
-              )}
-
-              {msg.sender_role !== "system" && (
-                <div
-                  className={`text-[10px] mt-1 text-right opacity-60 leading-none`}
-                >
-                  {new Date(msg.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
