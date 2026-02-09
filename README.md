@@ -51,7 +51,7 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
 - **Arrival-gated booking-fee release**
   Booking-fee payout starts only when the provider marks arrival (with geofence checks when seeker coordinates are available).
 - **Complaint & dispute resolution**
-  Seekers can raise complaints within 24 hours of delivery. Escrow freezes immediately. Admin mediates through a 3-way chat system with response deadlines.
+  Seekers can raise complaints within 24 hours of delivery. Escrow freezes immediately. Admin mediates through a 3-way chat system with response deadlines and commission-aware split settlement.
 - **Reschedule without cancellation (booking-level)**
   Either side can request a pickup reschedule while pickup is still being negotiated. Reschedule creates an explicit booking state (not a cancellation) and routes the booking back into the propose/confirm flow.
 
@@ -263,6 +263,7 @@ Stable:
 - Staged complaint chat (Admin+Seeker in `accepted`, 3-way after provider is added)
 - Response deadline tracking for provider engagement
 - Escrow freeze on complaint, release on resolution
+- Complaint split-settlement support (`refund_partial`) using seeker/provider amount slider on distributable value
 - Role-scoped complaint navigation (ongoing-only visibility, provider only after admin grants access)
 - Archived complaint threads for seeker/provider after resolution
 - Unified payout orchestration for cron/manual/admin flows (`lib/payouts.ts`)
@@ -277,9 +278,9 @@ Stable:
 - Real-time client-side form validation (email, password matching)
 - CSP telemetry pipeline (`Content-Security-Policy-Report-Only` + `/api/security/csp-report`)
 
-Quality snapshot (2026-02-08):
+Quality snapshot (2026-02-09):
 
-- `17` test files, `75` tests passing
+- `22` test files, `99` tests passing
 - `npm test`, `npm run lint`, `npm run build` all passing on `Mainv2`
 
 Remaining hardening opportunities:
@@ -289,8 +290,8 @@ Remaining hardening opportunities:
 - Archival policy for old webhook payloads to control long-term storage growth
 - Password-recovery anti-abuse hardening (rate-limit/captcha strategy)
 - Promote CSP from report-only to enforce mode after violation cleanup
-- Partial refund flow (currently only full refund or full payout)
 - Complaint window extension requests
+- Split-settlement reconciliation tooling for rare one-leg failure cases
 - Provider field UX polish (mobile-first ergonomics)
 
 ## 11. Complaint & Dispute Resolution
@@ -326,8 +327,10 @@ LaundryEase provides a structured dispute resolution workflow for post-delivery 
 
 4. **Admin resolves complaint**
    - `release_payout` - Funds go to provider (complaint dismissed or resolved in provider's favor)
-   - `refund_full` - Seeker receives full refund (provider at fault)
+   - `refund_partial` - Admin chooses seeker refund amount via slider; remaining distributable amount goes to provider
+   - `refund_full` - Seeker receives full distributable amount (provider gets zero)
    - `reject` - Complaint invalid; funds released to provider
+   - Commission remains retained by the platform (default 5%) before split logic is applied.
 
 ### API endpoints
 
@@ -337,7 +340,7 @@ LaundryEase provides a structured dispute resolution workflow for post-delivery 
 - `POST /api/complaints/:id/messages` - Send message
 - `POST /api/admin/complaints/:id/accept` - Accept complaint (admin)
 - `POST /api/admin/complaints/:id/add-provider` - Add provider to chat (admin)
-- `POST /api/admin/complaints/:id/resolve` - Resolve with outcome (admin)
+- `POST /api/admin/complaints/:id/resolve` - Resolve with outcome (admin; `refund_partial` expects `seeker_refund_amount`)
 
 ### Key rules
 
