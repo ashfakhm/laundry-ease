@@ -67,7 +67,10 @@ export function buildCspPolicy(options: CspBuildOptions = {}): string {
 }
 
 export function getCspHeader() {
-  const enforce = process.env.CSP_ENFORCE === "true";
+  const enforceFlag = process.env.CSP_ENFORCE;
+  const enforce =
+    enforceFlag === "true" ||
+    (enforceFlag !== "false" && process.env.NODE_ENV === "production");
   return {
     key: enforce
       ? "Content-Security-Policy"
