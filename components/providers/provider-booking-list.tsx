@@ -2,7 +2,7 @@
 
 import { PopulatedBooking } from "@/types/bookings";
 import { useRouter } from "next/navigation";
-import { BookingCard } from "@/app/(dashboard)/provider/Manage-booking/booking-card";
+import { BookingCard } from "@/app/(dashboard)/provider/manage-booking/booking-card";
 
 export function ProviderBookingList({
   bookings,

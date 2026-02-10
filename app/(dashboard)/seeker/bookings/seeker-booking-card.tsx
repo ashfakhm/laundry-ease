@@ -3,7 +3,7 @@
 // re-compile trigger
 import { memo, useState } from "react";
 import { PopulatedSeekerBooking } from "@/types/bookings";
-import { BookingStatusBadge } from "../../provider/Manage-booking/booking-status-badge";
+import { BookingStatusBadge } from "../../provider/manage-booking/booking-status-badge";
 import {
   Calendar,
   MapPin,

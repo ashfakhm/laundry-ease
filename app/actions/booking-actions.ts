@@ -198,7 +198,7 @@ export async function updateBookingStatus(
         throw error;
       }
 
-      revalidatePath("/provider/Manage-booking");
+      revalidatePath("/provider/manage-booking");
       return { success: true, message: "Booking accepted" };
     }
 
@@ -347,7 +347,7 @@ export async function updateBookingStatus(
           _id: bookingQuery._id,
         });
         if (latestAfter?.status === "rejected") {
-          revalidatePath("/provider/Manage-booking");
+          revalidatePath("/provider/manage-booking");
           return { success: true, message: "Booking already rejected" };
         }
 
@@ -358,7 +358,7 @@ export async function updateBookingStatus(
         };
       }
 
-      revalidatePath("/provider/Manage-booking");
+      revalidatePath("/provider/manage-booking");
       return { success: true, message: "Booking rejected and fee refunded" };
     }
 
@@ -455,7 +455,7 @@ export async function proposePickupSlot(
       },
     });
 
-    revalidatePath("/provider/Manage-booking");
+    revalidatePath("/provider/manage-booking");
     return { success: true, message: "Pickup slot proposed" };
   } catch (error) {
     logger.error("BOOKING_ACTIONS", "Error proposing pickup slot", error, {
@@ -639,7 +639,7 @@ export async function markProviderArrived(
       };
     }
 
-    revalidatePath("/provider/Manage-booking");
+    revalidatePath("/provider/manage-booking");
     return {
       success: true,
       message: payoutId
