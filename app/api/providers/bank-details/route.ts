@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { Provider } from "@/lib/db";
+import { Provider } from "@/types/users";
 import {
   createRazorpayContact,
   createRazorpayFundAccount,
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (!bankDetails) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     if (!provider) {
       return NextResponse.json(
         { error: "Provider not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
           razorpay_contact_id: contact.id,
           razorpay_fund_account_id: fundAccount.id,
         },
-      }
+      },
     );
 
     return NextResponse.json({

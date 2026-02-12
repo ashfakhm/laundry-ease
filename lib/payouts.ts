@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 import type { Order } from "@/types/orders";
 import { getDb } from "@/lib/mongodb";
-import { releaseEscrowPayment } from "@/lib/db";
+import { releaseEscrowPayment } from "@/lib/db/index";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";

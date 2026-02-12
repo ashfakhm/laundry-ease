@@ -1,4 +1,4 @@
-import { createBooking } from "@/lib/db";
+import { createBooking } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";

@@ -7,7 +7,7 @@ import {
   createRazorpayContact,
   createRazorpayFundAccount,
 } from "@/lib/razorpay";
-import { Provider } from "@/lib/db";
+import { Provider } from "@/types/users";
 import { logger } from "@/lib/logger";
 import { updateProviderProfileSchema } from "@/lib/api/schemas";
 import {
@@ -41,13 +41,13 @@ export async function GET() {
           emailVerified: 0,
           phoneVerified: 0,
         },
-      }
+      },
     );
 
     if (!provider) {
       return NextResponse.json(
         { error: "Provider profile not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -61,7 +61,7 @@ export async function GET() {
               ifsc?: string;
               upiId?: string;
               accountHolderName?: string;
-            }
+            },
           )
         : undefined,
     } as unknown;
@@ -71,7 +71,7 @@ export async function GET() {
     logger.error("PROFILE", "Error fetching provider profile", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -93,14 +93,14 @@ export async function PATCH(req: Request) {
 
     const body = await req.json();
     const parsed = updateProviderProfileSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid data", details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
+        { status: 400 },
       );
     }
-    
+
     const {
       name,
       businessName,
@@ -236,7 +236,12 @@ export async function PATCH(req: Request) {
         }
       } catch (e: unknown) {
         const err = e as Error;
-        logger.error("PROFILE", "Razorpay sync error during profile update", err, { email: session.user.email });
+        logger.error(
+          "PROFILE",
+          "Razorpay sync error during profile update",
+          err,
+          { email: session.user.email },
+        );
         // Fail the request if critical bank details sync fails so user knows
         return NextResponse.json(
           {
@@ -244,7 +249,7 @@ export async function PATCH(req: Request) {
               err?.message || "Failed to sync bank details"
             }`,
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
     }
@@ -256,14 +261,14 @@ export async function PATCH(req: Request) {
       if (!isStrongPassword(newPassword)) {
         return NextResponse.json(
           { error: PASSWORD_POLICY_MESSAGE },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
       if (!currentPassword) {
         return NextResponse.json(
           { error: "Current password is required to set a new password" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -271,24 +276,24 @@ export async function PATCH(req: Request) {
         .collection("providers")
         .findOne(
           { email: session.user.email },
-          { projection: { passwordHash: 1 } }
+          { projection: { passwordHash: 1 } },
         );
 
       if (!provider || !provider.passwordHash) {
         return NextResponse.json(
           { error: "Provider not found or no password set" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
       const isMatch = await bcrypt.compare(
         currentPassword,
-        provider.passwordHash
+        provider.passwordHash,
       );
       if (!isMatch) {
         return NextResponse.json(
           { error: "Incorrect current password" },
-          { status: 401 }
+          { status: 401 },
         );
       }
 
@@ -298,7 +303,7 @@ export async function PATCH(req: Request) {
     if (Object.keys(updateFields).length === 0) {
       return NextResponse.json(
         { error: "No fields to update" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -307,13 +312,13 @@ export async function PATCH(req: Request) {
       .findOneAndUpdate(
         { email: session.user.email },
         { $set: updateFields },
-        { returnDocument: "after", projection: { passwordHash: 0 } }
+        { returnDocument: "after", projection: { passwordHash: 0 } },
       );
 
     if (!result) {
       return NextResponse.json(
         { error: "Provider not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -330,7 +335,7 @@ export async function PATCH(req: Request) {
               ifsc?: string;
               upiId?: string;
               accountHolderName?: string;
-            }
+            },
           )
         : undefined,
     } as unknown;
@@ -340,7 +345,7 @@ export async function PATCH(req: Request) {
     logger.error("PROFILE", "Error updating provider profile", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

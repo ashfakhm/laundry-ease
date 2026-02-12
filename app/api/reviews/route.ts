@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { Review, Provider } from "@/lib/db";
+import { Review } from "@/types/reviews";
+import { Provider } from "@/types/users";
 import { requireSeeker } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
 import { z } from "zod";

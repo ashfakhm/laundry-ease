@@ -1,3 +1,5 @@
+import { DEFAULT_PLATFORM_COMMISSION_RATE } from "@/lib/constants";
+
 type PayoutAmountInput = {
   total_price?: number | null;
   provider_payout_amount?: number | null;
@@ -51,10 +53,11 @@ export function derivePayoutAmounts(
     };
   }
 
-  const defaultCommission = round2(Math.max(0, total * 0.05));
+  const defaultCommission = round2(
+    Math.max(0, total * DEFAULT_PLATFORM_COMMISSION_RATE),
+  );
   return {
     providerPayoutAmount: round2(Math.max(0, total - defaultCommission)),
     platformCommission: defaultCommission,
   };
 }
-

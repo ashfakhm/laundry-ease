@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Star, AlertTriangle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { showToast } from "@/lib/toast";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -44,14 +44,14 @@ export function ReviewModal({
       });
 
       if (res.ok) {
-        toast.success("Review submitted successfully");
+        showToast.success("Review submitted successfully");
         onClose();
         router.refresh();
       } else {
-        toast.error("Failed to submit review");
+        showToast.error("Failed to submit review");
       }
     } catch {
-      toast.error("Something went wrong");
+      showToast.error("Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -150,11 +150,11 @@ export function ComplaintModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (description.length < 10) {
-      toast.error("Description must be at least 10 characters");
+      showToast.error("Description must be at least 10 characters");
       return;
     }
     if (title.length < 5) {
-      toast.error("Title must be at least 5 characters");
+      showToast.error("Title must be at least 5 characters");
       return;
     }
 
@@ -174,16 +174,16 @@ export function ComplaintModal({
 
       if (res.ok) {
         const data = await res.json();
-        toast.success("Complaint raised successfully");
+        showToast.success("Complaint raised successfully");
         onClose();
         // Redirect to new Dispute Chat
         router.push(`/seeker/disputes/${data.data?._id || data._id}`);
       } else {
         const data = await res.json();
-        toast.error(data.error?.message || "Failed to raise complaint");
+        showToast.error(data.error?.message || "Failed to raise complaint");
       }
     } catch {
-      toast.error("Something went wrong");
+      showToast.error("Something went wrong");
     } finally {
       setSubmitting(false);
     }

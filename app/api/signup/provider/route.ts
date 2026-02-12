@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { emailExists, createProvider } from "@/lib/db";
+import { emailExists, createProvider } from "@/lib/db/index";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 import { signupProviderSchema } from "@/lib/api/schemas";
 import {
   createRazorpayContact,
   createRazorpayFundAccount,
 } from "@/lib/razorpay";
-import { Provider } from "@/lib/db";
+import { Provider } from "@/types/users";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid data", details: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
   const {
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   if (!emailOk || !phoneOk) {
     return NextResponse.json(
       { error: "Email and phone must be verified via OTP" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   if (exists) {
     return NextResponse.json(
       { error: "Email already in use" },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
@@ -131,18 +131,15 @@ export async function POST(req: NextRequest) {
                 razorpay_contact_id: contact.id,
                 razorpay_fund_account_id: fundAccountId,
               },
-            }
+            },
           );
         }
       }
     }
   } catch (error) {
-    logger.error(
-      "SIGNUP",
-      "Error syncing with Razorpay during signup",
-      error,
-      { email: normalizedEmail }
-    );
+    logger.error("SIGNUP", "Error syncing with Razorpay during signup", error, {
+      email: normalizedEmail,
+    });
     // We do NOT fail the signup here, just log it.
     // They can retry syncing by updating their profile later.
   }

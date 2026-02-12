@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { getUserByEmail } from "@/lib/db";
+import { getUserByEmail } from "@/lib/db/index";
 import nodemailer from "nodemailer";
 import { createHash, randomBytes } from "crypto";
 import { logger } from "@/lib/logger";

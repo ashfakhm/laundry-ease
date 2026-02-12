@@ -5,7 +5,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion } from "framer-motion";
-import { toast } from "sonner";
+import { showToast } from "@/lib/toast";
 import {
   Loader2,
   Briefcase,
@@ -235,7 +235,7 @@ export default function ProviderEditProfilePage() {
           confirmPassword: "",
         });
       } catch {
-        toast.error("Could not load profile");
+        showToast.error("Could not load profile");
       } finally {
         setIsLoading(false);
       }
@@ -280,14 +280,14 @@ export default function ProviderEditProfilePage() {
         throw new Error(err.error || "Failed to update");
       }
 
-      toast.success("Profile updated successfully");
+      showToast.success("Profile updated successfully");
       router.push("/provider/profile");
       router.refresh();
     } catch (error) {
       if (error instanceof Error) {
-        toast.error(error.message);
+        showToast.error(error.message);
       } else {
-        toast.error("An unknown error occurred");
+        showToast.error("An unknown error occurred");
       }
     } finally {
       setIsSaving(false);

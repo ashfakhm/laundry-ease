@@ -24,7 +24,7 @@ vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
   authOptions: {},
 }));
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/index", () => ({
   getUserByEmail: mockGetUserByEmail,
 }));
 

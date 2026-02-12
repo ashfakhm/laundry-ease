@@ -1,8 +1,9 @@
 import NextAuth, { type NextAuthOptions, type Session } from "next-auth";
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/constants";
 import type { JWT } from "next-auth/jwt";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import { getUserByEmail } from "@/lib/db";
+import { getUserByEmail } from "@/lib/db/index";
 import bcrypt from "bcrypt";
 import { env } from "@/lib/env";
 import { Role } from "@/types/enums";
@@ -58,7 +59,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
-    maxAge: 7 * 24 * 60 * 60, // 7 days - matches PRD NFR-4 security requirement
+    maxAge: SESSION_MAX_AGE_SECONDS, // 7 days - matches PRD NFR-4 security requirement
   },
   callbacks: {
     async signIn({ user, account }) {

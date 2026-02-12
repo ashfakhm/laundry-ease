@@ -3,6 +3,8 @@ import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { auditIntegrity, type IntegrityAnomaly } from "@/lib/audit/integrity";
+import { STALE_PAYOUT_CUTOFF_MS } from "@/lib/constants";
+import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 
 type SystemAlertDocument = {
   kind: "integrity";
@@ -24,7 +26,6 @@ function anomalyId(anomaly: IntegrityAnomaly): string {
 }
 
 // GET /api/cron/audit-integrity
-// Runs integrity checks on payout/refund/complaint consistency.
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (!env.CRON_SECRET) {
@@ -42,9 +43,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const run = await startCronRun("audit-integrity");
+
   try {
     const now = new Date();
-    const stalePayoutCutoff = new Date(now.getTime() - 15 * 60 * 1000);
+    const stalePayoutCutoff = new Date(now.getTime() - STALE_PAYOUT_CUTOFF_MS);
     const { db } = await getDb();
 
     const [orders, bookings, complaints] = await Promise.all([
@@ -211,7 +214,8 @@ export async function GET(req: NextRequest) {
       const openResult = await alertCollection.bulkWrite(openOps, {
         ordered: false,
       });
-      openedOrUpdated = (openResult.upsertedCount || 0) + (openResult.modifiedCount || 0);
+      openedOrUpdated =
+        (openResult.upsertedCount || 0) + (openResult.modifiedCount || 0);
     }
 
     const existingOpenAlerts = await alertCollection
@@ -270,14 +274,7 @@ export async function GET(req: NextRequest) {
       { critical: 0, high: 0, medium: 0 },
     );
 
-    logger.info("CRON", "Integrity audit completed", {
-      anomalies: anomalies.length,
-      openedOrUpdated,
-      resolvedCount,
-      severitySummary,
-    });
-
-    return NextResponse.json({
+    const result = {
       success: true,
       anomalies: anomalies.length,
       openedOrUpdated,
@@ -285,9 +282,24 @@ export async function GET(req: NextRequest) {
       severitySummary,
       sample: anomalies.slice(0, 25),
       at: now.toISOString(),
+    };
+
+    await completeCronRun(run.insertedId, "success", result);
+
+    logger.info("CRON", "Integrity audit completed", {
+      anomalies: anomalies.length,
+      openedOrUpdated,
+      resolvedCount,
+      severitySummary,
     });
+
+    return NextResponse.json(result);
   } catch (error) {
+    await completeCronRun(run.insertedId, "error", undefined, error);
     logger.error("CRON", "Integrity audit failed", error);
-    return NextResponse.json({ error: "Integrity audit failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Integrity audit failed" },
+      { status: 500 },
+    );
   }
 }

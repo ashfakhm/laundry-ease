@@ -1,9 +1,10 @@
+import { COMPLAINT_FILING_WINDOW_MS } from "@/lib/constants";
 import {
   createComplaint,
   getOrderById,
   freezeEscrow,
   getUserByEmail,
-} from "@/lib/db";
+} from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";
@@ -96,7 +97,7 @@ export const POST = withErrorHandling(async (req: Request) => {
   }
 
   const complaintDeadline = new Date(
-    deliveredAt.getTime() + 24 * 60 * 60 * 1000,
+    deliveredAt.getTime() + COMPLAINT_FILING_WINDOW_MS,
   );
   if (Date.now() > complaintDeadline.getTime()) {
     throw Errors.conflict(

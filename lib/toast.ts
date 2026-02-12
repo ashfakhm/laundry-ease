@@ -1,84 +1,34 @@
-import toast, { Toaster } from 'react-hot-toast';
+import { toast } from "sonner";
 
-// Custom toast styles matching the app's design system
-const toastStyles = {
-  success: {
-    style: {
-      background: 'hsl(var(--card))',
-      color: 'hsl(var(--foreground))',
-      border: '1px solid hsl(var(--border))',
-      borderLeft: '4px solid #10b981',
-      backdropFilter: 'blur(12px)',
-      boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)',
-    },
-    iconTheme: {
-      primary: '#10b981',
-      secondary: '#fff',
-    },
-  },
-  error: {
-    style: {
-      background: 'hsl(var(--card))',
-      color: 'hsl(var(--foreground))',
-      border: '1px solid hsl(var(--border))',
-      borderLeft: '4px solid #ef4444',
-      backdropFilter: 'blur(12px)',
-      boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)',
-    },
-    iconTheme: {
-      primary: '#ef4444',
-      secondary: '#fff',
-    },
-  },
-  loading: {
-    style: {
-      background: 'hsl(var(--card))',
-      color: 'hsl(var(--foreground))',
-      border: '1px solid hsl(var(--border))',
-      borderLeft: '4px solid hsl(var(--primary))',
-      backdropFilter: 'blur(12px)',
-      boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)',
-    },
-  },
-};
-
-// Toast utility functions
+// Toast utility functions using Sonner
 export const showToast = {
   success: (message: string) => {
-    toast.success(message, toastStyles.success);
+    toast.success(message);
   },
   error: (message: string) => {
-    toast.error(message, toastStyles.error);
+    toast.error(message);
   },
   loading: (message: string) => {
-    return toast.loading(message, toastStyles.loading);
+    return toast.loading(message);
   },
-  dismiss: (toastId?: string) => {
+  dismiss: (toastId?: string | number) => {
     toast.dismiss(toastId);
   },
-  promise: <T,>(
+  promise: <T>(
     promise: Promise<T>,
     messages: {
       loading: string;
       success: string;
       error: string;
-    }
+    },
   ) => {
-    return toast.promise(
-      promise,
-      {
-        loading: messages.loading,
-        success: messages.success,
-        error: messages.error,
-      },
-      {
-        success: toastStyles.success,
-        error: toastStyles.error,
-        loading: toastStyles.loading,
-      }
-    );
+    return toast.promise(promise, {
+      loading: messages.loading,
+      success: messages.success,
+      error: messages.error,
+    });
   },
 };
 
-// Toaster component to be added to root layout
-export { Toaster };
+// Re-export sonner's Toaster if needed, or we can just use the one from shadcn
+export { Toaster } from "sonner";

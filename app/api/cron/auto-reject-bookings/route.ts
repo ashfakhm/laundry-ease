@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { autoRejectStaleBookings } from "@/cron/auto-reject-bookings";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,11 +11,11 @@ export async function GET(req: NextRequest) {
     if (!env.CRON_SECRET) {
       logger.error(
         "CRON",
-        "CRON_SECRET not configured - cron endpoint disabled"
+        "CRON_SECRET not configured - cron endpoint disabled",
       );
       return NextResponse.json(
         { error: "Cron endpoint not configured" },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
@@ -22,18 +23,27 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const result = await autoRejectStaleBookings();
+    const run = await startCronRun("auto-reject-bookings");
 
-    return NextResponse.json({
-      success: true,
-      message: "Auto-reject bookings cron completed",
-      result,
-    });
+    try {
+      const result = await autoRejectStaleBookings();
+
+      await completeCronRun(run.insertedId, "success", result);
+
+      return NextResponse.json({
+        success: true,
+        message: "Auto-reject bookings cron completed",
+        result,
+      });
+    } catch (error) {
+      await completeCronRun(run.insertedId, "error", undefined, error);
+      throw error;
+    }
   } catch (error) {
     logger.error("CRON", "Auto-reject bookings cron failed", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

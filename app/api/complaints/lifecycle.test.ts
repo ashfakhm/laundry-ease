@@ -130,7 +130,7 @@ vi.mock("@/lib/api/auth", () => ({
   requireSeeker: mockRequireSeeker,
 }));
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/index", () => ({
   getUserByEmail: mockGetUserByEmail,
   getOrderById: mockGetOrderById,
   createComplaint: mockCreateComplaint,

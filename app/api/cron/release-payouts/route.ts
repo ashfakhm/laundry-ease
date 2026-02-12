@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { processEligibleEscrowPayouts } from "@/lib/payouts";
+import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +20,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const run = await startCronRun("release-payouts");
+
   try {
     const result = await processEligibleEscrowPayouts({
       source: "cron_release_payouts",
+    });
+
+    await completeCronRun(run.insertedId, "success", {
+      processed: result.processed,
+      results: result.results,
     });
 
     return NextResponse.json({
@@ -30,6 +38,7 @@ export async function GET(req: Request) {
       results: result.results,
     });
   } catch (error: unknown) {
+    await completeCronRun(run.insertedId, "error", undefined, error);
     const errorMessage =
       error instanceof Error ? error.message : "Internal Server Error";
     logger.error("CRON", "Cron payout error", error);

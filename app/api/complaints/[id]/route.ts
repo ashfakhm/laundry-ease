@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { getUserByEmail } from "@/lib/db";
+import { getUserByEmail } from "@/lib/db/index";
 import { logger } from "@/lib/logger";
 import { canAccessComplaintConversation } from "@/lib/complaints/access";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";

@@ -22,7 +22,7 @@ vi.mock("@/lib/mongodb", () => ({
   getDb: mockGetDb,
 }));
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/index", () => ({
   getUserByEmail: mockGetUserByEmail,
 }));
 

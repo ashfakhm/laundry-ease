@@ -11,7 +11,7 @@ import {
   createRazorpayPayout,
   refundRazorpayPayment,
 } from "@/lib/razorpay";
-import { acceptBookingWithCapacityCheck } from "@/lib/db";
+import { acceptBookingWithCapacityCheck } from "@/lib/db/index";
 import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
@@ -174,7 +174,10 @@ export async function updateBookingStatus(
             return { success: false, error: "Unauthorized" };
           }
           if (error.message.startsWith("ALREADY_PROCESSED:")) {
-            return { success: false, error: "Booking has already been acted upon" };
+            return {
+              success: false,
+              error: "Booking has already been acted upon",
+            };
           }
           if (error.message.startsWith("CAPACITY_EXCEEDED:")) {
             return {

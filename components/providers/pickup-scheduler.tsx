@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { showToast } from "@/lib/toast";
+import { MIN_PICKUP_ADVANCE_MS } from "@/lib/constants";
 import { useRouter } from "next/navigation";
 
 export function PickupScheduler({
@@ -25,24 +26,26 @@ export function PickupScheduler({
   const minDate = minDateTime.toISOString().split("T")[0];
   const maxDate = deadline
     ? new Date(deadline).toISOString().split("T")[0]
-    : new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString().split("T")[0];
+    : new Date(now.getTime() + MIN_PICKUP_ADVANCE_MS)
+        .toISOString()
+        .split("T")[0];
 
   async function handlePropose() {
     if (!date || !time) {
-      toast.error("Please select both date and time");
+      showToast.error("Please select both date and time");
       return;
     }
     const dateTime = new Date(`${date}T${time}`);
     const minDateTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     const maxDateTime = deadline
       ? new Date(deadline)
-      : new Date(now.getTime() + 48 * 60 * 60 * 1000);
+      : new Date(now.getTime() + MIN_PICKUP_ADVANCE_MS);
     if (dateTime < minDateTime) {
-      toast.error("Pickup must be at least 2 hours from now");
+      showToast.error("Pickup must be at least 2 hours from now");
       return;
     }
     if (dateTime > maxDateTime) {
-      toast.error("Pickup cannot be after seeker's deadline");
+      showToast.error("Pickup cannot be after seeker's deadline");
       return;
     }
     setIsSubmitting(true);
@@ -58,13 +61,17 @@ export function PickupScheduler({
         const err = await res.json();
         throw new Error(err.error || "Failed to propose pickup time");
       }
-      toast.success("Pickup time proposed! Waiting for seeker confirmation.");
+      showToast.success(
+        "Pickup time proposed! Waiting for seeker confirmation.",
+      );
       router.refresh();
       onClose();
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : "Failed to propose pickup time";
-      toast.error(message);
+        error instanceof Error
+          ? error.message
+          : "Failed to propose pickup time";
+      showToast.error(message);
     } finally {
       setIsSubmitting(false);
     }

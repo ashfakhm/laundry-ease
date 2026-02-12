@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { showToast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 
 export default function VerifyPhonePage() {
@@ -14,7 +14,7 @@ export default function VerifyPhonePage() {
 
   async function handleSendOTP() {
     if (!phone || phone.length < 10) {
-      toast.error("Please enter a valid phone number");
+      showToast.error("Please enter a valid phone number");
       return;
     }
 
@@ -31,12 +31,12 @@ export default function VerifyPhonePage() {
         throw new Error(error.error || "Failed to send OTP");
       }
 
-      toast.success("OTP sent to your phone!");
+      showToast.success("OTP sent to your phone!");
       setStep("otp");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to send OTP";
-      toast.error(message);
+      showToast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -44,7 +44,7 @@ export default function VerifyPhonePage() {
 
   async function handleVerifyOTP() {
     if (!otp || otp.length !== 6) {
-      toast.error("Please enter a valid 6-digit OTP");
+      showToast.error("Please enter a valid 6-digit OTP");
       return;
     }
 
@@ -61,13 +61,13 @@ export default function VerifyPhonePage() {
         throw new Error(error.error || "Invalid OTP");
       }
 
-      toast.success("Phone verified successfully!");
+      showToast.success("Phone verified successfully!");
       router.push("/dashboard");
       router.refresh();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Verification failed";
-      toast.error(message);
+      showToast.error(message);
     } finally {
       setIsLoading(false);
     }

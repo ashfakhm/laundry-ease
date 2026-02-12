@@ -3,8 +3,8 @@
 import { useState } from "react";
 
 import { Loader2, X, ArrowRight } from "lucide-react";
-import { ProviderSearchResult } from "@/types/provider";
-import { toast } from "sonner";
+import { ProviderSearchResult } from "@/types/users";
+import { showToast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 
 export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
@@ -12,7 +12,7 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
   const [date, setDate] = useState<string>("");
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    null
+    null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -24,38 +24,41 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
   })();
 
   async function geocodeAddress(
-    address: string
+    address: string,
   ): Promise<{ lat: number; lng: number } | null> {
-      setIsGeocoding(true);
-      try {
-        // Use Nominatim (OpenStreetMap) for free geocoding
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
-        const res = await fetch(url, {
-          headers: { 'Accept-Language': 'en', 'User-Agent': 'LaundryEase/1.0 (your@email.com)' }
-        });
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const loc = data[0];
-          return { lat: parseFloat(loc.lat), lng: parseFloat(loc.lon) };
-        } else {
-          toast.error("Could not geocode address");
-          return null;
-        }
-      } catch {
-        toast.error("Geocoding failed");
+    setIsGeocoding(true);
+    try {
+      // Use Nominatim (OpenStreetMap) for free geocoding
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+      const res = await fetch(url, {
+        headers: {
+          "Accept-Language": "en",
+          "User-Agent": "LaundryEase/1.0 (your@email.com)",
+        },
+      });
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const loc = data[0];
+        return { lat: parseFloat(loc.lat), lng: parseFloat(loc.lon) };
+      } else {
+        showToast.error("Could not geocode address");
         return null;
-      } finally {
-        setIsGeocoding(false);
       }
+    } catch {
+      showToast.error("Geocoding failed");
+      return null;
+    } finally {
+      setIsGeocoding(false);
     }
+  }
 
   async function handleBooking() {
     if (!date) {
-      toast.error("Please select a deadline date");
+      showToast.error("Please select a deadline date");
       return;
     }
     if (!address) {
-      toast.error("Please enter your pickup address");
+      showToast.error("Please enter your pickup address");
       return;
     }
     let seekerCoords = coords;
@@ -81,11 +84,11 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
         throw new Error("Booking failed");
       }
 
-      toast.success("Booking requested! Waiting for provider approval.");
+      showToast.success("Booking requested! Waiting for provider approval.");
       setIsOpen(false);
       router.push("/seeker/bookings");
     } catch {
-      toast.error("Failed to create booking");
+      showToast.error("Failed to create booking");
     } finally {
       setIsSubmitting(false);
     }
@@ -197,8 +200,8 @@ export function BookingModal({ provider }: { provider: ProviderSearchResult }) {
               {isGeocoding
                 ? "Locating..."
                 : coords
-                ? "Location Set"
-                : "Detect Location"}
+                  ? "Location Set"
+                  : "Detect Location"}
             </button>
             {coords && (
               <div className="text-xs text-green-700 mt-1">

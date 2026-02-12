@@ -2,7 +2,7 @@
 
 import { Star, MapPin, Sparkles } from "lucide-react";
 import { BookingModal } from "@/components/booking-modal";
-import { ProviderSearchResult } from "@/types/provider";
+import { ProviderSearchResult } from "@/types/users";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 

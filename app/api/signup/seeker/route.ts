@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { emailExists, createSeeker } from "@/lib/db";
+import { emailExists, createSeeker } from "@/lib/db/index";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 import { signupSeekerSchema } from "@/lib/api/schemas";
 
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid data", details: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
   const { name, email, password, phone, address, coordinates } = parsed.data;
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   if (!emailOk || !phoneOk) {
     return NextResponse.json(
       { error: "Email and phone must be verified via OTP" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (exists) {
     return NextResponse.json(
       { error: "Email already in use" },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
