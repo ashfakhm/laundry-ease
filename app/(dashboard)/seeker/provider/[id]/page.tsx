@@ -41,6 +41,7 @@ type Provider = {
 
 type Review = {
   _id: string;
+  seeker_name?: string;
   seeker?: { name: string };
   rating: number;
   comment: string;
@@ -97,7 +98,7 @@ export default function ProviderDetailPage() {
     // Fetch reviews from API
     async function fetchReviews() {
       try {
-        const res = await fetch(`/api/reviews?provider_id=${providerId}`);
+        const res = await fetch(`/api/providers/${providerId}/reviews`);
         if (res.ok) {
           const data = await res.json();
           setReviews(Array.isArray(data) ? data : []);
@@ -393,11 +394,15 @@ export default function ProviderDetailPage() {
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                          {review.seeker?.name?.charAt(0) || "U"}
+                          {(review.seeker_name || review.seeker?.name)?.charAt(
+                            0,
+                          ) || "U"}
                         </div>
                         <div>
                           <p className="text-sm font-bold">
-                            {review.seeker?.name || "User"}
+                            {review.seeker_name ||
+                              review.seeker?.name ||
+                              "User"}
                           </p>
                           <div className="flex gap-0.5">
                             {[...Array(5)].map((_, i) => (

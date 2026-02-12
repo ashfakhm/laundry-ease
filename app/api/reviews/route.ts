@@ -4,12 +4,18 @@ import { ObjectId } from "mongodb";
 import { Review, Provider } from "@/lib/db";
 import { requireSeeker } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
-import { createReviewSchema } from "@/lib/api/schemas";
+import { z } from "zod";
 
-// POST /api/reviews
+const createReviewSchema = z.object({
+  booking_id: z.string().min(1),
+  provider_id: z.string().min(1),
+  rating: z.number().min(1).max(5),
+  comment: z.string().optional(),
+});
+
+// POST /api/reviews — accepts booking_id, looks up order internally
 export async function POST(req: NextRequest) {
   try {
-    // Only authenticated seekers can create reviews
     const { user } = await requireSeeker();
 
     const body = await req.json();
@@ -17,45 +23,51 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid review data", details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
+        {
+          error: "Invalid review data",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 },
       );
     }
 
-    const { order_id, provider_id, rating: ratingNum, comment } = parsed.data;
-
+    const { booking_id, provider_id, rating: ratingNum, comment } = parsed.data;
     const { db } = await getDb();
 
-    // Verify the order belongs to this seeker
+    // Look up the order by booking_id and seeker_id
     const order = await db.collection("orders").findOne({
-      _id: new ObjectId(order_id),
+      booking_id: new ObjectId(booking_id),
       seeker_id: new ObjectId(user.id),
     });
 
     if (!order) {
       return NextResponse.json(
-        { error: "Order not found or doesn't belong to you" },
-        { status: 404 }
+        { error: "No completed order found for this booking" },
+        { status: 404 },
       );
     }
 
-    // Check duplicate
+    // Check duplicate review
     const existing = await db
       .collection("reviews")
-      .findOne({ order_id: new ObjectId(order_id) });
+      .findOne({ order_id: order._id });
     if (existing) {
       return NextResponse.json(
         { error: "You have already reviewed this order" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Create Review using authenticated user's ID (not from request)
-    // Note: We use order_id and provider_id from validated schema, but seeker_id from session
+    // Get seeker name for denormalization
+    const seeker = await db.collection("seekers").findOne({
+      _id: new ObjectId(user.id),
+    });
+
     const review: Review = {
-      order_id: new ObjectId(order_id),
+      order_id: order._id,
       seeker_id: new ObjectId(user.id),
       provider_id: new ObjectId(provider_id),
+      seeker_name: seeker?.name || user.name || "User",
       rating: ratingNum,
       comment: comment || undefined,
       createdAt: new Date(),
@@ -63,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     await db.collection<Review>("reviews").insertOne(review);
 
-    // Update Provider Average Rating
+    // Update Provider Average Rating atomically
     const reviews = await db
       .collection<Review>("reviews")
       .find({ provider_id: new ObjectId(provider_id) })
@@ -75,7 +87,7 @@ export async function POST(req: NextRequest) {
       .collection<Provider>("providers")
       .updateOne(
         { _id: new ObjectId(provider_id) },
-        { $set: { rating: avgRating, reviewCount: reviews.length } }
+        { $set: { rating: avgRating, reviewCount: reviews.length } },
       );
 
     return NextResponse.json({ success: true, message: "Review submitted" });
@@ -84,66 +96,5 @@ export async function POST(req: NextRequest) {
       error instanceof Error ? error.message : "Internal Server Error";
     logger.error("REVIEWS", "Error creating review", error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
-  }
-}
-// GET /api/reviews?provider_id=...
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const provider_id = searchParams.get("provider_id");
-
-    if (!provider_id) {
-      return NextResponse.json(
-        { error: "Provider ID required" },
-        { status: 400 }
-      );
-    }
-
-    const { db } = await getDb();
-    const reviews = await db
-      .collection("reviews")
-      .aggregate([
-        { $match: { provider_id: new ObjectId(provider_id) } },
-        {
-          $lookup: {
-            from: "seekers",
-            localField: "seeker_id",
-            foreignField: "_id",
-            as: "seeker",
-          },
-        },
-        { $unwind: { path: "$seeker", preserveNullAndEmptyArrays: true } },
-        // Lookup Order
-        {
-          $lookup: {
-            from: "orders",
-            localField: "order_id",
-            foreignField: "_id",
-            as: "order",
-          },
-        },
-        { $unwind: { path: "$order", preserveNullAndEmptyArrays: true } },
-
-        {
-          $project: {
-            rating: 1,
-            comment: 1,
-            createdAt: 1,
-            order_id: 1,
-            booking_id: "$order.booking_id",
-            "seeker.name": 1,
-          },
-        },
-        { $sort: { createdAt: -1 } },
-      ])
-      .toArray();
-
-    return NextResponse.json(reviews);
-  } catch (error: unknown) {
-    logger.error("REVIEWS", "Error fetching reviews", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
   }
 }

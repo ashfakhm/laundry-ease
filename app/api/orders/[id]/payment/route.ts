@@ -94,7 +94,7 @@ export async function POST(
       id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
-      key: process.env.RAZORPAY_KEY_ID, // Send public key to client
+      key: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
     if (error instanceof AppError) {
@@ -181,7 +181,10 @@ export async function PUT(
       );
     }
 
-    if (!order.razorpay_order_id || order.razorpay_order_id !== razorpay_order_id) {
+    if (
+      !order.razorpay_order_id ||
+      order.razorpay_order_id !== razorpay_order_id
+    ) {
       return NextResponse.json(
         { error: "Razorpay order mismatch" },
         { status: 400 },

@@ -24,7 +24,7 @@ function appErrorResponse(error: AppError) {
 // POST: Create Razorpay Order for Booking Fee
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -44,22 +44,22 @@ export async function POST(
     try {
       booking_id = new ObjectId(id);
     } catch {
-      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Invalid booking id" },
+        { status: 400 },
+      );
     }
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
       return NextResponse.json(
         { message: "Booking not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (booking.seeker_id.toString() !== session.user.id) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 403 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
     if (booking.status !== "requested") {
@@ -68,7 +68,7 @@ export async function POST(
           message:
             "Booking fee can only be paid while booking is waiting for provider response.",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -78,7 +78,7 @@ export async function POST(
     ) {
       return NextResponse.json(
         { message: "Booking fee already paid" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -91,14 +91,14 @@ export async function POST(
           message:
             "Booking fee payment is not allowed for refunded or forfeited bookings.",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     if (!booking.bookingFee || booking.bookingFee <= 0) {
       return NextResponse.json(
         { message: "Invalid booking fee amount" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -106,7 +106,7 @@ export async function POST(
     if (amount <= 0) {
       return NextResponse.json(
         { message: "Invalid booking fee amount" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -120,7 +120,7 @@ export async function POST(
           razorpay_order_id: razorpayOrder.id,
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     return NextResponse.json({
@@ -133,10 +133,12 @@ export async function POST(
       return appErrorResponse(error);
     }
 
-    logger.error("BOOKINGS", "Error creating booking fee order", error, { bookingId: id });
+    logger.error("BOOKINGS", "Error creating booking fee order", error, {
+      bookingId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -144,7 +146,7 @@ export async function POST(
 // PUT: Verify Payment and Update Booking Status
 export async function PUT(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -164,7 +166,10 @@ export async function PUT(
     try {
       booking_id = new ObjectId(id);
     } catch {
-      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Invalid booking id" },
+        { status: 400 },
+      );
     }
 
     const body = await req.json();
@@ -173,18 +178,21 @@ export async function PUT(
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return NextResponse.json(
         { message: "Missing payment fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const isValid = verifyRazorpaySignature(
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature
+      razorpay_signature,
     );
 
     if (!isValid) {
-      return NextResponse.json({ message: "Invalid signature" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Invalid signature" },
+        { status: 400 },
+      );
     }
 
     const { db } = await getDb();
@@ -194,7 +202,10 @@ export async function PUT(
     });
 
     if (!booking) {
-      return NextResponse.json({ message: "Booking not found" }, { status: 404 });
+      return NextResponse.json(
+        { message: "Booking not found" },
+        { status: 404 },
+      );
     }
 
     if (
@@ -202,7 +213,10 @@ export async function PUT(
         booking.bookingFeeStatus === "applied") &&
       booking.razorpay_payment_id === razorpay_payment_id
     ) {
-      return NextResponse.json({ message: "Payment successful", idempotent: true });
+      return NextResponse.json({
+        message: "Payment successful",
+        idempotent: true,
+      });
     }
 
     if (booking.status !== "requested") {
@@ -211,12 +225,18 @@ export async function PUT(
           message:
             "Booking fee cannot be captured because booking is no longer pending provider response.",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
-    if (!booking.razorpay_order_id || booking.razorpay_order_id !== razorpay_order_id) {
-      return NextResponse.json({ message: "Razorpay order mismatch" }, { status: 400 });
+    if (
+      !booking.razorpay_order_id ||
+      booking.razorpay_order_id !== razorpay_order_id
+    ) {
+      return NextResponse.json(
+        { message: "Razorpay order mismatch" },
+        { status: 400 },
+      );
     }
 
     const res = await db.collection<Booking>("bookings").updateOne(
@@ -234,7 +254,7 @@ export async function PUT(
           razorpay_payment_id,
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     if (res.modifiedCount > 0) {
@@ -242,7 +262,7 @@ export async function PUT(
     } else {
       return NextResponse.json(
         { message: "Failed to update booking status" },
-        { status: 409 }
+        { status: 409 },
       );
     }
   } catch (error) {
@@ -250,10 +270,12 @@ export async function PUT(
       return appErrorResponse(error);
     }
 
-    logger.error("BOOKINGS", "Error verifying booking fee", error, { bookingId: id });
+    logger.error("BOOKINGS", "Error verifying booking fee", error, {
+      bookingId: id,
+    });
     return NextResponse.json(
       { message: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

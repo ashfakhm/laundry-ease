@@ -21,7 +21,7 @@ function toValidDate(value: unknown): Date | null {
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -42,7 +42,10 @@ export async function POST(
     try {
       booking_id = new ObjectId(id);
     } catch {
-      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Invalid booking id" },
+        { status: 400 },
+      );
     }
 
     const booking = await getBookingById(booking_id);
@@ -50,7 +53,7 @@ export async function POST(
     if (!booking) {
       return NextResponse.json(
         { message: "Booking not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -84,7 +87,10 @@ export async function POST(
         .collection("providers")
         .findOne({ email: session.user.email });
 
-      if (!provider || booking.provider_id.toString() !== provider._id.toString()) {
+      if (
+        !provider ||
+        booking.provider_id.toString() !== provider._id.toString()
+      ) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
       }
 
@@ -179,11 +185,13 @@ export async function POST(
             refund_in_progress_at: new Date(),
             updatedAt: new Date(),
           },
-        }
+        },
       );
 
       if (lockResult.modifiedCount === 0) {
-        const latest = await db.collection("bookings").findOne({ _id: booking_id });
+        const latest = await db
+          .collection("bookings")
+          .findOne({ _id: booking_id });
         if (latest?.status === "cancelled") {
           return NextResponse.json({
             success: true,
@@ -199,13 +207,13 @@ export async function POST(
           if (lockIsFresh) {
             return NextResponse.json(
               { message: "Refund is already in progress for this booking." },
-              { status: 409 }
+              { status: 409 },
             );
           }
         }
         return NextResponse.json(
           { message: "Booking status changed. Please refresh and retry." },
-          { status: 409 }
+          { status: 409 },
         );
       }
 
@@ -226,13 +234,18 @@ export async function POST(
           {
             $unset: { refund_in_progress_at: "" },
             $set: { updatedAt: new Date() },
-          }
+          },
         );
 
-        logger.error("BOOKINGS", "Failed to refund booking fee on cancel", error, {
-          bookingId: id,
-          cancelledBy,
-        });
+        logger.error(
+          "BOOKINGS",
+          "Failed to refund booking fee on cancel",
+          error,
+          {
+            bookingId: id,
+            cancelledBy,
+          },
+        );
         return NextResponse.json(
           {
             message:
@@ -250,7 +263,9 @@ export async function POST(
           status: "cancelled",
           cancelledBy,
           cancelledAt: now,
-          ...(cancellationReason ? { cancellation_reason: cancellationReason } : {}),
+          ...(cancellationReason
+            ? { cancellation_reason: cancellationReason }
+            : {}),
           ...(shouldMarkRefunded
             ? {
                 bookingFeeStatus: "refunded",
@@ -294,7 +309,7 @@ export async function POST(
             updatedAt: now,
           },
           $unset: { refund_in_progress_at: "" },
-        }
+        },
       );
     } else if (shouldForfeitFee && latest?.bookingFeeStatus === "paid") {
       await db.collection("bookings").updateOne(
@@ -304,7 +319,7 @@ export async function POST(
             bookingFeeStatus: "forfeited",
             updatedAt: now,
           },
-        }
+        },
       );
     } else if (shouldMarkRefunded || latest?.refund_in_progress_at) {
       await db.collection("bookings").updateOne(
@@ -312,11 +327,13 @@ export async function POST(
         {
           $unset: { refund_in_progress_at: "" },
           $set: { updatedAt: now },
-        }
+        },
       );
     }
 
-    const latestAfter = await db.collection("bookings").findOne({ _id: booking_id });
+    const latestAfter = await db
+      .collection("bookings")
+      .findOne({ _id: booking_id });
     if (latestAfter?.status === "cancelled") {
       return NextResponse.json({
         success: true,
@@ -331,7 +348,7 @@ export async function POST(
           ? "Booking status changed. Refund has been processed; please refresh and retry."
           : shouldForfeitFee
             ? "Booking status changed. Same-day cancellation is non-refundable; please refresh and retry."
-          : "Booking status changed. Please refresh and retry.",
+            : "Booking status changed. Please refresh and retry.",
       },
       { status: 409 },
     );
@@ -351,7 +368,7 @@ export async function POST(
     });
     return NextResponse.json(
       { message: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

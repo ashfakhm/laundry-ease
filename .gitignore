@@ -10,10 +10,6 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-/output/playwright
-
 # next.js
 /.next/
 /out/
@@ -41,11 +37,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# docs
-*.md
-!README.md
-!PRD.md
-!PRESENTATION_HELPER.md
-!ML_AI_INTEGRATION.md
-!HONEST_ASSESSMENT.md
