@@ -27,6 +27,7 @@ export type Provider = {
   pricing?: number;
   location?: string;
   coordinates?: { lat: number; lng: number };
+  locationGeoJSON?: { type: "Point"; coordinates: [number, number] };
   radius_km?: number;
   per_km_rate?: number;
   covers_beyond_radius?: boolean;

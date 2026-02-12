@@ -5,10 +5,7 @@ import { ObjectId } from "mongodb";
 import { getDb } from "./mongodb";
 import { Role } from "@/types/enums";
 import bcrypt from "bcrypt";
-import {
-  auditBookingStateChange,
-  auditEscrowStateChange,
-} from "./audit";
+import { auditBookingStateChange, auditEscrowStateChange } from "./audit";
 
 export type BaseUser = {
   _id?: ObjectId;
@@ -40,6 +37,7 @@ export type Provider = BaseUser & {
   pricing?: number;
   location?: string;
   coordinates?: { lat: number; lng: number };
+  locationGeoJSON?: { type: "Point"; coordinates: [number, number] };
   documents?: string[];
   radius_km?: number;
   per_km_rate?: number;
@@ -91,7 +89,9 @@ export async function getUserByEmail(
 
   // Check seekers collection first
   const seeker =
-    (await db.collection<Seeker>("seekers").findOne({ email: normalizedEmail })) ||
+    (await db
+      .collection<Seeker>("seekers")
+      .findOne({ email: normalizedEmail })) ||
     (await db.collection<Seeker>("seekers").findOne({
       email: caseInsensitiveQuery,
     }));
@@ -100,9 +100,10 @@ export async function getUserByEmail(
   }
 
   // Check providers collection
-  const provider = await db
-    .collection<Provider>("providers")
-    .findOne({ email: normalizedEmail }) ||
+  const provider =
+    (await db
+      .collection<Provider>("providers")
+      .findOne({ email: normalizedEmail })) ||
     (await db.collection<Provider>("providers").findOne({
       email: caseInsensitiveQuery,
     }));
@@ -112,7 +113,9 @@ export async function getUserByEmail(
 
   // Check admins collection
   const admin =
-    (await db.collection<Admin>("admins").findOne({ email: normalizedEmail })) ||
+    (await db
+      .collection<Admin>("admins")
+      .findOne({ email: normalizedEmail })) ||
     (await db.collection<Admin>("admins").findOne({
       email: caseInsensitiveQuery,
     }));
