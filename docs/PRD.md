@@ -476,7 +476,7 @@ See `README.md` for detailed setup instructions.
 - **Split-settlement reconciliation**
   If one financial leg succeeds (for example payout initiated) and the second leg fails (for example refund failure), admin follow-up tooling is still required to fully reconcile the case.
 
-## 14. Implementation Alignment Matrix (2026-02-09)
+## 14. Implementation Alignment Matrix (2026-02-15)
 
 | PRD Requirement                 | Expected Behavior                                                                                                                | Current System Status                                                                                                                                                    |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -505,7 +505,8 @@ See `README.md` for detailed setup instructions.
 | Finalized complaint chat lock   | Seeker/provider cannot continue messaging after resolve/reject; UI archived                                                      | Implemented                                                                                                                                                              |
 | Complaint split settlement      | Admin can split distributable amount between seeker and provider (`refund_partial`) with commission preserved                    | Implemented                                                                                                                                                              |
 | Reject complaint outcome        | Rejecting a complaint pays provider full distributable amount (post-commission) and finalizes case as hidden for seeker/provider | Implemented                                                                                                                                                              |
-| Reject complaint outcome        | Rejecting a complaint pays provider full distributable amount (post-commission) and finalizes case as hidden for seeker/provider | Implemented                                                                                                                                                              |
+| Settlement outcome breadth (E2E) | Browser-level coverage should validate split, reject/provider-favor, and full seeker-refund complaint outcomes                  | Implemented (`e2e/settlement-chain-journey.spec.ts`)                                                                                                                    |
+| E2E diagnostics hygiene         | End-to-end test output should be readable and low-noise for CI triage                                                            | Implemented (`scripts/run-playwright.mjs` sanitizes `NO_COLOR` conflict in E2E runner env)                                                                             |
 | Escrow release gating           | Open complaints must block payout release                                                                                        | Implemented                                                                                                                                                              |
 | Escrow payout orchestration     | Cron/manual/admin payout actions must run through one idempotent processor with lock + failure recording                         | Implemented (`lib/payouts.ts`)                                                                                                                                           |
 | Admin refund safety             | Admin refunds must enforce payment-state and payout-state guardrails                                                             | Implemented                                                                                                                                                              |
@@ -515,7 +516,7 @@ See `README.md` for detailed setup instructions.
 ### Remaining Hardening Opportunities
 
 1. Add alerting/monitoring dashboards for index creation failures caused by pre-existing duplicate historical data.
-2. Add end-to-end financial tests for payout lock recovery, webhook replay, and refund/payout race conditions.
+2. Add staging smoke coverage for live gateway paths (CI remains deterministic with fake-payments mode for reliability).
 3. Add archival policy for old webhook payloads to control long-term storage growth.
 4. Add abuse hardening on password-recovery endpoints (rate limits/captcha strategy).
 5. Promote CSP from report-only to enforced mode after violation cleanup.
