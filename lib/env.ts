@@ -42,6 +42,11 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+
+  // Operational alert notifications (optional)
+  OPS_ALERT_EMAIL_TO: z.string().optional().or(z.literal("")),
+  OPS_ALERT_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
+  OPS_ALERT_WEBHOOK_BEARER: z.string().optional().or(z.literal("")),
 });
 
 export const env = envSchema.parse(process.env);

@@ -28,6 +28,18 @@ export const HELD_ORDER_ALERT_GRACE_MS = 60 * 60 * 1000; // 1 hour
 /** Lookback window for payout failure alert counting (ms). */
 export const PAYOUT_FAILURE_ALERT_LOOKBACK_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+/** Minimum spacing between repeated alert notifications for the same alert (ms). */
+export const ALERT_NOTIFICATION_DEDUPE_MS = 60 * 60 * 1000; // 1 hour
+
+/** Minimum spacing between repeated escalations for the same alert (ms). */
+export const ALERT_ESCALATION_REPEAT_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/** Time an open critical alert can remain unresolved before escalation (ms). */
+export const CRITICAL_ALERT_ESCALATION_MS = 30 * 60 * 1000; // 30 minutes
+
+/** Time an open high alert can remain unresolved before escalation (ms). */
+export const HIGH_ALERT_ESCALATION_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 // ─── Booking & Scheduling ───────────────────────────────────────────────────
 
 /** Minimum advance notice for pickup scheduling (ms). */
@@ -73,6 +85,7 @@ export const CRON_JOB_NAMES = [
   "monitor-abuse",
   "audit-integrity",
   "monitor-operational-health",
+  "notify-system-alerts",
 ] as const;
 
 export type CronJobName = (typeof CRON_JOB_NAMES)[number];

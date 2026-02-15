@@ -24,6 +24,10 @@
     {
       "path": "/api/cron/monitor-operational-health",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/notify-system-alerts",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
