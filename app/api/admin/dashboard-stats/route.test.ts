@@ -186,7 +186,9 @@ describe("GET /api/admin/dashboard-stats", () => {
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(1);
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0);
     dbMock.systemAlertFind
       .mockReturnValueOnce({
         toArray: dbMock.systemAlertAnalyticsToArray,
@@ -295,13 +297,23 @@ describe("GET /api/admin/dashboard-stats", () => {
     expect(data.unacknowledgedCriticalSystemAlerts).toBe(1);
     expect(data.unacknowledgedHighSystemAlerts).toBe(1);
     expect(data.unacknowledgedSystemAlertCount).toBe(2);
+    expect(data.ackSlaBreachedCriticalSystemAlerts).toBe(1);
+    expect(data.ackSlaBreachedHighSystemAlerts).toBe(0);
+    expect(data.ackSlaBreachedSystemAlertCount).toBe(1);
     expect(data.recentSystemAlerts).toHaveLength(2);
+    expect(data.recentSystemAlerts[0]).toEqual(
+      expect.objectContaining({
+        key: "overdue_held_orders",
+        ackSlaBreached: true,
+      }),
+    );
     expect(data.recentSystemAlerts[1]).toEqual(
       expect.objectContaining({
         key: "payout_failures_spike",
         severity: "high",
         owner: "backend_oncall",
         acknowledgedByEmail: "admin@test.com",
+        ackSlaBreached: false,
       }),
     );
     expect(data.operationalHealth).toEqual(
@@ -372,6 +384,20 @@ describe("GET /api/admin/dashboard-stats", () => {
         { "ownership.acknowledgedAt": null },
       ],
     });
+    expect(dbMock.systemAlertCountDocuments).toHaveBeenNthCalledWith(
+      5,
+      expect.objectContaining({
+        status: "open",
+        severity: "critical",
+      }),
+    );
+    expect(dbMock.systemAlertCountDocuments).toHaveBeenNthCalledWith(
+      6,
+      expect.objectContaining({
+        status: "open",
+        severity: "high",
+      }),
+    );
     expect(dbMock.systemAlertFind).toHaveBeenCalledWith(
       expect.objectContaining({
         severity: { $in: ["critical", "high"] },

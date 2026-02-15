@@ -40,6 +40,12 @@ export const CRITICAL_ALERT_ESCALATION_MS = 30 * 60 * 1000; // 30 minutes
 /** Time an open high alert can remain unresolved before escalation (ms). */
 export const HIGH_ALERT_ESCALATION_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+/** Time an open critical alert can remain unacknowledged before SLA breach (ms). */
+export const CRITICAL_ALERT_ACK_SLA_MS = 15 * 60 * 1000; // 15 minutes
+
+/** Time an open high alert can remain unacknowledged before SLA breach (ms). */
+export const HIGH_ALERT_ACK_SLA_MS = 60 * 60 * 1000; // 60 minutes
+
 // ─── Booking & Scheduling ───────────────────────────────────────────────────
 
 /** Minimum advance notice for pickup scheduling (ms). */

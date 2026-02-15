@@ -24,6 +24,8 @@ interface SystemAlertPreview {
   acknowledgedAt: string | null;
   owner: string | null;
   acknowledgedByEmail: string | null;
+  ackSlaBreached: boolean;
+  ageMinutes: number;
 }
 
 interface AdminStats {
@@ -47,6 +49,9 @@ interface AdminStats {
   unacknowledgedCriticalSystemAlerts: number;
   unacknowledgedHighSystemAlerts: number;
   unacknowledgedSystemAlertCount: number;
+  ackSlaBreachedCriticalSystemAlerts: number;
+  ackSlaBreachedHighSystemAlerts: number;
+  ackSlaBreachedSystemAlertCount: number;
   activeComplaints: number;
   openComplaints: number;
   escrowBalance: number;
@@ -174,6 +179,7 @@ export default function AdminDashboardPage() {
   const highSystemAlerts = stats?.highSystemAlerts ?? 0;
   const systemAlertCount = stats?.systemAlertCount ?? 0;
   const unacknowledgedSystemAlertCount = stats?.unacknowledgedSystemAlertCount ?? 0;
+  const ackSlaBreachedSystemAlertCount = stats?.ackSlaBreachedSystemAlertCount ?? 0;
   const totalProviders = stats?.totalProviders ?? 0;
   const utilizationPct = stats?.providerUtilizationPct ?? 0;
   const recentActiveComplaints = stats?.recentActiveComplaints ?? [];
@@ -447,6 +453,14 @@ export default function AdminDashboardPage() {
             </span>
           </div>
 
+          {ackSlaBreachedSystemAlertCount > 0 && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-700">
+              {ackSlaBreachedSystemAlertCount} alert
+              {ackSlaBreachedSystemAlertCount === 1 ? "" : "s"} breached
+              acknowledgement SLA.
+            </div>
+          )}
+
           {recentSystemAlerts.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/50 bg-muted/20 p-6 text-sm text-muted-foreground">
               No open critical/high system alerts.
@@ -482,12 +496,20 @@ export default function AdminDashboardPage() {
                           : "Unknown"}
                       </p>
                       <p className="text-xs text-muted-foreground">
+                        Age: {alert.ageMinutes} min
+                      </p>
+                      <p className="text-xs text-muted-foreground">
                         Owner: {formatOwnerLabel(alert.owner)}
                         {alert.acknowledgedByEmail
                           ? ` • Ack by ${alert.acknowledgedByEmail}`
                           : ""}
                       </p>
                     </div>
+                    {alert.ackSlaBreached && !alert.acknowledgedAt && (
+                      <span className="inline-flex h-fit items-center rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-700 ring-1 ring-red-500/20">
+                        SLA Breached
+                      </span>
+                    )}
                     {alert.acknowledgedAt ? (
                       <span className="inline-flex h-fit items-center rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
                         Acknowledged{" "}

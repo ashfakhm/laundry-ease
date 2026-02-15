@@ -6,6 +6,11 @@ import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { ObjectId } from "mongodb";
 import { buildAlertAnalytics } from "@/lib/ops/alerts-analytics";
+import { alertAgeMinutes, isAckSlaBreached } from "@/lib/ops/ack-sla";
+import {
+  CRITICAL_ALERT_ACK_SLA_MS,
+  HIGH_ALERT_ACK_SLA_MS,
+} from "@/lib/constants";
 
 const ACTIVE_COMPLAINT_STATUSES = ["open", "accepted", "in_review"] as const;
 
@@ -29,6 +34,8 @@ type SystemAlertPreview = {
   acknowledgedAt: string | null;
   owner: string | null;
   acknowledgedByEmail: string | null;
+  ackSlaBreached: boolean;
+  ageMinutes: number;
 };
 
 function toObjectId(value: unknown): ObjectId | null {
@@ -47,6 +54,9 @@ export async function GET() {
     }
 
     const { db } = await getDb();
+    const now = new Date();
+    const criticalAckSlaCutoff = new Date(now.getTime() - CRITICAL_ALERT_ACK_SLA_MS);
+    const highAckSlaCutoff = new Date(now.getTime() - HIGH_ALERT_ACK_SLA_MS);
 
     // 0. Count open operational/integrity alerts by severity
     const [
@@ -54,6 +64,8 @@ export async function GET() {
       highSystemAlerts,
       unacknowledgedCriticalSystemAlerts,
       unacknowledgedHighSystemAlerts,
+      ackSlaBreachedCriticalSystemAlerts,
+      ackSlaBreachedHighSystemAlerts,
     ] = await Promise.all([
       db.collection("system_alerts").countDocuments({
         status: "open",
@@ -79,9 +91,25 @@ export async function GET() {
           { "ownership.acknowledgedAt": null },
         ],
       }),
+      db.collection("system_alerts").countDocuments({
+        status: "open",
+        severity: "critical",
+        firstSeenAt: { $lte: criticalAckSlaCutoff },
+        $or: [
+          { "ownership.acknowledgedAt": { $exists: false } },
+          { "ownership.acknowledgedAt": null },
+        ],
+      }),
+      db.collection("system_alerts").countDocuments({
+        status: "open",
+        severity: "high",
+        firstSeenAt: { $lte: highAckSlaCutoff },
+        $or: [
+          { "ownership.acknowledgedAt": { $exists: false } },
+          { "ownership.acknowledgedAt": null },
+        ],
+      }),
     ]);
-
-    const now = new Date();
     const analyticsWindowStart = new Date(
       now.getTime() - 8 * 24 * 60 * 60 * 1000,
     );
@@ -162,6 +190,15 @@ export async function GET() {
           typeof row.ownership?.acknowledgedByEmail === "string"
             ? row.ownership.acknowledgedByEmail
             : null,
+        ackSlaBreached: isAckSlaBreached(
+          {
+            severity: row.severity === "critical" ? "critical" : "high",
+            firstSeenAt: row.firstSeenAt,
+            acknowledgedAt: row.ownership?.acknowledgedAt,
+          },
+          now,
+        ),
+        ageMinutes: alertAgeMinutes(row.firstSeenAt, now),
       }),
     );
 
@@ -334,6 +371,10 @@ export async function GET() {
       unacknowledgedHighSystemAlerts,
       unacknowledgedSystemAlertCount:
         unacknowledgedCriticalSystemAlerts + unacknowledgedHighSystemAlerts,
+      ackSlaBreachedCriticalSystemAlerts,
+      ackSlaBreachedHighSystemAlerts,
+      ackSlaBreachedSystemAlertCount:
+        ackSlaBreachedCriticalSystemAlerts + ackSlaBreachedHighSystemAlerts,
       operationalHealth,
       recentSystemAlerts,
       openComplaints,
