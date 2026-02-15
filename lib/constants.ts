@@ -46,6 +46,12 @@ export const CRITICAL_ALERT_ACK_SLA_MS = 15 * 60 * 1000; // 15 minutes
 /** Time an open high alert can remain unacknowledged before SLA breach (ms). */
 export const HIGH_ALERT_ACK_SLA_MS = 60 * 60 * 1000; // 60 minutes
 
+/** Persistent critical unacknowledged duration before owner escalates to tech lead (ms). */
+export const CRITICAL_ALERT_PERSISTENT_ROUTE_MS = 60 * 60 * 1000; // 60 minutes
+
+/** Persistent high unacknowledged duration before owner escalates to tech lead (ms). */
+export const HIGH_ALERT_PERSISTENT_ROUTE_MS = 4 * 60 * 60 * 1000; // 4 hours
+
 // ─── Booking & Scheduling ───────────────────────────────────────────────────
 
 /** Minimum advance notice for pickup scheduling (ms). */

@@ -4,6 +4,7 @@ import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { buildAlertDeliveryPlan } from "@/lib/ops/alert-delivery";
+import { buildOwnerRoutingDecisions } from "@/lib/ops/owner-routing";
 import {
   deliverAlertDigest,
   type AlertDigestItem,
@@ -28,11 +29,21 @@ type SystemAlertDocument = {
   };
   ownership?: {
     acknowledgedAt?: Date;
+    owner?: "platform_admin_oncall" | "backend_oncall" | "tech_lead";
+    lastRoutedAt?: Date;
   };
 };
 
 function toIso(value?: Date): string {
   return value ? value.toISOString() : "";
+}
+
+function ownerLabel(
+  owner: "platform_admin_oncall" | "backend_oncall" | "tech_lead",
+): string {
+  if (owner === "platform_admin_oncall") return "Platform Admin On-Call";
+  if (owner === "backend_oncall") return "Backend On-Call";
+  return "Tech Lead";
 }
 
 function toDigestItem(alert: SystemAlertDocument): AlertDigestItem {
@@ -84,10 +95,52 @@ export async function GET(req: NextRequest) {
             lastSeenAt: 1,
             notification: 1,
             "ownership.acknowledgedAt": 1,
+            "ownership.owner": 1,
+            "ownership.lastRoutedAt": 1,
           },
         },
       )
       .toArray();
+
+    const routingDecisions = buildOwnerRoutingDecisions(
+      alerts.map((alert) => ({
+        _id: alert._id.toString(),
+        severity: alert.severity === "critical" ? "critical" : "high",
+        firstSeenAt: alert.firstSeenAt,
+        acknowledgedAt: alert.ownership?.acknowledgedAt,
+        owner: alert.ownership?.owner || null,
+      })),
+      now,
+    );
+
+    if (routingDecisions.length > 0) {
+      await db.collection("system_alerts").bulkWrite(
+        routingDecisions.map((decision) => ({
+          updateOne: {
+            filter: {
+              _id: alerts.find((alert) => alert._id.toString() === decision.id)?._id,
+              status: "open",
+              $or: [
+                { "ownership.acknowledgedAt": { $exists: false } },
+                { "ownership.acknowledgedAt": null },
+              ],
+            },
+            update: {
+              $set: {
+                "ownership.owner": decision.nextOwner,
+                "ownership.lastRoutedAt": now,
+                "ownership.routeReason": decision.reason,
+                updatedAt: now,
+              },
+              $inc: {
+                "ownership.routeCount": 1,
+              },
+            },
+          },
+        })),
+        { ordered: false },
+      );
+    }
 
     const plan = buildAlertDeliveryPlan(
       alerts.map((alert) => ({
@@ -118,6 +171,18 @@ export async function GET(req: NextRequest) {
     const escalateItems = alerts
       .filter((alert) => escalateSet.has(alert._id.toString()))
       .map(toDigestItem);
+    const routingDecisionMap = new Map(
+      routingDecisions.map((decision) => [decision.id, decision]),
+    );
+    const routingItems = alerts
+      .filter((alert) => routingDecisionMap.has(alert._id.toString()))
+      .map((alert) => {
+        const decision = routingDecisionMap.get(alert._id.toString())!;
+        return {
+          ...toDigestItem(alert),
+          message: `[Owner Routed -> ${ownerLabel(decision.nextOwner)}] ${alert.message}`,
+        };
+      });
 
     let notifyDelivery: AlertDeliveryResult = {
       emailSent: false,
@@ -150,6 +215,23 @@ export async function GET(req: NextRequest) {
         criticalOpen: openCritical,
         highOpen: openHigh,
         items: escalateItems,
+      });
+    }
+
+    let routingDelivery: AlertDeliveryResult = {
+      emailSent: false,
+      webhookSent: false,
+      skipped: true,
+      reason: "No ownership routing updates",
+    };
+    if (routingItems.length > 0) {
+      routingDelivery = await deliverAlertDigest({
+        kind: "escalate",
+        generatedAt: now.toISOString(),
+        totalOpen: alerts.length,
+        criticalOpen: openCritical,
+        highOpen: openHigh,
+        items: routingItems,
       });
     }
 
@@ -197,10 +279,15 @@ export async function GET(req: NextRequest) {
       due: {
         notify: notifyItems.length,
         escalate: escalateItems.length,
+        routed: routingItems.length,
       },
       delivered: {
         notify: notifyDelivery,
         escalate: escalateDelivery,
+        routed: routingDelivery,
+      },
+      ownershipRouting: {
+        decisions: routingDecisions.length,
       },
     };
 
