@@ -79,7 +79,7 @@ test.describe("critical role smoke journeys", () => {
       page.getByRole("heading", { name: "Complaints Management" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Accept Complaint" }).first(),
+      page.getByRole("link", { name: "View Details" }).first(),
     ).toBeVisible();
   });
 });

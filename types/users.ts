@@ -60,7 +60,7 @@ export interface Provider extends BaseUser {
   reviewCount?: number;
 }
 
-export interface Admin extends BaseUser {}
+export type Admin = BaseUser;
 
 export type UserWithRole = (Seeker | Provider | Admin) & {
   role: Role;

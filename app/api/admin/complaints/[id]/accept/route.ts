@@ -14,7 +14,7 @@ import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 function getProviderDisplayName(
   provider?: {
     name?: string;
-    businessName?: string;
+    businessName?: string | null;
   } | null,
 ): string {
   const name = provider?.name?.trim();
@@ -133,7 +133,9 @@ export async function POST(
       db.collection("providers").findOne({ _id: complaint.provider_id }),
     ]);
     const seekerName = seeker?.name || "Customer";
-    const providerDisplayName = getProviderDisplayName(provider as any);
+    const providerDisplayName = getProviderDisplayName(
+      provider as { name?: string; businessName?: string | null } | null,
+    );
 
     // Create system message
     const systemMsg: Omit<ComplaintMessage, "_id"> = {

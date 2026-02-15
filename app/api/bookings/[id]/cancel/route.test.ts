@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
 
@@ -149,7 +149,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       bookingFeeStatus: "paid",
       razorpay_payment_id: "pay_1",
       pickupSlot: { dateTime: tomorrow },
-    } as any);
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
     const dbMock = makeDbMock();
     dbMock.bookingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
@@ -191,7 +191,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       bookingFeeStatus: "paid",
       razorpay_payment_id: "pay_1",
       pickupSlot: { dateTime: tonight },
-    } as any);
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
     const dbMock = makeDbMock();
     dbMock.bookingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
@@ -231,7 +231,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       status: "requested",
       bookingFeeStatus: "paid",
       pickupSlot: { dateTime: past },
-    } as any);
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
     const res = await POST(makeRequest(), {
       params: Promise.resolve({ id: BOOKING_ID }),
@@ -258,7 +258,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       status: "confirmed",
       bookingFeeStatus: "paid",
       razorpay_payment_id: "pay_1",
-    } as any);
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
     const dbMock = makeDbMock();
     dbMock.bookingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
