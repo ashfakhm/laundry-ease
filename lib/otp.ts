@@ -26,7 +26,14 @@ const emailTransporter = nodemailer.createTransport({
   logger: process.env.NODE_ENV === "development",
 });
 
-const smsClient = twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
+let smsClientInstance: ReturnType<typeof twilio> | null = null;
+
+function getSmsClient() {
+  if (!smsClientInstance) {
+    smsClientInstance = twilio(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
+  }
+  return smsClientInstance;
+}
 
 const MAX_OTP_REQUESTS_PER_HOUR = 5;
 const MAX_VERIFICATION_ATTEMPTS = 5;
@@ -95,7 +102,7 @@ export async function requestOtp(
       logger.debug("OTP", `Sending SMS`, {
         target: normalizedTarget.substring(0, 4) + "***",
       });
-      await smsClient.messages.create({
+      await getSmsClient().messages.create({
         body: `Your OTP code is ${code}. It will expire in ${ttlMinutes} minutes.`,
         from: env.TWILIO_PHONE_NUMBER,
         to: normalizedTarget,

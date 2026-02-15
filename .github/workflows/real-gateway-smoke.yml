@@ -1,0 +1,49 @@
+name: Real Gateway Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-gateway-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  precheck:
+    name: Secret Precheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report configuration state
+        run: |
+          if [ -z "${{ secrets.RAZORPAY_KEY_ID }}" ] || [ -z "${{ secrets.RAZORPAY_KEY_SECRET }}" ]; then
+            echo "Real gateway smoke skipped: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET are not configured."
+          else
+            echo "Real gateway smoke secrets are configured."
+          fi
+
+  razorpay-connectivity:
+    name: Razorpay Connectivity Smoke
+    needs: precheck
+    if: ${{ secrets.RAZORPAY_KEY_ID != '' && secrets.RAZORPAY_KEY_SECRET != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+      RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+    steps:
+      - name: Create low-value Razorpay order
+        run: |
+          RECEIPT="gh_smoke_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          RESPONSE=$(curl --silent --show-error --fail \
+            --user "${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}" \
+            --request POST \
+            --url "https://api.razorpay.com/v1/orders" \
+            --data amount=100 \
+            --data currency=INR \
+            --data receipt="${RECEIPT}")
+          echo "Created order response:"
+          echo "${RESPONSE}"

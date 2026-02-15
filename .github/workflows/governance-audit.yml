@@ -1,0 +1,49 @@
+name: Governance Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  precheck:
+    name: Secret Precheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report configuration state
+        run: |
+          if [ -z "${{ secrets.BRANCH_ADMIN_TOKEN }}" ]; then
+            echo "Governance audit skipped: BRANCH_ADMIN_TOKEN is not configured."
+          else
+            echo "Governance audit token is configured."
+          fi
+
+  branch-protection:
+    name: Branch Protection Guardrails
+    needs: precheck
+    if: ${{ secrets.BRANCH_ADMIN_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify branch protection
+        env:
+          GITHUB_TOKEN: ${{ secrets.BRANCH_ADMIN_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BRANCH_PROTECTION_BRANCHES: "main,Mainv2"
+          BRANCH_PROTECTION_REQUIRED_CHECKS: "Lint, Test, Build, Smoke E2E"
+        run: node scripts/audit-branch-protection.mjs
