@@ -37,6 +37,9 @@ export default defineConfig({
           NEXTAUTH_URL: process.env.NEXTAUTH_URL || baseURL,
           NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || baseURL,
           NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || baseURL,
+          E2E_FAKE_PAYMENTS: process.env.E2E_FAKE_PAYMENTS || "1",
+          RAZORPAYX_ACCOUNT_NUMBER:
+            process.env.RAZORPAYX_ACCOUNT_NUMBER || "acc_e2e_test",
         },
       },
 });

@@ -31,6 +31,13 @@ type SeedResult = {
   complaintId: ObjectId;
 };
 
+export type SettlementSeedResult = SeedResult & {
+  complaintTitle: string;
+  expectedPlatformCommission: number;
+  expectedDistributableAmount: number;
+  expectedHalfSettlement: number;
+};
+
 function parseEnvValue(rawValue: string): string {
   const trimmed = rawValue.trim();
   if (
@@ -71,6 +78,17 @@ function readEnvFromFile(key: string): string | undefined {
 
 function resolveEnv(key: string): string | undefined {
   return process.env[key] || readEnvFromFile(key);
+}
+
+export function getSmokeDbConfig(): { mongoUri: string; dbName: string } {
+  const mongoUri = resolveEnv("MONGODB_URI");
+  const dbName = resolveEnv("MONGODB_DB") || "laundryease";
+
+  if (!mongoUri) {
+    throw new Error("MONGODB_URI is required for Playwright smoke seeding");
+  }
+
+  return { mongoUri, dbName };
 }
 
 async function upsertSeeker(
@@ -138,6 +156,7 @@ async function upsertProvider(
         pricing: 120,
         radius_km: 10,
         per_km_rate: 10,
+        razorpay_fund_account_id: "fa_e2e_smoke_provider",
         coordinates: {
           lat: 12.9716,
           lng: 77.5946,
@@ -185,12 +204,7 @@ async function upsertAdmin(
 }
 
 export async function seedSmokeData(): Promise<SeedResult> {
-  const mongoUri = resolveEnv("MONGODB_URI");
-  const dbName = resolveEnv("MONGODB_DB") || "laundryease";
-
-  if (!mongoUri) {
-    throw new Error("MONGODB_URI is required for Playwright smoke seeding");
-  }
+  const { mongoUri, dbName } = getSmokeDbConfig();
 
   const client = new MongoClient(mongoUri);
   await client.connect();
@@ -300,6 +314,134 @@ export async function seedSmokeData(): Promise<SeedResult> {
       bookingId,
       orderId,
       complaintId,
+    };
+  } finally {
+    await client.close();
+  }
+}
+
+export async function seedSettlementJourneyData(): Promise<SettlementSeedResult> {
+  const { mongoUri, dbName } = getSmokeDbConfig();
+
+  const client = new MongoClient(mongoUri);
+  await client.connect();
+  const db = client.db(dbName);
+  const now = new Date();
+
+  try {
+    const hashedPassword = await bcrypt.hash(smokeUsers.seeker.password, 10);
+    const [seekerId, providerId, adminId] = await Promise.all([
+      upsertSeeker(client, dbName, hashedPassword),
+      upsertProvider(client, dbName, hashedPassword),
+      upsertAdmin(client, dbName, hashedPassword),
+    ]);
+
+    const bookingId = new ObjectId("66f0bb01bb01bb01bb01bb01");
+    const orderId = new ObjectId("66f0bb02bb02bb02bb02bb02");
+    const complaintId = new ObjectId("66f0bb03bb03bb03bb03bb03");
+    const complaintTitle = "Settlement Chain E2E Complaint";
+
+    const totalPrice = 500;
+    const platformCommission = 25;
+    const distributableAmount = totalPrice - platformCommission;
+    const halfSettlement = distributableAmount / 2;
+
+    await db.collection("bookings").updateOne(
+      { _id: bookingId },
+      {
+        $set: {
+          _id: bookingId,
+          seeker_id: seekerId,
+          provider_id: providerId,
+          status: "accepted",
+          bookingFee: 149,
+          bookingFeeStatus: "paid",
+          createdAt: now,
+          updatedAt: now,
+          deadline: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
+        },
+      },
+      { upsert: true },
+    );
+
+    await db.collection("orders").updateOne(
+      { _id: orderId },
+      {
+        $set: {
+          _id: orderId,
+          booking_id: bookingId,
+          seeker_id: seekerId,
+          provider_id: providerId,
+          process_status: "delivered",
+          payment_status: "held",
+          total_price: totalPrice,
+          delivery_charge: 50,
+          platform_commission: platformCommission,
+          provider_payout_amount: distributableAmount,
+          razorpay_order_id: "order_settlement_e2e_1",
+          razorpay_payment_id: "pay_settlement_e2e_1",
+          otp_confirmed_at: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+          escrow_started_at: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+          escrow_release_at: new Date(now.getTime() + 22 * 60 * 60 * 1000),
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    await db.collection("complaints").updateOne(
+      { _id: complaintId },
+      {
+        $set: {
+          _id: complaintId,
+          order_id: orderId,
+          booking_id: bookingId,
+          seeker_id: seekerId,
+          provider_id: providerId,
+          complaint_type: "quality_issue",
+          title: complaintTitle,
+          description: "Deterministic settlement-chain E2E complaint fixture.",
+          status: "open",
+          provider_access_granted: true,
+          participants: [seekerId, providerId],
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    await db.collection("complaint_messages").updateOne(
+      {
+        complaint_id: complaintId,
+        message_type: "TEXT",
+        sender_role: "seeker",
+      },
+      {
+        $set: {
+          complaint_id: complaintId,
+          sender_id: seekerId,
+          sender_role: "seeker",
+          message_type: "TEXT",
+          content: "Settlement chain initial message",
+          createdAt: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    return {
+      seekerId,
+      providerId,
+      adminId,
+      bookingId,
+      orderId,
+      complaintId,
+      complaintTitle,
+      expectedPlatformCommission: platformCommission,
+      expectedDistributableAmount: distributableAmount,
+      expectedHalfSettlement: halfSettlement,
     };
   } finally {
     await client.close();

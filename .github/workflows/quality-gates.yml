@@ -46,7 +46,8 @@ jobs:
       RAZORPAY_KEY_ID: ci-razorpay-key-id
       RAZORPAY_KEY_SECRET: ci-razorpay-key-secret
       NEXT_PUBLIC_RAZORPAY_KEY_ID: ci-public-razorpay-key-id
-      RAZORPAYX_ACCOUNT_NUMBER: ""
+      RAZORPAYX_ACCOUNT_NUMBER: acc_ci_e2e
+      E2E_FAKE_PAYMENTS: "1"
       NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ci-google-maps-key
       CRON_SECRET: ci-cron-secret
       NEXTAUTH_SECRET: ci-nextauth-secret
@@ -81,11 +82,12 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Smoke E2E (Role + Complaint Chat Journeys)
+      - name: Smoke E2E (Role, Complaint Chat, Settlement Chain)
         run: >-
           npm run test:e2e --
           e2e/smoke-role-journeys.spec.ts
           e2e/complaint-chat-journey.spec.ts
+          e2e/settlement-chain-journey.spec.ts
 
       - name: Upload Playwright output
         if: always()

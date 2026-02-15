@@ -12,6 +12,14 @@ export const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET || "",
 });
 
+function isE2EFakePaymentsEnabled(): boolean {
+  return process.env.E2E_FAKE_PAYMENTS === "1";
+}
+
+function createE2EId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+}
+
 interface RazorpayOrderOptions {
   amount: string | number;
   currency: string;
@@ -133,6 +141,19 @@ export async function refundRazorpayPayment(
   amount?: number,
   notes?: Record<string, string>
 ) {
+  if (isE2EFakePaymentsEnabled()) {
+    return {
+      id: createE2EId("rfnd_e2e"),
+      entity: "refund",
+      payment_id: paymentId,
+      amount: amount ?? 0,
+      currency: "INR",
+      status: "processed",
+      notes: notes || {},
+      created_at: Math.floor(Date.now() / 1000),
+    };
+  }
+
   try {
     const params: { amount?: number; notes?: Record<string, string> } = {};
     if (amount) params.amount = amount;
@@ -250,6 +271,20 @@ export async function createRazorpayPayout(data: {
   reference_id?: string;
   narration?: string;
 }): Promise<RazorpayPayout> {
+  if (isE2EFakePaymentsEnabled()) {
+    return {
+      id: createE2EId("pout_e2e"),
+      entity: "payout",
+      fund_account_id: data.fund_account_id,
+      amount: data.amount,
+      currency: data.currency,
+      status: "processing",
+      mode: data.mode,
+      reference_id: data.reference_id,
+      created_at: Math.floor(Date.now() / 1000),
+    };
+  }
+
   try {
     // Cast strict typed razorpay to local type with payouts
     const response = await (
