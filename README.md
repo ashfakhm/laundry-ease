@@ -283,16 +283,21 @@ Stable:
   - `Quality Gates` for lint/test/build/smoke E2E
   - `Real Gateway Smoke` for scheduled/manual live Razorpay connectivity checks (when secrets are configured)
   - `Governance Audit` for branch-protection required-check drift detection (when admin token is configured)
+- Operational SLO monitor (`/api/cron/monitor-operational-health`) for:
+  - overdue held orders (excluding complaint-blocked cases)
+  - payout failure spikes
+  - overdue accepted/in-review complaints
+- Admin dashboard system badge now reflects live open critical/high operational or integrity alerts from `system_alerts`
 
 Quality snapshot (2026-02-15):
 
-- `25` test files, `118` tests passing
+- `26` test files, `121` tests passing
 - `3` Playwright E2E specs, `7` critical role/complaint/settlement journeys passing
 - `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e` all passing on `Mainv2`
 
 Remaining hardening opportunities:
 
-- Alerting/monitoring for index creation failures caused by pre-existing duplicate historical data
+- Dashboard visualizations for historical alert trends and SLO burn-rate (alerts are now automated)
 - Connect `Real Gateway Smoke` workflow secrets in GitHub (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`) where still missing
 - Connect `Governance Audit` workflow admin token (`BRANCH_ADMIN_TOKEN`) where still missing
 - Archival policy for old webhook payloads to control long-term storage growth

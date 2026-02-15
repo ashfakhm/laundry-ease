@@ -2,13 +2,13 @@
 
 **Date:** 2026-02-15  
 **Branch:** `Mainv2`  
-**Scope:** Reanalysis after CI reliability and governance automation hardening
+**Scope:** Reanalysis after operational threshold automation hardening
 
 ---
 
 ## Executive Summary
 
-LaundryEase remains an A+ codebase and this cycle closes the two highest-impact quality gaps that were still open inside repository-controlled scope: CI reliability drift and governance drift detection.
+LaundryEase remains an A+ codebase. This cycle adds automated operational threshold monitoring and admin visibility for live system risk signals.
 
 **Current Grade: A+ (100/100 for repo-controlled scope)**
 
@@ -19,6 +19,7 @@ Why this grade is retained and strengthened:
 - CI build stability is hardened (`lib/otp.ts` no longer initializes Twilio eagerly at module load).
 - Real gateway smoke checks now exist as scheduled/manual workflow (`.github/workflows/real-gateway-smoke.yml`).
 - Branch-protection drift now has an automated auditor (`scripts/audit-branch-protection.mjs` + `.github/workflows/governance-audit.yml`).
+- Operational alerting now auto-opens/resolves system alerts for overdue held orders, payout failure spikes, and overdue complaints (`/api/cron/monitor-operational-health`).
 
 ---
 
@@ -27,15 +28,15 @@ Why this grade is retained and strengthened:
 Commands rerun:
 
 - `npm run lint` -> **passing**
-- `npm test` -> **25 files, 118 tests, passing**
+- `npm test` -> **26 files, 121 tests, passing**
 - `npm run build` -> **passing** (Next.js 16.1.6)
 - `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts` -> **7/7 passing**
 
 Current snapshot:
 
 - API route handlers (`app/api/**/route.ts`): **77**
-- Cron route handlers (`app/api/cron/**/route.ts`): **6**
-- Unit/integration test files (`*.test.ts`): **25**
+- Cron route handlers (`app/api/cron/**/route.ts`): **7**
+- Unit/integration test files (`*.test.ts`): **26**
 - E2E specs (`*.spec.ts`): **3**
 - CI workflow files (`.github/workflows/*.yml`): **3**
 
@@ -72,6 +73,8 @@ Current snapshot:
 - Added `Real Gateway Smoke` workflow for periodic/manual live Razorpay connectivity verification.
 - Added governance audit script/workflow to assert required status checks on protected branches.
 - Eliminated CI build fragility from placeholder Twilio credentials by lazy-loading SMS client only on phone OTP path.
+- Added operational health monitor cron endpoint with alert thresholding + auto-resolve behavior.
+- Wired admin dashboard health badge to live critical/high open alerts from `system_alerts`.
 
 ---
 
@@ -85,20 +88,18 @@ Impact:
 
 - Controls exist in code, but must be enabled in GitHub settings to execute continuously.
 
-### P2: Ops Automation Depth
-
-- Runbook exists, but automated alert pipelines and dashboard-backed SLO thresholds are still pending.
+### P2: Ops Visualization Depth
 
 Impact:
 
-- Incident response quality still depends on manual detection discipline.
+- Alerts are now automated, but trend dashboards/SLO burn-rate views are still limited.
 
 ---
 
 ## Improvement Priorities (Ordered)
 
 1. Ensure `BRANCH_ADMIN_TOKEN`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` are configured in all deployment repos.
-2. Add alert dashboard + threshold automation for held-order age, payout failures, and overdue complaints.
+2. Add dashboard-level trend charts and SLO burn-rate views over `system_alerts` history.
 3. Add archival/retention policy automation for historical webhook payloads.
 
 ---
