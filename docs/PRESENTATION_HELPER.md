@@ -1387,11 +1387,16 @@ Logs include: time, category, message, extra data.
 4. **Error boundaries**: Handles errors nicely without crashing
 5. **Automated tests**: Vitest suite now covers critical payment, complaint, escrow, webhook-adjacent, and security paths
 
-Current quality snapshot (2026-02-08):
+Current quality snapshot (2026-02-15):
 
-- `17` test files
-- `75` tests passing
-- `npm test`, `npm run lint`, and `npm run build` all passing
+- `25` test files
+- `118` tests passing
+- `3` Playwright E2E specs with `7` critical journeys passing
+- `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e` all passing
+
+E2E execution note:
+
+- E2E npm scripts now run through `scripts/run-playwright.mjs` to sanitize conflicting color env vars and keep CI logs readable.
 
 ### Q: How do you handle errors in production?
 
@@ -1514,6 +1519,8 @@ Use these points if you are asked about differences between the PRD and what is 
 - **DB index bootstrap**: Startup index initialization now enforces critical uniqueness and TTL cleanup invariants.
 - **Complaint-window enforcement**: 24-hour complaint timing is now validated in API logic.
 - **Complaint split settlement**: Admin complaint resolution now supports commission-aware partial splits (`refund_partial`) with slider-based seeker/provider allocation.
+- **Settlement branch E2E depth**: Browser tests now cover split settlement, reject/provider-favor, and full seeker-refund outcomes.
+- **E2E diagnostics hardening**: Playwright runner now sanitizes conflicting color env vars to remove warning noise in test output.
 
 ## Quick Presentation Tips
 
