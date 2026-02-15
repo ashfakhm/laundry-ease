@@ -35,6 +35,47 @@ describe("buildOwnerRoutingDecisions", () => {
     ]);
   });
 
+  it("balances repeated high-severity assignments across platform and backend on-call", () => {
+    const decisions = buildOwnerRoutingDecisions(
+      [
+        {
+          _id: "high-1",
+          severity: "high",
+          firstSeenAt: "2026-02-15T10:00:00.000Z",
+        },
+        {
+          _id: "high-2",
+          severity: "high",
+          firstSeenAt: "2026-02-15T10:00:00.000Z",
+        },
+        {
+          _id: "high-3",
+          severity: "high",
+          firstSeenAt: "2026-02-15T10:00:00.000Z",
+        },
+      ],
+      now,
+    );
+
+    expect(decisions).toEqual([
+      {
+        id: "high-1",
+        nextOwner: "platform_admin_oncall",
+        reason: "sla_breach_initial_route",
+      },
+      {
+        id: "high-2",
+        nextOwner: "backend_oncall",
+        reason: "sla_breach_initial_route",
+      },
+      {
+        id: "high-3",
+        nextOwner: "platform_admin_oncall",
+        reason: "sla_breach_initial_route",
+      },
+    ]);
+  });
+
   it("routes persistent breached alerts to tech lead", () => {
     const decisions = buildOwnerRoutingDecisions(
       [

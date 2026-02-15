@@ -49,6 +49,17 @@ export function buildOwnerRoutingDecisions(
   now = new Date(),
 ): OwnerRoutingDecision[] {
   const decisions: OwnerRoutingDecision[] = [];
+  const ownerLoad = new Map<AlertOwner, number>([
+    ["platform_admin_oncall", 0],
+    ["backend_oncall", 0],
+    ["tech_lead", 0],
+  ]);
+
+  for (const alert of alerts) {
+    if (alert.owner) {
+      ownerLoad.set(alert.owner, (ownerLoad.get(alert.owner) || 0) + 1);
+    }
+  }
 
   for (const alert of alerts) {
     const breached = isAckSlaBreached(
@@ -62,9 +73,18 @@ export function buildOwnerRoutingDecisions(
     if (!breached) continue;
 
     if (!alert.owner) {
+      const nextOwner =
+        alert.severity === "critical"
+          ? initialOwner(alert.severity)
+          : (ownerLoad.get("platform_admin_oncall") || 0) <=
+              (ownerLoad.get("backend_oncall") || 0)
+            ? "platform_admin_oncall"
+            : "backend_oncall";
+
+      ownerLoad.set(nextOwner, (ownerLoad.get(nextOwner) || 0) + 1);
       decisions.push({
         id: alert._id,
-        nextOwner: initialOwner(alert.severity),
+        nextOwner,
         reason: "sla_breach_initial_route",
       });
       continue;
