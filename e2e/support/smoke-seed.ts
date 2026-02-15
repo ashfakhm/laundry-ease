@@ -38,6 +38,10 @@ export type SettlementSeedResult = SeedResult & {
   expectedHalfSettlement: number;
 };
 
+type SettlementSeedOptions = {
+  complaintTitle?: string;
+};
+
 function parseEnvValue(rawValue: string): string {
   const trimmed = rawValue.trim();
   if (
@@ -262,6 +266,22 @@ export async function seedSmokeData(): Promise<SeedResult> {
           createdAt: now,
           updatedAt: now,
         },
+        $unset: {
+          payout_id: "",
+          payout_status: "",
+          payout_failure_reason: "",
+          payout_failure_at: "",
+          payout_initiated_at: "",
+          payout_updated_at: "",
+          payout_lock_at: "",
+          refund_amount: "",
+          refund_reason: "",
+          refund_at: "",
+          razorpay_refund_id: "",
+          escrow_released_at: "",
+          escrow_frozen: "",
+          escrow_frozen_at: "",
+        },
       },
       { upsert: true },
     );
@@ -320,7 +340,9 @@ export async function seedSmokeData(): Promise<SeedResult> {
   }
 }
 
-export async function seedSettlementJourneyData(): Promise<SettlementSeedResult> {
+export async function seedSettlementJourneyData(
+  options?: SettlementSeedOptions,
+): Promise<SettlementSeedResult> {
   const { mongoUri, dbName } = getSmokeDbConfig();
 
   const client = new MongoClient(mongoUri);
@@ -336,10 +358,13 @@ export async function seedSettlementJourneyData(): Promise<SettlementSeedResult>
       upsertAdmin(client, dbName, hashedPassword),
     ]);
 
-    const bookingId = new ObjectId("66f0bb01bb01bb01bb01bb01");
-    const orderId = new ObjectId("66f0bb02bb02bb02bb02bb02");
-    const complaintId = new ObjectId("66f0bb03bb03bb03bb03bb03");
-    const complaintTitle = "Settlement Chain E2E Complaint";
+    const bookingId = new ObjectId();
+    const orderId = new ObjectId();
+    const complaintId = new ObjectId();
+    const scenarioToken = complaintId.toString().slice(-8);
+    const complaintTitle =
+      options?.complaintTitle?.trim() ||
+      `Settlement Chain E2E Complaint ${complaintId.toString().slice(-6)}`;
 
     const totalPrice = 500;
     const platformCommission = 25;
@@ -378,8 +403,8 @@ export async function seedSettlementJourneyData(): Promise<SettlementSeedResult>
           delivery_charge: 50,
           platform_commission: platformCommission,
           provider_payout_amount: distributableAmount,
-          razorpay_order_id: "order_settlement_e2e_1",
-          razorpay_payment_id: "pay_settlement_e2e_1",
+          razorpay_order_id: `order_settlement_e2e_${scenarioToken}`,
+          razorpay_payment_id: `pay_settlement_e2e_${scenarioToken}`,
           otp_confirmed_at: new Date(now.getTime() - 2 * 60 * 60 * 1000),
           escrow_started_at: new Date(now.getTime() - 2 * 60 * 60 * 1000),
           escrow_release_at: new Date(now.getTime() + 22 * 60 * 60 * 1000),

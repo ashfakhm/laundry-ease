@@ -38,129 +38,235 @@ function isCloseTo(actual: unknown, expected: number): boolean {
   return Math.abs(Number(actual) - expected) <= 0.01;
 }
 
-test.describe("settlement chain journey", () => {
-  let seed: SettlementSeedResult;
+type AdminSettlementAction = "split_equal" | "seeker_full" | "reject";
 
-  test.beforeAll(async () => {
-    seed = await seedSettlementJourneyData();
-  });
+type SettlementExpectation = {
+  complaintStatus: "resolved" | "rejected";
+  complaintOutcome: "refund_partial" | "refund_full" | "release_payout";
+  orderPaymentStatus: "released" | "refunded";
+  seekerRefundAmount: number;
+  providerPayoutAmount: number;
+  expectPayoutId: boolean;
+  expectRefundId: boolean;
+};
 
-  test("admin can settle complaint with split payout and lock participant access", async ({
+async function finalizeComplaintAsAdmin(
+  browser: Browser,
+  seed: SettlementSeedResult,
+  action: AdminSettlementAction,
+) {
+  await runAsRole(
     browser,
-  }) => {
-    await runAsRole(
-      browser,
-      smokeUsers.admin.email,
-      smokeUsers.admin.password,
-      async (page) => {
-        await page.waitForURL("**/admin");
-        await page.goto(`/admin/complaints/${seed.complaintId.toString()}`);
+    smokeUsers.admin.email,
+    smokeUsers.admin.password,
+    async (page) => {
+      await page.waitForURL("**/admin");
+      await page.goto(`/admin/complaints/${seed.complaintId.toString()}`);
+      await expect(page.getByText(seed.complaintTitle)).toBeVisible();
 
-        await expect(page.getByText(seed.complaintTitle)).toBeVisible();
+      const acceptButton = page.getByRole("button", {
+        name: "Accept Complaint",
+      });
+      if (await acceptButton.isVisible()) {
+        await acceptButton.click();
+      }
 
-        const acceptButton = page.getByRole("button", {
-          name: "Accept Complaint",
-        });
-        if (await acceptButton.isVisible()) {
-          await acceptButton.click();
-        }
-
+      if (action === "reject") {
+        await expect(
+          page.getByRole("button", { name: "Reject Complaint" }),
+        ).toBeVisible();
+        page.once("dialog", (dialog) => dialog.accept());
+        await page.getByRole("button", { name: "Reject Complaint" }).click();
+      } else {
         await expect(
           page.getByRole("button", { name: "Apply Settlement" }),
         ).toBeVisible();
-        await page.getByRole("button", { name: "50 / 50" }).click();
+
+        if (action === "split_equal") {
+          await page.getByRole("button", { name: "50 / 50" }).click();
+        } else {
+          await page.getByRole("button", { name: "Seeker Full" }).click();
+        }
 
         page.once("dialog", (dialog) => dialog.accept());
         await page.getByRole("button", { name: "Apply Settlement" }).click();
+      }
 
-        await page.waitForURL("**/admin/complaints");
-        await expect(
-          page.getByRole("heading", { name: "Complaints Management" }),
-        ).toBeVisible();
-      },
-    );
+      await page.waitForURL("**/admin/complaints");
+      await expect(
+        page.getByRole("heading", { name: "Complaints Management" }),
+      ).toBeVisible();
+    },
+  );
+}
 
-    const { mongoUri, dbName } = getSmokeDbConfig();
-    const client = new MongoClient(mongoUri);
-    await client.connect();
-    try {
-      const db = client.db(dbName);
+async function assertSettlementOutcome(
+  seed: SettlementSeedResult,
+  expected: SettlementExpectation,
+) {
+  const { mongoUri, dbName } = getSmokeDbConfig();
+  const client = new MongoClient(mongoUri);
+  await client.connect();
+  try {
+    const db = client.db(dbName);
 
-      await expect
-        .poll(async () => {
-          const complaint = await db
-            .collection("complaints")
-            .findOne({ _id: seed.complaintId });
-          return complaint?.status || null;
-        })
-        .toBe("resolved");
+    await expect
+      .poll(async () => {
+        const complaint = await db
+          .collection("complaints")
+          .findOne({ _id: seed.complaintId });
+        return complaint?.status || null;
+      })
+      .toBe(expected.complaintStatus);
 
-      const complaint = await db
-        .collection("complaints")
-        .findOne({ _id: seed.complaintId });
-      const order = await db.collection("orders").findOne({ _id: seed.orderId });
+    await expect
+      .poll(async () => {
+        const order = await db.collection("orders").findOne({ _id: seed.orderId });
+        return order?.payment_status || null;
+      })
+      .toBe(expected.orderPaymentStatus);
 
-      expect(complaint).toBeTruthy();
-      expect(order).toBeTruthy();
+    const complaint = await db
+      .collection("complaints")
+      .findOne({ _id: seed.complaintId });
+    const order = await db.collection("orders").findOne({ _id: seed.orderId });
 
-      expect(complaint?.status).toBe("resolved");
-      expect(complaint?.resolution_outcome).toBe("refund_partial");
-      expect(complaint?.provider_access_granted).toBe(false);
-      expect(
-        isCloseTo(
-          complaint?.resolution_breakdown?.seeker_refund_amount,
-          seed.expectedHalfSettlement,
-        ),
-      ).toBe(true);
-      expect(
-        isCloseTo(
-          complaint?.resolution_breakdown?.provider_payout_amount,
-          seed.expectedHalfSettlement,
-        ),
-      ).toBe(true);
-      expect(
-        isCloseTo(
-          complaint?.resolution_breakdown?.platform_commission,
-          seed.expectedPlatformCommission,
-        ),
-      ).toBe(true);
+    expect(complaint).toBeTruthy();
+    expect(order).toBeTruthy();
 
-      expect(order?.payment_status).toBe("released");
-      expect(isCloseTo(order?.provider_payout_amount, seed.expectedHalfSettlement)).toBe(
+    expect(complaint?.status).toBe(expected.complaintStatus);
+    expect(complaint?.resolution_outcome).toBe(expected.complaintOutcome);
+    expect(complaint?.provider_access_granted).toBe(false);
+
+    expect(
+      isCloseTo(
+        complaint?.resolution_breakdown?.seeker_refund_amount,
+        expected.seekerRefundAmount,
+      ),
+    ).toBe(true);
+    expect(
+      isCloseTo(
+        complaint?.resolution_breakdown?.provider_payout_amount,
+        expected.providerPayoutAmount,
+      ),
+    ).toBe(true);
+    expect(
+      isCloseTo(
+        complaint?.resolution_breakdown?.platform_commission,
+        seed.expectedPlatformCommission,
+      ),
+    ).toBe(true);
+
+    expect(order?.payment_status).toBe(expected.orderPaymentStatus);
+    expect(
+      isCloseTo(order?.provider_payout_amount, expected.providerPayoutAmount),
+    ).toBe(true);
+    expect(
+      isCloseTo(order?.platform_commission, seed.expectedPlatformCommission),
+    ).toBe(true);
+
+    if (expected.seekerRefundAmount > 0) {
+      expect(isCloseTo(order?.refund_amount, expected.seekerRefundAmount)).toBe(
         true,
       );
-      expect(
-        isCloseTo(order?.platform_commission, seed.expectedPlatformCommission),
-      ).toBe(true);
-      expect(isCloseTo(order?.refund_amount, seed.expectedHalfSettlement)).toBe(
-        true,
-      );
-      expect(String(order?.payout_id || "")).toContain("pout_e2e");
-      expect(String(order?.razorpay_refund_id || "")).toContain("rfnd_e2e");
-    } finally {
-      await client.close();
+    } else {
+      expect((order?.refund_amount as number | undefined) ?? 0).toBe(0);
     }
 
-    await runAsRole(
-      browser,
-      smokeUsers.seeker.email,
-      smokeUsers.seeker.password,
-      async (page) => {
-        await page.waitForURL("**/seeker");
-        await page.goto(`/seeker/disputes/${seed.complaintId.toString()}`);
-        await expect(page.getByText("Access Denied")).toBeVisible();
-      },
-    );
+    if (expected.expectPayoutId) {
+      expect(String(order?.payout_id || "")).toContain("pout_e2e");
+    }
+    if (expected.expectRefundId) {
+      expect(String(order?.razorpay_refund_id || "")).toContain("rfnd_e2e");
+    }
+  } finally {
+    await client.close();
+  }
+}
 
-    await runAsRole(
-      browser,
-      smokeUsers.provider.email,
-      smokeUsers.provider.password,
-      async (page) => {
-        await page.waitForURL("**/provider");
-        await page.goto(`/provider/disputes/${seed.complaintId.toString()}`);
-        await expect(page.getByText("Access Denied")).toBeVisible();
-      },
-    );
+async function assertParticipantAccessRevoked(
+  browser: Browser,
+  complaintId: string,
+) {
+  await runAsRole(
+    browser,
+    smokeUsers.seeker.email,
+    smokeUsers.seeker.password,
+    async (page) => {
+      await page.waitForURL("**/seeker");
+      await page.goto(`/seeker/disputes/${complaintId}`);
+      await expect(page.getByText("Access Denied")).toBeVisible();
+    },
+  );
+
+  await runAsRole(
+    browser,
+    smokeUsers.provider.email,
+    smokeUsers.provider.password,
+    async (page) => {
+      await page.waitForURL("**/provider");
+      await page.goto(`/provider/disputes/${complaintId}`);
+      await expect(page.getByText("Access Denied")).toBeVisible();
+    },
+  );
+}
+
+test.describe("settlement chain journey", () => {
+  test("admin can settle complaint with 50/50 split and lock participant access", async ({
+    browser,
+  }) => {
+    const seed = await seedSettlementJourneyData({
+      complaintTitle: "Settlement Chain E2E - Split Outcome",
+    });
+
+    await finalizeComplaintAsAdmin(browser, seed, "split_equal");
+    await assertSettlementOutcome(seed, {
+      complaintStatus: "resolved",
+      complaintOutcome: "refund_partial",
+      orderPaymentStatus: "released",
+      seekerRefundAmount: seed.expectedHalfSettlement,
+      providerPayoutAmount: seed.expectedHalfSettlement,
+      expectPayoutId: true,
+      expectRefundId: true,
+    });
+    await assertParticipantAccessRevoked(browser, seed.complaintId.toString());
+  });
+
+  test("admin can reject complaint and release provider-favor payout", async ({
+    browser,
+  }) => {
+    const seed = await seedSettlementJourneyData({
+      complaintTitle: "Settlement Chain E2E - Reject Outcome",
+    });
+
+    await finalizeComplaintAsAdmin(browser, seed, "reject");
+    await assertSettlementOutcome(seed, {
+      complaintStatus: "rejected",
+      complaintOutcome: "release_payout",
+      orderPaymentStatus: "released",
+      seekerRefundAmount: 0,
+      providerPayoutAmount: seed.expectedDistributableAmount,
+      expectPayoutId: true,
+      expectRefundId: false,
+    });
+    await assertParticipantAccessRevoked(browser, seed.complaintId.toString());
+  });
+
+  test("admin can resolve complaint in full seeker favor", async ({ browser }) => {
+    const seed = await seedSettlementJourneyData({
+      complaintTitle: "Settlement Chain E2E - Seeker Full Outcome",
+    });
+
+    await finalizeComplaintAsAdmin(browser, seed, "seeker_full");
+    await assertSettlementOutcome(seed, {
+      complaintStatus: "resolved",
+      complaintOutcome: "refund_full",
+      orderPaymentStatus: "refunded",
+      seekerRefundAmount: seed.expectedDistributableAmount,
+      providerPayoutAmount: 0,
+      expectPayoutId: false,
+      expectRefundId: true,
+    });
+    await assertParticipantAccessRevoked(browser, seed.complaintId.toString());
   });
 });
