@@ -62,6 +62,8 @@ This runbook defines how to detect, triage, and resolve production incidents for
   - `/api/cron/process-payouts`
   - `/api/cron/release-payouts`
   - `/api/cron/no-show`
+  - `/api/cron/monitor-operational-health`
+  - `/api/cron/notify-system-alerts`
 
 ---
 
@@ -156,6 +158,14 @@ Validation:
   - timestamp
   - affected IDs
 
+## 7.1 Alert Channel Configuration
+
+- Optional alert fan-out env vars:
+  - `OPS_ALERT_EMAIL_TO` (comma-separated recipients)
+  - `OPS_ALERT_WEBHOOK_URL` (Slack/incident webhook)
+  - `OPS_ALERT_WEBHOOK_BEARER` (optional auth token)
+- If channels are unset, `/api/cron/notify-system-alerts` safely skips delivery and only records cron run results.
+
 ---
 
 ## 8. Post-Incident Review Template
@@ -175,4 +185,3 @@ For every `SEV-1`/`SEV-2`:
 - Add automated alert dashboards for payout failure rate, held-order age, and overdue complaints
 - Add staging scheduled smoke for real gateway interaction paths
 - Add archival policy for old webhook payloads
-
