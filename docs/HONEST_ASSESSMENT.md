@@ -2,13 +2,13 @@
 
 **Date:** 2026-02-15  
 **Branch:** `Mainv2`  
-**Scope:** Reanalysis after alert acknowledgement ownership hardening
+**Scope:** Reanalysis after alert acknowledgement SLA visibility hardening
 
 ---
 
 ## Executive Summary
 
-LaundryEase remains an A+ codebase. This cycle adds explicit incident acknowledgement ownership on top of alert fan-out, escalation, and analytics.
+LaundryEase remains an A+ codebase. This cycle adds acknowledgement SLA breach visibility on top of alert fan-out, escalation, and ownership.
 
 **Current Grade: A+ (100/100 for repo-controlled scope)**
 
@@ -23,6 +23,7 @@ Why this grade is retained and strengthened:
 - Admin dashboard now exposes 7-day alert trend, burn-rate, and MTTR from live `system_alerts` history.
 - Critical/high alert reminders and escalations are now automated through `/api/cron/notify-system-alerts` with dedupe windows and severity thresholds.
 - Admin can acknowledge ownership with actor/time/owner metadata through `/api/admin/system-alerts/[id]/acknowledge`, and acknowledged alerts are skipped for escalation.
+- Admin dashboard now tracks unacknowledged SLA-breached critical/high alerts using 15m/60m thresholds.
 
 ---
 
@@ -31,7 +32,7 @@ Why this grade is retained and strengthened:
 Commands rerun:
 
 - `npm run lint` -> **passing**
-- `npm test` -> **29 files, 134 tests, passing**
+- `npm test` -> **30 files, 137 tests, passing**
 - `npm run build` -> **passing** (Next.js 16.1.6)
 - `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts` -> **7/7 passing**
 
@@ -39,7 +40,7 @@ Current snapshot:
 
 - API route handlers (`app/api/**/route.ts`): **80**
 - Cron route handlers (`app/api/cron/**/route.ts`): **8**
-- Unit/integration test files (`*.test.ts`): **29**
+- Unit/integration test files (`*.test.ts`): **30**
 - E2E specs (`*.spec.ts`): **3**
 - CI workflow files (`.github/workflows/*.yml`): **3**
 
@@ -82,6 +83,7 @@ Current snapshot:
 - Added alert delivery plan model (`lib/ops/alert-delivery.ts`) with tests and cron-driven fan-out/escalation endpoint (`/api/cron/notify-system-alerts`).
 - Added optional operational alert channels via env config (`OPS_ALERT_EMAIL_TO`, `OPS_ALERT_WEBHOOK_URL`, `OPS_ALERT_WEBHOOK_BEARER`).
 - Added admin acknowledgement endpoint for open system alerts with ownership metadata and dashboard acknowledge controls.
+- Added acknowledgement SLA helpers (`lib/ops/ack-sla.ts`) and dashboard metrics for breached unacknowledged alerts.
 
 ---
 
@@ -95,7 +97,7 @@ Impact:
 
 - Controls exist in code, but must be enabled in GitHub settings to execute continuously.
 
-### P2: Acknowledgement SLA Enforcement
+### P2: SLA-Based Owner Reassignment Automation
 
 Impact:
 
@@ -106,7 +108,7 @@ Impact:
 ## Improvement Priorities (Ordered)
 
 1. Ensure `BRANCH_ADMIN_TOKEN`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` are configured in all deployment repos.
-2. Add acknowledgement SLA breach automation with owner reassignment/escalation queue rules.
+2. Add automatic owner reassignment/team routing when acknowledgement SLA breaches persist.
 3. Add archival/retention policy automation for historical webhook payloads.
 
 ---
@@ -123,6 +125,7 @@ Impact:
 - Added operational analytics helpers/tests and surfaced 7-day trend + burn-rate + MTTR in admin dashboard.
 - Added automated alert delivery/escalation with dedupe + severity thresholds and channel fan-out support.
 - Added incident acknowledgement ownership flow (API + dashboard + escalation skip for acknowledged alerts).
+- Added acknowledgement SLA breach visibility (critical/high thresholds) in admin dashboard and tests.
 - Reanalysed post-improvement and refreshed this Honest assessment.
 
 ---
@@ -130,4 +133,4 @@ Impact:
 ## Honest Verdict
 
 LaundryEase is an **A+ implementation-focused system with production-grade guardrails** for its current scope.  
-Remaining high-value work is environment rollout, acknowledgement SLA automation, and long-horizon operations hygiene.
+Remaining high-value work is environment rollout, SLA-driven owner reassignment automation, and long-horizon operations hygiene.

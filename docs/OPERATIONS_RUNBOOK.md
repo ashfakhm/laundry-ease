@@ -55,6 +55,12 @@ This runbook defines how to detect, triage, and resolve production incidents for
 - complaint resolution API failures (`/api/admin/complaints/[id]/resolve`)
 - provider access grant errors (`/api/admin/complaints/[id]/add-provider`)
 
+### Alert acknowledgement SLA
+
+- `critical` alerts should be acknowledged within 15 minutes
+- `high` alerts should be acknowledged within 60 minutes
+- dashboard and `/api/admin/dashboard-stats` expose SLA-breached unacknowledged counts
+
 ### Integration alerts
 
 - webhook processing failures (`/api/webhooks/razorpay`)
