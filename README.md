@@ -277,16 +277,18 @@ Stable:
 - Secure signup with password confirmation and strength validation
 - Real-time client-side form validation (email, password matching)
 - CSP telemetry pipeline (`Content-Security-Policy-Report-Only` + `/api/security/csp-report`)
+- E2E diagnostics hardening (`scripts/run-playwright.mjs`) to sanitize color-env conflicts and keep Playwright output readable
 
-Quality snapshot (2026-02-09):
+Quality snapshot (2026-02-15):
 
-- `22` test files, `99` tests passing
-- `npm test`, `npm run lint`, `npm run build` all passing on `Mainv2`
+- `25` test files, `118` tests passing
+- `3` Playwright E2E specs, `7` critical role/complaint/settlement journeys passing
+- `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e` all passing on `Mainv2`
 
 Remaining hardening opportunities:
 
 - Alerting/monitoring for index creation failures caused by pre-existing duplicate historical data
-- End-to-end financial tests for payout lock recovery, webhook replay, and refund/payout race conditions
+- Staging smoke coverage for live gateway behavior (CI intentionally runs deterministic fake-payments mode)
 - Archival policy for old webhook payloads to control long-term storage growth
 - Password-recovery anti-abuse hardening (rate-limit/captcha strategy)
 - Promote CSP from report-only to enforce mode after violation cleanup
@@ -456,6 +458,8 @@ laundry-ease/
 │   └── PRESENTATION_HELPER.md # Q&A and demo guide
 │
 ├── e2e/                      # End-to-end tests (Playwright)
+├── scripts/
+│   └── run-playwright.mjs    # E2E wrapper that sanitizes env for clean Playwright logs
 │
 ├── lib/                      # Core business logic & utilities
 │   ├── api/                  # API helpers (errors, response, security)
