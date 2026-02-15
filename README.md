@@ -454,6 +454,7 @@ laundry-ease/
 ├── docs/                     # Documentation
 │   ├── HONEST_ASSESSMENT.md  # Codebase quality assessment
 │   ├── ML_AI_INTEGRATION.md  # Future ML capabilities
+│   ├── OPERATIONS_RUNBOOK.md # Incident response playbook (payments/complaints)
 │   ├── PRD.md                # Product Requirements Document
 │   └── PRESENTATION_HELPER.md # Q&A and demo guide
 │
