@@ -8,15 +8,16 @@
 
 ## Executive Summary
 
-LaundryEase is in a strong engineering state with high domain correctness in the riskiest areas (payments, escrow, complaints, access control).
+LaundryEase is in a strong engineering state with high domain correctness in the riskiest areas (payments, escrow, complaints, access control), but one lint error and one stale smoke-E2E assertion keep the quality gate from being fully green.
 
-**Current Grade: A (95/100)**
+**Current Grade: A- (92/100)**
 
 Why not A+ right now:
 
 - `npm run lint` is not fully green (1 ESLint error in `types/users.ts`).
+- `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts` is not fully green (2 pass, 1 fail).
 
-If that lint error is fixed, current evidence supports returning to **A+**.
+If lint is green and smoke E2E is updated to match current UI behavior, current evidence supports returning to **A+**.
 
 ---
 
@@ -27,6 +28,7 @@ Commands run today:
 - `npm test` -> **24 test files, 114 tests, all passing**
 - `npm run build` -> **passing** (Next.js 16.1.6)
 - `npm run lint` -> **failing** (1 error, 6 warnings)
+- `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts` -> **failing** (2 passed, 1 failed)
 
 Current snapshot:
 
@@ -84,6 +86,19 @@ Impact:
 
 - Engineering quality gate is not fully clean, so this blocks an A+ rating at this moment.
 
+### P0: Smoke E2E Suite Is Not Fully Green
+
+Current smoke result: 2/3 pass, 1 fail.
+
+Failing case:
+
+- `e2e/smoke-role-journeys.spec.ts` admin journey expects `Accept Complaint` button on admin complaints list.
+- Current UI intentionally uses view-details-first flow and does not render this button on list cards.
+
+Impact:
+
+- E2E signal is partially red due to stale assertion drift, which blocks a fully green release-quality gate.
+
 ### P1: Operations Maturity Still Incomplete
 
 Still missing in-repo production ops formalization:
@@ -111,12 +126,13 @@ Still missing in-repo production ops formalization:
 ## Fast Path to A+
 
 1. Fix the ESLint error in `types/users.ts`.
-2. Keep test/build/lint all green in one CI-equivalent run.
-3. Continue incremental ops hardening (alerts/runbooks) without blocking core product correctness.
+2. Update `e2e/smoke-role-journeys.spec.ts` admin assertion to match current complaints list UX.
+3. Keep test/build/lint/e2e all green in one CI-equivalent run.
+4. Continue incremental ops hardening (alerts/runbooks) without blocking core product correctness.
 
 ---
 
 ## Final Verdict
 
 LaundryEase is currently a **high A-grade system** with strong correctness in critical business logic and good engineering rigor.  
-With the current lint error fixed, it is ready to be graded **A+** again based on present code and verification evidence.
+With the current lint error fixed and smoke E2E assertion drift corrected, it is ready to be graded **A+** again based on present code and verification evidence.
