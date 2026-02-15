@@ -14,8 +14,16 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/audit-integrity",
+      "schedule": "*/30 * * * *"
+    },
+    {
       "path": "/api/cron/monitor-abuse",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/monitor-operational-health",
+      "schedule": "0 * * * *"
     }
   ]
 }

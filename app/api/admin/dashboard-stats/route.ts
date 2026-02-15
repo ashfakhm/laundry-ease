@@ -34,6 +34,18 @@ export async function GET() {
 
     const { db } = await getDb();
 
+    // 0. Count open operational/integrity alerts by severity
+    const [criticalSystemAlerts, highSystemAlerts] = await Promise.all([
+      db.collection("system_alerts").countDocuments({
+        status: "open",
+        severity: "critical",
+      }),
+      db.collection("system_alerts").countDocuments({
+        status: "open",
+        severity: "high",
+      }),
+    ]);
+
     // 1. Count open complaints
     const openComplaints = await db.collection("complaints").countDocuments({
       status: "open",
@@ -196,6 +208,9 @@ export async function GET() {
       });
 
     return NextResponse.json({
+      criticalSystemAlerts,
+      highSystemAlerts,
+      systemAlertCount: criticalSystemAlerts + highSystemAlerts,
       openComplaints,
       activeComplaints,
       escrowBalance,

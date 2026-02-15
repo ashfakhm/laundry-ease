@@ -22,6 +22,12 @@ export const ESCROW_RELEASE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 /** Stale payout processing threshold — payouts older than this are flagged (ms). */
 export const STALE_PAYOUT_CUTOFF_MS = 15 * 60 * 1000; // 15 minutes
 
+/** Extra grace window after escrow release time before flagging held orders (ms). */
+export const HELD_ORDER_ALERT_GRACE_MS = 60 * 60 * 1000; // 1 hour
+
+/** Lookback window for payout failure alert counting (ms). */
+export const PAYOUT_FAILURE_ALERT_LOOKBACK_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 // ─── Booking & Scheduling ───────────────────────────────────────────────────
 
 /** Minimum advance notice for pickup scheduling (ms). */
@@ -45,6 +51,17 @@ export const ABUSE_LOOKBACK_DAYS = 30;
 /** Number of cancellations within the lookback window that triggers a flag. */
 export const EXCESSIVE_CANCELLATION_THRESHOLD = 3;
 
+// ─── Operational Alert Thresholds ───────────────────────────────────────────
+
+/** Alert when overdue held orders (without active complaints) reach this count. */
+export const OVERDUE_HELD_ORDERS_ALERT_THRESHOLD = 3;
+
+/** Alert when payout failures in lookback window reach this count. */
+export const PAYOUT_FAILURE_ALERT_THRESHOLD = 3;
+
+/** Alert when accepted/in-review complaints past deadline reach this count. */
+export const OVERDUE_COMPLAINTS_ALERT_THRESHOLD = 2;
+
 // ─── Cron Job Tracking ──────────────────────────────────────────────────────
 
 /** Names of all registered cron jobs — used for health checks. */
@@ -55,6 +72,7 @@ export const CRON_JOB_NAMES = [
   "no-show",
   "monitor-abuse",
   "audit-integrity",
+  "monitor-operational-health",
 ] as const;
 
 export type CronJobName = (typeof CRON_JOB_NAMES)[number];

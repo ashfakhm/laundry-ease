@@ -14,6 +14,9 @@ interface ActiveComplaintPreview {
 }
 
 interface AdminStats {
+  criticalSystemAlerts: number;
+  highSystemAlerts: number;
+  systemAlertCount: number;
   activeComplaints: number;
   openComplaints: number;
   escrowBalance: number;
@@ -77,9 +80,14 @@ export default function AdminDashboardPage() {
   }, []);
 
   const activeComplaints = stats?.activeComplaints ?? 0;
+  const criticalSystemAlerts = stats?.criticalSystemAlerts ?? 0;
+  const highSystemAlerts = stats?.highSystemAlerts ?? 0;
+  const systemAlertCount = stats?.systemAlertCount ?? 0;
   const totalProviders = stats?.totalProviders ?? 0;
   const utilizationPct = stats?.providerUtilizationPct ?? 0;
   const recentActiveComplaints = stats?.recentActiveComplaints ?? [];
+  const hasCriticalAlerts = criticalSystemAlerts > 0;
+  const hasHighAlerts = highSystemAlerts > 0;
 
   if (loading) {
     return (
@@ -114,12 +122,44 @@ export default function AdminDashboardPage() {
               Live platform metrics, payouts, and dispute activity.
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/20 shadow-sm backdrop-blur-sm">
+          <div
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold ring-1 shadow-sm backdrop-blur-sm ${
+              hasCriticalAlerts
+                ? "bg-red-500/10 text-red-700 ring-red-500/20"
+                : hasHighAlerts
+                  ? "bg-amber-500/10 text-amber-700 ring-amber-500/20"
+                  : "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+            }`}
+          >
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  hasCriticalAlerts
+                    ? "bg-red-400"
+                    : hasHighAlerts
+                      ? "bg-amber-400"
+                      : "bg-emerald-400"
+                }`}
+              ></span>
+              <span
+                className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                  hasCriticalAlerts
+                    ? "bg-red-500"
+                    : hasHighAlerts
+                      ? "bg-amber-500"
+                      : "bg-emerald-500"
+                }`}
+              ></span>
             </span>
-            System Online
+            {hasCriticalAlerts
+              ? `${criticalSystemAlerts} Critical Alert${
+                  criticalSystemAlerts === 1 ? "" : "s"
+                }`
+              : hasHighAlerts
+                ? `${systemAlertCount} Open Alert${
+                    systemAlertCount === 1 ? "" : "s"
+                  }`
+                : "System Online"}
           </div>
         </header>
 

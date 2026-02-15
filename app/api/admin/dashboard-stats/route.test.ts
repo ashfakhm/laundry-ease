@@ -31,6 +31,7 @@ vi.mock("@/lib/logger", () => ({
 import { GET } from "./route";
 
 function makeDbMock() {
+  const systemAlertCountDocuments = vi.fn();
   const complaintCountDocuments = vi.fn();
   const complaintFind = vi.fn();
   const complaintSort = vi.fn();
@@ -76,6 +77,11 @@ function makeDbMock() {
           find: complaintFind,
         };
       }
+      if (name === "system_alerts") {
+        return {
+          countDocuments: systemAlertCountDocuments,
+        };
+      }
       if (name === "orders") {
         return {
           aggregate: ordersAggregate,
@@ -100,6 +106,7 @@ function makeDbMock() {
 
   return {
     db,
+    systemAlertCountDocuments,
     complaintCountDocuments,
     complaintFind,
     complaintSort,
@@ -164,6 +171,9 @@ describe("GET /api/admin/dashboard-stats", () => {
     const seekerA = new ObjectId();
     const seekerB = new ObjectId();
 
+    dbMock.systemAlertCountDocuments
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2);
     dbMock.complaintCountDocuments
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(3);
@@ -214,6 +224,9 @@ describe("GET /api/admin/dashboard-stats", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
+    expect(data.criticalSystemAlerts).toBe(1);
+    expect(data.highSystemAlerts).toBe(2);
+    expect(data.systemAlertCount).toBe(3);
     expect(data.openComplaints).toBe(2);
     expect(data.activeComplaints).toBe(3);
     expect(data.escrowBalance).toBe(768);
@@ -248,6 +261,14 @@ describe("GET /api/admin/dashboard-stats", () => {
     });
     expect(dbMock.ordersDistinct).toHaveBeenCalledWith("provider_id", {
       createdAt: { $gte: expect.any(Date) },
+    });
+    expect(dbMock.systemAlertCountDocuments).toHaveBeenNthCalledWith(1, {
+      status: "open",
+      severity: "critical",
+    });
+    expect(dbMock.systemAlertCountDocuments).toHaveBeenNthCalledWith(2, {
+      status: "open",
+      severity: "high",
     });
     expect(dbMock.complaintFind).toHaveBeenCalledWith(
       { status: { $in: ["open", "accepted", "in_review"] } },
