@@ -71,14 +71,16 @@ This runbook defines how to detect, triage, and resolve production incidents for
 
 1. Confirm severity (`SEV-1`, `SEV-2`, `SEV-3`) and declare incident channel.
 2. Capture time window and impacted flows (payment, complaint, payout, refund).
-3. Validate current deploy/commit and recent config changes.
-4. Check API logs for first-failure timestamp and error concentration.
-5. Check MongoDB state for stuck records and failure markers.
-6. Choose mitigation path:
+3. Acknowledge ownership of active `critical`/`high` system alert in admin dashboard or API.
+4. Record owner (`platform_admin_oncall` / `backend_oncall` / `tech_lead`) and optional note.
+5. Validate current deploy/commit and recent config changes.
+6. Check API logs for first-failure timestamp and error concentration.
+7. Check MongoDB state for stuck records and failure markers.
+8. Choose mitigation path:
    - stop further damage (freeze automation if needed),
    - apply safe manual resolution,
    - ship fix and verify.
-7. Record every manual action in `admin_logs` and incident notes.
+9. Record every manual action in `admin_logs` and incident notes.
 
 ---
 
