@@ -81,8 +81,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Smoke E2E (Role Journeys)
-        run: npm run test:e2e -- e2e/smoke-role-journeys.spec.ts
+      - name: Smoke E2E (Role + Complaint Chat Journeys)
+        run: >-
+          npm run test:e2e --
+          e2e/smoke-role-journeys.spec.ts
+          e2e/complaint-chat-journey.spec.ts
 
       - name: Upload Playwright output
         if: always()
