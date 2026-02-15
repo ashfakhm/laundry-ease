@@ -278,6 +278,11 @@ Stable:
 - Real-time client-side form validation (email, password matching)
 - CSP telemetry pipeline (`Content-Security-Policy-Report-Only` + `/api/security/csp-report`)
 - E2E diagnostics hardening (`scripts/run-playwright.mjs`) to sanitize color-env conflicts and keep Playwright output readable
+- CI-safe OTP delivery initialization (Twilio client now lazy-initialized on SMS path)
+- GitHub workflow hardening:
+  - `Quality Gates` for lint/test/build/smoke E2E
+  - `Real Gateway Smoke` for scheduled/manual live Razorpay connectivity checks (when secrets are configured)
+  - `Governance Audit` for branch-protection required-check drift detection (when admin token is configured)
 
 Quality snapshot (2026-02-15):
 
@@ -288,7 +293,8 @@ Quality snapshot (2026-02-15):
 Remaining hardening opportunities:
 
 - Alerting/monitoring for index creation failures caused by pre-existing duplicate historical data
-- Staging smoke coverage for live gateway behavior (CI intentionally runs deterministic fake-payments mode)
+- Connect `Real Gateway Smoke` workflow secrets in GitHub (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`) where still missing
+- Connect `Governance Audit` workflow admin token (`BRANCH_ADMIN_TOKEN`) where still missing
 - Archival policy for old webhook payloads to control long-term storage growth
 - Password-recovery anti-abuse hardening (rate-limit/captcha strategy)
 - Promote CSP from report-only to enforce mode after violation cleanup
@@ -460,6 +466,7 @@ laundry-ease/
 │
 ├── e2e/                      # End-to-end tests (Playwright)
 ├── scripts/
+│   ├── audit-branch-protection.mjs # GitHub branch-protection required-check auditor
 │   └── run-playwright.mjs    # E2E wrapper that sanitizes env for clean Playwright logs
 │
 ├── lib/                      # Core business logic & utilities
