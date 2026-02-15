@@ -1,5 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
+if (process.env.FORCE_COLOR && process.env.NO_COLOR) {
+  delete process.env.NO_COLOR;
+}
+
 const e2ePort = Number(process.env.E2E_PORT || 3405);
 const baseURL = process.env.E2E_BASE_URL || `http://127.0.0.1:${e2ePort}`;
 const useExternalBaseUrl = Boolean(process.env.E2E_BASE_URL);
