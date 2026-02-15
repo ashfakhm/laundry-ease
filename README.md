@@ -288,18 +288,22 @@ Stable:
   - payout failure spikes
   - overdue accepted/in-review complaints
 - Admin dashboard system badge now reflects live open critical/high operational or integrity alerts from `system_alerts`
+- Admin operational analytics panel now shows:
+  - 7-day opened vs resolved alert trend
+  - alert burn-rate (last 24h vs 7-day baseline)
+  - MTTR (mean time to resolve) for recent alerts
 
 Quality snapshot (2026-02-15):
 
-- `26` test files, `121` tests passing
+- `27` test files, `124` tests passing
 - `3` Playwright E2E specs, `7` critical role/complaint/settlement journeys passing
 - `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e` all passing on `Mainv2`
 
 Remaining hardening opportunities:
 
-- Dashboard visualizations for historical alert trends and SLO burn-rate (alerts are now automated)
 - Connect `Real Gateway Smoke` workflow secrets in GitHub (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`) where still missing
 - Connect `Governance Audit` workflow admin token (`BRANCH_ADMIN_TOKEN`) where still missing
+- Automated alert notifications/escalation channel wiring (Slack/email/PagerDuty)
 - Archival policy for old webhook payloads to control long-term storage growth
 - Password-recovery anti-abuse hardening (rate-limit/captcha strategy)
 - Promote CSP from report-only to enforce mode after violation cleanup
