@@ -102,4 +102,25 @@ describe("buildAlertDeliveryPlan", () => {
 
     expect(plan.escalateIds).toEqual(["critical_due", "high_due"]);
   });
+
+  it("skips notify/escalation for acknowledged alerts", () => {
+    const plan = buildAlertDeliveryPlan(
+      [
+        {
+          _id: "acknowledged",
+          key: "a",
+          message: "m",
+          severity: "critical",
+          status: "open",
+          firstSeenAt: "2026-02-15T09:00:00.000Z",
+          acknowledgedAt: "2026-02-15T09:10:00.000Z",
+        },
+      ],
+      now,
+      config,
+    );
+
+    expect(plan.notifyIds).toEqual([]);
+    expect(plan.escalateIds).toEqual([]);
+  });
 });

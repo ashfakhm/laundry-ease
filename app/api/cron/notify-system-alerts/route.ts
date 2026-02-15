@@ -26,6 +26,9 @@ type SystemAlertDocument = {
     lastEscalatedAt?: Date;
     escalatedCount?: number;
   };
+  ownership?: {
+    acknowledgedAt?: Date;
+  };
 };
 
 function toIso(value?: Date): string {
@@ -80,6 +83,7 @@ export async function GET(req: NextRequest) {
             firstSeenAt: 1,
             lastSeenAt: 1,
             notification: 1,
+            "ownership.acknowledgedAt": 1,
           },
         },
       )
@@ -94,6 +98,7 @@ export async function GET(req: NextRequest) {
         status: alert.status,
         firstSeenAt: alert.firstSeenAt,
         lastSeenAt: alert.lastSeenAt,
+        acknowledgedAt: alert.ownership?.acknowledgedAt,
         notification: alert.notification,
       })),
       now,

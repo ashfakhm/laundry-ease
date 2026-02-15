@@ -343,6 +343,13 @@ export const adminComplaintAccessSchema = z.object({
   granted: z.boolean(),
 });
 
+export const adminSystemAlertAcknowledgeSchema = z.object({
+  note: z.string().min(3).max(500).optional(),
+  owner: z
+    .enum(["platform_admin_oncall", "backend_oncall", "tech_lead"])
+    .optional(),
+});
+
 export const adminRefundSchema = z
   .object({
     paymentId: z.string().min(1),

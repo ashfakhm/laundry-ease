@@ -17,6 +17,7 @@ export type SystemAlertInput = {
   status: "open" | "resolved";
   firstSeenAt?: DateLike;
   lastSeenAt?: DateLike;
+  acknowledgedAt?: DateLike;
   notification?: {
     lastNotifiedAt?: DateLike;
     lastEscalatedAt?: DateLike;
@@ -91,6 +92,7 @@ export function buildAlertDeliveryPlan(
   for (const alert of alerts) {
     if (alert.status !== "open") continue;
     if (alert.severity !== "critical" && alert.severity !== "high") continue;
+    if (toDate(alert.acknowledgedAt)) continue;
 
     const lastNotifiedAgoMs = elapsedMs(alert.notification?.lastNotifiedAt, now);
     if (lastNotifiedAgoMs >= config.dedupeMs) {

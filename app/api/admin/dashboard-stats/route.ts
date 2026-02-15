@@ -18,6 +18,19 @@ type ActiveComplaintPreview = {
   providerName: string;
 };
 
+type SystemAlertPreview = {
+  _id: string;
+  key: string;
+  message: string;
+  severity: "critical" | "high";
+  status: "open" | "resolved";
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+  acknowledgedAt: string | null;
+  owner: string | null;
+  acknowledgedByEmail: string | null;
+};
+
 function toObjectId(value: unknown): ObjectId | null {
   if (value instanceof ObjectId) return value;
   if (typeof value === "string" && ObjectId.isValid(value)) {
@@ -36,7 +49,12 @@ export async function GET() {
     const { db } = await getDb();
 
     // 0. Count open operational/integrity alerts by severity
-    const [criticalSystemAlerts, highSystemAlerts] = await Promise.all([
+    const [
+      criticalSystemAlerts,
+      highSystemAlerts,
+      unacknowledgedCriticalSystemAlerts,
+      unacknowledgedHighSystemAlerts,
+    ] = await Promise.all([
       db.collection("system_alerts").countDocuments({
         status: "open",
         severity: "critical",
@@ -44,6 +62,22 @@ export async function GET() {
       db.collection("system_alerts").countDocuments({
         status: "open",
         severity: "high",
+      }),
+      db.collection("system_alerts").countDocuments({
+        status: "open",
+        severity: "critical",
+        $or: [
+          { "ownership.acknowledgedAt": { $exists: false } },
+          { "ownership.acknowledgedAt": null },
+        ],
+      }),
+      db.collection("system_alerts").countDocuments({
+        status: "open",
+        severity: "high",
+        $or: [
+          { "ownership.acknowledgedAt": { $exists: false } },
+          { "ownership.acknowledgedAt": null },
+        ],
       }),
     ]);
 
@@ -77,6 +111,58 @@ export async function GET() {
         resolvedAt: row.resolvedAt,
       })),
       now,
+    );
+
+    const recentSystemAlertRows = await db
+      .collection("system_alerts")
+      .find(
+        {
+          status: "open",
+          severity: { $in: ["critical", "high"] },
+        },
+        {
+          projection: {
+            _id: 1,
+            key: 1,
+            message: 1,
+            severity: 1,
+            status: 1,
+            firstSeenAt: 1,
+            lastSeenAt: 1,
+            "ownership.acknowledgedAt": 1,
+            "ownership.owner": 1,
+            "ownership.acknowledgedByEmail": 1,
+          },
+        },
+      )
+      .sort({ firstSeenAt: -1, createdAt: -1 })
+      .limit(5)
+      .toArray();
+
+    const recentSystemAlerts: SystemAlertPreview[] = recentSystemAlertRows.map(
+      (row) => ({
+        _id: row._id.toString(),
+        key: typeof row.key === "string" ? row.key : "system_alert",
+        message:
+          typeof row.message === "string" && row.message.trim().length > 0
+            ? row.message.trim()
+            : "System alert",
+        severity: row.severity === "critical" ? "critical" : "high",
+        status: row.status === "resolved" ? "resolved" : "open",
+        firstSeenAt: row.firstSeenAt
+          ? new Date(row.firstSeenAt).toISOString()
+          : null,
+        lastSeenAt: row.lastSeenAt ? new Date(row.lastSeenAt).toISOString() : null,
+        acknowledgedAt: row.ownership?.acknowledgedAt
+          ? new Date(row.ownership.acknowledgedAt).toISOString()
+          : null,
+        owner:
+          typeof row.ownership?.owner === "string" ? row.ownership.owner : null,
+        acknowledgedByEmail:
+          typeof row.ownership?.acknowledgedByEmail === "string"
+            ? row.ownership.acknowledgedByEmail
+            : null,
+      }),
     );
 
     // 1. Count open complaints
@@ -244,7 +330,12 @@ export async function GET() {
       criticalSystemAlerts,
       highSystemAlerts,
       systemAlertCount: criticalSystemAlerts + highSystemAlerts,
+      unacknowledgedCriticalSystemAlerts,
+      unacknowledgedHighSystemAlerts,
+      unacknowledgedSystemAlertCount:
+        unacknowledgedCriticalSystemAlerts + unacknowledgedHighSystemAlerts,
       operationalHealth,
+      recentSystemAlerts,
       openComplaints,
       activeComplaints,
       escrowBalance,

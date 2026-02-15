@@ -33,7 +33,10 @@ import { GET } from "./route";
 function makeDbMock() {
   const systemAlertCountDocuments = vi.fn();
   const systemAlertFind = vi.fn();
-  const systemAlertToArray = vi.fn();
+  const systemAlertAnalyticsToArray = vi.fn();
+  const systemAlertSort = vi.fn();
+  const systemAlertLimit = vi.fn();
+  const systemAlertPreviewToArray = vi.fn();
   const complaintCountDocuments = vi.fn();
   const complaintFind = vi.fn();
   const complaintSort = vi.fn();
@@ -111,7 +114,10 @@ function makeDbMock() {
     db,
     systemAlertCountDocuments,
     systemAlertFind,
-    systemAlertToArray,
+    systemAlertAnalyticsToArray,
+    systemAlertSort,
+    systemAlertLimit,
+    systemAlertPreviewToArray,
     complaintCountDocuments,
     complaintFind,
     complaintSort,
@@ -178,12 +184,24 @@ describe("GET /api/admin/dashboard-stats", () => {
 
     dbMock.systemAlertCountDocuments
       .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(2);
-    dbMock.systemAlertFind.mockReturnValue({
-      toArray: dbMock.systemAlertToArray,
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1);
+    dbMock.systemAlertFind
+      .mockReturnValueOnce({
+        toArray: dbMock.systemAlertAnalyticsToArray,
+      })
+      .mockReturnValueOnce({
+        sort: dbMock.systemAlertSort,
+      });
+    dbMock.systemAlertSort.mockReturnValue({
+      limit: dbMock.systemAlertLimit,
+    });
+    dbMock.systemAlertLimit.mockReturnValue({
+      toArray: dbMock.systemAlertPreviewToArray,
     });
     const now = Date.now();
-    dbMock.systemAlertToArray.mockResolvedValue([
+    dbMock.systemAlertAnalyticsToArray.mockResolvedValue([
       {
         createdAt: new Date(now - 2 * 60 * 60 * 1000),
       },
@@ -194,6 +212,31 @@ describe("GET /api/admin/dashboard-stats", () => {
       {
         createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
         resolvedAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
+      },
+    ]);
+    dbMock.systemAlertPreviewToArray.mockResolvedValue([
+      {
+        _id: new ObjectId(),
+        key: "overdue_held_orders",
+        message: "Held orders overdue",
+        severity: "critical",
+        status: "open",
+        firstSeenAt: new Date(now - 60 * 60 * 1000),
+        lastSeenAt: new Date(now - 10 * 60 * 1000),
+      },
+      {
+        _id: new ObjectId(),
+        key: "payout_failures_spike",
+        message: "Payout failures rising",
+        severity: "high",
+        status: "open",
+        firstSeenAt: new Date(now - 3 * 60 * 60 * 1000),
+        lastSeenAt: new Date(now - 5 * 60 * 1000),
+        ownership: {
+          acknowledgedAt: new Date(now - 30 * 60 * 1000),
+          owner: "backend_oncall",
+          acknowledgedByEmail: "admin@test.com",
+        },
       },
     ]);
     dbMock.complaintCountDocuments
@@ -249,6 +292,18 @@ describe("GET /api/admin/dashboard-stats", () => {
     expect(data.criticalSystemAlerts).toBe(1);
     expect(data.highSystemAlerts).toBe(2);
     expect(data.systemAlertCount).toBe(3);
+    expect(data.unacknowledgedCriticalSystemAlerts).toBe(1);
+    expect(data.unacknowledgedHighSystemAlerts).toBe(1);
+    expect(data.unacknowledgedSystemAlertCount).toBe(2);
+    expect(data.recentSystemAlerts).toHaveLength(2);
+    expect(data.recentSystemAlerts[1]).toEqual(
+      expect.objectContaining({
+        key: "payout_failures_spike",
+        severity: "high",
+        owner: "backend_oncall",
+        acknowledgedByEmail: "admin@test.com",
+      }),
+    );
     expect(data.operationalHealth).toEqual(
       expect.objectContaining({
         trend7d: expect.any(Array),
@@ -301,6 +356,22 @@ describe("GET /api/admin/dashboard-stats", () => {
       status: "open",
       severity: "high",
     });
+    expect(dbMock.systemAlertCountDocuments).toHaveBeenNthCalledWith(3, {
+      status: "open",
+      severity: "critical",
+      $or: [
+        { "ownership.acknowledgedAt": { $exists: false } },
+        { "ownership.acknowledgedAt": null },
+      ],
+    });
+    expect(dbMock.systemAlertCountDocuments).toHaveBeenNthCalledWith(4, {
+      status: "open",
+      severity: "high",
+      $or: [
+        { "ownership.acknowledgedAt": { $exists: false } },
+        { "ownership.acknowledgedAt": null },
+      ],
+    });
     expect(dbMock.systemAlertFind).toHaveBeenCalledWith(
       expect.objectContaining({
         severity: { $in: ["critical", "high"] },
@@ -312,6 +383,27 @@ describe("GET /api/admin/dashboard-stats", () => {
         }),
       }),
     );
+    expect(dbMock.systemAlertFind).toHaveBeenNthCalledWith(
+      2,
+      {
+        status: "open",
+        severity: { $in: ["critical", "high"] },
+      },
+      expect.objectContaining({
+        projection: expect.objectContaining({
+          key: 1,
+          message: 1,
+          severity: 1,
+          status: 1,
+          "ownership.acknowledgedAt": 1,
+        }),
+      }),
+    );
+    expect(dbMock.systemAlertSort).toHaveBeenCalledWith({
+      firstSeenAt: -1,
+      createdAt: -1,
+    });
+    expect(dbMock.systemAlertLimit).toHaveBeenCalledWith(5);
     expect(dbMock.complaintFind).toHaveBeenCalledWith(
       { status: { $in: ["open", "accepted", "in_review"] } },
       expect.objectContaining({

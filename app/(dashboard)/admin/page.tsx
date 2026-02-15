@@ -13,6 +13,19 @@ interface ActiveComplaintPreview {
   providerName: string;
 }
 
+interface SystemAlertPreview {
+  _id: string;
+  key: string;
+  message: string;
+  severity: "critical" | "high";
+  status: "open" | "resolved";
+  firstSeenAt: string | null;
+  lastSeenAt: string | null;
+  acknowledgedAt: string | null;
+  owner: string | null;
+  acknowledgedByEmail: string | null;
+}
+
 interface AdminStats {
   operationalHealth: {
     trend7d: Array<{
@@ -31,6 +44,9 @@ interface AdminStats {
   criticalSystemAlerts: number;
   highSystemAlerts: number;
   systemAlertCount: number;
+  unacknowledgedCriticalSystemAlerts: number;
+  unacknowledgedHighSystemAlerts: number;
+  unacknowledgedSystemAlertCount: number;
   activeComplaints: number;
   openComplaints: number;
   escrowBalance: number;
@@ -40,6 +56,7 @@ interface AdminStats {
   totalOrders: number;
   totalRevenue: number;
   recentActiveComplaints: ActiveComplaintPreview[];
+  recentSystemAlerts: SystemAlertPreview[];
 }
 
 function getComplaintStatusLabel(status: string) {
@@ -75,44 +92,92 @@ function getBurnRateTone(tier: "stable" | "watch" | "high" | "critical") {
   return "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20";
 }
 
+function getAlertSeverityTone(severity: "critical" | "high") {
+  if (severity === "critical") {
+    return "bg-red-500/10 text-red-700 border border-red-500/20";
+  }
+  return "bg-amber-500/10 text-amber-700 border border-amber-500/20";
+}
+
+function formatOwnerLabel(owner: string | null) {
+  if (!owner) return "Unassigned";
+  if (owner === "platform_admin_oncall") return "Platform Admin On-Call";
+  if (owner === "backend_oncall") return "Backend On-Call";
+  if (owner === "tech_lead") return "Tech Lead";
+  return owner;
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [ackInFlight, setAckInFlight] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const response = await fetch("/api/admin/dashboard-stats", {
-          cache: "no-store",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-          setLoadError(null);
-        } else {
-          setStats(null);
-          setLoadError("Unable to load live admin metrics.");
-        }
-      } catch (error) {
-        console.error("Failed to fetch admin stats:", error);
+  async function fetchStats(showLoader = false) {
+    if (showLoader) {
+      setLoading(true);
+    }
+
+    try {
+      const response = await fetch("/api/admin/dashboard-stats", {
+        cache: "no-store",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+        setLoadError(null);
+      } else {
         setStats(null);
         setLoadError("Unable to load live admin metrics.");
-      } finally {
+      }
+    } catch (error) {
+      console.error("Failed to fetch admin stats:", error);
+      setStats(null);
+      setLoadError("Unable to load live admin metrics.");
+    } finally {
+      if (showLoader) {
         setLoading(false);
       }
     }
+  }
 
-    fetchStats();
+  async function acknowledgeAlert(alertId: string) {
+    setAckInFlight(alertId);
+    try {
+      const response = await fetch(`/api/admin/system-alerts/${alertId}/acknowledge`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || "Failed to acknowledge alert");
+      }
+
+      await fetchStats(false);
+    } catch (error) {
+      console.error("Failed to acknowledge system alert:", error);
+    } finally {
+      setAckInFlight(null);
+    }
+  }
+
+  useEffect(() => {
+    fetchStats(true);
   }, []);
 
   const activeComplaints = stats?.activeComplaints ?? 0;
   const criticalSystemAlerts = stats?.criticalSystemAlerts ?? 0;
   const highSystemAlerts = stats?.highSystemAlerts ?? 0;
   const systemAlertCount = stats?.systemAlertCount ?? 0;
+  const unacknowledgedSystemAlertCount = stats?.unacknowledgedSystemAlertCount ?? 0;
   const totalProviders = stats?.totalProviders ?? 0;
   const utilizationPct = stats?.providerUtilizationPct ?? 0;
   const recentActiveComplaints = stats?.recentActiveComplaints ?? [];
+  const recentSystemAlerts = stats?.recentSystemAlerts ?? [];
   const hasCriticalAlerts = criticalSystemAlerts > 0;
   const hasHighAlerts = highSystemAlerts > 0;
   const operationalHealth = stats?.operationalHealth;
@@ -359,6 +424,90 @@ export default function AdminDashboardPage() {
               })}
             </div>
           </div>
+        </section>
+
+        <section className="rounded-3xl border bg-card/50 p-8 shadow-sm backdrop-blur-md flex flex-col gap-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">
+                Incident Ownership
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Acknowledge and assign open critical/high alerts.
+              </p>
+            </div>
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+                unacknowledgedSystemAlertCount > 0
+                  ? "bg-red-500/10 text-red-700 ring-red-500/20"
+                  : "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20"
+              }`}
+            >
+              {unacknowledgedSystemAlertCount} Unacknowledged
+            </span>
+          </div>
+
+          {recentSystemAlerts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/50 bg-muted/20 p-6 text-sm text-muted-foreground">
+              No open critical/high system alerts.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {recentSystemAlerts.map((alert) => (
+                <div
+                  key={alert._id}
+                  className="rounded-2xl border border-border/60 bg-background/60 p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${getAlertSeverityTone(
+                            alert.severity,
+                          )}`}
+                        >
+                          {alert.severity.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {alert.key}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-foreground">
+                        {alert.message}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        First seen:{" "}
+                        {alert.firstSeenAt
+                          ? new Date(alert.firstSeenAt).toLocaleString()
+                          : "Unknown"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Owner: {formatOwnerLabel(alert.owner)}
+                        {alert.acknowledgedByEmail
+                          ? ` • Ack by ${alert.acknowledgedByEmail}`
+                          : ""}
+                      </p>
+                    </div>
+                    {alert.acknowledgedAt ? (
+                      <span className="inline-flex h-fit items-center rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/20">
+                        Acknowledged{" "}
+                        {new Date(alert.acknowledgedAt).toLocaleTimeString()}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => acknowledgeAlert(alert._id)}
+                        disabled={ackInFlight === alert._id}
+                        className="inline-flex h-fit items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
+                      >
+                        {ackInFlight === alert._id ? "Acknowledging..." : "Acknowledge"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="grid gap-8 lg:grid-cols-3">
