@@ -5,6 +5,7 @@ import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { ObjectId } from "mongodb";
+import { buildAlertAnalytics } from "@/lib/ops/alerts-analytics";
 
 const ACTIVE_COMPLAINT_STATUSES = ["open", "accepted", "in_review"] as const;
 
@@ -45,6 +46,38 @@ export async function GET() {
         severity: "high",
       }),
     ]);
+
+    const now = new Date();
+    const analyticsWindowStart = new Date(
+      now.getTime() - 8 * 24 * 60 * 60 * 1000,
+    );
+
+    const alertAnalyticsRows = await db
+      .collection("system_alerts")
+      .find(
+        {
+          severity: { $in: ["critical", "high"] },
+          $or: [
+            { createdAt: { $gte: analyticsWindowStart } },
+            { resolvedAt: { $gte: analyticsWindowStart } },
+          ],
+        },
+        {
+          projection: {
+            createdAt: 1,
+            resolvedAt: 1,
+          },
+        },
+      )
+      .toArray();
+
+    const operationalHealth = buildAlertAnalytics(
+      alertAnalyticsRows.map((row) => ({
+        createdAt: row.createdAt,
+        resolvedAt: row.resolvedAt,
+      })),
+      now,
+    );
 
     // 1. Count open complaints
     const openComplaints = await db.collection("complaints").countDocuments({
@@ -211,6 +244,7 @@ export async function GET() {
       criticalSystemAlerts,
       highSystemAlerts,
       systemAlertCount: criticalSystemAlerts + highSystemAlerts,
+      operationalHealth,
       openComplaints,
       activeComplaints,
       escrowBalance,

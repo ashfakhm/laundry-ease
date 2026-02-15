@@ -14,6 +14,20 @@ interface ActiveComplaintPreview {
 }
 
 interface AdminStats {
+  operationalHealth: {
+    trend7d: Array<{
+      date: string;
+      opened: number;
+      resolved: number;
+    }>;
+    openedLast24h: number;
+    openedBaseline7d: number;
+    baselineOpenedDailyAvg: number;
+    burnRate: number;
+    burnRateTier: "stable" | "watch" | "high" | "critical";
+    mttrHours7d: number | null;
+    resolvedCount7d: number;
+  };
   criticalSystemAlerts: number;
   highSystemAlerts: number;
   systemAlertCount: number;
@@ -46,6 +60,19 @@ function getComplaintStatusTone(status: string) {
     return "bg-amber-500/10 text-amber-600 border border-amber-500/20";
   }
   return "bg-muted text-muted-foreground border border-border";
+}
+
+function getBurnRateTone(tier: "stable" | "watch" | "high" | "critical") {
+  if (tier === "critical") {
+    return "bg-red-500/10 text-red-700 ring-red-500/20";
+  }
+  if (tier === "high") {
+    return "bg-amber-500/10 text-amber-700 ring-amber-500/20";
+  }
+  if (tier === "watch") {
+    return "bg-blue-500/10 text-blue-700 ring-blue-500/20";
+  }
+  return "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20";
 }
 
 export default function AdminDashboardPage() {
@@ -88,6 +115,12 @@ export default function AdminDashboardPage() {
   const recentActiveComplaints = stats?.recentActiveComplaints ?? [];
   const hasCriticalAlerts = criticalSystemAlerts > 0;
   const hasHighAlerts = highSystemAlerts > 0;
+  const operationalHealth = stats?.operationalHealth;
+  const trend7d = operationalHealth?.trend7d ?? [];
+  const trendMax = Math.max(
+    1,
+    ...trend7d.map((point) => Math.max(point.opened, point.resolved)),
+  );
 
   if (loading) {
     return (
@@ -217,6 +250,117 @@ export default function AdminDashboardPage() {
         </section>
 
         {/* Main Content Areas */}
+        <section className="rounded-3xl border bg-card/50 p-8 shadow-sm backdrop-blur-md flex flex-col gap-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">
+                Operational Health
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                7-day alert trend, burn-rate, and recovery speed.
+              </p>
+            </div>
+            <div
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${getBurnRateTone(
+                operationalHealth?.burnRateTier ?? "stable",
+              )}`}
+            >
+              Burn Rate {(operationalHealth?.burnRate ?? 0).toFixed(2)}x (
+              {(operationalHealth?.burnRateTier ?? "stable").toUpperCase()})
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-border/60 bg-background/50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Alerts Opened (24h)
+              </p>
+              <p className="mt-2 text-2xl font-bold text-foreground">
+                {operationalHealth?.openedLast24h ?? 0}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Baseline avg/day:{" "}
+                {(operationalHealth?.baselineOpenedDailyAvg ?? 0).toFixed(2)}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-background/50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                MTTR (7d)
+              </p>
+              <p className="mt-2 text-2xl font-bold text-foreground">
+                {operationalHealth?.mttrHours7d !== null &&
+                operationalHealth?.mttrHours7d !== undefined
+                  ? `${operationalHealth.mttrHours7d.toFixed(1)}h`
+                  : "N/A"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {operationalHealth?.resolvedCount7d ?? 0} alerts resolved
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-background/50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Open Alerts Now
+              </p>
+              <p className="mt-2 text-2xl font-bold text-foreground">
+                {systemAlertCount}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {criticalSystemAlerts} critical, {highSystemAlerts} high
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/60 bg-background/50 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Alert Trend (7d)
+              </p>
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-sm bg-red-500/80"></span>
+                  Opened
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-sm bg-emerald-500/80"></span>
+                  Resolved
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-2">
+              {trend7d.map((point) => {
+                const openedHeight =
+                  point.opened === 0
+                    ? 0
+                    : Math.max(6, Math.round((point.opened / trendMax) * 80));
+                const resolvedHeight =
+                  point.resolved === 0
+                    ? 0
+                    : Math.max(6, Math.round((point.resolved / trendMax) * 80));
+                return (
+                  <div key={point.date} className="space-y-1 text-center">
+                    <div className="flex h-24 items-end justify-center gap-1 rounded-lg border border-border/40 bg-muted/20 px-1 py-2">
+                      <span
+                        className="w-2 rounded-sm bg-red-500/80"
+                        style={{ height: `${openedHeight}px` }}
+                        title={`${point.date}: ${point.opened} opened`}
+                      />
+                      <span
+                        className="w-2 rounded-sm bg-emerald-500/80"
+                        style={{ height: `${resolvedHeight}px` }}
+                        title={`${point.date}: ${point.resolved} resolved`}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {point.date.slice(5)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
         <section className="grid gap-8 lg:grid-cols-3">
           {/* Revenue Panel */}
           <div className="lg:col-span-2 rounded-3xl border bg-card/50 p-8 shadow-sm backdrop-blur-md flex flex-col gap-6">

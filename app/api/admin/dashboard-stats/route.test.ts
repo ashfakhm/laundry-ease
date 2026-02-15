@@ -32,6 +32,8 @@ import { GET } from "./route";
 
 function makeDbMock() {
   const systemAlertCountDocuments = vi.fn();
+  const systemAlertFind = vi.fn();
+  const systemAlertToArray = vi.fn();
   const complaintCountDocuments = vi.fn();
   const complaintFind = vi.fn();
   const complaintSort = vi.fn();
@@ -80,6 +82,7 @@ function makeDbMock() {
       if (name === "system_alerts") {
         return {
           countDocuments: systemAlertCountDocuments,
+          find: systemAlertFind,
         };
       }
       if (name === "orders") {
@@ -107,6 +110,8 @@ function makeDbMock() {
   return {
     db,
     systemAlertCountDocuments,
+    systemAlertFind,
+    systemAlertToArray,
     complaintCountDocuments,
     complaintFind,
     complaintSort,
@@ -174,6 +179,23 @@ describe("GET /api/admin/dashboard-stats", () => {
     dbMock.systemAlertCountDocuments
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(2);
+    dbMock.systemAlertFind.mockReturnValue({
+      toArray: dbMock.systemAlertToArray,
+    });
+    const now = Date.now();
+    dbMock.systemAlertToArray.mockResolvedValue([
+      {
+        createdAt: new Date(now - 2 * 60 * 60 * 1000),
+      },
+      {
+        createdAt: new Date(now - 26 * 60 * 60 * 1000),
+        resolvedAt: new Date(now - 20 * 60 * 60 * 1000),
+      },
+      {
+        createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
+        resolvedAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
+      },
+    ]);
     dbMock.complaintCountDocuments
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(3);
@@ -227,6 +249,15 @@ describe("GET /api/admin/dashboard-stats", () => {
     expect(data.criticalSystemAlerts).toBe(1);
     expect(data.highSystemAlerts).toBe(2);
     expect(data.systemAlertCount).toBe(3);
+    expect(data.operationalHealth).toEqual(
+      expect.objectContaining({
+        trend7d: expect.any(Array),
+        burnRate: expect.any(Number),
+        burnRateTier: expect.any(String),
+        mttrHours7d: expect.any(Number),
+      }),
+    );
+    expect(data.operationalHealth.trend7d).toHaveLength(7);
     expect(data.openComplaints).toBe(2);
     expect(data.activeComplaints).toBe(3);
     expect(data.escrowBalance).toBe(768);
@@ -270,6 +301,17 @@ describe("GET /api/admin/dashboard-stats", () => {
       status: "open",
       severity: "high",
     });
+    expect(dbMock.systemAlertFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        severity: { $in: ["critical", "high"] },
+      }),
+      expect.objectContaining({
+        projection: expect.objectContaining({
+          createdAt: 1,
+          resolvedAt: 1,
+        }),
+      }),
+    );
     expect(dbMock.complaintFind).toHaveBeenCalledWith(
       { status: { $in: ["open", "accepted", "in_review"] } },
       expect.objectContaining({
