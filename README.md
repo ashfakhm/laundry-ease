@@ -299,6 +299,10 @@ Stable:
   - critical alerts: 15-minute acknowledgement SLA
   - high alerts: 60-minute acknowledgement SLA
   - dashboard surfaces SLA-breached unacknowledged alert counts
+- Automatic owner reassignment/team routing:
+  - SLA-breached unassigned `critical` alerts route to `backend_oncall`
+  - SLA-breached unassigned `high` alerts route to `platform_admin_oncall`
+  - persistent breaches auto-escalate owner to `tech_lead`
 - Admin dashboard system badge now reflects live open critical/high operational or integrity alerts from `system_alerts`
 - Admin operational analytics panel now shows:
   - 7-day opened vs resolved alert trend
@@ -308,7 +312,7 @@ Stable:
 
 Quality snapshot (2026-02-15):
 
-- `30` test files, `137` tests passing
+- `31` test files, `140` tests passing
 - `3` Playwright E2E specs, `7` critical role/complaint/settlement journeys passing
 - `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e` all passing on `Mainv2`
 
@@ -317,7 +321,7 @@ Remaining hardening opportunities:
 - Connect `Real Gateway Smoke` workflow secrets in GitHub (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`) where still missing
 - Connect `Governance Audit` workflow admin token (`BRANCH_ADMIN_TOKEN`) where still missing
 - Archival policy for old webhook payloads to control long-term storage growth
-- Automatic owner reassignment and team-routing on acknowledgement SLA breach
+- Per-owner workload balancing/rotation policy for routed alerts
 - Password-recovery anti-abuse hardening (rate-limit/captcha strategy)
 - Promote CSP from report-only to enforce mode after violation cleanup
 - Complaint window extension requests

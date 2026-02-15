@@ -60,6 +60,9 @@ This runbook defines how to detect, triage, and resolve production incidents for
 - `critical` alerts should be acknowledged within 15 minutes
 - `high` alerts should be acknowledged within 60 minutes
 - dashboard and `/api/admin/dashboard-stats` expose SLA-breached unacknowledged counts
+- routing automation in `/api/cron/notify-system-alerts`:
+  - initial breach routes owner by severity (`backend_oncall` for `critical`, `platform_admin_oncall` for `high`)
+  - persistent breaches auto-escalate owner to `tech_lead`
 
 ### Integration alerts
 
