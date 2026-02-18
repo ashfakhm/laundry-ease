@@ -39,9 +39,7 @@ export async function GET(req: Request) {
     });
   } catch (error: unknown) {
     await completeCronRun(run.insertedId, "error", undefined, error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("CRON", "Cron payout error", error);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

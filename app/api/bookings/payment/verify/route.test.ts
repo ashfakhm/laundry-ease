@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { NextRequest } from "next/server";
 
 const { mockVerifyBookingFeePayment } = vi.hoisted(() => ({
   mockVerifyBookingFeePayment: vi.fn(),
@@ -12,7 +13,7 @@ import { POST } from "./route";
 
 const BOOKING_ID = "507f1f77bcf86cd799439072";
 
-function makeRequest(body: unknown) {
+function makeRequest(body: unknown): NextRequest {
   return new Request("https://laundryease.test/api/bookings/payment/verify", {
     method: "POST",
     headers: {
@@ -20,7 +21,7 @@ function makeRequest(body: unknown) {
       origin: "https://laundryease.test",
     },
     body: JSON.stringify(body),
-  });
+  }) as unknown as NextRequest;
 }
 
 describe("POST /api/bookings/payment/verify (legacy alias)", () => {

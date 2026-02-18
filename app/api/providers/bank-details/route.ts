@@ -81,9 +81,7 @@ export async function POST(req: NextRequest) {
       message: "Bank details saved and linked to Razorpay",
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("PROVIDER", "Error saving bank details", error);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save bank details" }, { status: 500 });
   }
 }

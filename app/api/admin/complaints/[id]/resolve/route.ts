@@ -333,6 +333,9 @@ export async function POST(
 
       const details =
         finError instanceof Error ? finError.message : "Unknown financial error";
+      const safeDetails = !payoutApplied && !refundApplied
+        ? "Financial action failed during complaint resolution"
+        : "Partial financial action completed; manual follow-up required";
 
       logger.error("ADMIN_COMPLAINTS", "Financial action failed", finError, {
         complaintId: id,
@@ -359,7 +362,7 @@ export async function POST(
             !payoutApplied && !refundApplied
               ? "Financial Action Failed"
               : "Financial Action Partially Applied",
-          details,
+          details: safeDetails,
           payoutApplied,
           refundApplied,
         },

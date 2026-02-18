@@ -20,7 +20,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id && !session?.user?.email) {
+    if (!session?.user?.id || !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -71,7 +71,7 @@ export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user?.id && !session?.user?.email) {
+    if (!session?.user?.id || !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

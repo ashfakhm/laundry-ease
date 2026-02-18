@@ -111,17 +111,13 @@ export async function PATCH(
           );
           // Proceed with acceptance
         } catch (err: unknown) {
-          const errorMessage =
-            err instanceof Error
-              ? err.message
-              : "Invalid Bank Details/API Keys";
           logger.error("BOOKINGS", "Auto-sync Razorpay failed", err, {
             bookingId: id,
             providerId: provider._id,
           });
           return NextResponse.json(
             {
-              message: `Payment Setup Failed: ${errorMessage}`,
+              message: "Payment setup failed. Please verify your bank details and try again.",
             },
             { status: 400 },
           );
@@ -185,19 +181,19 @@ export async function PATCH(
         }
         if (error.message.startsWith("CAPACITY_EXCEEDED:")) {
           return NextResponse.json(
-            { message: error.message.replace("CAPACITY_EXCEEDED:", "") },
+            { message: "Provider has reached maximum booking capacity" },
             { status: 400 },
           );
         }
         if (error.message.startsWith("PAYMENT_NOT_SETTLED:")) {
           return NextResponse.json(
-            { message: error.message.replace("PAYMENT_NOT_SETTLED:", "") },
+            { message: "Booking payment has not been settled yet" },
             { status: 409 },
           );
         }
         if (error.message.startsWith("REFUND_IN_PROGRESS:")) {
           return NextResponse.json(
-            { message: error.message.replace("REFUND_IN_PROGRESS:", "") },
+            { message: "A refund is currently being processed for this booking" },
             { status: 409 },
           );
         }

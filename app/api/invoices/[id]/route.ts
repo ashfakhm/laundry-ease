@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { requireProvider } from "@/lib/api/auth";
+import { invoiceCreateSchema } from "@/lib/api/schemas";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/invoices/[id]
@@ -13,24 +14,40 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { user } = await requireProvider();
+
+    const { id } = await params;
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid booking ID" }, { status: 400 });
+    }
+
+    const body = await req.json();
+    const parsed = invoiceCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid invoice data", details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await getDb();
+
+    const invoice = {
+      booking_id: new ObjectId(id),
+      provider_id: user.id,
+      items: parsed.data.items,
+      total: parsed.data.total,
+      notes: parsed.data.notes,
+      createdAt: new Date(),
+    };
+    await db.collection("invoices").insertOne(invoice);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    logger.error("INVOICES", "Error creating invoice", error);
+    return NextResponse.json(
+      { error: "Failed to create invoice" },
+      { status: 500 }
+    );
   }
-
-  const { db } = await getDb();
-  const { items, total, notes } = await req.json();
-  const { id } = await params;
-
-  // Save invoice to DB (can be in 'invoices' collection or embedded in order)
-  const invoice = {
-    booking_id: new ObjectId(id),
-    provider_id: session.user.id,
-    items,
-    total,
-    notes,
-    createdAt: new Date(),
-  };
-  await db.collection("invoices").insertOne(invoice);
-  return NextResponse.json({ ok: true });
 }

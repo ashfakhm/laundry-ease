@@ -76,26 +76,19 @@ export async function POST(req: NextRequest) {
 
     await db.collection<Review>("reviews").insertOne(review);
 
-    // Update Provider Average Rating atomically
-    const reviews = await db
-      .collection<Review>("reviews")
-      .find({ provider_id: new ObjectId(provider_id) })
-      .toArray();
-    const totalRating = reviews.reduce((acc, curr) => acc + curr.rating, 0);
-    const avgRating = totalRating / reviews.length;
-
+    // Update Provider Average Rating atomically using $inc to avoid race conditions
     await db
       .collection<Provider>("providers")
       .updateOne(
         { _id: new ObjectId(provider_id) },
-        { $set: { rating: avgRating, reviewCount: reviews.length } },
+        {
+          $inc: { ratingTotal: ratingNum, reviewCount: 1 },
+        },
       );
 
     return NextResponse.json({ success: true, message: "Review submitted" });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("REVIEWS", "Error creating review", error);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create review" }, { status: 500 });
   }
 }

@@ -127,14 +127,14 @@ export async function GET(req: NextRequest) {
       maxRadiusKm = null;
     }
 
-    // Name search
+    // Name search (escape regex special characters to prevent ReDoS)
     if (name) {
-      filter.name = { $regex: name, $options: "i" };
+      filter.name = { $regex: name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
     }
 
-    // Service search
+    // Service search (escape regex special characters to prevent ReDoS)
     if (service) {
-      filter.services = { $regex: service, $options: "i" };
+      filter.services = { $regex: service.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
     }
 
     // Fetch providers matching filters

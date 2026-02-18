@@ -135,11 +135,9 @@ export async function POST(
       );
     }
 
-    const message =
-      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("ORDERS", "Scheduling error", error, { orderId: id, action });
     return NextResponse.json(
-      { error: message },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

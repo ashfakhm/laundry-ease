@@ -242,10 +242,10 @@ function makeCursor<T extends Record<string, unknown>>(items: T[]) {
     sort(sortSpec: Record<string, 1 | -1>) {
       const [field, direction] = Object.entries(sortSpec)[0];
       const sorted = [...items].sort((a, b) => {
-        const av = a[field];
-        const bv = b[field];
-        const at = av instanceof Date ? av.getTime() : av;
-        const bt = bv instanceof Date ? bv.getTime() : bv;
+        const av: unknown = a[field];
+        const bv: unknown = b[field];
+        const at = av instanceof Date ? av.getTime() : (av as number);
+        const bt = bv instanceof Date ? bv.getTime() : (bv as number);
         if (at === bt) return 0;
         return at > bt ? direction : -direction;
       });

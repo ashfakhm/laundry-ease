@@ -44,9 +44,7 @@ export async function GET(req: NextRequest) {
       throw error;
     }
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Internal Server Error";
     logger.error("CRON", "Process payouts cron error", error);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -5,6 +5,8 @@ const ORIGINAL_CSP_ENFORCE = process.env.CSP_ENFORCE;
 const ORIGINAL_CSP_ALLOW_UNSAFE_EVAL = process.env.CSP_ALLOW_UNSAFE_EVAL;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
+const env = process.env as Record<string, string | undefined>;
+
 afterEach(() => {
   if (ORIGINAL_CSP_ENFORCE === undefined) {
     delete process.env.CSP_ENFORCE;
@@ -19,9 +21,9 @@ afterEach(() => {
   }
 
   if (ORIGINAL_NODE_ENV === undefined) {
-    delete process.env.NODE_ENV;
+    delete env.NODE_ENV;
   } else {
-    process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+    env.NODE_ENV = ORIGINAL_NODE_ENV;
   }
 });
 
@@ -75,7 +77,7 @@ describe("getCspHeader", () => {
 
   it("defaults to enforced CSP in production when not explicitly disabled", () => {
     delete process.env.CSP_ENFORCE;
-    process.env.NODE_ENV = "production";
+    env.NODE_ENV = "production";
 
     const header = getCspHeader();
     expect(header.key).toBe("Content-Security-Policy");
@@ -84,7 +86,7 @@ describe("getCspHeader", () => {
 
   it("keeps report-only header when CSP_ENFORCE=false in production", () => {
     process.env.CSP_ENFORCE = "false";
-    process.env.NODE_ENV = "production";
+    env.NODE_ENV = "production";
 
     const header = getCspHeader();
     expect(header.key).toBe("Content-Security-Policy-Report-Only");

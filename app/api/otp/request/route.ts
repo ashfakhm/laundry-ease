@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
   const result = await requestOtp(target, type);
 
   if (!result.ok) {
-    return NextResponse.json(result, { status: 500 });
+    const isRateLimit = result.error?.includes("Too many") || result.error?.includes("rate");
+    return NextResponse.json(result, { status: isRateLimit ? 429 : 500 });
   }
 
   return NextResponse.json(result);

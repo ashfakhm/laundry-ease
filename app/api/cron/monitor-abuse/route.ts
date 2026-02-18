@@ -95,9 +95,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error: unknown) {
     await completeCronRun(run.insertedId, "error", undefined, error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
     logger.error("CRON", "Abuse monitor error", error);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
