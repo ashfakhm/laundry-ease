@@ -2,8 +2,9 @@ import { getDb } from "@/lib/mongodb";
 import { requireAuth } from "@/lib/api/auth";
 import { Errors } from "@/lib/api/errors";
 import { successResponse, withErrorHandling } from "@/lib/api/response";
-import { ObjectId, type Filter, type Document } from "mongodb";
+import { ObjectId } from "mongodb";
 import { z } from "zod";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const requestRescheduleSchema = z.object({
   reason: z.string().trim().min(1).max(300).optional(),
@@ -12,7 +13,17 @@ const requestRescheduleSchema = z.object({
 // POST /api/bookings/:id/reschedule/request
 // Either seeker or provider can request a reschedule while pickup is still in negotiation/execution.
 export const POST = withErrorHandling(async (req: Request) => {
+  await requireSameOrigin(req);
+  await enforceRateLimit(req, {
+    bucket: "bookings:reschedule:request",
+    max: 20,
+    windowMs: 5 * 60 * 1000,
+  });
+
   const { user } = await requireAuth();
+  if (!ObjectId.isValid(user.id)) {
+    throw Errors.unauthorized();
+  }
 
   const body = await req.json().catch(() => ({}));
   const parsed = requestRescheduleSchema.safeParse(body);
@@ -30,15 +41,13 @@ export const POST = withErrorHandling(async (req: Request) => {
   if (!id) {
     throw Errors.validation("Booking id is required");
   }
+  if (!ObjectId.isValid(id)) {
+    throw Errors.validation("Invalid booking id");
+  }
 
   const { db } = await getDb();
 
-  let bookingQuery: Filter<Document>;
-  try {
-    bookingQuery = { _id: new ObjectId(id) };
-  } catch {
-    bookingQuery = { _id: id } as unknown as Filter<Document>;
-  }
+  const bookingQuery = { _id: new ObjectId(id) };
 
   const booking = await db.collection("bookings").findOne(bookingQuery);
   if (!booking) {
@@ -47,19 +56,7 @@ export const POST = withErrorHandling(async (req: Request) => {
 
   // Ownership check: seeker OR provider
   const isOwnerSeeker = booking.seeker_id?.toString?.() === user.id;
-
-  let isOwnerProvider = false;
-  if (user.email) {
-    const provider = await db
-      .collection("providers")
-      .findOne({ email: user.email });
-    if (
-      provider &&
-      booking.provider_id?.toString?.() === provider._id.toString()
-    ) {
-      isOwnerProvider = true;
-    }
-  }
+  const isOwnerProvider = booking.provider_id?.toString?.() === user.id;
 
   if (!isOwnerSeeker && !isOwnerProvider) {
     throw Errors.forbidden("You are not allowed to reschedule this booking");

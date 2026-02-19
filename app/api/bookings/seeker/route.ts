@@ -9,6 +9,9 @@ import { requireSeeker } from "@/lib/api/auth";
 export async function GET() {
   try {
     const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
 
     const { db } = await getDb();
     

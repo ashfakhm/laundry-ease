@@ -8,11 +8,12 @@ import { requireProvider } from "@/lib/api/auth";
 export async function GET() {
   try {
     const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { db } = await getDb();
     const providerId = new ObjectId(user.id);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
     // 1. Calculate Total Revenue (only paid/released orders)
     const revenueStats = await db.collection("orders").aggregate([

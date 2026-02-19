@@ -24,17 +24,15 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireAuth();
-    if (!session?.user?.id) {
+    const { user } = await requireAuth();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let orderId: ObjectId;
-    try {
-      orderId = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
     }
+    const orderId = new ObjectId(id);
 
     const body = await req.json();
     const parsed = orderScheduleDeliverySchema.safeParse(body);
@@ -63,13 +61,13 @@ export async function POST(
     }
 
     if (action === "propose") {
-      if (session.user.role !== Role.PROVIDER) {
+      if (user.role !== Role.PROVIDER) {
         return NextResponse.json(
           { error: "Only providers can propose delivery" },
           { status: 403 }
         );
       }
-      if (order.provider_id.toString() !== session.user.id) {
+      if (order.provider_id.toString() !== user.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 
@@ -91,13 +89,13 @@ export async function POST(
       );
       return NextResponse.json({ success: true, message: "Delivery proposed" });
     } else if (action === "confirm") {
-      if (session.user.role !== Role.SEEKER) {
+      if (user.role !== Role.SEEKER) {
         return NextResponse.json(
           { error: "Only seekers can confirm delivery slots" },
           { status: 403 }
         );
       }
-      if (order.seeker_id.toString() !== session.user.id) {
+      if (order.seeker_id.toString() !== user.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 

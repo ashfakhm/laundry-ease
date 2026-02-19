@@ -8,20 +8,40 @@ import {
 import { ObjectId } from "mongodb";
 import { requireProvider } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
+import { z } from "zod";
+
+const bankDetailsPayloadSchema = z.object({
+  bankDetails: z.object({
+    accountHolderName: z.string().trim().min(2, "Account holder name is required"),
+    accountNumber: z.string().trim().min(6, "Account number is required"),
+    ifsc: z
+      .string()
+      .trim()
+      .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code"),
+    upiId: z.string().trim().optional(),
+  }),
+});
 
 export async function POST(req: NextRequest) {
   try {
     // Authentication check - only providers can update bank details
     const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const { bankDetails } = await req.json();
-
-    if (!bankDetails) {
+    const payload = await req.json().catch(() => null);
+    const parsed = bankDetailsPayloadSchema.safeParse(payload);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        {
+          error: "Missing or invalid bank details",
+          details: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 },
       );
     }
+    const { bankDetails } = parsed.data;
 
     const { db } = await getDb();
     // Use the authenticated user's ID, not from request body (security fix)

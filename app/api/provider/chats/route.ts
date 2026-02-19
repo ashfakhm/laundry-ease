@@ -8,8 +8,12 @@ import { requireProvider } from "@/lib/api/auth";
 export async function GET() {
   try {
     const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { db } = await getDb();
+    const providerId = new ObjectId(user.id);
 
     // 1. Find all active bookings for this provider
     // 2. Lookup messages for each booking
@@ -19,7 +23,7 @@ export async function GET() {
       .aggregate([
         {
           $match: {
-            provider_id: new ObjectId(user.id),
+            provider_id: providerId,
             // status: { $ne: "cancelled" } // Optional: Keep cancelled chats if history needed?
             // Usually valid to see history even if cancelled. Let's keep filters minimal.
           },
