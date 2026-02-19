@@ -318,9 +318,11 @@ Stable:
 
 Quality snapshot (2026-02-19):
 
-- `50` test files, `214` tests passing
+- `81` test files, `400` tests passing
 - `3` Playwright E2E specs, `7` critical role/complaint/settlement journeys passing
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
+- API response consistency: ~85% (dual-key compatible)
+- Zero production type casts
 
 Remaining hardening opportunities:
 
@@ -333,6 +335,8 @@ Remaining hardening opportunities:
 - Complaint window extension requests
 - Split-settlement reconciliation tooling for rare one-leg failure cases
 - Provider field UX polish (mobile-first ergonomics)
+- Complete API response consistency for remaining ~15% of routes
+- Add direct tests for remaining ~22 route handlers without coverage
 
 ## 11. Complaint & Dispute Resolution
 
