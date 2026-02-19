@@ -9,7 +9,7 @@ import { z } from "zod";
 
 const createReviewSchema = z.object({
   booking_id: z.string().min(1),
-  provider_id: z.string().min(1),
+  provider_id: z.string().min(1).optional(),
   rating: z.number().min(1).max(5),
   comment: z.string().optional(),
 });
@@ -33,6 +33,12 @@ export async function POST(req: NextRequest) {
     }
 
     const { booking_id, provider_id, rating: ratingNum, comment } = parsed.data;
+    if (!ObjectId.isValid(booking_id)) {
+      return NextResponse.json({ error: "Invalid booking ID" }, { status: 400 });
+    }
+    if (!ObjectId.isValid(user.id)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const { db } = await getDb();
 
     // Look up the order by booking_id and seeker_id
@@ -45,6 +51,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "No completed order found for this booking" },
         { status: 404 },
+      );
+    }
+
+    const canonicalProviderId =
+      order.provider_id instanceof ObjectId
+        ? order.provider_id
+        : ObjectId.isValid(String(order.provider_id))
+          ? new ObjectId(String(order.provider_id))
+          : null;
+
+    if (!canonicalProviderId) {
+      logger.error("REVIEWS", "Order has invalid provider id", undefined, {
+        bookingId: booking_id,
+        orderId: String(order._id),
+      });
+      return NextResponse.json(
+        { error: "Order provider data is invalid" },
+        { status: 500 },
+      );
+    }
+
+    if (provider_id && provider_id !== canonicalProviderId.toString()) {
+      return NextResponse.json(
+        { error: "Provider mismatch for this booking" },
+        { status: 400 },
       );
     }
 
@@ -67,7 +98,7 @@ export async function POST(req: NextRequest) {
     const review: Review = {
       order_id: order._id,
       seeker_id: new ObjectId(user.id),
-      provider_id: new ObjectId(provider_id),
+      provider_id: canonicalProviderId,
       seeker_name: seeker?.name || user.name || "User",
       rating: ratingNum,
       comment: comment || undefined,
@@ -76,14 +107,45 @@ export async function POST(req: NextRequest) {
 
     await db.collection<Review>("reviews").insertOne(review);
 
-    // Update Provider Average Rating atomically using $inc to avoid race conditions
+    // Update provider counters and average atomically to avoid race conditions.
     await db
       .collection<Provider>("providers")
       .updateOne(
-        { _id: new ObjectId(provider_id) },
-        {
-          $inc: { ratingTotal: ratingNum, reviewCount: 1 },
-        },
+        { _id: canonicalProviderId },
+        [
+          {
+            $set: {
+              ratingTotal: {
+                $add: [
+                  {
+                    $ifNull: [
+                      "$ratingTotal",
+                      {
+                        $multiply: [
+                          { $ifNull: ["$rating", 0] },
+                          { $ifNull: ["$reviewCount", 0] },
+                        ],
+                      },
+                    ],
+                  },
+                  ratingNum,
+                ],
+              },
+              reviewCount: { $add: [{ $ifNull: ["$reviewCount", 0] }, 1] },
+            },
+          },
+          {
+            $set: {
+              rating: {
+                $cond: [
+                  { $gt: ["$reviewCount", 0] },
+                  { $divide: ["$ratingTotal", "$reviewCount"] },
+                  0,
+                ],
+              },
+            },
+          },
+        ],
       );
 
     return NextResponse.json({ success: true, message: "Review submitted" });

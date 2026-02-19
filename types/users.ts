@@ -57,6 +57,7 @@ export interface Provider extends BaseUser {
   profilePicture?: string;
   bannerImage?: string;
   rating?: number;
+  ratingTotal?: number;
   reviewCount?: number;
 }
 

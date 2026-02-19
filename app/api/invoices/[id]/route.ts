@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireProvider } from "@/lib/api/auth";
 import { invoiceCreateSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
 import { logger } from "@/lib/logger";
 
 /**
@@ -21,6 +22,9 @@ export async function POST(
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid booking ID" }, { status: 400 });
     }
+    if (!ObjectId.isValid(user.id)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const body = await req.json();
     const parsed = invoiceCreateSchema.safeParse(body);
@@ -35,7 +39,7 @@ export async function POST(
 
     const invoice = {
       booking_id: new ObjectId(id),
-      provider_id: user.id,
+      provider_id: new ObjectId(user.id),
       items: parsed.data.items,
       total: parsed.data.total,
       notes: parsed.data.notes,
@@ -44,6 +48,16 @@ export async function POST(
     await db.collection("invoices").insertOne(invoice);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("INVOICES", "Error creating invoice", error);
     return NextResponse.json(
       { error: "Failed to create invoice" },

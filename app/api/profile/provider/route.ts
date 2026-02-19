@@ -245,9 +245,7 @@ export async function PATCH(req: Request) {
         // Fail the request if critical bank details sync fails so user knows
         return NextResponse.json(
           {
-            error: `Payment Gateway Error: ${
-              err?.message || "Failed to sync bank details"
-            }`,
+            error: "Failed to sync bank details with payment gateway",
           },
           { status: 500 },
         );
