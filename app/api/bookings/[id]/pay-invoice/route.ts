@@ -22,14 +22,27 @@ function toObjectId(id: string): ObjectId | null {
   return new ObjectId(id);
 }
 
+function legacyErrorBody(
+  message: string,
+  details?: Record<string, unknown>,
+) {
+  return {
+    message,
+    error: message,
+    ...(details ? { details } : {}),
+  };
+}
+
+function fail(
+  message: string,
+  status: number,
+  details?: Record<string, unknown>,
+) {
+  return NextResponse.json(legacyErrorBody(message, details), { status });
+}
+
 function appErrorResponse(error: AppError) {
-  return NextResponse.json(
-    {
-      message: error.message,
-      ...(error.details ? { details: error.details } : {}),
-    },
-    { status: error.statusCode },
-  );
+  return fail(error.message, error.statusCode, error.details);
 }
 
 type FinalizeInvoiceOrderInput = {
@@ -257,23 +270,20 @@ export async function POST(
 
     const booking_id = toObjectId(id);
     if (!booking_id) {
-      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+      return fail("Invalid booking id", 400);
     }
 
     const booking = await getBookingById(booking_id);
     if (!booking) {
-      return NextResponse.json({ message: "Booking not found" }, { status: 404 });
+      return fail("Booking not found", 404);
     }
 
     if (booking.seeker_id.toString() !== user.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      return fail("Unauthorized", 403);
     }
 
     if (booking.status !== "invoice_created" || !booking.invoice) {
-      return NextResponse.json(
-        { message: "Invoice not ready for payment" },
-        { status: 400 }
-      );
+      return fail("Invoice not ready for payment", 400);
     }
 
     const { db } = await getDb();
@@ -282,6 +292,7 @@ export async function POST(
       return NextResponse.json(
         {
           message: "Order already exists for this booking",
+          error: "Order already exists for this booking",
           orderId: existingOrder._id,
         },
         { status: 409 }
@@ -314,10 +325,7 @@ export async function POST(
     const amountInPaise = Math.round(totalAmount * 100);
 
     if (amountInPaise <= 0) {
-      return NextResponse.json(
-        { message: "Invalid invoice amount" },
-        { status: 400 }
-      );
+      return fail("Invalid invoice amount", 400);
     }
 
     const razorpayOrder = await createRazorpayOrder(amountInPaise, id);
@@ -342,10 +350,7 @@ export async function POST(
     }
 
     logger.error("BOOKINGS", "Payment init error", error, { bookingId: id });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return fail("Internal server error", 500);
   }
 }
 
@@ -367,19 +372,15 @@ export async function PUT(
 
     const booking_id = toObjectId(id);
     if (!booking_id) {
-      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+      return fail("Invalid booking id", 400);
     }
 
     const body = await req.json().catch(() => null);
     const parsed = paymentVerifySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          message: "Invalid payment fields",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 },
-      );
+      return fail("Invalid payment fields", 400, {
+        fieldErrors: parsed.error.flatten().fieldErrors,
+      });
     }
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
       parsed.data;
@@ -387,11 +388,11 @@ export async function PUT(
     const { db, client } = await getDb();
     const booking = await getBookingById(booking_id);
     if (!booking) {
-      return NextResponse.json({ message: "Booking not found" }, { status: 404 });
+      return fail("Booking not found", 404);
     }
 
     if (booking.seeker_id.toString() !== user.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      return fail("Unauthorized", 403);
     }
 
     // Idempotency: if booking already converted, return existing order.
@@ -401,14 +402,11 @@ export async function PUT(
     }
 
     if (booking.status !== "invoice_created" || !booking.invoice) {
-      return NextResponse.json(
-        { message: "Booking is not in invoice payment state" },
-        { status: 400 }
-      );
+      return fail("Booking is not in invoice payment state", 400);
     }
 
     if (!booking.razorpay_order_id || booking.razorpay_order_id !== razorpay_order_id) {
-      return NextResponse.json({ message: "Razorpay order mismatch" }, { status: 400 });
+      return fail("Razorpay order mismatch", 400);
     }
 
     const isValid = verifyRazorpaySignature(
@@ -418,7 +416,7 @@ export async function PUT(
     );
 
     if (!isValid) {
-      return NextResponse.json({ message: "Invalid signature" }, { status: 400 });
+      return fail("Invalid signature", 400);
     }
 
     const existingOrder = await db.collection("orders").findOne({ booking_id });
@@ -427,7 +425,7 @@ export async function PUT(
         return NextResponse.json({ success: true, orderId: existingOrder._id });
       }
       return NextResponse.json(
-        { message: "Order already exists for this booking" },
+        legacyErrorBody("Order already exists for this booking"),
         { status: 409 }
       );
     }
@@ -499,6 +497,7 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
+      error: null,
       orderId: finalized.orderId,
       ...(finalized.idempotent ? { idempotent: true } : {}),
     });
@@ -510,9 +509,6 @@ export async function PUT(
     logger.error("BOOKINGS", "Payment verification error", error, {
       bookingId: id,
     });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return fail("Internal server error", 500);
   }
 }

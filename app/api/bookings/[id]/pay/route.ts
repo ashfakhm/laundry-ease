@@ -9,14 +9,27 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
 
+function legacyErrorBody(
+  message: string,
+  details?: Record<string, unknown>,
+) {
+  return {
+    message,
+    error: message,
+    ...(details ? { details } : {}),
+  };
+}
+
+function fail(
+  message: string,
+  status: number,
+  details?: Record<string, unknown>,
+) {
+  return NextResponse.json(legacyErrorBody(message, details), { status });
+}
+
 function appErrorResponse(error: AppError) {
-  return NextResponse.json(
-    {
-      message: error.message,
-      ...(error.details ? { details: error.details } : {}),
-    },
-    { status: error.statusCode },
-  );
+  return fail(error.message, error.statusCode, error.details);
 }
 
 // POST: Create Razorpay Order for Booking Fee
@@ -36,32 +49,23 @@ export async function POST(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { message: "Invalid booking id" },
-        { status: 400 },
-      );
+      return fail("Invalid booking id", 400);
     }
     const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json(
-        { message: "Booking not found" },
-        { status: 404 },
-      );
+      return fail("Booking not found", 404);
     }
 
     if (booking.seeker_id.toString() !== user.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      return fail("Unauthorized", 403);
     }
 
     if (booking.status !== "requested") {
-      return NextResponse.json(
-        {
-          message:
-            "Booking fee can only be paid while booking is waiting for provider response.",
-        },
-        { status: 409 },
+      return fail(
+        "Booking fee can only be paid while booking is waiting for provider response.",
+        409,
       );
     }
 
@@ -69,38 +73,26 @@ export async function POST(
       booking.bookingFeeStatus === "paid" ||
       booking.bookingFeeStatus === "applied"
     ) {
-      return NextResponse.json(
-        { message: "Booking fee already paid" },
-        { status: 400 },
-      );
+      return fail("Booking fee already paid", 400);
     }
 
     if (
       booking.bookingFeeStatus === "refunded" ||
       booking.bookingFeeStatus === "forfeited"
     ) {
-      return NextResponse.json(
-        {
-          message:
-            "Booking fee payment is not allowed for refunded or forfeited bookings.",
-        },
-        { status: 409 },
+      return fail(
+        "Booking fee payment is not allowed for refunded or forfeited bookings.",
+        409,
       );
     }
 
     if (!booking.bookingFee || booking.bookingFee <= 0) {
-      return NextResponse.json(
-        { message: "Invalid booking fee amount" },
-        { status: 400 },
-      );
+      return fail("Invalid booking fee amount", 400);
     }
 
     const amount = Math.round(booking.bookingFee * 100);
     if (amount <= 0) {
-      return NextResponse.json(
-        { message: "Invalid booking fee amount" },
-        { status: 400 },
-      );
+      return fail("Invalid booking fee amount", 400);
     }
 
     const razorpayOrder = await createRazorpayOrder(amount, id);
@@ -129,10 +121,7 @@ export async function POST(
     logger.error("BOOKINGS", "Error creating booking fee order", error, {
       bookingId: id,
     });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 },
-    );
+    return fail("Internal server error", 500);
   }
 }
 
@@ -153,10 +142,7 @@ export async function PUT(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { message: "Invalid booking id" },
-        { status: 400 },
-      );
+      return fail("Invalid booking id", 400);
     }
     const booking_id = new ObjectId(id);
 
@@ -164,10 +150,7 @@ export async function PUT(
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = body;
 
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
-      return NextResponse.json(
-        { message: "Missing payment fields" },
-        { status: 400 },
-      );
+      return fail("Missing payment fields", 400);
     }
 
     const isValid = verifyRazorpaySignature(
@@ -177,10 +160,7 @@ export async function PUT(
     );
 
     if (!isValid) {
-      return NextResponse.json(
-        { message: "Invalid signature" },
-        { status: 400 },
-      );
+      return fail("Invalid signature", 400);
     }
 
     const { db } = await getDb();
@@ -190,10 +170,7 @@ export async function PUT(
     });
 
     if (!booking) {
-      return NextResponse.json(
-        { message: "Booking not found" },
-        { status: 404 },
-      );
+      return fail("Booking not found", 404);
     }
 
     if (
@@ -203,17 +180,15 @@ export async function PUT(
     ) {
       return NextResponse.json({
         message: "Payment successful",
+        error: null,
         idempotent: true,
       });
     }
 
     if (booking.status !== "requested") {
-      return NextResponse.json(
-        {
-          message:
-            "Booking fee cannot be captured because booking is no longer pending provider response.",
-        },
-        { status: 409 },
+      return fail(
+        "Booking fee cannot be captured because booking is no longer pending provider response.",
+        409,
       );
     }
 
@@ -221,10 +196,7 @@ export async function PUT(
       !booking.razorpay_order_id ||
       booking.razorpay_order_id !== razorpay_order_id
     ) {
-      return NextResponse.json(
-        { message: "Razorpay order mismatch" },
-        { status: 400 },
-      );
+      return fail("Razorpay order mismatch", 400);
     }
 
     const res = await db.collection<Booking>("bookings").updateOne(
@@ -246,12 +218,9 @@ export async function PUT(
     );
 
     if (res.modifiedCount > 0) {
-      return NextResponse.json({ message: "Payment successful" });
+      return NextResponse.json({ message: "Payment successful", error: null });
     } else {
-      return NextResponse.json(
-        { message: "Failed to update booking status" },
-        { status: 409 },
-      );
+      return fail("Failed to update booking status", 409);
     }
   } catch (error) {
     if (error instanceof AppError) {
@@ -261,9 +230,6 @@ export async function PUT(
     logger.error("BOOKINGS", "Error verifying booking fee", error, {
       bookingId: id,
     });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 },
-    );
+    return fail("Internal server error", 500);
   }
 }
