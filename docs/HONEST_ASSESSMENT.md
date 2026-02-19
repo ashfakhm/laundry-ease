@@ -139,6 +139,28 @@ The current state is strong for production baseline readiness, but not perfect. 
      - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/status/route.test.ts`
      - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/pay/route.test.ts`
 
+12. **Response-shape + low-traffic coverage sweep continued**
+   - Extended compatibility response normalization (`message` + `error`, `success` + `ok`) to:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/seeker/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/provider/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/provider/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/provider/dashboard-stats/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/provider/chats/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/chat/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/dispute/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/schedule/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/schedule-delivery/route.ts`
+   - Added direct regression tests for previously untested low-traffic routes:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/seeker/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/provider/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/provider/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/provider/dashboard-stats/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/provider/chats/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/chat/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/dispute/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/schedule/route.test.ts`
+   - Verification: `npm run verify:gates` passed after this sweep.
+
 ---
 
 ## Remaining Gaps (Honest)
@@ -151,7 +173,8 @@ The current state is strong for production baseline readiness, but not perfect. 
 
 2. **Coverage is strong on critical flows and improved on low-traffic provider routes, but not yet broad across all routes**
    - Critical money/dispute/auth flows are in much better shape.
-   - Several low/medium-risk routes still have light or no dedicated tests.
+   - Dedicated direct tests now exist for additional provider/order/booking query routes.
+   - `25` API route handlers still do not have direct route-level tests.
 
 3. **Some `as unknown as` casts still exist in tests and selected frontend integrations**
    - Backend/runtime hotspots in `lib/data/*`, `lib/cron-tracking.ts`, and `lib/razorpay.ts` were cleaned up.
@@ -166,7 +189,7 @@ The current state is strong for production baseline readiness, but not perfect. 
 ## Priority Actions to Reach A/A+
 
 1. Continue response-shape normalization route-by-route (compatibility-preserving migration plan), prioritizing remaining booking accept/reject and older message-only handlers.
-2. Expand route coverage for remaining untested API handlers (especially lower-traffic query endpoints outside providers/admin/cron).
+2. Expand route coverage for remaining untested API handlers (currently 25 route files without direct tests).
 3. Continue reducing unnecessary type casts in test scaffolding and UI interop points.
 4. Keep `verify:gates` and docs-sync checks mandatory for every high-impact PR.
 
@@ -174,10 +197,11 @@ The current state is strong for production baseline readiness, but not perfect. 
 
 ## Active TODO List (Current)
 
-1. [ ] Response-shape normalization pass for remaining mixed endpoints (`error`/`message`/`ok`/`success`), compatibility-preserving (in progress; core order OTP/delivery/cancel/status + booking seeker/delete/accept/reject/cancel + reset-password/escrow release now migrated).
+1. [ ] Response-shape normalization pass for remaining mixed endpoints (`error`/`message`/`ok`/`success`), compatibility-preserving (expanded to booking chat/dispute/schedule + provider/order query routes; still incomplete across full API surface).
 2. [x] Add cron route tests for `notify-system-alerts`, `process-payouts`, and `release-payouts`.
 3. [x] Reduce remaining backend `as unknown as` casts in non-critical modules (`lib/data/*`, `lib/cron-tracking.ts`, selected server routes).
-4. [ ] Add coverage for remaining low-traffic admin/query endpoints not yet directly tested (partial: provider bank-details + provider detail/review endpoints now covered).
+4. [ ] Add coverage for remaining low-traffic admin/query endpoints not yet directly tested (progressed; 25 route handlers remain without direct tests).
+5. [x] Add direct route tests for provider/order query routes and booking chat/dispute/schedule endpoints.
 
 ---
 

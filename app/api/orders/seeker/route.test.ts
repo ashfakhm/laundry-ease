@@ -1,0 +1,103 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ObjectId } from "mongodb";
+
+const { mockGetDb, mockRequireSeeker } = vi.hoisted(() => ({
+  mockGetDb: vi.fn(),
+  mockRequireSeeker: vi.fn(),
+}));
+
+vi.mock("@/lib/mongodb", () => ({
+  getDb: mockGetDb,
+}));
+
+vi.mock("@/lib/api/auth", () => ({
+  requireSeeker: mockRequireSeeker,
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
+import { GET } from "./route";
+
+function buildDbMock(options: {
+  seeker: Record<string, unknown> | null;
+  orders?: Record<string, unknown>[];
+  provider?: Record<string, unknown> | null;
+}) {
+  const seekerFindOne = vi.fn().mockResolvedValue(options.seeker);
+  const providerFindOne = vi.fn().mockResolvedValue(options.provider ?? null);
+  const toArray = vi.fn().mockResolvedValue(options.orders ?? []);
+  const sort = vi.fn().mockReturnValue({ toArray });
+  const find = vi.fn().mockReturnValue({ sort });
+
+  const db = {
+    collection: vi.fn((name: string) => {
+      if (name === "seekers") return { findOne: seekerFindOne };
+      if (name === "orders") return { find };
+      if (name === "providers") return { findOne: providerFindOne };
+      throw new Error(`Unexpected collection: ${name}`);
+    }),
+  };
+
+  return { db, seekerFindOne, providerFindOne, find, sort, toArray };
+}
+
+describe("GET /api/orders/seeker", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns compatibility unauthorized payload for invalid seeker id", async () => {
+    mockRequireSeeker.mockResolvedValue({ user: { id: "invalid-id" } });
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body.message).toBe("Unauthorized");
+    expect(body.error).toBe("Unauthorized");
+    expect(mockGetDb).not.toHaveBeenCalled();
+  });
+
+  it("returns compatibility not-found payload when seeker record is missing", async () => {
+    const seekerId = new ObjectId().toString();
+    mockRequireSeeker.mockResolvedValue({ user: { id: seekerId } });
+    const dbMock = buildDbMock({ seeker: null });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.message).toBe("Seeker not found");
+    expect(body.error).toBe("Seeker not found");
+  });
+
+  it("returns enriched seeker orders", async () => {
+    const seekerId = new ObjectId();
+    const providerId = new ObjectId();
+    const orderId = new ObjectId();
+
+    mockRequireSeeker.mockResolvedValue({ user: { id: seekerId.toString() } });
+    const dbMock = buildDbMock({
+      seeker: { _id: seekerId, name: "Naseeb" },
+      orders: [{ _id: orderId, seeker_id: seekerId, provider_id: providerId }],
+      provider: { _id: providerId, name: "Ash Laundry" },
+    });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(body)).toBe(true);
+    expect(body[0].provider?.name).toBe("Ash Laundry");
+    expect(dbMock.find).toHaveBeenCalledWith({ seeker_id: seekerId });
+  });
+});
