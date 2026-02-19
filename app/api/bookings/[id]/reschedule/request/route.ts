@@ -13,7 +13,7 @@ const requestRescheduleSchema = z.object({
 // POST /api/bookings/:id/reschedule/request
 // Either seeker or provider can request a reschedule while pickup is still in negotiation/execution.
 export const POST = withErrorHandling(
-  async (req: Request, ctx?: { params: Promise<{ id: string }> }) => {
+  async (req: Request, context?: { params: Promise<{ id: string }> }) => {
     await requireSameOrigin(req);
     await enforceRateLimit(req, {
       bucket: "bookings:reschedule:request",
@@ -35,8 +35,11 @@ export const POST = withErrorHandling(
       );
     }
 
-    const id = await ctx?.params.then((p) => p.id).catch(() => undefined);
-    if (!id || typeof id !== "string") {
+    if (!context?.params) {
+      throw Errors.validation("Booking id is required");
+    }
+    const { id } = await context.params;
+    if (typeof id !== "string" || id.length === 0) {
       throw Errors.validation("Booking id is required");
     }
     if (!ObjectId.isValid(id)) {
