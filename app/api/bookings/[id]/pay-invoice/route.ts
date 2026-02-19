@@ -9,6 +9,11 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
 import { paymentVerifySchema } from "@/lib/api/schemas";
+import {
+  appErrorLegacyResponse,
+  legacyErrorBody,
+  legacyErrorResponse,
+} from "@/lib/api/legacy-response";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -22,27 +27,12 @@ function toObjectId(id: string): ObjectId | null {
   return new ObjectId(id);
 }
 
-function legacyErrorBody(
-  message: string,
-  details?: Record<string, unknown>,
-) {
-  return {
-    message,
-    error: message,
-    ...(details ? { details } : {}),
-  };
-}
-
 function fail(
   message: string,
   status: number,
   details?: Record<string, unknown>,
 ) {
-  return NextResponse.json(legacyErrorBody(message, details), { status });
-}
-
-function appErrorResponse(error: AppError) {
-  return fail(error.message, error.statusCode, error.details);
+  return legacyErrorResponse(message, status, details);
 }
 
 type FinalizeInvoiceOrderInput = {
@@ -346,7 +336,7 @@ export async function POST(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorResponse(error);
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Payment init error", error, { bookingId: id });
@@ -503,7 +493,7 @@ export async function PUT(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorResponse(error);
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Payment verification error", error, {

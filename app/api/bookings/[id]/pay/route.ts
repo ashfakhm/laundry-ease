@@ -8,28 +8,17 @@ import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
-
-function legacyErrorBody(
-  message: string,
-  details?: Record<string, unknown>,
-) {
-  return {
-    message,
-    error: message,
-    ...(details ? { details } : {}),
-  };
-}
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+} from "@/lib/api/legacy-response";
 
 function fail(
   message: string,
   status: number,
   details?: Record<string, unknown>,
 ) {
-  return NextResponse.json(legacyErrorBody(message, details), { status });
-}
-
-function appErrorResponse(error: AppError) {
-  return fail(error.message, error.statusCode, error.details);
+  return legacyErrorResponse(message, status, details);
 }
 
 // POST: Create Razorpay Order for Booking Fee
@@ -115,7 +104,7 @@ export async function POST(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorResponse(error);
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Error creating booking fee order", error, {
@@ -224,7 +213,7 @@ export async function PUT(
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorResponse(error);
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Error verifying booking fee", error, {

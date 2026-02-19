@@ -7,18 +7,9 @@ import { paymentVerifySchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
+import { appErrorMessageResponse } from "@/lib/api/legacy-response";
 
 export const runtime = "nodejs";
-
-function appErrorResponse(error: AppError) {
-  return NextResponse.json(
-    {
-      error: error.message,
-      ...(error.details ? { details: error.details } : {}),
-    },
-    { status: error.statusCode },
-  );
-}
 
 // POST: Create Razorpay Order
 export async function POST(
@@ -91,7 +82,7 @@ export async function POST(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorResponse(error);
+      return appErrorMessageResponse(error, "error");
     }
 
     logger.error("ORDERS", "Payment init error", error, { orderId: id });
@@ -222,7 +213,7 @@ export async function PUT(
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorResponse(error);
+      return appErrorMessageResponse(error, "error");
     }
 
     logger.error("ORDERS", "Payment verification error", error, {

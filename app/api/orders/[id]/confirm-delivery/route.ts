@@ -68,10 +68,7 @@ export async function POST(
         idempotent: true,
         deadlineCompensationApplied:
           order.payment_status === "refunded" ||
-          Boolean(
-            (order as unknown as { deadline_compensated_at?: Date })
-              .deadline_compensated_at,
-          ),
+          Boolean(order.deadline_compensated_at),
       });
     }
 
@@ -99,12 +96,8 @@ export async function POST(
     }
 
     const nowMs = Date.now();
-    const otpExpiresAt = (
-      order as unknown as { delivery_otp_expires_at?: Date | string }
-    ).delivery_otp_expires_at;
-    const otpSentAt = (
-      order as unknown as { delivery_otp_sent_at?: Date | string }
-    ).delivery_otp_sent_at;
+    const otpExpiresAt = order.delivery_otp_expires_at;
+    const otpSentAt = order.delivery_otp_sent_at;
 
     if (otpExpiresAt) {
       const expiryDate = new Date(otpExpiresAt);
@@ -137,13 +130,8 @@ export async function POST(
 
     const alreadyCompensated =
       order.payment_status === "refunded" ||
-      Boolean(
-        (order as unknown as { deadline_compensated_at?: Date })
-          .deadline_compensated_at,
-      ) ||
-      Boolean(
-        (order as unknown as { razorpay_refund_id?: string }).razorpay_refund_id,
-      );
+      Boolean(order.deadline_compensated_at) ||
+      Boolean(order.razorpay_refund_id);
 
     const paidAmount = Number(order.total_price || 0);
     let refundId: string | null = null;
