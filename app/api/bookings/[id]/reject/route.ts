@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -7,6 +6,11 @@ import { refundRazorpayPayment } from "@/lib/razorpay";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -25,7 +29,7 @@ export async function PATCH(
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const { db } = await getDb();
@@ -34,60 +38,48 @@ export async function PATCH(
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return NextResponse.json(
-        { message: "Provider not found" },
-        { status: 404 }
-      );
+      return legacyErrorResponse("Provider not found", 404);
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+      return legacyErrorResponse("Invalid booking id", 400);
     }
     const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json(
-        { message: "Booking not found" },
-        { status: 404 }
-      );
+      return legacyErrorResponse("Booking not found", 404);
     }
 
     if (booking.provider_id.toString() !== provider._id.toString()) {
-      return NextResponse.json(
-        { message: "You are not authorized to reject this booking" },
-        { status: 403 }
+      return legacyErrorResponse(
+        "You are not authorized to reject this booking",
+        403,
       );
     }
 
     if (booking.status !== "requested") {
       if (booking.status === "rejected") {
-        return NextResponse.json({
+        return legacySuccessResponse({
           message: "Booking already rejected",
           idempotent: true,
         });
       }
 
-      return NextResponse.json(
-        { message: "Booking has already been acted upon" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Booking has already been acted upon", 400);
     }
 
     if (booking.bookingFeeStatus !== "paid") {
-      return NextResponse.json(
-        { message: "Booking fee must be paid before provider can reject" },
-        { status: 400 }
+      return legacyErrorResponse(
+        "Booking fee must be paid before provider can reject",
+        400,
       );
     }
 
     if (!booking.razorpay_payment_id) {
-      return NextResponse.json(
-        {
-          message:
-            "Cannot reject booking: payment reference missing for booking-fee refund.",
-        },
-        { status: 409 }
+      return legacyErrorResponse(
+        "Cannot reject booking: payment reference missing for booking-fee refund.",
+        409,
       );
     }
 
@@ -113,7 +105,7 @@ export async function PATCH(
     if (lockResult.modifiedCount === 0) {
       const latest = await db.collection("bookings").findOne({ _id: booking_id });
       if (latest?.status === "rejected") {
-        return NextResponse.json({
+        return legacySuccessResponse({
           message: "Booking already rejected",
           idempotent: true,
         });
@@ -124,15 +116,15 @@ export async function PATCH(
           !Number.isNaN(lockAt.getTime()) &&
           Date.now() - lockAt.getTime() < REFUND_LOCK_TIMEOUT_MS;
         if (lockIsFresh) {
-          return NextResponse.json(
-            { message: "Refund is already in progress for this booking." },
-            { status: 409 }
+          return legacyErrorResponse(
+            "Refund is already in progress for this booking.",
+            409,
           );
         }
       }
-      return NextResponse.json(
-        { message: "Booking status changed during rejection. Please refresh." },
-        { status: 409 }
+      return legacyErrorResponse(
+        "Booking status changed during rejection. Please refresh.",
+        409,
       );
     }
 
@@ -162,12 +154,9 @@ export async function PATCH(
         error,
         { bookingId: id }
       );
-      return NextResponse.json(
-        {
-          message:
-            "Failed to refund booking fee. Booking was not rejected. Please retry.",
-        },
-        { status: 502 }
+      return legacyErrorResponse(
+        "Failed to refund booking fee. Booking was not rejected. Please retry.",
+        502,
       );
     }
 
@@ -218,39 +207,27 @@ export async function PATCH(
 
       const latestAfter = await db.collection("bookings").findOne({ _id: booking_id });
       if (latestAfter?.status === "rejected") {
-        return NextResponse.json({
+        return legacySuccessResponse({
           message: "Booking already rejected",
           idempotent: true,
         });
       }
 
-      return NextResponse.json(
-        {
-          message:
-            "Booking status changed during rejection. Refund has been processed; please refresh.",
-        },
-        { status: 409 }
+      return legacyErrorResponse(
+        "Booking status changed during rejection. Refund has been processed; please refresh.",
+        409,
       );
     }
 
-    return NextResponse.json({ message: "Booking rejected and fee refunded" });
+    return legacySuccessResponse({ message: "Booking rejected and fee refunded" });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          message: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Error rejecting booking", error, {
       bookingId: id,
     });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getBookingById, acceptBookingWithCapacityCheck } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -10,6 +9,11 @@ import {
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 export async function PATCH(
   req: Request,
@@ -26,7 +30,7 @@ export async function PATCH(
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const { db } = await getDb();
@@ -35,14 +39,11 @@ export async function PATCH(
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return NextResponse.json(
-        { message: "Provider not found" },
-        { status: 404 },
-      );
+      return legacyErrorResponse("Provider not found", 404);
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+      return legacyErrorResponse("Invalid booking id", 400);
     }
     const booking_id = new ObjectId(id);
 
@@ -50,17 +51,14 @@ export async function PATCH(
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json(
-        { message: "Booking not found" },
-        { status: 404 },
-      );
+      return legacyErrorResponse("Booking not found", 404);
     }
 
     // Ensure booking fee is paid before accepting
     if (booking.bookingFeeStatus !== "paid") {
-      return NextResponse.json(
-        { message: "Booking fee must be paid before provider can accept" },
-        { status: 400 },
+      return legacyErrorResponse(
+        "Booking fee must be paid before provider can accept",
+        400,
       );
     }
 
@@ -108,20 +106,15 @@ export async function PATCH(
             bookingId: id,
             providerId: provider._id,
           });
-          return NextResponse.json(
-            {
-              message: "Payment setup failed. Please verify your bank details and try again.",
-            },
-            { status: 400 },
+          return legacyErrorResponse(
+            "Payment setup failed. Please verify your bank details and try again.",
+            400,
           );
         }
       } else {
-        return NextResponse.json(
-          {
-            message:
-              "You must complete your Payment/Bank Details in Profile before accepting bookings.",
-          },
-          { status: 400 },
+        return legacyErrorResponse(
+          "You must complete your Payment/Bank Details in Profile before accepting bookings.",
+          400,
         );
       }
     }
@@ -144,50 +137,41 @@ export async function PATCH(
       });
 
       if (updatedBooking) {
-        return NextResponse.json({ message: "Booking accepted" });
+        return legacySuccessResponse({ message: "Booking accepted" });
       } else {
-        return NextResponse.json(
-          { message: "Failed to accept booking" },
-          { status: 500 },
-        );
+        return legacyErrorResponse("Failed to accept booking", 500);
       }
     } catch (error) {
       // Handle specific error types from the atomic operation
       if (error instanceof Error) {
         if (error.message.startsWith("BOOKING_NOT_FOUND:")) {
-          return NextResponse.json(
-            { message: "Booking not found" },
-            { status: 404 },
-          );
+          return legacyErrorResponse("Booking not found", 404);
         }
         if (error.message.startsWith("UNAUTHORIZED:")) {
-          return NextResponse.json(
-            { message: "You are not authorized to accept this booking" },
-            { status: 403 },
+          return legacyErrorResponse(
+            "You are not authorized to accept this booking",
+            403,
           );
         }
         if (error.message.startsWith("ALREADY_PROCESSED:")) {
-          return NextResponse.json(
-            { message: "Booking has already been acted upon" },
-            { status: 400 },
-          );
+          return legacyErrorResponse("Booking has already been acted upon", 400);
         }
         if (error.message.startsWith("CAPACITY_EXCEEDED:")) {
-          return NextResponse.json(
-            { message: "Provider has reached maximum booking capacity" },
-            { status: 400 },
+          return legacyErrorResponse(
+            "Provider has reached maximum booking capacity",
+            400,
           );
         }
         if (error.message.startsWith("PAYMENT_NOT_SETTLED:")) {
-          return NextResponse.json(
-            { message: "Booking payment has not been settled yet" },
-            { status: 409 },
+          return legacyErrorResponse(
+            "Booking payment has not been settled yet",
+            409,
           );
         }
         if (error.message.startsWith("REFUND_IN_PROGRESS:")) {
-          return NextResponse.json(
-            { message: "A refund is currently being processed for this booking" },
-            { status: 409 },
+          return legacyErrorResponse(
+            "A refund is currently being processed for this booking",
+            409,
           );
         }
       }
@@ -195,21 +179,12 @@ export async function PATCH(
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          message: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Error accepting booking", error, {
       bookingId: id,
     });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -6,6 +5,11 @@ import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 export async function DELETE(
   req: Request,
@@ -21,39 +25,34 @@ export async function DELETE(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
+      return legacyErrorResponse("Invalid booking id", 400);
     }
 
     const session = await requireSeeker();
 
     if (!session || !session.user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json(
-        { message: "Booking not found" },
-        { status: 404 }
-      );
+      return legacyErrorResponse("Booking not found", 404);
     }
 
     // Only seeker can delete their own booking
     if (booking.seeker_id.toString() !== session.user.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      return legacyErrorResponse("Unauthorized", 403);
     }
 
     // Validation: Can only delete if Cancelled or Rejected
     // "completed" might be history we want to keep, but "cancelled"/"rejected" is often clutter.
     const allowedStatuses = ["cancelled", "rejected"];
     if (!allowedStatuses.includes(booking.status)) {
-      return NextResponse.json(
-        {
-          message: `Cannot delete booking with status: ${booking.status}. Only Cancelled or Rejected bookings can be deleted.`,
-        },
-        { status: 400 }
+      return legacyErrorResponse(
+        `Cannot delete booking with status: ${booking.status}. Only Cancelled or Rejected bookings can be deleted.`,
+        400,
       );
     }
 
@@ -74,12 +73,9 @@ export async function DELETE(
           orderId: associatedOrder._id.toString(),
         }
       );
-      return NextResponse.json(
-        {
-          message:
-            "Cannot delete booking: An order exists for this booking. Please cancel the order first.",
-        },
-        { status: 400 }
+      return legacyErrorResponse(
+        "Cannot delete booking: An order exists for this booking. Please cancel the order first.",
+        400,
       );
     }
 
@@ -89,33 +85,20 @@ export async function DELETE(
       .deleteOne({ _id: booking_id });
 
     if (deleteResult.deletedCount === 1) {
-      return NextResponse.json({
-        success: true,
+      return legacySuccessResponse({
         message: "Booking deleted successfully",
       });
     } else {
-      return NextResponse.json(
-        { message: "Failed to delete booking" },
-        { status: 500 }
-      );
+      return legacyErrorResponse("Failed to delete booking", 500);
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          message: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Error deleting booking", error, {
       bookingId: id,
     });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

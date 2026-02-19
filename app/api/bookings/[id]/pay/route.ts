@@ -11,6 +11,7 @@ import { requireSeeker } from "@/lib/api/auth";
 import {
   appErrorLegacyResponse,
   legacyErrorResponse,
+  legacySuccessResponse,
 } from "@/lib/api/legacy-response";
 
 function fail(
@@ -167,7 +168,7 @@ export async function PUT(
         booking.bookingFeeStatus === "applied") &&
       booking.razorpay_payment_id === razorpay_payment_id
     ) {
-      return NextResponse.json({
+      return legacySuccessResponse({
         message: "Payment successful",
         error: null,
         idempotent: true,
@@ -207,7 +208,10 @@ export async function PUT(
     );
 
     if (res.modifiedCount > 0) {
-      return NextResponse.json({ message: "Payment successful", error: null });
+      return legacySuccessResponse({
+        message: "Payment successful",
+        error: null,
+      });
     } else {
       return fail("Failed to update booking status", 409);
     }

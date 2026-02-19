@@ -1,10 +1,14 @@
-import { NextResponse } from "next/server";
 import { getOrderById, cancelOrder } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 const CANCELLATION_FEE = 1000; // 10 currency units
 
@@ -24,35 +28,29 @@ export async function POST(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
+      return legacyErrorResponse("Invalid order id", 400);
     }
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json({ message: "Order not found" }, { status: 404 });
+      return legacyErrorResponse("Order not found", 404);
     }
 
     if (order.seeker_id.toString() !== user.id) {
-      return NextResponse.json(
-        { message: "You are not authorized to cancel this order" },
-        { status: 403 }
+      return legacyErrorResponse(
+        "You are not authorized to cancel this order",
+        403,
       );
     }
 
     if (order.payment_status !== "unpaid") {
-      return NextResponse.json(
-        { message: "Cannot cancel an order that has been paid" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Cannot cancel an order that has been paid", 400);
     }
 
     if (order.cancellation_status) {
-      return NextResponse.json(
-        { message: "Order has already been cancelled" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Order has already been cancelled", 400);
     }
 
     const success = await cancelOrder(
@@ -62,28 +60,16 @@ export async function POST(
     );
 
     if (success) {
-      return NextResponse.json({ message: "Order cancelled successfully" });
+      return legacySuccessResponse({ message: "Order cancelled successfully" });
     } else {
-      return NextResponse.json(
-        { message: "Failed to cancel order" },
-        { status: 500 }
-      );
+      return legacyErrorResponse("Failed to cancel order", 500);
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          message: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ORDERS", "Error cancelling order", error, { orderId: id });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

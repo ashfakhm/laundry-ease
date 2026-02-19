@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import bcrypt from "bcrypt";
 import { createHash } from "crypto";
@@ -12,6 +12,11 @@ import {
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { resetPasswordSchema } from "@/lib/api/schemas";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 type PasswordResetTokenDoc = {
   _id: ObjectId;
@@ -40,10 +45,7 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = resetPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Token and password are required" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Token and password are required", 400);
     }
 
     const { token, password } = parsed.data;
@@ -57,10 +59,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!isStrongPassword(password)) {
-      return NextResponse.json(
-        { error: PASSWORD_POLICY_MESSAGE },
-        { status: 400 }
-      );
+      return legacyErrorResponse(PASSWORD_POLICY_MESSAGE, 400);
     }
 
     const { db } = await getDb();
@@ -74,10 +73,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (!resetDoc) {
-      return NextResponse.json(
-        { error: "Invalid or expired reset link" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Invalid or expired reset link", 400);
     }
 
     const collection = roleToCollection(resetDoc.role);
@@ -95,10 +91,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (userUpdate.modifiedCount === 0) {
-      return NextResponse.json(
-        { error: "Could not update password" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Could not update password", 400);
     }
 
     await db.collection("password_reset_tokens").updateOne(
@@ -121,25 +114,16 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    return NextResponse.json(
-      { message: "Password reset successful" },
-      { status: 200 }
-    );
+    return legacySuccessResponse({ message: "Password reset successful" }, 200);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode }
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("AUTH", "Reset password error", error);
-    return NextResponse.json(
-      { error: "An error occurred. Please try again later." },
-      { status: 500 }
+    return legacyErrorResponse(
+      "An error occurred. Please try again later.",
+      500,
     );
   }
 }

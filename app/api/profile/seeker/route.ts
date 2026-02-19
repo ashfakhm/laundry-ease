@@ -10,6 +10,7 @@ import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/auth/password-policy";
+import { legacySuccessResponse } from "@/lib/api/legacy-response";
 
 /**
  * GET /api/profile/seeker
@@ -133,10 +134,7 @@ export async function PUT(req: Request) {
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { message: "No changes provided" },
-        { status: 200 }
-      );
+      return legacySuccessResponse({ message: "No changes provided" }, 200);
     }
 
     const res = await db
@@ -147,10 +145,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Seeker not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Profile updated successfully",
-    });
+    return legacySuccessResponse({ message: "Profile updated successfully" });
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json(

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getOrderById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -8,6 +7,12 @@ import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
 import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+  legacyMessageResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 const MIN_RESEND_INTERVAL_MS = 60_000; // 1 minute
 const MAX_RESENDS = 5;
@@ -45,7 +50,7 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
+      return legacyErrorResponse("Invalid order id", 400);
     }
 
     const { user } = await requireProvider();
@@ -56,20 +61,20 @@ export async function POST(
     )) as OrderWithDeliveryOtpMeta | null;
 
     if (!order) {
-      return NextResponse.json({ message: "Order not found" }, { status: 404 });
+      return legacyErrorResponse("Order not found", 404);
     }
 
     if (order.provider_id.toString() !== user.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      return legacyErrorResponse("Unauthorized", 403);
     }
 
     if ((order.process_status || "invoiced") !== "out_for_delivery") {
-      return NextResponse.json(
+      return legacyMessageResponse(
+        "OTP can only be resent when order is out for delivery",
+        409,
         {
-          message: "OTP can only be resent when order is out for delivery",
           currentStatus: order.process_status || "invoiced",
         },
-        { status: 409 }
       );
     }
 
@@ -79,10 +84,7 @@ export async function POST(
       .findOne({ _id: order.seeker_id });
 
     if (!seeker?.email) {
-      return NextResponse.json(
-        { message: "Seeker email not found" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Seeker email not found", 400);
     }
 
     const now = new Date();
@@ -94,24 +96,21 @@ export async function POST(
         const retryAfterSeconds = Math.ceil(
           (MIN_RESEND_INTERVAL_MS - (now.getTime() - last.getTime())) / 1000
         );
-        return NextResponse.json(
+        return legacyMessageResponse(
+          "OTP resent too recently. Please wait before trying again.",
+          429,
           {
-            message:
-              "OTP resent too recently. Please wait before trying again.",
             retryAfterSeconds,
           },
-          { status: 429 }
         );
       }
     }
 
     const resendCount = Number(order.delivery_otp_resend_count ?? 0);
     if (resendCount >= MAX_RESENDS) {
-      return NextResponse.json(
-        {
-          message: "OTP resend limit reached. Please contact support.",
-        },
-        { status: 429 }
+      return legacyErrorResponse(
+        "OTP resend limit reached. Please contact support.",
+        429,
       );
     }
 
@@ -137,12 +136,7 @@ export async function POST(
         orderId: id,
         to: maskEmail(String(seeker.email)),
       });
-      return NextResponse.json(
-        {
-          message: "Failed to send OTP email",
-        },
-        { status: 502 }
-      );
+      return legacyErrorResponse("Failed to send OTP email", 502);
     }
 
     const otpExpiresAt = new Date(now.getTime() + DELIVERY_OTP_TTL_MS);
@@ -162,28 +156,19 @@ export async function POST(
       }
     );
 
-    return NextResponse.json({
+    return legacySuccessResponse({
       message: "OTP resent",
       otpExpiresAt: otpExpiresAt.toISOString(),
       resendCount: resendCount + 1,
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          message: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ORDERS", "Error resending delivery OTP", error, {
       orderId: id,
     });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

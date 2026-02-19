@@ -5,12 +5,16 @@ import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { requireSeeker } from "@/lib/api/auth";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+} from "@/lib/api/legacy-response";
 
 export async function GET() {
   try {
     const { user } = await requireSeeker();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const { db } = await getDb();
@@ -41,19 +45,10 @@ export async function GET() {
     return NextResponse.json(bookings);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          message: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Error fetching seeker bookings", error);
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

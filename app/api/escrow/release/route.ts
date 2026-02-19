@@ -1,7 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { processEligibleEscrowPayouts } from "@/lib/payouts";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -10,14 +14,11 @@ export async function POST(req: NextRequest) {
       "ESCROW",
       "CRON_SECRET not configured - escrow release endpoint disabled",
     );
-    return NextResponse.json(
-      { error: "Endpoint not configured" },
-      { status: 503 },
-    );
+    return legacyErrorResponse("Endpoint not configured", 503);
   }
 
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return legacyErrorResponse("Unauthorized", 401);
   }
 
   try {
@@ -25,16 +26,13 @@ export async function POST(req: NextRequest) {
       source: "escrow_release_endpoint",
     });
 
-    return NextResponse.json({
+    return legacySuccessResponse({
       message: "Escrow payout processing completed",
       processed: result.processed,
       results: result.results,
     });
   } catch (error: unknown) {
     logger.error("ESCROW", "Error processing escrow payouts", error);
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getOrderById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
@@ -14,6 +13,11 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -32,18 +36,18 @@ export async function POST(
     const { user } = await requireProvider();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
+      return legacyErrorResponse("Invalid order id", 400);
     }
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json({ message: "Order not found" }, { status: 404 });
+      return legacyErrorResponse("Order not found", 404);
     }
 
     if (order.provider_id.toString() !== user.id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+      return legacyErrorResponse("Unauthorized", 403);
     }
 
     // Work progression is blocked until payment is completed.
@@ -52,9 +56,9 @@ export async function POST(
       order.payment_status !== "held" &&
       order.payment_status !== "released"
     ) {
-      return NextResponse.json(
-        { message: "Order must be paid before updating workflow status" },
-        { status: 400 }
+      return legacyErrorResponse(
+        "Order must be paid before updating workflow status",
+        400,
       );
     }
 
@@ -62,13 +66,9 @@ export async function POST(
     const parsed = orderStatusUpdateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid status data",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Invalid status data", 400, {
+        fields: parsed.error.flatten().fieldErrors,
+      });
     }
 
     const { status } = parsed.data;
@@ -84,16 +84,15 @@ export async function POST(
         attemptedStatus: status,
         allowedNextStates,
       });
-      return NextResponse.json(
+      return legacyErrorResponse(
+        `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(
+          ", "
+        )}`,
+        422,
         {
-          error: "Invalid state transition",
-          message: `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(
-            ", "
-          )}`,
           currentStatus,
           allowedNextStates,
         },
-        { status: 422 }
       );
     }
 
@@ -170,28 +169,19 @@ export async function POST(
 
     revalidatePath(`/seeker/orders/${id}`);
 
-    return NextResponse.json({
+    return legacySuccessResponse({
       message: "Status updated successfully",
       currentStatus: status,
       allowedNextStates: getAllowedNextStates(status as OrderProcessStatus),
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          message: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ORDERS", "Error updating order status", error, {
       orderId: id,
     });
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }
