@@ -30,8 +30,6 @@ export async function PATCH(
 
     await requireAdminWithDbCheck();
 
-    const { db } = await getDb();
-
     const body = await req.json();
     const parsed = adminComplaintStatusSchema.safeParse(body);
 
@@ -46,6 +44,7 @@ export async function PATCH(
     }
 
     const { status } = parsed.data;
+    const { db } = await getDb();
 
     const result = await db
       .collection("complaints")
@@ -58,7 +57,7 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ ok: true, success: true }, { status: 200 });
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json(
