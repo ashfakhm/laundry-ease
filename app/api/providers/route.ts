@@ -192,6 +192,18 @@ export async function GET(req: NextRequest) {
               },
             },
             {
+              $match: {
+                $expr: {
+                  $lte: [
+                    "$distance_meters",
+                    {
+                      $multiply: [{ $ifNull: ["$radius_km", 10] }, 1000],
+                    },
+                  ],
+                },
+              },
+            },
+            {
               $project: {
                 // Exclude all sensitive data from public listing
                 passwordHash: 0,
@@ -250,45 +262,60 @@ export async function GET(req: NextRequest) {
 
     // Enforce provider radius coverage and optional seeker search radius
     if (userCoords) {
-      providers = providers
-        .filter((provider) => {
-          let distance = Number(provider.distance_km);
-          if (!Number.isFinite(distance)) {
-            const coords = provider.coordinates as
-              | { lat?: number; lng?: number }
-              | undefined;
-            if (!coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
-              return false;
+      if (usedGeoQuery) {
+        providers = providers
+          .sort(
+            (a, b) =>
+              Number(a.distance_km ?? Infinity) -
+              Number(b.distance_km ?? Infinity),
+          )
+          .slice(0, limit);
+      } else {
+        providers = providers
+          .filter((provider) => {
+            let distance = Number(provider.distance_km);
+            if (!Number.isFinite(distance)) {
+              const coords = provider.coordinates as
+                | { lat?: number; lng?: number }
+                | undefined;
+              if (
+                !coords ||
+                !Number.isFinite(coords.lat) ||
+                !Number.isFinite(coords.lng)
+              ) {
+                return false;
+              }
+              distance = calculateDistance(userCoords, {
+                lat: Number(coords.lat),
+                lng: Number(coords.lng),
+              });
             }
-            distance = calculateDistance(userCoords, {
-              lat: Number(coords.lat),
-              lng: Number(coords.lng),
-            });
-          }
-          const providerRadius = Number(provider.radius_km || 10);
-          const coveredByProvider = distance <= providerRadius;
-          const withinSeekerSearchRadius =
-            maxRadiusKm === null ? true : distance <= maxRadiusKm;
-          return coveredByProvider && withinSeekerSearchRadius;
-        })
-        .map((provider) => {
-          const existingDistance = Number(provider.distance_km);
-          if (Number.isFinite(existingDistance)) {
-            return provider;
-          }
-          const coords = provider.coordinates as { lat: number; lng: number };
-          const distance = calculateDistance(userCoords, coords);
-          return {
-            ...provider,
-            distance_km: distance,
-            distanceFromSeeker: distance,
-          };
-        })
-        .sort(
-          (a, b) =>
-            Number(a.distance_km ?? Infinity) - Number(b.distance_km ?? Infinity),
-        )
-        .slice(0, limit);
+            const providerRadius = Number(provider.radius_km || 10);
+            const coveredByProvider = distance <= providerRadius;
+            const withinSeekerSearchRadius =
+              maxRadiusKm === null ? true : distance <= maxRadiusKm;
+            return coveredByProvider && withinSeekerSearchRadius;
+          })
+          .map((provider) => {
+            const existingDistance = Number(provider.distance_km);
+            if (Number.isFinite(existingDistance)) {
+              return provider;
+            }
+            const coords = provider.coordinates as { lat: number; lng: number };
+            const distance = calculateDistance(userCoords, coords);
+            return {
+              ...provider,
+              distance_km: distance,
+              distanceFromSeeker: distance,
+            };
+          })
+          .sort(
+            (a, b) =>
+              Number(a.distance_km ?? Infinity) -
+              Number(b.distance_km ?? Infinity),
+          )
+          .slice(0, limit);
+      }
     } else {
       // No location filter - just apply limit
       providers = providers.slice(0, limit);
