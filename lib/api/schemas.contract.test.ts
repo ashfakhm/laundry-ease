@@ -96,6 +96,21 @@ describe("api schema contracts", () => {
       expect(result.success).toBe(true);
     });
 
+    it("accepts attachment-only messages", () => {
+      const result = complaintMessageSchema.safeParse({
+        attachments: ["https://example.com/evidence.jpg"],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects empty messages with no attachments", () => {
+      const result = complaintMessageSchema.safeParse({
+        content: "   ",
+        attachments: [],
+      });
+      expect(result.success).toBe(false);
+    });
+
     it("rejects more than 5 attachments", () => {
       const result = complaintMessageSchema.safeParse({
         content: "Too many files",

@@ -171,7 +171,8 @@ export async function POST(
       );
     }
 
-    const { content, attachments } = parsed.data;
+    const content = parsed.data.content?.trim() || "";
+    const attachments = parsed.data.attachments || [];
     const actorId = new ObjectId(user.id);
 
     const { db } = await getDb();
@@ -209,9 +210,9 @@ export async function POST(
       complaint_id: complaintId,
       sender_id: actorId,
       sender_role: access.role,
-      message_type: "TEXT",
+      message_type: attachments.length > 0 && content.length === 0 ? "IMAGE" : "TEXT",
       content,
-      attachments: attachments || [],
+      attachments,
       createdAt: new Date(),
     };
 

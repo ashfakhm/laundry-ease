@@ -1,6 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Send, Lock } from "lucide-react";
+import { Send, Lock, Paperclip, X, Loader2 } from "lucide-react";
 import Image from "next/image";
 
 interface ChatMessage {
@@ -65,9 +65,12 @@ export default function ComplaintChat({
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isResolved, setIsResolved] = useState(false);
   const [isAccessBlocked, setIsAccessBlocked] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
@@ -165,16 +168,82 @@ export default function ComplaintChat({
     return () => clearInterval(interval);
   }, [fetchMessages, fetchParticipants]);
 
+  const uploadAttachments = useCallback(
+    async (fileList: FileList | null) => {
+      if (!fileList || fileList.length === 0) return;
+
+      const currentCount = pendingAttachments.length;
+      const remainingSlots = Math.max(0, 5 - currentCount);
+      if (remainingSlots === 0) {
+        setError("You can attach up to 5 images per message.");
+        return;
+      }
+
+      const files = Array.from(fileList).slice(0, remainingSlots);
+      setUploadingAttachments(true);
+      setError(null);
+
+      try {
+        const uploadedUrls: string[] = [];
+
+        for (const file of files) {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("folder", "complaint-evidence");
+
+          const res = await fetch("/api/upload/image", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = (await res.json().catch(() => ({}))) as {
+            url?: string;
+            error?: string;
+          };
+          if (!res.ok || !data.url) {
+            throw new Error(data.error || "Failed to upload attachment");
+          }
+
+          uploadedUrls.push(data.url);
+        }
+
+        setPendingAttachments((prev) =>
+          Array.from(new Set([...prev, ...uploadedUrls])).slice(0, 5),
+        );
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to upload attachment";
+        setError(message);
+      } finally {
+        setUploadingAttachments(false);
+      }
+    },
+    [pendingAttachments.length],
+  );
+
+  function removePendingAttachment(url: string) {
+    setPendingAttachments((prev) => prev.filter((item) => item !== url));
+  }
+
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (isResolved || isAccessBlocked || !input.trim()) return;
+    if (
+      isResolved ||
+      isAccessBlocked ||
+      (input.trim().length === 0 && pendingAttachments.length === 0)
+    ) {
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/complaints/${complaintId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: input, attachments: [] }), // Attachments UI TBD
+        body: JSON.stringify({
+          content: input.trim(),
+          attachments: pendingAttachments,
+        }),
       });
 
       if (!res.ok) {
@@ -195,6 +264,7 @@ export default function ComplaintChat({
       }
 
       setInput("");
+      setPendingAttachments([]);
       setShouldAutoScroll(true); // Always scroll to bottom after sending
       await fetchMessages(true);
     } catch (err) {
@@ -316,29 +386,83 @@ export default function ComplaintChat({
       {!isResolved && !isAccessBlocked && (
         <form
           onSubmit={sendMessage}
-          className="flex gap-2 p-3 border-t bg-card/80 backdrop-blur-sm"
+          className="p-3 border-t bg-card/80 backdrop-blur-sm space-y-3"
         >
-          {/* Attachment Button Placeholder */}
-          {/* 
-            <button type="button" className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-colors">
-                <ImageIcon className="w-5 h-5" />
-            </button> 
-            */}
-
           <input
-            className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            disabled={loading}
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              void uploadAttachments(e.target.files);
+              e.currentTarget.value = "";
+            }}
           />
-          <button
-            className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
-            type="submit"
-            disabled={loading || !input.trim()}
-          >
-            <Send className="w-4 h-4 ml-0.5" />
-          </button>
+
+          {pendingAttachments.length > 0 && (
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              {pendingAttachments.map((url) => (
+                <div
+                  key={url}
+                  className="relative rounded-xl overflow-hidden border border-border/60 bg-muted"
+                >
+                  <Image
+                    src={url}
+                    alt="Pending attachment preview"
+                    width={96}
+                    height={96}
+                    className="w-full aspect-square object-cover"
+                  />
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/75"
+                    onClick={() => removePendingAttachment(url)}
+                    disabled={loading || uploadingAttachments}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={
+                loading || uploadingAttachments || pendingAttachments.length >= 5
+              }
+              title="Attach images"
+            >
+              {uploadingAttachments ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Paperclip className="w-4 h-4" />
+              )}
+            </button>
+
+            <input
+              className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type a message..."
+              disabled={loading}
+            />
+            <button
+              className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
+              type="submit"
+              disabled={
+                loading ||
+                uploadingAttachments ||
+                (input.trim().length === 0 && pendingAttachments.length === 0)
+              }
+            >
+              <Send className="w-4 h-4 ml-0.5" />
+            </button>
+          </div>
         </form>
       )}
     </div>

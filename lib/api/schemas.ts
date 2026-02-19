@@ -403,9 +403,17 @@ export const sendMagicLinkSchema = z.object({
 
 // Complaint message schema
 export const complaintMessageSchema = z.object({
-  content: z.string().min(1).max(5000),
+  content: z.string().trim().max(5000).optional(),
   attachments: z.array(z.string().url()).max(5).optional(),
-});
+}).refine(
+  (data) =>
+    (typeof data.content === "string" && data.content.trim().length > 0) ||
+    (Array.isArray(data.attachments) && data.attachments.length > 0),
+  {
+    message: "Message content or at least one attachment is required",
+    path: ["content"],
+  },
+);
 
 export const bookingChatMessageSchema = z.object({
   message: z.string().min(1).max(2000),
