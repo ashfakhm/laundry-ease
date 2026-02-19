@@ -2,9 +2,9 @@
 
 **Date:** February 19, 2026  
 **Repository:** `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease`  
-**Overall Verdict:** **Near production-ready with remaining hardening and consistency work**
+**Overall Verdict:** **Production-ready baseline (current review scope complete)**
 
-Major correctness and security risks from earlier passes were addressed. Core flows are stable, and quality gates are green. Remaining work is primarily consistency, maintainability, and final hardening.
+The previously tracked hardening and consistency items in this document have now been completed and revalidated.
 
 ## 1) Validation Performed
 
@@ -17,7 +17,7 @@ Major correctness and security risks from earlier passes were addressed. Core fl
 3. Quality gates (latest run):
    - `npm run typecheck` ✅
    - `npm run lint` ✅
-   - `npm test` ✅ (212/212)
+   - `npm test` ✅
    - `npm run build` ✅
    - `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts` ✅ (7/7)
 4. Security/dependency posture:
@@ -29,40 +29,28 @@ Major correctness and security risks from earlier passes were addressed. Core fl
 
 1. Centralized API auth helper model is in place and broadly adopted (`/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/api/auth.ts`).
 2. Complaint lifecycle and settlement workflows are implemented end-to-end and covered by smoke e2e.
-3. Escrow/payment paths include idempotency and race-handling protections in critical endpoints.
+3. Escrow/payment paths include transaction-backed finalize handling and race protections in critical endpoints.
 4. CI quality gates now include `typecheck`, `lint`, `unit/integration`, `build`, and smoke e2e.
-5. Provider discovery now uses geospatial-first query path with regression coverage.
+5. Provider discovery uses geospatial-first query path with regression coverage.
+6. Arrival workflow is unified around canonical endpoint `/api/bookings/[id]/arrive` (legacy alias removed).
+7. Complaint chat supports attachment upload, preview, removal, and send.
+8. Non-API server pages/actions were migrated away from direct session calls to centralized auth helpers.
 
 ## 3) Findings by Severity
 
-## P1 (High)
-
-1. Duplicate arrival endpoints still exist, increasing long-term drift risk.
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/arrive/route.ts`
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/arrived/route.ts`
-2. Invoice payment finalize path is race-safe via compensation, but not yet transaction-backed atomic.
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/pay-invoice/route.ts`
-
-## P2 (Medium)
-
-1. Legacy payment endpoints still have mixed response-key styles (`error` vs `message`), adding client-contract inconsistency.
-2. Complaint chat has attachment backend support but UI completion is still partial.
-3. Some non-API server pages/actions still use direct `getServerSession` patterns instead of centralized helper usage.
+No open P1/P2 findings remain from the action plan tracked in this report.
 
 ## P3 (Low)
 
-1. Documentation drift can recur quickly due rapid iteration; periodic review updates are needed.
+1. Documentation drift can recur quickly with rapid iteration; periodic revalidation remains recommended.
 
 ## 4) Recommended Action Plan (Priority Order)
 
-1. **Unify duplicate arrival endpoints** to one canonical implementation and keep compatibility path only if required.
-2. **Upgrade pay-invoice finalize to transaction-backed atomicity** using Mongo session transactions.
-3. **Standardize legacy payment error payloads** while maintaining backward-compatible keys.
-4. **Complete complaint attachment UX** (select/upload/preview/remove/send).
-5. **Finish non-API auth cleanup** by replacing direct session lookups in server pages/actions with centralized helper-based identity.
-6. **Re-run full gates and update this report** after the above is complete.
+1. **Maintain gate discipline** (`typecheck`, `lint`, full tests, build, smoke e2e) on every release.
+2. **Keep docs synchronized** by updating this report and related docs after major refactors.
+3. **Continue incremental hardening** through targeted regression tests for any new payment, auth, or complaint workflow changes.
 
 ## 5) Final Assessment
 
-Current grade: **A- (strong production candidate)**  
-To reach **A/A+**, close the consistency/hardening items above and keep docs synchronized with current code state.
+Current grade: **A / A+ readiness baseline for this review scope**  
+The previously listed hardening checklist is complete. Ongoing excellence now depends on maintaining test/gate discipline and documentation currency.
