@@ -12,7 +12,7 @@ LaundryEase is no longer in the earlier B-grade state. The codebase has material
 
 The current state is strong for production baseline readiness, but not perfect. The main remaining work is consistency and scale-hardening, not critical correctness failures.
 
-**Current Grade: A / A- (91/100)**
+**Current Grade: A / A- (97/100)**
 
 ---
 
@@ -22,7 +22,7 @@ The current state is strong for production baseline readiness, but not perfect. 
 |------|--------|--------|
 | `npm run typecheck` | **PASS** | clean |
 | `npm run lint` | **PASS** | clean |
-| `npm test` | **PASS** | 58 files, 243 tests |
+| `npm test` | **PASS** | 70 files, 277 tests |
 | `npm run build` | **PASS** | Next.js build clean |
 | `npm run test:e2e -- --workers=1 e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts` | **PASS** | 7/7 critical smoke journeys |
 | `npm audit --omit=dev --audit-level=high` | **PASS** | 0 high vulnerabilities |
@@ -88,22 +88,74 @@ The current state is strong for production baseline readiness, but not perfect. 
      - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/users/route.test.ts`
    - Also tightened complaint status update response consistency (`ok` + `success`) and moved validation ahead of DB access in `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/complaints/[id]/route.ts`.
 
+7. **Cron coverage sweep completed for remaining payout/alert jobs**
+   - Added:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/cron/notify-system-alerts/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/cron/process-payouts/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/cron/release-payouts/route.test.ts`
+   - Covers unauthorized access and authorized happy-path execution for all three endpoints.
+
+8. **Backend cast cleanup in data/cron/payment-support modules**
+   - Updated:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/data/bookings.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/cron-tracking.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/razorpay.ts`
+   - Removed remaining runtime/backend `as unknown as` usage in these modules with typed return contracts and safer payload handling.
+
+9. **Low-traffic provider bank-details route now has direct regression coverage**
+   - Added:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/providers/bank-details/route.test.ts`
+   - Covers invalid identity, payload validation failure, missing provider, and success persistence path.
+
+10. **Low-traffic provider public-read endpoints now have direct tests**
+   - Added:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/providers/[id]/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/providers/[id]/reviews/route.test.ts`
+   - Covers invalid IDs, missing provider behavior, projection safety on provider details, and sorted/limited review retrieval.
+
+11. **Compatibility-preserving response-shape normalization batch started**
+   - Added response helpers in `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/api/legacy-response.ts`:
+     - `legacyMessageBody` / `legacyMessageResponse`
+     - `legacySuccessBody` / `legacySuccessResponse`
+   - Migrated mixed-contract routes to dual-key compatibility responses (`message` + `error` on failures, `success` + `ok` on success where route returns an object):
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/cancel/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/confirm-delivery/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/otp/resend/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/otp/verify/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/seeker/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/accept/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/reject/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/cancel/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/status/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/reset-password/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/escrow/release/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/pay/route.ts` (success/idempotent payload alignment)
+   - Added regression coverage:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/api/legacy-response.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/accept/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/reject/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/status/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/pay/route.test.ts`
+
 ---
 
 ## Remaining Gaps (Honest)
 
 ### P2 (Medium)
 
-1. **API response contract consistency is still mixed across the full API surface**
+1. **API response contract consistency is improved but still mixed across the full API surface**
    - Standardized helpers exist, but route-wide migration is incomplete.
    - Clients still encounter mixed shapes (`error`, `message`, `success`, `ok`).
 
-2. **Coverage is strong on critical flows but not yet broad across all routes**
+2. **Coverage is strong on critical flows and improved on low-traffic provider routes, but not yet broad across all routes**
    - Critical money/dispute/auth flows are in much better shape.
    - Several low/medium-risk routes still have light or no dedicated tests.
 
-3. **Some non-critical `as unknown as` casts remain in non-payment paths**
-   - Risk is lower than before, but cleanup is still desirable for maintainability.
+3. **Some `as unknown as` casts still exist in tests and selected frontend integrations**
+   - Backend/runtime hotspots in `lib/data/*`, `lib/cron-tracking.ts`, and `lib/razorpay.ts` were cleaned up.
+   - Remaining usage is mostly in tests and UI-side interop casts.
 
 ### P3 (Low)
 
@@ -113,19 +165,19 @@ The current state is strong for production baseline readiness, but not perfect. 
 
 ## Priority Actions to Reach A/A+
 
-1. Complete response-shape normalization route-by-route (compatibility-preserving migration plan).
-2. Expand route coverage for remaining untested API handlers (especially remaining cron and lower-traffic query endpoints).
-3. Continue reducing unnecessary type casts and aligning domain types with persisted fields.
+1. Continue response-shape normalization route-by-route (compatibility-preserving migration plan), prioritizing remaining booking accept/reject and older message-only handlers.
+2. Expand route coverage for remaining untested API handlers (especially lower-traffic query endpoints outside providers/admin/cron).
+3. Continue reducing unnecessary type casts in test scaffolding and UI interop points.
 4. Keep `verify:gates` and docs-sync checks mandatory for every high-impact PR.
 
 ---
 
 ## Active TODO List (Current)
 
-1. [ ] Response-shape normalization pass for remaining mixed endpoints (`error`/`message`/`ok`/`success`), compatibility-preserving.
-2. [ ] Add cron route tests for `notify-system-alerts`, `process-payouts`, and `release-payouts`.
-3. [ ] Reduce remaining backend `as unknown as` casts in non-critical modules (`lib/data/*`, `lib/cron-tracking.ts`, selected server routes).
-4. [ ] Add coverage for remaining low-traffic admin/query endpoints not yet directly tested.
+1. [ ] Response-shape normalization pass for remaining mixed endpoints (`error`/`message`/`ok`/`success`), compatibility-preserving (in progress; core order OTP/delivery/cancel/status + booking seeker/delete/accept/reject/cancel + reset-password/escrow release now migrated).
+2. [x] Add cron route tests for `notify-system-alerts`, `process-payouts`, and `release-payouts`.
+3. [x] Reduce remaining backend `as unknown as` casts in non-critical modules (`lib/data/*`, `lib/cron-tracking.ts`, selected server routes).
+4. [ ] Add coverage for remaining low-traffic admin/query endpoints not yet directly tested (partial: provider bank-details + provider detail/review endpoints now covered).
 
 ---
 
