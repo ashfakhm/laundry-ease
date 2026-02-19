@@ -3,6 +3,8 @@ import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { requireAuth } from "@/lib/api/auth";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { ObjectId } from "mongodb";
 
 // Check if Cloudinary is configured
 const isCloudinaryConfigured = !!(
@@ -10,6 +12,9 @@ const isCloudinaryConfigured = !!(
   process.env.CLOUDINARY_API_KEY &&
   process.env.CLOUDINARY_API_SECRET
 );
+const allowBase64Fallback =
+  process.env.NODE_ENV !== "production" ||
+  process.env.ALLOW_BASE64_UPLOAD_FALLBACK === "1";
 
 // Configure Cloudinary only if credentials exist
 if (isCloudinaryConfigured) {
@@ -22,8 +27,15 @@ if (isCloudinaryConfigured) {
 
 export async function POST(req: NextRequest) {
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "upload:image",
+      max: 30,
+      windowMs: 5 * 60 * 1000,
+    });
+
     const { user } = await requireAuth();
-    if (!user?.id) {
+    if (!user?.id || !ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -33,6 +45,9 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+    if (!/^[a-zA-Z0-9/_-]{1,80}$/.test(folder)) {
+      return NextResponse.json({ error: "Invalid folder name" }, { status: 400 });
     }
 
     // Validate file type
@@ -57,7 +72,7 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Use Cloudinary if configured, otherwise fallback to base64
+    // Use Cloudinary if configured, otherwise controlled base64 fallback.
     let imageUrl: string;
 
     if (isCloudinaryConfigured) {
@@ -82,11 +97,16 @@ export async function POST(req: NextRequest) {
           )
           .end(buffer);
       });
-    } else {
+    } else if (allowBase64Fallback) {
       // Fallback to base64 encoding
       logger.warn("UPLOAD", "Cloudinary not configured. Using base64 encoding as fallback.");
       const base64 = buffer.toString("base64");
       imageUrl = `data:${file.type};base64,${base64}`;
+    } else {
+      return NextResponse.json(
+        { error: "Image upload service is unavailable. Please try again later." },
+        { status: 503 },
+      );
     }
 
     return NextResponse.json({ url: imageUrl }, { status: 200 });
