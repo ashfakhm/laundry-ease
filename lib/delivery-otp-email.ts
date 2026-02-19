@@ -1,6 +1,6 @@
-import nodemailer from "nodemailer";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { getEmailTransporter } from "@/lib/email-transporter";
 
 function maskEmail(email: string) {
   const [user, domain] = email.split("@");
@@ -10,21 +10,16 @@ function maskEmail(email: string) {
   return `${prefix}***@${domain}`;
 }
 
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: env.EMAIL_USER,
-    pass: env.EMAIL_PASS,
-  },
-});
-
-export async function sendDeliveryOtpEmail(opts: {
+export type DeliveryOtpEmailPayload = {
   to: string;
   otp: string;
   orderId: string;
   ttlMinutes?: number;
-}) {
+};
+
+export async function sendDeliveryOtpEmailNow(opts: DeliveryOtpEmailPayload) {
   const { to, otp, orderId, ttlMinutes = 10 } = opts;
+  const transporter = getEmailTransporter();
 
   await transporter.sendMail({
     from: env.EMAIL_USER,
@@ -37,4 +32,8 @@ export async function sendDeliveryOtpEmail(opts: {
     orderId,
     to: maskEmail(to),
   });
+}
+
+export async function sendDeliveryOtpEmail(opts: DeliveryOtpEmailPayload) {
+  await sendDeliveryOtpEmailNow(opts);
 }

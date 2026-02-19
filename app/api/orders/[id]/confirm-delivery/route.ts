@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getOrderById, confirmDelivery } from "@/lib/db/index";
-import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { confirmDeliverySchema } from "@/lib/api/schemas";
@@ -26,11 +25,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireSeeker();
-
-    if (!session || !session.user || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
@@ -58,7 +53,7 @@ export async function POST(
       return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
-    if (order.seeker_id.toString() !== session.user.id) {
+    if (order.seeker_id.toString() !== user.id) {
       return NextResponse.json(
         {
           message: "You are not authorized to confirm delivery for this order",

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { getUserByEmail } from "@/lib/db/index";
-import nodemailer from "nodemailer";
 import { createHash, randomBytes } from "crypto";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { forgotPasswordSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 
 const GENERIC_RESPONSE = {
   message: "If an account exists, a reset link has been sent.",
@@ -66,36 +66,16 @@ export async function POST(req: NextRequest) {
       usedAt: null,
     });
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: env.EMAIL_USER,
-        pass: env.EMAIL_PASS,
-      },
-    });
-
     const resetUrl = `${
       env.NEXT_PUBLIC_BASE_URL || env.NEXTAUTH_URL || "http://localhost:3000"
     }/reset-password?token=${encodeURIComponent(resetToken)}`;
 
-    await transporter.sendMail({
-      from: env.EMAIL_USER,
-      to: normalizedEmail,
-      subject: "LaundryEase - Password Reset Request",
-      html: `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #059669;">Password Reset Request</h2>
-          <p>We received a request to reset your password. Click the link below to create a new password:</p>
-          <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #059669; color: white; text-decoration: none; border-radius: 8px; margin: 20px 0;">
-            Reset Password
-          </a>
-          <p>Or copy and paste this link in your browser:</p>
-          <p style="word-break: break-all; color: #666;">${resetUrl}</p>
-          <p style="color: #999; font-size: 12px; margin-top: 30px;">
-            This link will expire in 1 hour. If you didn't request a password reset, please ignore this email.
-          </p>
-        </div>
-      `,
+    await enqueueEmailOutboxJob({
+      kind: "password_reset",
+      payload: {
+        to: normalizedEmail,
+        resetUrl,
+      },
     });
 
     return NextResponse.json(GENERIC_RESPONSE, { status: 200 });

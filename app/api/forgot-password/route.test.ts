@@ -5,15 +5,13 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 const {
   mockGetDb,
   mockGetUserByEmail,
-  mockCreateTransport,
-  mockSendMail,
+  mockEnqueueEmailOutboxJob,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
 } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockGetUserByEmail: vi.fn(),
-  mockCreateTransport: vi.fn(),
-  mockSendMail: vi.fn(),
+  mockEnqueueEmailOutboxJob: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
 }));
@@ -26,12 +24,6 @@ vi.mock("@/lib/db/index", () => ({
   getUserByEmail: mockGetUserByEmail,
 }));
 
-vi.mock("nodemailer", () => ({
-  default: {
-    createTransport: mockCreateTransport,
-  },
-}));
-
 vi.mock("@/lib/env", () => ({
   env: {
     EMAIL_USER: "noreply@laundryease.test",
@@ -39,6 +31,10 @@ vi.mock("@/lib/env", () => ({
     NEXT_PUBLIC_BASE_URL: "https://laundryease.test",
     NEXTAUTH_URL: "https://laundryease.test",
   },
+}));
+
+vi.mock("@/lib/email-outbox", () => ({
+  enqueueEmailOutboxJob: mockEnqueueEmailOutboxJob,
 }));
 
 vi.mock("@/lib/api/security", () => ({
@@ -97,10 +93,10 @@ describe("POST /api/forgot-password", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockCreateTransport.mockReturnValue({
-      sendMail: mockSendMail,
+    mockEnqueueEmailOutboxJob.mockResolvedValue({
+      id: "job_1",
+      queuedAt: new Date().toISOString(),
     });
-    mockSendMail.mockResolvedValue({ messageId: "msg_1" });
   });
 
   it("returns generic response for unknown account", async () => {
@@ -115,7 +111,7 @@ describe("POST /api/forgot-password", () => {
 
     expect(res.status).toBe(200);
     expect(data.message).toContain("If an account exists");
-    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(mockEnqueueEmailOutboxJob).not.toHaveBeenCalled();
   });
 
   it("returns 429 when abuse limit is hit", async () => {
@@ -172,6 +168,12 @@ describe("POST /api/forgot-password", () => {
       }),
     );
     expect(dbMock.tokensInsertOne).toHaveBeenCalledOnce();
-    expect(mockSendMail).toHaveBeenCalledOnce();
+    expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledOnce();
+    expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledWith({
+      kind: "password_reset",
+      payload: expect.objectContaining({
+        to: "user@laundryease.test",
+      }),
+    });
   });
 });

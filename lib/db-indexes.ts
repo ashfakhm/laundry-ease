@@ -161,6 +161,16 @@ const INDEX_SPECS: IndexSpec[] = [
     keys: { status: 1, response_deadline: 1 },
     options: { name: "complaints_status_deadline" },
   },
+  {
+    collection: "email_outbox",
+    keys: { status: 1, nextAttemptAt: 1, createdAt: 1 },
+    options: { name: "email_outbox_status_nextAttempt_createdAt" },
+  },
+  {
+    collection: "email_outbox",
+    keys: { status: 1, lockedAt: 1 },
+    options: { name: "email_outbox_status_lockedAt" },
+  },
 
   // TTL cleanup indexes
   {

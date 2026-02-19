@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getOrderById } from "@/lib/db/index";
-import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
@@ -11,10 +10,10 @@ import {
   getAllowedNextStates,
   type OrderProcessStatus,
 } from "@/lib/orders/status-machine";
-import { sendDeliveryOtpEmail } from "@/lib/delivery-otp-email";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
+import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -30,10 +29,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireProvider();
-    if (!session || !session.user || session.user.role !== Role.PROVIDER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireProvider();
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
@@ -46,7 +42,7 @@ export async function POST(
       return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
-    if (order.provider_id.toString() !== session.user.id) {
+    if (order.provider_id.toString() !== user.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
@@ -136,14 +132,20 @@ export async function POST(
         .findOne({ _id: order.seeker_id });
       if (seeker?.email) {
         try {
-          await sendDeliveryOtpEmail({
-            to: String(seeker.email),
-            otp,
+          await enqueueEmailOutboxJob({
+            kind: "delivery_otp",
+            payload: {
+              to: String(seeker.email),
+              otp,
+              orderId: id,
+              ttlMinutes: Math.floor(DELIVERY_OTP_TTL_MS / 60_000),
+            },
+          });
+          logger.info("ORDERS", "Delivery OTP email queued", {
             orderId: id,
-            ttlMinutes: Math.floor(DELIVERY_OTP_TTL_MS / 60_000),
           });
         } catch (err) {
-          logger.error("ORDERS", "Failed to send delivery OTP email", err, {
+          logger.error("ORDERS", "Failed to queue delivery OTP email", err, {
             orderId: id,
           });
         }

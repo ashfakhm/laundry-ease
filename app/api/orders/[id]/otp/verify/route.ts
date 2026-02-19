@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getOrderById, confirmDelivery } from "@/lib/db/index";
-import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
@@ -31,11 +30,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireProvider();
-
-    if (!session || !session.user || session.user.role !== Role.PROVIDER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireProvider();
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
@@ -60,7 +55,7 @@ export async function POST(
       return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
-    if (order.provider_id.toString() !== session.user.id) {
+    if (order.provider_id.toString() !== user.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
@@ -246,7 +241,7 @@ export async function POST(
 
       logger.info("ORDERS", "Deadline compensation applied on delivery OTP", {
         orderId: id,
-        providerId: session.user.id,
+        providerId: user.id,
         refundId,
       });
 
@@ -261,7 +256,7 @@ export async function POST(
 
     logger.info("ORDERS", "Delivery OTP verified by provider", {
       orderId: id,
-      providerId: session.user.id,
+      providerId: user.id,
     });
 
     return NextResponse.json({
