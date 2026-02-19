@@ -1,8 +1,7 @@
 import { getDb } from "@/lib/mongodb";
 import { PopulatedBooking } from "@/types/bookings";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { ObjectId } from "mongodb";
+import { requireProvider, requireSeeker } from "@/lib/api/auth";
 
 export async function getProviderBookings(): Promise<{
   success: boolean;
@@ -10,18 +9,18 @@ export async function getProviderBookings(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id && !session?.user?.email) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return { success: false, error: "Unauthorized" };
     }
 
     const { db } = await getDb();
+    const providerId = new ObjectId(user.id);
 
-    // Get provider by email
+    // Ensure provider exists for authenticated identity.
     const provider = await db
       .collection("providers")
-      .findOne({ email: session.user.email });
+      .findOne({ _id: providerId });
 
     if (!provider) {
       return { success: false, error: "Provider not found" };
@@ -32,7 +31,7 @@ export async function getProviderBookings(): Promise<{
     const bookings = await db
       .collection("bookings")
       .find({
-        provider_id: provider._id,
+        provider_id: providerId,
         bookingFeeStatus: { $in: ["paid", "applied"] },
       })
       .sort({ createdAt: -1 })
@@ -104,22 +103,15 @@ export async function getSeekerBookings(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
+    const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) {
       return { success: false, error: "Unauthorized" };
     }
 
     const { db } = await getDb();
+    const seekerId = new ObjectId(user.id);
 
-    // Get seeker by stable identity.
-    // Email can change; session.user.id is stable and should be used for lookups.
-    const seeker = await db.collection("seekers").findOne({
-      $or: [
-        { _id: new ObjectId(String(session.user.id)) },
-        { email: session.user.email },
-      ],
-    });
+    const seeker = await db.collection("seekers").findOne({ _id: seekerId });
 
     if (!seeker) {
       return { success: false, error: "Seeker not found" };
@@ -129,7 +121,7 @@ export async function getSeekerBookings(): Promise<{
     const bookings = await db
       .collection("bookings")
       .find({
-        seeker_id: seeker._id,
+        seeker_id: seekerId,
         status: { $nin: ["cancelled", "rejected"] },
       })
       .sort({ createdAt: -1 })
