@@ -1,19 +1,16 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { getProviderBookings } from "@/lib/data/bookings";
 import { ProviderBookingList } from "@/components/providers/provider-booking-list";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProviderBookingsPage() {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.email) {
-    redirect("/signin");
-  }
-
   const result = await getProviderBookings();
 
   if (!result.success) {
+    if (result.error === "Unauthorized") {
+      redirect("/signin");
+    }
     return (
       <div className="p-6">
         <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-destructive">

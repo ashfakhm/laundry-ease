@@ -1,5 +1,3 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { redirect } from "next/navigation";
@@ -22,6 +20,7 @@ import BookingChat from "@/components/chat-interface";
 import { PostDeliveryActions } from "@/components/orders/post-delivery-actions";
 import { LiveStatusRefresh } from "@/components/orders/live-status-refresh";
 import { cn } from "@/lib/utils";
+import { requireSeeker } from "@/lib/api/auth";
 
 export default async function OrderDetailsPage({
   params,
@@ -36,13 +35,19 @@ export default async function OrderDetailsPage({
     photoUrl?: string;
   };
 
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
+  let seekerId: string;
+  try {
+    const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) redirect("/signin");
+    seekerId = user.id;
+  } catch {
     redirect("/signin");
   }
 
   const { id } = await params;
+  if (!ObjectId.isValid(id)) {
+    redirect("/dashboard/seeker");
+  }
   const { db } = await getDb();
 
   // Aggregate to get Provider details
@@ -74,7 +79,7 @@ export default async function OrderDetailsPage({
     .findOne({ order_id: new ObjectId(id) });
   const hasReviewed = !!existingReview;
 
-  if (order.seeker_id.toString() !== session.user.id) {
+  if (order.seeker_id.toString() !== seekerId) {
     redirect("/dashboard/seeker");
   }
 
@@ -296,7 +301,7 @@ export default async function OrderDetailsPage({
               <PostDeliveryActions
                 orderId={id}
                 providerId={order.provider._id.toString()}
-                seekerId={session.user.id}
+                seekerId={seekerId}
                 deliveredAt={order.otp_confirmed_at}
                 isDelivered={isDelivered}
                 hasReviewed={hasReviewed}

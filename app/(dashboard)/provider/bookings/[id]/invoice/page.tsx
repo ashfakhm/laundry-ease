@@ -1,30 +1,33 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { InvoiceForm } from "@/components/providers/invoice-form";
 import BookingChat from "../Chat";
+import { requireProvider } from "@/lib/api/auth";
 
 export default async function CreateInvoicePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.email) {
+  let providerId: ObjectId;
+  try {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) redirect("/signin");
+    providerId = new ObjectId(user.id);
+  } catch {
     redirect("/signin");
   }
 
   const { id } = await params;
+  if (!ObjectId.isValid(id)) {
+    redirect("/provider/bookings");
+  }
 
   const { db } = await getDb();
 
   // Get provider
-  const provider = await db
-    .collection("providers")
-    .findOne({ email: session.user.email });
+  const provider = await db.collection("providers").findOne({ _id: providerId });
 
   if (!provider) {
     redirect("/provider/profile");

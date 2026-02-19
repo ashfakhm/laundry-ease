@@ -1,7 +1,5 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
@@ -12,10 +10,11 @@ import {
   refundRazorpayPayment,
 } from "@/lib/razorpay";
 import { acceptBookingWithCapacityCheck } from "@/lib/db/index";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { calculateDistance } from "@/lib/distance";
+import { requireProvider } from "@/lib/api/auth";
+import { AppError } from "@/lib/api/errors";
 
 export type ActionResponse = {
   success: boolean;
@@ -24,6 +23,16 @@ export type ActionResponse = {
 };
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+
+function actionErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof AppError) {
+    if (error.statusCode === 401 || error.statusCode === 403) {
+      return "Unauthorized";
+    }
+    return error.message;
+  }
+  return fallback;
+}
 
 /**
  * Updates the status of a booking (accept/reject).
@@ -34,23 +43,16 @@ export async function updateBookingStatus(
   action: "accept" | "reject",
 ): Promise<ActionResponse> {
   try {
-    const session = await getServerSession(authOptions);
-    // basic auth check
-    if (!session?.user?.email) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return { success: false, error: "Unauthorized" };
     }
 
-    // role check (optional but good practice if session has role)
-    if (session.user.role && session.user.role !== Role.PROVIDER) {
-      return { success: false, error: "Unauthorized: Providers only" };
-    }
-
     const { db } = await getDb();
+    const providerId = new ObjectId(user.id);
 
-    // Get provider by email
-    const provider = await db
-      .collection("providers")
-      .findOne({ email: session.user.email });
+    // Get provider by stable identity
+    const provider = await db.collection("providers").findOne({ _id: providerId });
     if (!provider) {
       return { success: false, error: "Provider not found" };
     }
@@ -370,7 +372,7 @@ export async function updateBookingStatus(
     logger.error("BOOKING_ACTIONS", "Error updating booking status", error, {
       bookingId,
     });
-    return { success: false, error: "Internal server error" };
+    return { success: false, error: actionErrorMessage(error, "Internal server error") };
   }
 }
 
@@ -382,8 +384,8 @@ export async function proposePickupSlot(
   dateTime: string,
 ): Promise<ActionResponse> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -409,7 +411,7 @@ export async function proposePickupSlot(
 
     const provider = await db
       .collection("providers")
-      .findOne({ email: session.user.email });
+      .findOne({ _id: new ObjectId(user.id) });
     if (
       !provider ||
       booking.provider_id.toString() !== provider._id.toString()
@@ -464,7 +466,10 @@ export async function proposePickupSlot(
     logger.error("BOOKING_ACTIONS", "Error proposing pickup slot", error, {
       bookingId,
     });
-    return { success: false, error: "Failed to propose pickup slot" };
+    return {
+      success: false,
+      error: actionErrorMessage(error, "Failed to propose pickup slot"),
+    };
   }
 }
 
@@ -476,8 +481,8 @@ export async function markProviderArrived(
   coordinates?: { lat: number; lng: number },
 ): Promise<ActionResponse> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -499,7 +504,7 @@ export async function markProviderArrived(
 
     const provider = await db
       .collection("providers")
-      .findOne({ email: session.user.email });
+      .findOne({ _id: new ObjectId(user.id) });
     if (
       !provider ||
       booking.provider_id.toString() !== provider._id.toString()
@@ -653,6 +658,9 @@ export async function markProviderArrived(
     logger.error("BOOKING_ACTIONS", "Error marking provider arrival", error, {
       bookingId,
     });
-    return { success: false, error: "Failed to mark arrival" };
+    return {
+      success: false,
+      error: actionErrorMessage(error, "Failed to mark arrival"),
+    };
   }
 }

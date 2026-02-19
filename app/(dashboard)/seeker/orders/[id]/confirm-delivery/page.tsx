@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { requireSeeker } from "@/lib/api/auth";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { redirect } from "next/navigation";
@@ -13,14 +12,25 @@ export default async function DeliveryOtpPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) redirect("/signin");
+  let seekerId: string;
+  try {
+    const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) redirect("/signin");
+    seekerId = user.id;
+  } catch {
+    redirect("/signin");
+  }
+
+  if (!ObjectId.isValid(id)) {
+    redirect("/dashboard/seeker");
+  }
+
   const { db } = await getDb();
   // Only allow seeker to confirm delivery
   const order = await db
     .collection("orders")
     .findOne({ _id: new ObjectId(id) });
-  if (!order || order.seeker_id.toString() !== session.user.id)
+  if (!order || order.seeker_id.toString() !== seekerId)
     redirect("/dashboard/seeker");
   return (
     <div className="max-w-md mx-auto p-6">

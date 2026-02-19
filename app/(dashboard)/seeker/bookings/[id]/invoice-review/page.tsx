@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { requireSeeker } from "@/lib/api/auth";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { redirect } from "next/navigation";
@@ -11,15 +10,26 @@ export default async function InvoiceReviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) redirect("/signin");
+  let seekerId: string;
+  try {
+    const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) redirect("/signin");
+    seekerId = user.id;
+  } catch {
+    redirect("/signin");
+  }
+
+  if (!ObjectId.isValid(id)) {
+    redirect("/dashboard/seeker");
+  }
+
   const { db } = await getDb();
   // Find booking
   const booking = await db
     .collection("bookings")
     .findOne({ _id: new ObjectId(id) });
 
-  if (!booking || booking.seeker_id.toString() !== session.user.id)
+  if (!booking || booking.seeker_id.toString() !== seekerId)
     redirect("/dashboard/seeker");
 
   const invoice = booking.invoice;

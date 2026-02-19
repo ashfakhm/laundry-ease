@@ -1,21 +1,22 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
+import { requireProvider } from "@/lib/api/auth";
 
 export async function getProviderProfile() {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user || session.user.role !== "provider") {
+  let providerId: ObjectId;
+  try {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) throw new Error("Unauthorized");
+    providerId = new ObjectId(user.id);
+  } catch {
     throw new Error("Unauthorized");
   }
 
   const { db } = await getDb();
 
-  const provider = await db
-    .collection("providers")
-    .findOne({ email: session.user.email });
+  const provider = await db.collection("providers").findOne({ _id: providerId });
 
   if (!provider) {
     throw new Error("Provider not found");
