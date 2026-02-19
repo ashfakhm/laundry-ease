@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import { getCspHeader } from "./lib/security/csp";
 
 const cspHeader = getCspHeader();
+const shouldSendHsts =
+  process.env.NODE_ENV === "production" && process.env.DISABLE_HSTS !== "1";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
@@ -36,10 +38,14 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=(self)",
           },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=31536000; includeSubDomains; preload",
-          },
+          ...(shouldSendHsts
+            ? [
+                {
+                  key: "Strict-Transport-Security",
+                  value: "max-age=31536000; includeSubDomains; preload",
+                },
+              ]
+            : []),
           cspHeader,
         ],
       },

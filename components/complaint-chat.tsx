@@ -75,10 +75,18 @@ export default function ComplaintChat({
     seekerName: "Seeker",
     providerName: "Provider",
   });
+  const latestMessageAtRef = useRef<string | null>(null);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (incremental = false) => {
     try {
-      const res = await fetch(`/api/complaints/${complaintId}/messages`, {
+      const query = new URLSearchParams({
+        limit: "120",
+      });
+      if (incremental && latestMessageAtRef.current) {
+        query.set("since", latestMessageAtRef.current);
+      }
+
+      const res = await fetch(`/api/complaints/${complaintId}/messages?${query}`, {
         cache: "no-store",
       });
       if (res.status === 403) {
@@ -94,8 +102,23 @@ export default function ComplaintChat({
         return;
       }
       if (!res.ok) throw new Error("Failed to fetch messages");
-      const data = await res.json();
-      setMessages(data);
+      const data = (await res.json()) as ChatMessage[];
+
+      if (incremental && latestMessageAtRef.current) {
+        if (data.length > 0) {
+          latestMessageAtRef.current = data[data.length - 1].createdAt;
+          setMessages((prev) => {
+            const seen = new Set(prev.map((msg) => String(msg._id)));
+            const appended = data.filter((msg) => !seen.has(String(msg._id)));
+            return appended.length > 0 ? [...prev, ...appended] : prev;
+          });
+        }
+      } else {
+        setMessages(data);
+        latestMessageAtRef.current =
+          data.length > 0 ? data[data.length - 1].createdAt : null;
+      }
+
       setError(null);
       setIsResolved(false);
       setIsAccessBlocked(false);
@@ -135,8 +158,10 @@ export default function ComplaintChat({
 
   useEffect(() => {
     fetchParticipants();
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000); // Polling
+    fetchMessages(false);
+    const interval = setInterval(() => {
+      void fetchMessages(true);
+    }, 5000); // Polling
     return () => clearInterval(interval);
   }, [fetchMessages, fetchParticipants]);
 
@@ -171,7 +196,7 @@ export default function ComplaintChat({
 
       setInput("");
       setShouldAutoScroll(true); // Always scroll to bottom after sending
-      await fetchMessages();
+      await fetchMessages(true);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not send message";

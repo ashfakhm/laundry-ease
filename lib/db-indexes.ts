@@ -5,6 +5,7 @@ type IndexSpec = {
   collection: string;
   keys: Record<string, 1 | -1 | "text" | "2dsphere">;
   options?: Record<string, unknown>;
+  critical?: boolean;
 };
 
 const INDEX_SPECS: IndexSpec[] = [
@@ -13,6 +14,7 @@ const INDEX_SPECS: IndexSpec[] = [
     collection: "orders",
     keys: { booking_id: 1 },
     options: { name: "orders_booking_id_unique", unique: true },
+    critical: true,
   },
   {
     collection: "orders",
@@ -22,6 +24,7 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { razorpay_order_id: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "orders",
@@ -31,6 +34,7 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { razorpay_payment_id: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "orders",
@@ -40,11 +44,13 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { payout_id: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "complaints",
     keys: { order_id: 1 },
     options: { name: "complaints_order_id_unique", unique: true },
+    critical: true,
   },
   {
     collection: "bookings",
@@ -54,6 +60,7 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { razorpay_order_id: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "bookings",
@@ -63,11 +70,13 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { razorpay_payment_id: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "password_reset_tokens",
     keys: { tokenHash: 1 },
     options: { name: "password_reset_token_hash_unique", unique: true },
+    critical: true,
   },
   {
     collection: "seekers",
@@ -77,6 +86,7 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { email: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "providers",
@@ -86,6 +96,7 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { email: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "admins",
@@ -95,11 +106,13 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { email: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "webhook_events",
     keys: { event_id: 1 },
     options: { name: "webhook_event_id_unique", unique: true },
+    critical: true,
   },
   {
     collection: "payments",
@@ -109,6 +122,7 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { razorpay_payment_id: { $type: "string" } },
     },
+    critical: true,
   },
   {
     collection: "refunds",
@@ -118,6 +132,7 @@ const INDEX_SPECS: IndexSpec[] = [
       unique: true,
       partialFilterExpression: { razorpay_refund_id: { $type: "string" } },
     },
+    critical: true,
   },
 
   // Query/performance indexes
@@ -163,16 +178,40 @@ const INDEX_SPECS: IndexSpec[] = [
   },
 ];
 
-async function createIndexSafe(db: Db, spec: IndexSpec) {
+type IndexCreateResult = {
+  ok: boolean;
+  critical: boolean;
+  indexName: string;
+  collection: string;
+  keys: Record<string, 1 | -1 | "text" | "2dsphere">;
+  message?: string;
+};
+
+function isIndexFailFastEnabled(): boolean {
+  return (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_START_WITH_INDEX_ERRORS !== "1"
+  );
+}
+
+async function createIndexSafe(db: Db, spec: IndexSpec): Promise<IndexCreateResult> {
+  const indexName = String(spec.options?.name || "unnamed");
   try {
     await db.collection(spec.collection).createIndex(spec.keys, spec.options);
+    return {
+      ok: true,
+      critical: Boolean(spec.critical),
+      indexName,
+      collection: spec.collection,
+      keys: spec.keys,
+    };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     // Duplicate-key errors during index creation indicate existing bad historical data.
     // We keep the app running and log explicit remediation guidance.
     logger.error(
       "DB_INDEX",
-      `Failed to create index ${String(spec.options?.name || "unnamed")} on ${spec.collection}`,
+      `Failed to create index ${indexName} on ${spec.collection}`,
       error,
       {
         collection: spec.collection,
@@ -180,15 +219,63 @@ async function createIndexSafe(db: Db, spec: IndexSpec) {
         message,
       },
     );
+    return {
+      ok: false,
+      critical: Boolean(spec.critical),
+      indexName,
+      collection: spec.collection,
+      keys: spec.keys,
+      message,
+    };
   }
 }
 
 export async function ensureDbIndexes(db: Db) {
+  const failures: IndexCreateResult[] = [];
   for (const spec of INDEX_SPECS) {
-    await createIndexSafe(db, spec);
+    const result = await createIndexSafe(db, spec);
+    if (!result.ok) failures.push(result);
+  }
+
+  const criticalFailures = failures.filter((result) => result.critical);
+  if (criticalFailures.length > 0) {
+    const failFast = isIndexFailFastEnabled();
+    const indexList = criticalFailures
+      .map((failure) => `${failure.collection}.${failure.indexName}`)
+      .join(", ");
+
+    const logPayload = {
+      criticalFailedCount: criticalFailures.length,
+      criticalIndexes: criticalFailures.map((failure) => ({
+        collection: failure.collection,
+        indexName: failure.indexName,
+        message: failure.message,
+      })),
+      failFast,
+    };
+
+    if (failFast) {
+      logger.error(
+        "DB_INDEX",
+        "Critical index initialization failed; refusing startup in production",
+        undefined,
+        logPayload,
+      );
+      throw new Error(
+        `Critical database index initialization failed: ${indexList}. Resolve duplicate/incompatible data or set ALLOW_START_WITH_INDEX_ERRORS=1 to bypass.`,
+      );
+    }
+
+    logger.warn(
+      "DB_INDEX",
+      "Critical index initialization failed; continuing startup because fail-fast is disabled",
+      logPayload,
+    );
   }
 
   logger.info("DB_INDEX", "Database index initialization completed", {
     totalIndexesAttempted: INDEX_SPECS.length,
+    failedIndexes: failures.length,
+    criticalFailedIndexes: criticalFailures.length,
   });
 }

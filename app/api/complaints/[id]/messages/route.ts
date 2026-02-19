@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { getUserByEmail } from "@/lib/db/index";
 import { ComplaintMessage } from "@/types/complaints";
 import { logger } from "@/lib/logger";
 import { complaintMessageSchema } from "@/lib/api/schemas";
@@ -17,6 +16,27 @@ type ComplaintAccessDoc = {
   status: string;
 };
 
+const DEFAULT_MESSAGES_LIMIT = 100;
+const MAX_MESSAGES_LIMIT = 250;
+
+function parseMessagesLimit(rawLimit: string | null): number {
+  if (!rawLimit) return DEFAULT_MESSAGES_LIMIT;
+  const value = Number(rawLimit);
+  if (!Number.isFinite(value) || value < 1) {
+    return DEFAULT_MESSAGES_LIMIT;
+  }
+  return Math.min(MAX_MESSAGES_LIMIT, Math.floor(value));
+}
+
+function parseSinceParam(rawSince: string | null): Date | null {
+  if (!rawSince) return null;
+  const since = new Date(rawSince);
+  if (Number.isNaN(since.getTime())) {
+    return null;
+  }
+  return since;
+}
+
 /**
  * GET /api/complaints/[id]/messages
  */
@@ -26,8 +46,8 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const session = await requireAuth();
-    if (!session?.user?.email) {
+    const { user } = await requireAuth();
+    if (!user?.id || !ObjectId.isValid(user.id) || !user.role) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -35,12 +55,18 @@ export async function GET(
       return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
     }
 
-    const dbUser = await getUserByEmail(session.user.email);
-    if (!dbUser?._id || !dbUser.role) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const requestUrl = new URL(req.url);
+    const sinceRaw = requestUrl.searchParams.get("since");
+    const since = parseSinceParam(sinceRaw);
+    if (sinceRaw && !since) {
+      return NextResponse.json(
+        { error: "Invalid since timestamp" },
+        { status: 400 }
+      );
     }
+    const limit = parseMessagesLimit(requestUrl.searchParams.get("limit"));
 
-    const actorId = new ObjectId(dbUser._id);
+    const actorId = new ObjectId(user.id);
 
     const { db } = await getDb();
     const complaintId = new ObjectId(id);
@@ -57,7 +83,7 @@ export async function GET(
 
     const access = canAccessComplaintConversation({
       actorId: actorId.toString(),
-      actorRole: dbUser.role,
+      actorRole: user.role,
       complaint: {
         seekerId: complaint.seeker_id.toString(),
         providerId: complaint.provider_id.toString(),
@@ -70,10 +96,21 @@ export async function GET(
     }
 
     // Fetch Messages
+    const messageQuery: {
+      complaint_id: ObjectId;
+      createdAt?: { $gt: Date };
+    } = {
+      complaint_id: complaintId,
+    };
+    if (since) {
+      messageQuery.createdAt = { $gt: since };
+    }
+
     const messages = await db
       .collection("complaint_messages")
-      .find({ complaint_id: complaintId })
+      .find(messageQuery)
       .sort({ createdAt: 1 })
+      .limit(limit)
       .toArray();
 
     return NextResponse.json(messages);
@@ -112,18 +149,13 @@ export async function POST(
       windowMs: 60 * 1000,
     });
 
-    const session = await requireAuth();
-    if (!session?.user?.email) {
+    const { user } = await requireAuth();
+    if (!user?.id || !ObjectId.isValid(user.id) || !user.role) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
-    }
-
-    const dbUser = await getUserByEmail(session.user.email);
-    if (!dbUser?._id || !dbUser.role) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -140,7 +172,7 @@ export async function POST(
     }
 
     const { content, attachments } = parsed.data;
-    const actorId = new ObjectId(dbUser._id);
+    const actorId = new ObjectId(user.id);
 
     const { db } = await getDb();
     const complaintId = new ObjectId(id);
@@ -157,7 +189,7 @@ export async function POST(
 
     const access = canAccessComplaintConversation({
       actorId: actorId.toString(),
-      actorRole: dbUser.role,
+      actorRole: user.role,
       complaint: {
         seekerId: complaint.seeker_id.toString(),
         providerId: complaint.provider_id.toString(),

@@ -250,6 +250,12 @@ function makeCursor<T extends Record<string, unknown>>(items: T[]) {
       });
       return makeCursor(sorted);
     },
+    limit(count: number) {
+      if (!Number.isFinite(count) || count <= 0) {
+        return makeCursor([]);
+      }
+      return makeCursor(items.slice(0, Math.floor(count)));
+    },
     async toArray() {
       return [...items];
     },
