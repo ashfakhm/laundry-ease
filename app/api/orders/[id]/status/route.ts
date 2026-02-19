@@ -14,6 +14,7 @@ import {
 import { sendDeliveryOtpEmail } from "@/lib/delivery-otp-email";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -32,6 +33,10 @@ export async function POST(
     const session = await requireProvider();
     if (!session || !session.user || session.user.role !== Role.PROVIDER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
     }
 
     const order_id = new ObjectId(id);
@@ -108,6 +113,9 @@ export async function POST(
       process_status: OrderProcessStatus;
       updatedAt: Date;
       delivery_otp?: string;
+      delivery_otp_sent_at?: Date;
+      delivery_otp_expires_at?: Date;
+      delivery_otp_resend_count?: number;
     } = {
       process_status: status as OrderProcessStatus,
       updatedAt: new Date(),
@@ -116,7 +124,12 @@ export async function POST(
     if (status === "out_for_delivery") {
       // Generate OTP for delivery confirmation
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpSentAt = new Date();
+      const otpExpiresAt = new Date(otpSentAt.getTime() + DELIVERY_OTP_TTL_MS);
       updateData.delivery_otp = otp;
+      updateData.delivery_otp_sent_at = otpSentAt;
+      updateData.delivery_otp_expires_at = otpExpiresAt;
+      updateData.delivery_otp_resend_count = 0;
       // Send OTP to seeker via email (Gmail)
       const seeker = await db
         .collection("seekers")
@@ -127,7 +140,7 @@ export async function POST(
             to: String(seeker.email),
             otp,
             orderId: id,
-            ttlMinutes: 10,
+            ttlMinutes: Math.floor(DELIVERY_OTP_TTL_MS / 60_000),
           });
         } catch (err) {
           logger.error("ORDERS", "Failed to send delivery OTP email", err, {

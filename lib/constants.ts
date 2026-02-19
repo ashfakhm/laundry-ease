@@ -57,6 +57,9 @@ export const HIGH_ALERT_PERSISTENT_ROUTE_MS = 4 * 60 * 60 * 1000; // 4 hours
 /** Minimum advance notice for pickup scheduling (ms). */
 export const MIN_PICKUP_ADVANCE_MS = 48 * 60 * 60 * 1000; // 48 hours
 
+/** Delivery OTP validity window (ms). */
+export const DELIVERY_OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 // ─── Complaints ─────────────────────────────────────────────────────────────
 
 /** Window after delivery in which a seeker can file a complaint (ms). */

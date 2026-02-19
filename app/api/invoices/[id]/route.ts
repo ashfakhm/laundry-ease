@@ -36,16 +36,78 @@ export async function POST(
     }
 
     const { db } = await getDb();
+    const bookingId = new ObjectId(id);
+    const providerId = new ObjectId(user.id);
 
-    const invoice = {
-      booking_id: new ObjectId(id),
-      provider_id: new ObjectId(user.id),
+    const booking = await db.collection("bookings").findOne({
+      _id: bookingId,
+    });
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+
+    if (String(booking.provider_id) !== user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    if (booking.status !== "confirmed" && booking.status !== "invoice_created") {
+      return NextResponse.json(
+        { error: "Invoice can only be created for confirmed bookings" },
+        { status: 409 }
+      );
+    }
+
+    const calculatedSubtotal = parsed.data.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0
+    );
+    const cleanSubtotal =
+      parsed.data.subtotal !== undefined
+        ? parsed.data.subtotal
+        : calculatedSubtotal;
+    const cleanDiscount = parsed.data.discount || 0;
+    const cleanTotal =
+      parsed.data.total !== undefined
+        ? Math.max(0, parsed.data.total)
+        : Math.max(0, cleanSubtotal - cleanDiscount);
+
+    const now = new Date();
+    const invoicePayload = {
       items: parsed.data.items,
-      total: parsed.data.total,
-      notes: parsed.data.notes,
-      createdAt: new Date(),
+      notes: parsed.data.notes || "",
+      photos: parsed.data.photos || [],
+      discount: cleanDiscount,
+      subtotal: cleanSubtotal,
+      total: cleanTotal,
+      createdAt: now,
     };
-    await db.collection("invoices").insertOne(invoice);
+
+    await db.collection("invoices").updateOne(
+      { booking_id: bookingId, provider_id: providerId },
+      {
+        $set: {
+          ...invoicePayload,
+          updatedAt: now,
+        },
+        $setOnInsert: {
+          booking_id: bookingId,
+          provider_id: providerId,
+        },
+      },
+      { upsert: true }
+    );
+
+    await db.collection("bookings").updateOne(
+      { _id: bookingId },
+      {
+        $set: {
+          status: "invoice_created",
+          invoice: invoicePayload,
+          updatedAt: now,
+        },
+      }
+    );
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof AppError) {

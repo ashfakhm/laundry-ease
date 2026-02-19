@@ -8,10 +8,10 @@ import { sendDeliveryOtpEmail } from "@/lib/delivery-otp-email";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
+import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
 
 const MIN_RESEND_INTERVAL_MS = 60_000; // 1 minute
 const MAX_RESENDS = 5;
-const OTP_TTL_MS = 10 * 60_000; // 10 minutes
 
 function maskEmail(email: string) {
   const [user, domain] = email.split("@");
@@ -128,7 +128,7 @@ export async function POST(
         to: String(seeker.email),
         otp,
         orderId: id,
-        ttlMinutes: 10,
+        ttlMinutes: Math.floor(DELIVERY_OTP_TTL_MS / 60_000),
       });
       logger.info("ORDERS", "Delivery OTP email resent", {
         orderId: id,
@@ -147,7 +147,7 @@ export async function POST(
       );
     }
 
-    const otpExpiresAt = new Date(now.getTime() + OTP_TTL_MS);
+    const otpExpiresAt = new Date(now.getTime() + DELIVERY_OTP_TTL_MS);
 
     await db.collection("orders").updateOne(
       { _id: order_id },

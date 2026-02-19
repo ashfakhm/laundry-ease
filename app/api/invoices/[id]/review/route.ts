@@ -155,7 +155,22 @@ export async function POST(
       updatedAt: new Date(),
     };
 
-    const result = await db.collection("orders").insertOne(newOrder);
+    let orderId: ObjectId;
+    try {
+      const result = await db.collection("orders").insertOne(newOrder);
+      orderId = result.insertedId;
+    } catch (error) {
+      const duplicateKeyCode = (error as { code?: number }).code;
+      if (duplicateKeyCode === 11000) {
+        const existing = await db.collection("orders").findOne({ booking_id: bookingId });
+        if (!existing?._id) {
+          throw error;
+        }
+        orderId = existing._id as ObjectId;
+      } else {
+        throw error;
+      }
+    }
 
     // Update Booking to link to Order
     await db.collection("bookings").updateOne(
@@ -163,7 +178,7 @@ export async function POST(
       {
         $set: {
           status: "completed", // Or "converted"? Using "completed" as booking lifecycle is technically done, order lifecycle begins. PRD says "Booking converts to confirmed Order".
-          order_id: result.insertedId,
+          order_id: orderId,
           updatedAt: new Date(),
         },
       },
@@ -171,7 +186,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      orderId: result.insertedId,
+      orderId,
       status: "approved",
     });
   } catch (error) {

@@ -10,6 +10,7 @@ import {
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { ObjectId, type Db, type MongoClient } from "mongodb";
 import { createBooking, acceptBookingWithCapacityCheck } from "./db/index";
+import { confirmDelivery as confirmOrderDelivery } from "./db/orders";
 
 const { mockedEnv } = vi.hoisted(() => ({
   mockedEnv: {
@@ -198,6 +199,69 @@ describe("lib/db.ts - Booking Atomic Transactions", () => {
 
       expect(updated?.status).toBe("accepted");
       expect(updated?.refund_in_progress_at).toBeUndefined();
+    });
+  });
+
+  describe("confirmDelivery", () => {
+    it("moves paid orders to held and initializes escrow timestamps", async () => {
+      const orderId = new ObjectId();
+
+      await db.collection("orders").insertOne({
+        _id: orderId,
+        booking_id: new ObjectId(),
+        seeker_id: new ObjectId(),
+        provider_id: new ObjectId(),
+        items: [],
+        total_price: 500,
+        delivery_charge: 0,
+        payment_status: "paid",
+        process_status: "out_for_delivery",
+        createdAt: new Date(),
+      });
+
+      const success = await confirmOrderDelivery(orderId);
+      expect(success).toBe(true);
+
+      const updatedOrder = await db.collection("orders").findOne({ _id: orderId });
+      expect(updatedOrder?.process_status).toBe("delivered");
+      expect(updatedOrder?.payment_status).toBe("held");
+      expect(updatedOrder?.otp_confirmed_at).toBeInstanceOf(Date);
+      expect(updatedOrder?.escrow_started_at).toBeInstanceOf(Date);
+      expect(updatedOrder?.escrow_release_at).toBeInstanceOf(Date);
+    });
+
+    it("does not regress released payment state back to held", async () => {
+      const orderId = new ObjectId();
+      const escrowStartedAt = new Date(Date.now() - 60 * 60 * 1000);
+      const escrowReleaseAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      await db.collection("orders").insertOne({
+        _id: orderId,
+        booking_id: new ObjectId(),
+        seeker_id: new ObjectId(),
+        provider_id: new ObjectId(),
+        items: [],
+        total_price: 500,
+        delivery_charge: 0,
+        payment_status: "released",
+        process_status: "out_for_delivery",
+        escrow_started_at: escrowStartedAt,
+        escrow_release_at: escrowReleaseAt,
+        createdAt: new Date(),
+      });
+
+      const success = await confirmOrderDelivery(orderId);
+      expect(success).toBe(true);
+
+      const updatedOrder = await db.collection("orders").findOne({ _id: orderId });
+      expect(updatedOrder?.process_status).toBe("delivered");
+      expect(updatedOrder?.payment_status).toBe("released");
+      expect(new Date(updatedOrder?.escrow_started_at ?? 0).toISOString()).toBe(
+        escrowStartedAt.toISOString(),
+      );
+      expect(new Date(updatedOrder?.escrow_release_at ?? 0).toISOString()).toBe(
+        escrowReleaseAt.toISOString(),
+      );
     });
   });
 });

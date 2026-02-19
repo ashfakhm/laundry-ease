@@ -10,6 +10,7 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 import { requireProvider } from "@/lib/api/auth";
+import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
 
 const schema = z.object({
   otp: z.string().regex(/^\d{6}$/, "OTP must be 6 digits"),
@@ -34,6 +35,10 @@ export async function POST(
 
     if (!session || !session.user || session.user.role !== Role.PROVIDER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
     }
 
     const json = await req.json().catch(() => null);
@@ -97,6 +102,35 @@ export async function POST(
     }
 
     const { otp } = parsed.data;
+
+    const nowMs = Date.now();
+    const otpExpiresAt = (
+      order as unknown as { delivery_otp_expires_at?: Date | string }
+    ).delivery_otp_expires_at;
+    const otpSentAt = (
+      order as unknown as { delivery_otp_sent_at?: Date | string }
+    ).delivery_otp_sent_at;
+
+    if (otpExpiresAt) {
+      const expiryDate = new Date(otpExpiresAt);
+      if (!Number.isNaN(expiryDate.getTime()) && expiryDate.getTime() <= nowMs) {
+        return NextResponse.json(
+          { message: "OTP expired. Please resend OTP." },
+          { status: 410 }
+        );
+      }
+    } else if (otpSentAt) {
+      const sentDate = new Date(otpSentAt);
+      if (
+        !Number.isNaN(sentDate.getTime()) &&
+        sentDate.getTime() + DELIVERY_OTP_TTL_MS <= nowMs
+      ) {
+        return NextResponse.json(
+          { message: "OTP expired. Please resend OTP." },
+          { status: 410 }
+        );
+      }
+    }
 
     // Verify OTP exactly as stored on the order
     if (!order.delivery_otp || order.delivery_otp !== otp) {

@@ -1,31 +1,93 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import { requireAuth } from "@/lib/api/auth";
+import { ObjectId } from "mongodb";
+import { requireSeeker } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { getDb } from "@/lib/mongodb";
+import { bookingPaymentInitSchema } from "@/lib/api/schemas";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 export async function POST(req: Request) {
   try {
-    // Require authentication for creating payment orders
-    await requireAuth();
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "payments:create-order",
+      max: 8,
+      windowMs: 60 * 1000,
+    });
 
-    const { bookingId, amount, currency } = await req.json();
-    if (!bookingId || !amount || !currency) {
+    const { user } = await requireSeeker();
+
+    if (!ObjectId.isValid(user.id)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await req.json();
+    const parsed = bookingPaymentInitSchema.safeParse(payload);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        {
+          error: "Invalid booking payment request",
+          details: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
 
-    // Validate amount is positive number
-    if (typeof amount !== "number" || amount <= 0) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    const bookingId = new ObjectId(parsed.data.bookingId);
+    const seekerId = new ObjectId(user.id);
+    const { db } = await getDb();
+    const booking = await db.collection("bookings").findOne({
+      _id: bookingId,
+      seeker_id: seekerId,
+    });
+
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    // Validate currency
-    const validCurrencies = ["INR"];
-    if (!validCurrencies.includes(currency)) {
-      return NextResponse.json({ error: "Invalid currency" }, { status: 400 });
+    if (booking.status !== "requested") {
+      return NextResponse.json(
+        {
+          error:
+            "Booking fee can only be paid while booking is waiting for provider response.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (
+      booking.bookingFeeStatus === "paid" ||
+      booking.bookingFeeStatus === "applied"
+    ) {
+      return NextResponse.json(
+        { error: "Booking fee already paid" },
+        { status: 409 }
+      );
+    }
+
+    if (
+      booking.bookingFeeStatus === "refunded" ||
+      booking.bookingFeeStatus === "forfeited"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Booking fee payment is not allowed for refunded or forfeited bookings.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const bookingFee = Number(booking.bookingFee || 0);
+    const amount = Math.round(bookingFee * 100);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json(
+        { error: "Invalid booking fee amount" },
+        { status: 400 }
+      );
     }
 
     const razorpay = new Razorpay({
@@ -34,10 +96,21 @@ export async function POST(req: Request) {
     });
     const order = await razorpay.orders.create({
       amount,
-      currency,
-      receipt: bookingId,
+      currency: "INR",
+      receipt: bookingId.toString(),
       payment_capture: true,
     });
+
+    await db.collection("bookings").updateOne(
+      { _id: bookingId },
+      {
+        $set: {
+          razorpay_order_id: order.id,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
     return NextResponse.json({
       orderId: order.id,
       amount: order.amount,
@@ -45,6 +118,16 @@ export async function POST(req: Request) {
       key: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode }
+      );
+    }
+
     logger.error("PAYMENTS", "Razorpay order creation error", error);
     return NextResponse.json(
       { error: "Payment temporarily unavailable. Please try again later." },

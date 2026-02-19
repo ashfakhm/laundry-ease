@@ -81,6 +81,9 @@ export interface Order {
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   delivery_otp?: string;
+  delivery_otp_sent_at?: Date;
+  delivery_otp_expires_at?: Date;
+  delivery_otp_resend_count?: number;
 
   // Scheduling
   deliverySlot?: {
