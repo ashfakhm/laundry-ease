@@ -14,7 +14,7 @@ async function loginViaCredentials(page: Page, email: string, password: string) 
 
 test.describe("critical role smoke journeys", () => {
   test.beforeAll(async () => {
-    await seedSmokeData();
+    await seedSmokeData({ namespace: "role-smoke" });
   });
 
   test("seeker can sign in and access disputes journey", async ({ page }) => {

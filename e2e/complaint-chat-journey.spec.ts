@@ -33,7 +33,7 @@ test.describe("complaint chat multi-role journey", () => {
   let complaintId = "";
 
   test.beforeAll(async () => {
-    const seed = await seedSmokeData();
+    const seed = await seedSmokeData({ namespace: "chat-smoke" });
     complaintId = seed.complaintId.toString();
   });
 

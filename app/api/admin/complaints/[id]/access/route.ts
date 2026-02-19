@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 import { adminComplaintAccessSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { requireAdmin } from "@/lib/api/auth";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 export async function PATCH(
   req: Request,
@@ -25,7 +25,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
     }
 
-    const session = await requireAdmin();
+    const session = await requireAdminWithDbCheck();
 
     const body = await req.json();
     const parsed = adminComplaintAccessSchema.safeParse(body);

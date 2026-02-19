@@ -5,7 +5,7 @@ import { ComplaintMessage } from "@/types/complaints";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { requireAdmin } from "@/lib/api/auth";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 export async function POST(
   req: Request,
@@ -20,7 +20,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireAdmin();
+    const session = await requireAdminWithDbCheck();
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });

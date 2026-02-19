@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { MongoClient, ObjectId } from "mongodb";
@@ -40,6 +41,10 @@ export type SettlementSeedResult = SeedResult & {
 
 type SettlementSeedOptions = {
   complaintTitle?: string;
+};
+
+type SmokeSeedOptions = {
+  namespace?: string;
 };
 
 function parseEnvValue(rawValue: string): string {
@@ -93,6 +98,14 @@ export function getSmokeDbConfig(): { mongoUri: string; dbName: string } {
   }
 
   return { mongoUri, dbName };
+}
+
+function deterministicObjectId(namespace: string, entity: string): ObjectId {
+  const hex = createHash("sha256")
+    .update(`laundryease:e2e:smoke:${namespace}:${entity}`)
+    .digest("hex")
+    .slice(0, 24);
+  return new ObjectId(hex);
 }
 
 async function upsertSeeker(
@@ -207,7 +220,7 @@ async function upsertAdmin(
   return admin._id as ObjectId;
 }
 
-export async function seedSmokeData(): Promise<SeedResult> {
+export async function seedSmokeData(options?: SmokeSeedOptions): Promise<SeedResult> {
   const { mongoUri, dbName } = getSmokeDbConfig();
 
   const client = new MongoClient(mongoUri);
@@ -223,9 +236,11 @@ export async function seedSmokeData(): Promise<SeedResult> {
       upsertAdmin(client, dbName, hashedPassword),
     ]);
 
-    const bookingId = new ObjectId("66f0aa01aa01aa01aa01aa01");
-    const orderId = new ObjectId("66f0aa02aa02aa02aa02aa02");
-    const complaintId = new ObjectId("66f0aa03aa03aa03aa03aa03");
+    const namespace = options?.namespace?.trim() || "default";
+    const bookingId = deterministicObjectId(namespace, "booking");
+    const orderId = deterministicObjectId(namespace, "order");
+    const complaintId = deterministicObjectId(namespace, "complaint");
+    const scenarioToken = complaintId.toString().slice(-8);
 
     await db.collection("bookings").updateOne(
       { _id: bookingId },
@@ -258,8 +273,8 @@ export async function seedSmokeData(): Promise<SeedResult> {
           total_price: 499,
           delivery_charge: 49,
           provider_payout_amount: 420,
-          razorpay_order_id: "order_smoke_1",
-          razorpay_payment_id: "pay_smoke_1",
+          razorpay_order_id: `order_smoke_${scenarioToken}`,
+          razorpay_payment_id: `pay_smoke_${scenarioToken}`,
           otp_confirmed_at: new Date(now.getTime() - 2 * 60 * 60 * 1000),
           escrow_started_at: new Date(now.getTime() - 2 * 60 * 60 * 1000),
           escrow_release_at: new Date(now.getTime() + 22 * 60 * 60 * 1000),

@@ -2,19 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 
 const {
-  mockRequireAdmin,
+  mockRequireAdminWithDbCheck,
   mockGetDb,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
 } = vi.hoisted(() => ({
-  mockRequireAdmin: vi.fn(),
+  mockRequireAdminWithDbCheck: vi.fn(),
   mockGetDb: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
 }));
 
 vi.mock("@/lib/api/auth", () => ({
-  requireAdmin: mockRequireAdmin,
+  requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -107,7 +107,7 @@ describe("POST /api/admin/complaints/[id]/accept", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockRequireAdmin.mockResolvedValue({
+    mockRequireAdminWithDbCheck.mockResolvedValue({
       user: {
         id: new ObjectId().toString(),
         email: "admin@laundryease.test",

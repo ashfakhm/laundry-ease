@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 import { adminComplaintAcceptSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { requireAdmin } from "@/lib/api/auth";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 function getProviderDisplayName(
   provider?: {
@@ -60,7 +60,7 @@ export async function POST(
       );
     }
 
-    const session = await requireAdmin();
+    const session = await requireAdminWithDbCheck();
 
     // Parse body (optional deadline customization)
     let deadlineDays = 7;
