@@ -69,6 +69,7 @@ function makeDbMock() {
   const ordersInsertOne = vi.fn();
   const ordersDeleteOne = vi.fn();
   const providersFindOne = vi.fn();
+  const bookingsFindOne = vi.fn();
   const bookingsUpdateOne = vi.fn();
 
   const db = {
@@ -87,6 +88,7 @@ function makeDbMock() {
       }
       if (name === "bookings") {
         return {
+          findOne: bookingsFindOne,
           updateOne: bookingsUpdateOne,
         };
       }
@@ -100,7 +102,26 @@ function makeDbMock() {
     ordersInsertOne,
     ordersDeleteOne,
     providersFindOne,
+    bookingsFindOne,
     bookingsUpdateOne,
+  };
+}
+
+function makeClientMock() {
+  const withTransaction = vi.fn(async (fn: () => Promise<void>) => {
+    await fn();
+  });
+  const endSession = vi.fn(async () => undefined);
+  const startSession = vi.fn(() => ({
+    withTransaction,
+    endSession,
+  }));
+
+  return {
+    client: { startSession },
+    startSession,
+    withTransaction,
+    endSession,
   };
 }
 
@@ -137,15 +158,17 @@ describe("PUT /api/bookings/[id]/pay-invoice", () => {
     vi.clearAllMocks();
   });
 
-  it("rolls back inserted order when booking state update loses race", async () => {
+  it("returns conflict when booking state update loses race inside transaction", async () => {
     const dbMock = makeDbMock();
+    const clientMock = makeClientMock();
     const insertedOrderId = new ObjectId();
     dbMock.ordersFindOne.mockResolvedValue(null);
     dbMock.providersFindOne.mockResolvedValue(null);
+    dbMock.bookingsFindOne.mockResolvedValue(null);
     dbMock.ordersInsertOne.mockResolvedValue({ insertedId: insertedOrderId });
     dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
     dbMock.ordersDeleteOne.mockResolvedValue({ deletedCount: 1 });
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    mockGetDb.mockResolvedValue({ db: dbMock.db, client: clientMock.client });
 
     mockGetBookingById.mockResolvedValue({
       _id: bookingId,
@@ -171,15 +194,15 @@ describe("PUT /api/bookings/[id]/pay-invoice", () => {
 
     expect(res.status).toBe(409);
     expect(data.message).toContain("Booking state changed while finalizing order");
-    expect(dbMock.ordersDeleteOne).toHaveBeenCalledWith({
-      _id: insertedOrderId,
-      booking_id: expect.any(ObjectId),
-    });
+    expect(dbMock.ordersDeleteOne).not.toHaveBeenCalled();
+    expect(clientMock.startSession).toHaveBeenCalledTimes(1);
+    expect(clientMock.withTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("returns idempotent success when booking already has order_id", async () => {
     const dbMock = makeDbMock();
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    const clientMock = makeClientMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db, client: clientMock.client });
     const existingOrderId = new ObjectId();
 
     mockGetBookingById.mockResolvedValue({
@@ -209,7 +232,8 @@ describe("PUT /api/bookings/[id]/pay-invoice", () => {
 
   it("returns 400 for invalid payment fields", async () => {
     const dbMock = makeDbMock();
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    const clientMock = makeClientMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db, client: clientMock.client });
 
     const res = await PUT(
       makeRequest({
