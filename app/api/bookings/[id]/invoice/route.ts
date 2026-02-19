@@ -6,6 +6,11 @@ import { invoiceCreateSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
+import {
+  legacyMessageBody,
+  legacySuccessBody,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 
 // POST: Provider creates invoice for a confirmed booking
 export async function POST(
@@ -23,7 +28,7 @@ export async function POST(
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
-        { error: "Invalid booking id" },
+        legacyMessageBody("Invalid booking id"),
         { status: 400 }
       );
     }
@@ -31,7 +36,7 @@ export async function POST(
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(legacyMessageBody("Unauthorized"), { status: 401 });
     }
 
     const body = await req.json();
@@ -39,10 +44,9 @@ export async function POST(
 
     if (!parsed.success) {
       return NextResponse.json(
-        {
-          error: "Invalid invoice data",
+        legacyMessageBody("Invalid invoice data", {
           details: parsed.error.flatten().fieldErrors,
-        },
+        }),
         { status: 400 }
       );
     }
@@ -53,7 +57,7 @@ export async function POST(
 
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      return NextResponse.json(legacyMessageBody("Booking not found"), { status: 404 });
     }
 
     // Only provider can create invoice for their booking
@@ -64,11 +68,11 @@ export async function POST(
       !provider ||
       booking.provider_id.toString() !== provider._id.toString()
     ) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json(legacyMessageBody("Unauthorized"), { status: 403 });
     }
     if (booking.status !== "confirmed") {
       return NextResponse.json(
-        { error: "Invoice can only be created for confirmed bookings" },
+        legacyMessageBody("Invoice can only be created for confirmed bookings"),
         { status: 400 }
       );
     }
@@ -114,21 +118,15 @@ export async function POST(
 
     // NOTE: Seeker notification for invoice review could be added here using existing Twilio/email infrastructure
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(legacySuccessBody());
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Create invoice error", error, { bookingId: id });
     return NextResponse.json(
-      { error: "Internal server error" },
+      legacyMessageBody("Internal server error"),
       { status: 500 }
     );
   }

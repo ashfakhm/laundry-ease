@@ -3,6 +3,10 @@ import crypto from "crypto";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import {
+  legacyMessageBody,
+  legacySuccessBody,
+} from "@/lib/api/legacy-response";
 
 const MONEY_EPSILON = 0.01;
 
@@ -33,13 +37,13 @@ export async function POST(req: NextRequest) {
 
     if (!webhookSignature) {
       logger.warn("WEBHOOK", "Missing Razorpay signature header");
-      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+      return NextResponse.json(legacyMessageBody("Missing signature"), { status: 400 });
     }
 
     // Verify webhook signature
     if (!/^[a-f0-9]{64}$/i.test(webhookSignature)) {
       logger.error("WEBHOOK", "Malformed Razorpay webhook signature");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      return NextResponse.json(legacyMessageBody("Invalid signature"), { status: 401 });
     }
 
     const expectedSignature = crypto
@@ -59,13 +63,13 @@ export async function POST(req: NextRequest) {
       )
     ) {
       logger.error("WEBHOOK", "Invalid Razorpay webhook signature");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      return NextResponse.json(legacyMessageBody("Invalid signature"), { status: 401 });
     }
 
     const event = JSON.parse(webhookBody);
     if (!event?.id || !event?.event) {
       logger.warn("WEBHOOK", "Invalid webhook payload: missing id/event");
-      return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+      return NextResponse.json(legacyMessageBody("Invalid payload"), { status: 400 });
     }
 
     eventId = event.id;
@@ -90,7 +94,7 @@ export async function POST(req: NextRequest) {
         eventId: event.id,
         eventType: event.event,
       });
-      return NextResponse.json({ received: true, duplicate: true });
+      return NextResponse.json(legacySuccessBody({ received: true, duplicate: true }));
     }
 
     if (!existingEvent) {
@@ -399,7 +403,7 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    return NextResponse.json({ received: true });
+    return NextResponse.json(legacySuccessBody({ received: true }));
   } catch (error) {
     if (eventId) {
       try {
@@ -424,7 +428,7 @@ export async function POST(req: NextRequest) {
 
     logger.error("WEBHOOK", "Error processing Razorpay webhook", error);
     return NextResponse.json(
-      { error: "Webhook processing failed" },
+      legacyMessageBody("Webhook processing failed"),
       { status: 500 }
     );
   }
@@ -432,5 +436,5 @@ export async function POST(req: NextRequest) {
 
 // Only allow POST requests
 export async function GET() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+  return NextResponse.json(legacyMessageBody("Method not allowed"), { status: 405 });
 }

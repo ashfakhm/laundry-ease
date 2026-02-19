@@ -6,6 +6,10 @@ import { Provider } from "@/types/users";
 import { requireSeeker } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
+import {
+  legacyMessageBody,
+  legacySuccessBody,
+} from "@/lib/api/legacy-response";
 
 const createReviewSchema = z.object({
   booking_id: z.string().min(1),
@@ -24,20 +28,19 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        {
-          error: "Invalid review data",
+        legacyMessageBody("Invalid review data", {
           details: parsed.error.flatten().fieldErrors,
-        },
+        }),
         { status: 400 },
       );
     }
 
     const { booking_id, provider_id, rating: ratingNum, comment } = parsed.data;
     if (!ObjectId.isValid(booking_id)) {
-      return NextResponse.json({ error: "Invalid booking ID" }, { status: 400 });
+      return NextResponse.json(legacyMessageBody("Invalid booking ID"), { status: 400 });
     }
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(legacyMessageBody("Unauthorized"), { status: 401 });
     }
     const { db } = await getDb();
 
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     if (!order) {
       return NextResponse.json(
-        { error: "No completed order found for this booking" },
+        legacyMessageBody("No completed order found for this booking"),
         { status: 404 },
       );
     }
@@ -67,14 +70,14 @@ export async function POST(req: NextRequest) {
         orderId: String(order._id),
       });
       return NextResponse.json(
-        { error: "Order provider data is invalid" },
+        legacyMessageBody("Order provider data is invalid"),
         { status: 500 },
       );
     }
 
     if (provider_id && provider_id !== canonicalProviderId.toString()) {
       return NextResponse.json(
-        { error: "Provider mismatch for this booking" },
+        legacyMessageBody("Provider mismatch for this booking"),
         { status: 400 },
       );
     }
@@ -85,7 +88,7 @@ export async function POST(req: NextRequest) {
       .findOne({ order_id: order._id });
     if (existing) {
       return NextResponse.json(
-        { error: "You have already reviewed this order" },
+        legacyMessageBody("You have already reviewed this order"),
         { status: 400 },
       );
     }
@@ -148,9 +151,9 @@ export async function POST(req: NextRequest) {
         ],
       );
 
-    return NextResponse.json({ success: true, message: "Review submitted" });
+    return NextResponse.json(legacySuccessBody({ message: "Review submitted" }));
   } catch (error: unknown) {
     logger.error("REVIEWS", "Error creating review", error);
-    return NextResponse.json({ error: "Failed to create review" }, { status: 500 });
+    return NextResponse.json(legacyMessageBody("Failed to create review"), { status: 500 });
   }
 }

@@ -101,8 +101,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         // Safe assignment using Role definition
         session.user.role = (token.role as Role) ?? null;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (session.user as any).id = token.id as string;
+        session.user.id = token.id as string;
       }
       return session;
     },

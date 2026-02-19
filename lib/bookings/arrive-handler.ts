@@ -5,6 +5,10 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
 import { markProviderArrival } from "@/lib/bookings/mark-arrived";
+import {
+  legacyMessageBody,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 
 type Coordinates = { lat: number; lng: number } | null;
 
@@ -31,11 +35,11 @@ export async function handleProviderArrival(
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(legacyMessageBody("Unauthorized"), { status: 401 });
     }
 
     if (!ObjectId.isValid(bookingId)) {
-      return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
+      return NextResponse.json(legacyMessageBody("Invalid booking id"), { status: 400 });
     }
 
     const result = await markProviderArrival({
@@ -47,13 +51,7 @@ export async function handleProviderArrival(
     return NextResponse.json(result.body, { status: result.status });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("BOOKINGS", "Arrival handler error", error, {
@@ -62,7 +60,7 @@ export async function handleProviderArrival(
     });
 
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      legacyMessageBody("Internal Server Error"),
       { status: 500 },
     );
   }

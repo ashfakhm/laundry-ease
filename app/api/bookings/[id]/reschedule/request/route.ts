@@ -5,6 +5,7 @@ import { successResponse, withErrorHandling } from "@/lib/api/response";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { legacySuccessBody } from "@/lib/api/legacy-response";
 
 const requestRescheduleSchema = z.object({
   reason: z.string().trim().min(1).max(300).optional(),
@@ -124,6 +125,6 @@ export const POST = withErrorHandling(
       throw Errors.invalidState("Booking was not in a reschedulable state");
     }
 
-    return successResponse({ success: true });
+    return successResponse(legacySuccessBody());
   },
 );

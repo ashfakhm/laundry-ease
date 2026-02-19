@@ -3,6 +3,11 @@ import { uploadInvoicePhoto } from "@/lib/cloudinary";
 import { requireAuth } from "@/lib/api/auth";
 import { AppError } from "@/lib/api/errors";
 import { logger } from "@/lib/logger";
+import {
+  legacyMessageBody,
+  legacySuccessBody,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 
 export const runtime = "nodejs";
 
@@ -20,13 +25,13 @@ export async function POST(req: Request) {
     const file = formData.get("file");
 
     if (!file || typeof file === "string") {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+      return NextResponse.json(legacyMessageBody("No file uploaded"), { status: 400 });
     }
 
     // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: "Invalid file type. Only JPG, PNG, and WebP are allowed." },
+        legacyMessageBody("Invalid file type. Only JPG, PNG, and WebP are allowed."),
         { status: 400 }
       );
     }
@@ -34,7 +39,7 @@ export async function POST(req: Request) {
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File too large. Maximum size is 5MB." },
+        legacyMessageBody("File too large. Maximum size is 5MB."),
         { status: 400 }
       );
     }
@@ -42,15 +47,12 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const url = await uploadInvoicePhoto(buffer, file.name, file.type);
-    return NextResponse.json({ url });
+    return NextResponse.json(legacySuccessBody({ url }));
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
+      return appErrorLegacyResponse(error);
     }
     logger.error("UPLOAD", "Upload error", error);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    return NextResponse.json(legacyMessageBody("Upload failed"), { status: 500 });
   }
 }

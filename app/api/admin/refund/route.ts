@@ -6,6 +6,11 @@ import { logger } from "@/lib/logger";
 import { adminRefundSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import {
+  legacyMessageBody,
+  legacySuccessBody,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import type { Order } from "@/types/orders";
 import type { Booking } from "@/types/bookings";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
@@ -40,10 +45,9 @@ export async function POST(req: Request) {
     const parsed = adminRefundSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        {
-          error: "Invalid refund data",
+        legacyMessageBody("Invalid refund data", {
           details: parsed.error.flatten().fieldErrors,
-        },
+        }),
         { status: 400 },
       );
     }
@@ -56,14 +60,14 @@ export async function POST(req: Request) {
 
     if (!bookingId && !orderId) {
       return NextResponse.json(
-        { error: "Either bookingId or orderId is required" },
+        legacyMessageBody("Either bookingId or orderId is required"),
         { status: 400 },
       );
     }
 
     if (bookingId && orderId) {
       return NextResponse.json(
-        { error: "Provide only one target: bookingId or orderId" },
+        legacyMessageBody("Provide only one target: bookingId or orderId"),
         { status: 400 },
       );
     }
@@ -72,7 +76,7 @@ export async function POST(req: Request) {
 
     if (orderId) {
       if (!ObjectId.isValid(orderId)) {
-        return NextResponse.json({ error: "Invalid orderId" }, { status: 400 });
+        return NextResponse.json(legacyMessageBody("Invalid orderId"), { status: 400 });
       }
 
       const orderObjectId = new ObjectId(orderId);
@@ -80,37 +84,37 @@ export async function POST(req: Request) {
         _id: orderObjectId,
       });
       if (!order) {
-        return NextResponse.json({ error: "Order not found" }, { status: 404 });
+        return NextResponse.json(legacyMessageBody("Order not found"), { status: 404 });
       }
 
       if (!order.razorpay_payment_id || order.razorpay_payment_id !== paymentId) {
         return NextResponse.json(
-          { error: "Payment ID does not match this order" },
+          legacyMessageBody("Payment ID does not match this order"),
           { status: 409 },
         );
       }
 
       if (order.payment_status === "refunded") {
-        return NextResponse.json({
-          success: true,
-          idempotent: true,
-          message: "Order is already refunded",
-        });
+        return NextResponse.json(
+          legacySuccessBody({
+            idempotent: true,
+            message: "Order is already refunded",
+          }),
+        );
       }
 
       if (!["paid", "held", "released"].includes(order.payment_status)) {
         return NextResponse.json(
-          { error: "Order payment is not in a refundable state" },
+          legacyMessageBody("Order payment is not in a refundable state"),
           { status: 409 },
         );
       }
 
       if (order.payout_id && order.payout_status !== "failed") {
         return NextResponse.json(
-          {
-            error:
-              "Cannot auto-refund after payout has started. Resolve manually with provider recovery.",
-          },
+          legacyMessageBody(
+            "Cannot auto-refund after payout has started. Resolve manually with provider recovery.",
+          ),
           { status: 409 },
         );
       }
@@ -119,7 +123,7 @@ export async function POST(req: Request) {
         typeof amount === "number" ? amount : Number(order.total_price || 0);
       if (!Number.isFinite(refundAmountRupees) || refundAmountRupees <= 0) {
         return NextResponse.json(
-          { error: "Invalid refund amount" },
+          legacyMessageBody("Invalid refund amount"),
           { status: 400 },
         );
       }
@@ -160,11 +164,11 @@ export async function POST(req: Request) {
         at: new Date(),
       });
 
-      return NextResponse.json({ success: true, refund });
+      return NextResponse.json(legacySuccessBody({ refund }));
     }
 
     if (!ObjectId.isValid(bookingId!)) {
-      return NextResponse.json({ error: "Invalid bookingId" }, { status: 400 });
+      return NextResponse.json(legacyMessageBody("Invalid bookingId"), { status: 400 });
     }
 
     const bookingObjectId = new ObjectId(bookingId!);
@@ -172,37 +176,37 @@ export async function POST(req: Request) {
       _id: bookingObjectId,
     });
     if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      return NextResponse.json(legacyMessageBody("Booking not found"), { status: 404 });
     }
 
     if (!booking.razorpay_payment_id || booking.razorpay_payment_id !== paymentId) {
       return NextResponse.json(
-        { error: "Payment ID does not match this booking" },
+        legacyMessageBody("Payment ID does not match this booking"),
         { status: 409 },
       );
     }
 
     if (booking.bookingFeeStatus === "refunded") {
-      return NextResponse.json({
-        success: true,
-        idempotent: true,
-        message: "Booking fee is already refunded",
-      });
+      return NextResponse.json(
+        legacySuccessBody({
+          idempotent: true,
+          message: "Booking fee is already refunded",
+        }),
+      );
     }
 
     if (booking.bookingFeeStatus === "applied") {
       return NextResponse.json(
-        {
-          error:
-            "Booking fee was already released to provider and cannot be auto-refunded.",
-        },
+        legacyMessageBody(
+          "Booking fee was already released to provider and cannot be auto-refunded.",
+        ),
         { status: 409 },
       );
     }
 
     if (booking.bookingFeeStatus !== "paid") {
       return NextResponse.json(
-        { error: "Booking fee is not in a refundable state" },
+        legacyMessageBody("Booking fee is not in a refundable state"),
         { status: 409 },
       );
     }
@@ -211,7 +215,7 @@ export async function POST(req: Request) {
       typeof amount === "number" ? amount : Number(booking.bookingFee || 0);
     if (!Number.isFinite(refundAmountRupees) || refundAmountRupees <= 0) {
       return NextResponse.json(
-        { error: "Invalid refund amount" },
+        legacyMessageBody("Invalid refund amount"),
         { status: 400 },
       );
     }
@@ -250,16 +254,10 @@ export async function POST(req: Request) {
       at: new Date(),
     });
 
-    return NextResponse.json({ success: true, refund });
+    return NextResponse.json(legacySuccessBody({ refund }));
   } catch (error: unknown) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ADMIN_REFUND", "Refund error", error, {
@@ -269,9 +267,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(
-      {
-        error: "Internal server error",
-      },
+      legacyMessageBody("Internal server error"),
       { status: 500 },
     );
   }
