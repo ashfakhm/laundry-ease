@@ -3,7 +3,7 @@ import { ObjectId } from "mongodb";
 
 type InMemoryEmailJob = {
   _id: ObjectId;
-  kind: "delivery_otp" | "password_reset" | "magic_link";
+  kind: "delivery_otp" | "password_reset" | "magic_link" | "otp_email";
   payload: Record<string, unknown>;
   status: "pending" | "processing" | "sent" | "failed";
   attempts: number;
@@ -22,12 +22,14 @@ const {
   mockSendDeliveryOtpEmailNow,
   mockSendPasswordResetEmailNow,
   mockSendMagicLinkEmailNow,
+  mockSendOtpCodeEmailNow,
   state,
 } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockSendDeliveryOtpEmailNow: vi.fn(),
   mockSendPasswordResetEmailNow: vi.fn(),
   mockSendMagicLinkEmailNow: vi.fn(),
+  mockSendOtpCodeEmailNow: vi.fn(),
   state: {
     jobs: [] as InMemoryEmailJob[],
   },
@@ -47,6 +49,10 @@ vi.mock("@/lib/password-reset-email", () => ({
 
 vi.mock("@/lib/magic-link-email", () => ({
   sendMagicLinkEmailNow: mockSendMagicLinkEmailNow,
+}));
+
+vi.mock("@/lib/otp-code-email", () => ({
+  sendOtpCodeEmailNow: mockSendOtpCodeEmailNow,
 }));
 
 import { enqueueEmailOutboxJob, processEmailOutboxBatch } from "@/lib/email-outbox";
@@ -142,6 +148,7 @@ describe("email outbox", () => {
     mockSendDeliveryOtpEmailNow.mockResolvedValue(undefined);
     mockSendPasswordResetEmailNow.mockResolvedValue(undefined);
     mockSendMagicLinkEmailNow.mockResolvedValue(undefined);
+    mockSendOtpCodeEmailNow.mockResolvedValue(undefined);
   });
 
   it("enqueues pending email jobs", async () => {
@@ -216,6 +223,25 @@ describe("email outbox", () => {
     expect(result.sent).toBe(1);
     expect(mockSendMagicLinkEmailNow).toHaveBeenCalledOnce();
     expect(state.jobs[0].kind).toBe("magic_link");
+    expect(state.jobs[0].status).toBe("sent");
+  });
+
+  it("dispatches OTP email jobs", async () => {
+    await enqueueEmailOutboxJob({
+      kind: "otp_email",
+      payload: {
+        to: "user@example.com",
+        code: "123456",
+        ttlMinutes: 10,
+      },
+    });
+
+    const result = await processEmailOutboxBatch({ limit: 10, workerId: "test" });
+
+    expect(result.processed).toBe(1);
+    expect(result.sent).toBe(1);
+    expect(mockSendOtpCodeEmailNow).toHaveBeenCalledOnce();
+    expect(state.jobs[0].kind).toBe("otp_email");
     expect(state.jobs[0].status).toBe("sent");
   });
 });

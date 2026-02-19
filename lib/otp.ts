@@ -1,9 +1,9 @@
 import { getDb } from "./mongodb";
 import bcrypt from "bcrypt";
-import nodemailer from "nodemailer";
 import twilio from "twilio";
 import { env } from "./env";
 import { logger } from "./logger";
+import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 
 type OtpType = "email" | "phone";
 
@@ -15,16 +15,6 @@ function generateCode() {
   // 6 digit numeric code
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
-
-const emailTransporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: env.EMAIL_USER,
-    pass: env.EMAIL_PASS,
-  },
-  debug: process.env.NODE_ENV === "development",
-  logger: process.env.NODE_ENV === "development",
-});
 
 let smsClientInstance: ReturnType<typeof twilio> | null = null;
 
@@ -74,7 +64,7 @@ export async function requestOtp(
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
 
-  await col.insertOne({
+  const inserted = await col.insertOne({
     target: normalizedTarget,
     type,
     codeHash: hash,
@@ -86,16 +76,18 @@ export async function requestOtp(
 
   try {
     if (type === "email") {
-      logger.debug("OTP", `Sending email`, {
+      logger.debug("OTP", `Queueing OTP email`, {
         target: normalizedTarget.substring(0, 4) + "***",
       });
-      await emailTransporter.sendMail({
-        from: env.EMAIL_USER,
-        to: normalizedTarget,
-        subject: "Your OTP Code",
-        text: `Your OTP code is ${code}. It will expire in ${ttlMinutes} minutes.`,
+      await enqueueEmailOutboxJob({
+        kind: "otp_email",
+        payload: {
+          to: normalizedTarget,
+          code,
+          ttlMinutes,
+        },
       });
-      logger.info("OTP", `Email sent successfully`, {
+      logger.info("OTP", `Email queued successfully`, {
         target: normalizedTarget.substring(0, 4) + "***",
       });
     } else if (type === "phone") {
@@ -112,6 +104,11 @@ export async function requestOtp(
       });
     }
   } catch (error) {
+    await col.deleteOne({ _id: inserted.insertedId }).catch((cleanupError) => {
+      logger.error("OTP", "Failed to cleanup unsent OTP record", cleanupError, {
+        target: normalizedTarget.substring(0, 4) + "***",
+      });
+    });
     logger.error("OTP", `Failed to send OTP`, error, {
       target: normalizedTarget.substring(0, 4) + "***",
     });

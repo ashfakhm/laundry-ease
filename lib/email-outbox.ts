@@ -13,13 +13,22 @@ import {
   sendMagicLinkEmailNow,
   type MagicLinkEmailPayload,
 } from "@/lib/magic-link-email";
+import {
+  sendOtpCodeEmailNow,
+  type OtpCodeEmailPayload,
+} from "@/lib/otp-code-email";
 
-export type EmailOutboxKind = "delivery_otp" | "password_reset" | "magic_link";
+export type EmailOutboxKind =
+  | "delivery_otp"
+  | "password_reset"
+  | "magic_link"
+  | "otp_email";
 
 type EmailOutboxPayloadMap = {
   delivery_otp: DeliveryOtpEmailPayload;
   password_reset: PasswordResetEmailPayload;
   magic_link: MagicLinkEmailPayload;
+  otp_email: OtpCodeEmailPayload;
 };
 
 export type EmailOutboxStatus = "pending" | "processing" | "sent" | "failed";
@@ -53,10 +62,16 @@ type MagicLinkOutboxJob = EmailOutboxJobBase & {
   payload: MagicLinkEmailPayload;
 };
 
+type OtpEmailOutboxJob = EmailOutboxJobBase & {
+  kind: "otp_email";
+  payload: OtpCodeEmailPayload;
+};
+
 type EmailOutboxJob =
   | DeliveryOtpOutboxJob
   | PasswordResetOutboxJob
-  | MagicLinkOutboxJob;
+  | MagicLinkOutboxJob
+  | OtpEmailOutboxJob;
 
 export type EnqueueEmailOutboxInput<K extends EmailOutboxKind = EmailOutboxKind> = {
   kind: K;
@@ -111,6 +126,11 @@ async function dispatchEmailJob(job: EmailOutboxJob) {
     return;
   }
 
+  if (job.kind === "otp_email") {
+    await sendOtpCodeEmailNow(job.payload);
+    return;
+  }
+
   throw new Error("Unsupported outbox email kind");
 }
 
@@ -143,11 +163,17 @@ export async function enqueueEmailOutboxJob<K extends EmailOutboxKind>(
       kind: "password_reset",
       payload: input.payload as PasswordResetEmailPayload,
     };
-  } else {
+  } else if (input.kind === "magic_link") {
     doc = {
       ...baseFields,
       kind: "magic_link",
       payload: input.payload as MagicLinkEmailPayload,
+    };
+  } else {
+    doc = {
+      ...baseFields,
+      kind: "otp_email",
+      payload: input.payload as OtpCodeEmailPayload,
     };
   }
 
