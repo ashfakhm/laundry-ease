@@ -1,16 +1,15 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { ObjectId, type Db, type MongoClient } from "mongodb";
-import { Role } from "@/types/enums";
 
 const {
-  mockGetServerSession,
+  mockRequireAdminWithDbCheck,
   mockRefundRazorpayPayment,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
   mockedEnv,
 } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
+  mockRequireAdminWithDbCheck: vi.fn(),
   mockRefundRazorpayPayment: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
@@ -20,12 +19,8 @@ const {
   },
 }));
 
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
+vi.mock("@/lib/api/auth", () => ({
+  requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
 }));
 
 vi.mock("@/lib/razorpay", () => ({
@@ -96,8 +91,12 @@ describe("POST /api/admin/refund (integration)", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@laundryease.test" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: {
+        id: new ObjectId().toString(),
+        role: "admin",
+        email: "admin@laundryease.test",
+      },
     });
     mockRefundRazorpayPayment.mockResolvedValue({ id: "rfnd_live_1" });
   });

@@ -1,37 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
-import { Role } from "@/types/enums";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const {
-  mockGetServerSession,
+  mockRequireAdminWithDbCheck,
   mockGetDb,
-  mockGetUserByEmail,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
   mockLoggerError,
 } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
+  mockRequireAdminWithDbCheck: vi.fn(),
   mockGetDb: vi.fn(),
-  mockGetUserByEmail: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
   mockLoggerError: vi.fn(),
-}));
-
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
 }));
 
 vi.mock("@/lib/mongodb", () => ({
   getDb: mockGetDb,
 }));
 
-vi.mock("@/lib/db/index", () => ({
-  getUserByEmail: mockGetUserByEmail,
+vi.mock("@/lib/api/auth", () => ({
+  requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
 }));
 
 vi.mock("@/lib/api/security", () => ({
@@ -95,17 +85,12 @@ describe("PATCH /api/admin/system-alerts/[id]/acknowledge", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockGetServerSession.mockResolvedValue({
+    mockRequireAdminWithDbCheck.mockResolvedValue({
       user: {
         id: "admin_1",
         email: "admin@laundryease.test",
-        role: Role.ADMIN,
+        role: "admin",
       },
-    });
-    mockGetUserByEmail.mockResolvedValue({
-      _id: new ObjectId(),
-      email: "admin@laundryease.test",
-      role: Role.ADMIN,
     });
   });
 
@@ -114,7 +99,9 @@ describe("PATCH /api/admin/system-alerts/[id]/acknowledge", () => {
   });
 
   it("returns 401 when session is missing", async () => {
-    mockGetServerSession.mockResolvedValue(null);
+    mockRequireAdminWithDbCheck.mockRejectedValue(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+    );
 
     const res = await PATCH(makeRequest({}), {
       params: Promise.resolve({ id: new ObjectId().toString() }),
@@ -126,10 +113,9 @@ describe("PATCH /api/admin/system-alerts/[id]/acknowledge", () => {
   });
 
   it("returns 403 when user is not admin", async () => {
-    mockGetUserByEmail.mockResolvedValue({
-      _id: new ObjectId(),
-      role: Role.SEEKER,
-    });
+    mockRequireAdminWithDbCheck.mockRejectedValue(
+      new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"),
+    );
 
     const res = await PATCH(makeRequest({}), {
       params: Promise.resolve({ id: new ObjectId().toString() }),

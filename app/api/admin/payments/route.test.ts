@@ -1,29 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const {
-  mockGetServerSession,
+  mockRequireAdminWithDbCheck,
   mockGetDb,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
   mockRefundRazorpayPayment,
   mockInitiateOrderPayout,
 } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
+  mockRequireAdminWithDbCheck: vi.fn(),
   mockGetDb: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
   mockRefundRazorpayPayment: vi.fn(),
   mockInitiateOrderPayout: vi.fn(),
 }));
-
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
+vi.mock("@/lib/api/auth", () => ({
+  requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -105,7 +101,7 @@ describe("POST /api/admin/payments", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockGetServerSession.mockReset();
+    mockRequireAdminWithDbCheck.mockReset();
     mockGetDb.mockReset();
     mockRefundRazorpayPayment.mockReset();
     mockInitiateOrderPayout.mockReset();
@@ -116,9 +112,9 @@ describe("POST /api/admin/payments", () => {
   });
 
   it("returns 401 when actor is not admin", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.SEEKER, email: "seeker@test.com" },
-    });
+    mockRequireAdminWithDbCheck.mockRejectedValue(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+    );
     const dbMock = makeDbMock();
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
@@ -134,8 +130,8 @@ describe("POST /api/admin/payments", () => {
   });
 
   it("releases payout when action is release_payout and payout is eligible", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     dbMock.orderFindOne.mockResolvedValue({
@@ -172,8 +168,8 @@ describe("POST /api/admin/payments", () => {
   });
 
   it("returns 409 when release_payout is blocked", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     dbMock.orderFindOne.mockResolvedValue({
@@ -200,8 +196,8 @@ describe("POST /api/admin/payments", () => {
   });
 
   it("returns conflict for refund when payout has already started", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     dbMock.orderFindOne.mockResolvedValue({
@@ -228,8 +224,8 @@ describe("POST /api/admin/payments", () => {
   });
 
   it("refunds order from admin payments action and records audit log", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     dbMock.orderFindOne.mockResolvedValue({
@@ -267,8 +263,8 @@ describe("POST /api/admin/payments", () => {
   });
 
   it("validates penalty action requires amount and reason", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     dbMock.orderFindOne.mockResolvedValue({

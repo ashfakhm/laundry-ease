@@ -1,19 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
-import { Role } from "@/types/enums";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
-const { mockGetServerSession, mockGetDb, mockLoggerError } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
+const { mockRequireAdmin, mockGetDb, mockLoggerError } = vi.hoisted(() => ({
+  mockRequireAdmin: vi.fn(),
   mockGetDb: vi.fn(),
   mockLoggerError: vi.fn(),
 }));
 
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
+vi.mock("@/lib/api/auth", () => ({
+  requireAdmin: mockRequireAdmin,
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -139,10 +135,19 @@ function makeDbMock() {
 describe("GET /api/admin/dashboard-stats", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireAdmin.mockResolvedValue({
+      user: {
+        id: new ObjectId().toString(),
+        role: "admin",
+        email: "admin@test.com",
+      },
+    });
   });
 
   it("returns 401 when session is missing", async () => {
-    mockGetServerSession.mockResolvedValue(null);
+    mockRequireAdmin.mockRejectedValue(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+    );
 
     const res = await GET();
     const data = await res.json();
@@ -153,27 +158,17 @@ describe("GET /api/admin/dashboard-stats", () => {
   });
 
   it("returns 401 when session user is not admin", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: {
-        role: Role.SEEKER,
-        email: "seeker@test.com",
-      },
-    });
+    mockRequireAdmin.mockRejectedValue(
+      new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"),
+    );
 
     const res = await GET();
 
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
     expect(mockGetDb).not.toHaveBeenCalled();
   });
 
   it("returns computed live metrics for admin", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: {
-        role: Role.ADMIN,
-        email: "admin@test.com",
-      },
-    });
-
     const dbMock = makeDbMock();
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
@@ -445,12 +440,6 @@ describe("GET /api/admin/dashboard-stats", () => {
   });
 
   it("returns 500 when db read fails", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: {
-        role: Role.ADMIN,
-        email: "admin@test.com",
-      },
-    });
     mockGetDb.mockRejectedValue(new Error("db_unavailable"));
 
     const res = await GET();

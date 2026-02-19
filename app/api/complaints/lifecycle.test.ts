@@ -80,8 +80,10 @@ type InMemoryStore = {
 
 const {
   ctx,
-  mockGetServerSession,
+  mockRequireAuth,
   mockRequireSeeker,
+  mockRequireAdmin,
+  mockRequireAdminWithDbCheck,
   mockGetUserByEmail,
   mockGetOrderById,
   mockCreateComplaint,
@@ -105,8 +107,10 @@ const {
       admins: [] as UserDoc[],
     } as InMemoryStore,
   },
-  mockGetServerSession: vi.fn(),
+  mockRequireAuth: vi.fn(),
   mockRequireSeeker: vi.fn(),
+  mockRequireAdmin: vi.fn(),
+  mockRequireAdminWithDbCheck: vi.fn(),
   mockGetUserByEmail: vi.fn(),
   mockGetOrderById: vi.fn(),
   mockCreateComplaint: vi.fn(),
@@ -118,16 +122,11 @@ const {
   mockEnforceRateLimit: vi.fn(),
 }));
 
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
-}));
-
 vi.mock("@/lib/api/auth", () => ({
+  requireAuth: mockRequireAuth,
   requireSeeker: mockRequireSeeker,
+  requireAdmin: mockRequireAdmin,
+  requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
 }));
 
 vi.mock("@/lib/db/index", () => ({
@@ -431,7 +430,7 @@ beforeEach(() => {
 
   setActor("seeker");
 
-  mockGetServerSession.mockImplementation(async () => {
+  mockRequireAuth.mockImplementation(async () => {
     const user = currentUser();
     return {
       user: {
@@ -447,7 +446,41 @@ beforeEach(() => {
     if (user.role !== Role.SEEKER) {
       throw new Error("Unauthorized");
     }
-    return { user: { email: user.email } };
+    return {
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role,
+      },
+    };
+  });
+
+  mockRequireAdmin.mockImplementation(async () => {
+    const user = currentUser();
+    if (user.role !== Role.ADMIN) {
+      throw new Error("Forbidden");
+    }
+    return {
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role,
+      },
+    };
+  });
+
+  mockRequireAdminWithDbCheck.mockImplementation(async () => {
+    const user = currentUser();
+    if (user.role !== Role.ADMIN) {
+      throw new Error("Forbidden");
+    }
+    return {
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role,
+      },
+    };
   });
 
   mockGetUserByEmail.mockImplementation(async (email: string) => {

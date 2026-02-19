@@ -1,31 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
-import { Role } from "@/types/enums";
 
 const {
-  mockGetServerSession,
-  mockGetUserByEmail,
+  mockRequireAdmin,
   mockGetDb,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
 } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
-  mockGetUserByEmail: vi.fn(),
+  mockRequireAdmin: vi.fn(),
   mockGetDb: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
 }));
 
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
-}));
-
-vi.mock("@/lib/db/index", () => ({
-  getUserByEmail: mockGetUserByEmail,
+vi.mock("@/lib/api/auth", () => ({
+  requireAdmin: mockRequireAdmin,
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -118,17 +107,12 @@ describe("POST /api/admin/complaints/[id]/accept", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockGetServerSession.mockResolvedValue({
+    mockRequireAdmin.mockResolvedValue({
       user: {
-        id: "admin_1",
+        id: new ObjectId().toString(),
         email: "admin@laundryease.test",
-        role: Role.ADMIN,
+        role: "admin",
       },
-    });
-    mockGetUserByEmail.mockResolvedValue({
-      _id: new ObjectId(),
-      email: "admin@laundryease.test",
-      role: Role.ADMIN,
     });
   });
 

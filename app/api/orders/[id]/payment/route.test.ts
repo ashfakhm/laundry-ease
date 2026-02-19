@@ -3,14 +3,14 @@ import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
 
 const {
-  mockGetServerSession,
+  mockRequireSeeker,
   mockGetDb,
   mockCreateRazorpayOrder,
   mockVerifyRazorpaySignature,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
 } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
+  mockRequireSeeker: vi.fn(),
   mockGetDb: vi.fn(),
   mockCreateRazorpayOrder: vi.fn(),
   mockVerifyRazorpaySignature: vi.fn(),
@@ -18,12 +18,8 @@ const {
   mockEnforceRateLimit: vi.fn(),
 }));
 
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
+vi.mock("@/lib/api/auth", () => ({
+  requireSeeker: mockRequireSeeker,
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -96,8 +92,8 @@ describe("order payment route", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockGetServerSession.mockResolvedValue({
-      user: { id: SEEKER_ID, role: Role.SEEKER },
+    mockRequireSeeker.mockResolvedValue({
+      user: { id: SEEKER_ID, role: Role.SEEKER, email: "seeker@test.com" },
     });
     mockCreateRazorpayOrder.mockReset();
     mockVerifyRazorpaySignature.mockReset();
@@ -287,4 +283,3 @@ describe("order payment route", () => {
     expect(dbMock.orderUpdateOne).not.toHaveBeenCalled();
   });
 });
-

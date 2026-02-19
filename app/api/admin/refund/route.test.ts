@@ -1,27 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const {
-  mockGetServerSession,
+  mockRequireAdminWithDbCheck,
   mockGetDb,
   mockRefundRazorpayPayment,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
 } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
+  mockRequireAdminWithDbCheck: vi.fn(),
   mockGetDb: vi.fn(),
   mockRefundRazorpayPayment: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
 }));
-
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
+vi.mock("@/lib/api/auth", () => ({
+  requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -112,7 +108,7 @@ describe("POST /api/admin/refund", () => {
     });
     mockRefundRazorpayPayment.mockReset();
     mockGetDb.mockReset();
-    mockGetServerSession.mockReset();
+    mockRequireAdminWithDbCheck.mockReset();
   });
 
   afterEach(() => {
@@ -120,9 +116,9 @@ describe("POST /api/admin/refund", () => {
   });
 
   it("returns 401 when actor is not admin", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.SEEKER, email: "seeker@test.com" },
-    });
+    mockRequireAdminWithDbCheck.mockRejectedValue(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+    );
     const dbMock = makeDbMock();
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
@@ -139,8 +135,8 @@ describe("POST /api/admin/refund", () => {
   });
 
   it("returns 400 for invalid target payload", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     mockGetDb.mockResolvedValue({ db: dbMock.db });
@@ -159,8 +155,8 @@ describe("POST /api/admin/refund", () => {
   });
 
   it("refunds an eligible order and persists refund metadata", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     dbMock.orderFindOne.mockResolvedValue({
@@ -198,8 +194,8 @@ describe("POST /api/admin/refund", () => {
   });
 
   it("returns idempotent success when order is already refunded", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     dbMock.orderFindOne.mockResolvedValue({
@@ -227,8 +223,8 @@ describe("POST /api/admin/refund", () => {
   });
 
   it("refunds a booking fee when booking is in paid state", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { role: Role.ADMIN, email: "admin@test.com" },
+    mockRequireAdminWithDbCheck.mockResolvedValue({
+      user: { role: Role.ADMIN, email: "admin@test.com", id: ORDER_ID },
     });
     const dbMock = makeDbMock();
     dbMock.bookingFindOne.mockResolvedValue({

@@ -1,27 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const {
-  mockGetServerSession,
+  mockRequireAuth,
   mockGetDb,
   mockRefundRazorpayPayment,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
 } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
+  mockRequireAuth: vi.fn(),
   mockGetDb: vi.fn(),
   mockRefundRazorpayPayment: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
 }));
-
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
+vi.mock("@/lib/api/auth", () => ({
+  requireAuth: mockRequireAuth,
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -114,7 +110,9 @@ describe("POST /api/bookings/[id]/cancel", () => {
   });
 
   it("returns 401 when not authenticated", async () => {
-    mockGetServerSession.mockResolvedValue(null);
+    mockRequireAuth.mockRejectedValue(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Authentication required"),
+    );
     const res = await POST(makeRequest(), {
       params: Promise.resolve({ id: BOOKING_ID }),
     });
@@ -122,8 +120,12 @@ describe("POST /api/bookings/[id]/cancel", () => {
   });
 
   it("returns 404 if booking not found", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { id: SEEKER_ID, role: Role.SEEKER },
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: SEEKER_ID,
+        role: Role.SEEKER,
+        email: "seeker@test.com",
+      },
     });
     vi.mocked(getBookingById).mockResolvedValue(null);
 
@@ -134,8 +136,12 @@ describe("POST /api/bookings/[id]/cancel", () => {
   });
 
   it("cancels booking with refund for seeker when cancelled ahead of time", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { id: SEEKER_ID, role: Role.SEEKER },
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: SEEKER_ID,
+        role: Role.SEEKER,
+        email: "seeker@test.com",
+      },
     });
 
     const tomorrow = new Date();
@@ -176,8 +182,12 @@ describe("POST /api/bookings/[id]/cancel", () => {
   });
 
   it("cancels booking with forfeit for seeker when cancelled on the same day", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { id: SEEKER_ID, role: Role.SEEKER },
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: SEEKER_ID,
+        role: Role.SEEKER,
+        email: "seeker@test.com",
+      },
     });
 
     const tonight = new Date();
@@ -217,8 +227,12 @@ describe("POST /api/bookings/[id]/cancel", () => {
   });
 
   it("blocks seeker cancellation after the pickup slot time", async () => {
-    mockGetServerSession.mockResolvedValue({
-      user: { id: SEEKER_ID, role: Role.SEEKER },
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: SEEKER_ID,
+        role: Role.SEEKER,
+        email: "seeker@test.com",
+      },
     });
 
     const past = new Date();
@@ -243,7 +257,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
   });
 
   it("allows provider cancellation anytime before arrival", async () => {
-    mockGetServerSession.mockResolvedValue({
+    mockRequireAuth.mockResolvedValue({
       user: {
         id: PROVIDER_ID,
         role: Role.PROVIDER,
