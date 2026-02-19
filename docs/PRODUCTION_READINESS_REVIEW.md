@@ -2,9 +2,9 @@
 
 **Date:** February 19, 2026  
 **Repository:** `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease`  
-**Overall Verdict:** **Not production-ready yet**
+**Overall Verdict:** **Near production-ready with remaining hardening and consistency work**
 
-Core flows are strong, but payment-state correctness, admin reporting accuracy, and a few integrity gaps should be resolved before production rollout.
+Major correctness and security risks from earlier passes were addressed. Core flows are stable, and quality gates are green. Remaining work is primarily consistency, maintainability, and final hardening.
 
 ## 1) Validation Performed
 
@@ -14,71 +14,55 @@ Core flows are strong, but payment-state correctness, admin reporting accuracy, 
    - Booking/order lifecycle
    - Escrow/payment/refund
    - Complaints/chat/admin actions
-3. Quality gates:
+3. Quality gates (latest run):
+   - `npm run typecheck` ✅
    - `npm run lint` ✅
-   - `npm test` ✅ (199/199)
+   - `npm test` ✅ (212/212)
    - `npm run build` ✅
-   - `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts` ✅
+   - `npm run test:e2e -- e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts` ✅ (7/7)
 4. Security/dependency posture:
    - `npm audit --omit=dev --audit-level=high` ✅ (0 high vulnerabilities)
 5. Auth migration checks:
-   - `getServerSession(authOptions)` usage in `app/api` = 0
+   - `getServerSession(authOptions)` usage in `app/api` = 0 ✅
 
 ## 2) Current Strengths
 
-1. Centralized auth helper model is in place and broadly adopted (`/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/api/auth.ts`).
-2. Escrow and settlement flows are relatively mature (`/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/payouts.ts`).
-3. Complaint lifecycle logic is robust overall, with improved role gating and workflow paths.
-4. Test baseline is strong and improving (unit/integration + smoke e2e).
+1. Centralized API auth helper model is in place and broadly adopted (`/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/api/auth.ts`).
+2. Complaint lifecycle and settlement workflows are implemented end-to-end and covered by smoke e2e.
+3. Escrow/payment paths include idempotency and race-handling protections in critical endpoints.
+4. CI quality gates now include `typecheck`, `lint`, `unit/integration`, `build`, and smoke e2e.
+5. Provider discovery now uses geospatial-first query path with regression coverage.
 
 ## 3) Findings by Severity
 
-## P0 (Critical)
-
-1. Booking-fee payout side effect can run before lifecycle state lock in arrival flow.
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/arrive/route.ts`
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/arrived/route.ts`
-2. Admin financial metrics risk double-counting delivery where `total_price` already includes delivery.
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/dashboard-stats/route.ts`
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/pay-invoice/route.ts`
-
 ## P1 (High)
 
-1. `schedule-delivery` can bypass stricter lifecycle gating and regress process transitions.
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/schedule-delivery/route.ts`
-2. Invoice payment verification creates order and updates booking without transaction-level atomicity.
+1. Duplicate arrival endpoints still exist, increasing long-term drift risk.
+   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/arrive/route.ts`
+   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/arrived/route.ts`
+2. Invoice payment finalize path is race-safe via compensation, but not yet transaction-backed atomic.
    - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/bookings/[id]/pay-invoice/route.ts`
-3. `tsc --noEmit` fails in test code (type-contract quality gate not fully green).
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/users/[id]/ban/route.test.ts`
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/users/[id]/route.test.ts`
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/orders/[id]/schedule-delivery/route.test.ts`
-   - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/lib/db-indexes.test.ts`
 
 ## P2 (Medium)
 
-1. Some admin read endpoints still use role-token check only, not DB-backed admin revocation check.
-2. Provider discovery uses in-memory filtering patterns that will not scale cleanly.
-3. Admin complaints listing has N+1 query behavior.
-4. Validation style across some legacy payment endpoints is inconsistent.
-5. Upload image fallback behavior can increase payload/latency risk in non-cloud mode.
+1. Legacy payment endpoints still have mixed response-key styles (`error` vs `message`), adding client-contract inconsistency.
+2. Complaint chat has attachment backend support but UI completion is still partial.
+3. Some non-API server pages/actions still use direct `getServerSession` patterns instead of centralized helper usage.
 
 ## P3 (Low)
 
-1. URL-path parsing for route params in one reschedule path is brittle.
-2. Duplicate arrival endpoints increase long-term drift risk.
+1. Documentation drift can recur quickly due rapid iteration; periodic review updates are needed.
 
 ## 4) Recommended Action Plan (Priority Order)
 
-1. **Fix payout ordering and idempotency in arrival endpoints** (state transition first, then side effect; or transaction/outbox strategy).
-2. **Correct admin finance formulas** to remove delivery double-counting.
-3. **Tighten order lifecycle gates** in `schedule-delivery` and prevent state regression.
-4. **Make pay-invoice transitions atomic** (transaction/session or compensating rollback with strict checks).
-5. **Make TypeScript gate fully green** (`npm run typecheck` in CI required).
-6. **Apply DB-backed admin validation** to remaining admin-sensitive read/mutate paths as needed.
-7. **Refactor provider discovery and complaint listing** for scale (indexed query + pagination + aggregation).
-8. **Unify duplicate arrival routes** into one canonical path and shared service.
+1. **Unify duplicate arrival endpoints** to one canonical implementation and keep compatibility path only if required.
+2. **Upgrade pay-invoice finalize to transaction-backed atomicity** using Mongo session transactions.
+3. **Standardize legacy payment error payloads** while maintaining backward-compatible keys.
+4. **Complete complaint attachment UX** (select/upload/preview/remove/send).
+5. **Finish non-API auth cleanup** by replacing direct session lookups in server pages/actions with centralized helper-based identity.
+6. **Re-run full gates and update this report** after the above is complete.
 
 ## 5) Final Assessment
 
-Current grade: **B+ / A-**  
-Trajectory is strong, but **P0 and key P1 issues must be closed** before calling this production-ready or A+.
+Current grade: **A- (strong production candidate)**  
+To reach **A/A+**, close the consistency/hardening items above and keep docs synchronized with current code state.
