@@ -12,7 +12,7 @@ LaundryEase is no longer in the earlier B-grade state. The codebase has material
 
 The current state is strong for production baseline readiness, but not perfect. The main remaining work is consistency and scale-hardening, not critical correctness failures.
 
-**Current Grade: A- (89/100)**
+**Current Grade: A- / A (90/100)**
 
 ---
 
@@ -22,7 +22,7 @@ The current state is strong for production baseline readiness, but not perfect. 
 |------|--------|--------|
 | `npm run typecheck` | **PASS** | clean |
 | `npm run lint` | **PASS** | clean |
-| `npm test` | **PASS** | 51 files, 218 tests |
+| `npm test` | **PASS** | 54 files, 232 tests |
 | `npm run build` | **PASS** | Next.js build clean |
 | `npm run test:e2e -- --workers=1 e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts` | **PASS** | 7/7 critical smoke journeys |
 | `npm audit --omit=dev --audit-level=high` | **PASS** | 0 high vulnerabilities |
@@ -39,6 +39,7 @@ The current state is strong for production baseline readiness, but not perfect. 
    - staged participant access
    - admin-driven settlement outcomes
    - smoke e2e coverage for key dispute journeys
+   - admin complaint mutation routes now have focused regression tests
 4. Release quality process now has stronger discipline:
    - scripted gate runner (`npm run verify:gates`)
    - docs-sync guard and CI enforcement
@@ -70,6 +71,15 @@ The current state is strong for production baseline readiness, but not perfect. 
      - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/invoices/[id]/review/route.test.ts`
    - Covers invalid id, idempotent already-converted behavior, transaction-unavailable fallback, and compensation rollback conflict.
 
+5. **Complaint access/admin mutation hardening + coverage**
+   - Hardened:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/complaints/[id]/access/route.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/complaints/[id]/add-provider/route.ts`
+   - Added regression tests:
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/complaints/[id]/access/route.test.ts`
+     - `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/complaints/[id]/add-provider/route.test.ts`
+   - Fixes include stricter status gates, finalized-state protection, valid provider reference checks, and correct participant/status transitions on revoke.
+
 ---
 
 ## Remaining Gaps (Honest)
@@ -96,7 +106,7 @@ The current state is strong for production baseline readiness, but not perfect. 
 ## Priority Actions to Reach A/A+
 
 1. Complete response-shape normalization route-by-route (compatibility-preserving migration plan).
-2. Expand route coverage for remaining untested API handlers (especially state-transition and admin mutation paths).
+2. Expand route coverage for remaining untested API handlers (especially cron and less-used query endpoints).
 3. Continue reducing unnecessary type casts and aligning domain types with persisted fields.
 4. Keep `verify:gates` and docs-sync checks mandatory for every high-impact PR.
 

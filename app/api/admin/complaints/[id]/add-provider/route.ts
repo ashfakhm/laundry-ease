@@ -57,6 +57,14 @@ export async function POST(
       );
     }
 
+    if (!ObjectId.isValid(String(complaint.provider_id))) {
+      return NextResponse.json(
+        { error: "Complaint provider reference is invalid" },
+        { status: 409 },
+      );
+    }
+    const providerObjectId = new ObjectId(String(complaint.provider_id));
+
     // Update complaint to grant provider access and change status to in_review
     await db.collection("complaints").updateOne(
       { _id: complaintId },
@@ -65,14 +73,14 @@ export async function POST(
           provider_access_granted: true,
           status: "in_review", // Move to in_review when provider is added
         },
-        $addToSet: { participants: complaint.provider_id }, // Add to participants if not present
+        $addToSet: { participants: providerObjectId }, // Add to participants if not present
       },
     );
 
     // Get provider name for system message
     const provider = await db
       .collection("providers")
-      .findOne({ _id: complaint.provider_id });
+      .findOne({ _id: providerObjectId });
     const providerName = provider?.businessName || provider?.name || "Provider";
 
     // Insert system message

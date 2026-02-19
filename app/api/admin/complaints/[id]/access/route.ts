@@ -50,19 +50,45 @@ export async function PATCH(
     if (!complaint)
       return NextResponse.json({ error: "Not Found" }, { status: 404 });
 
-    const providerId = complaint.provider_id;
+    if (complaint.status === "resolved" || complaint.status === "rejected") {
+      return NextResponse.json(
+        { error: "Cannot update provider access after complaint is finalized" },
+        { status: 409 },
+      );
+    }
+
+    if (granted && complaint.status !== "accepted" && complaint.status !== "in_review") {
+      return NextResponse.json(
+        { error: "Complaint must be accepted before granting provider access" },
+        { status: 409 },
+      );
+    }
+
+    if (!ObjectId.isValid(String(complaint.provider_id))) {
+      return NextResponse.json(
+        { error: "Complaint provider reference is invalid" },
+        { status: 409 },
+      );
+    }
+    const providerObjectId = new ObjectId(String(complaint.provider_id));
+
+    const updatePayload: Record<string, unknown> = {
+      $set: {
+        provider_access_granted: granted,
+        status: granted
+          ? "in_review"
+          : complaint.status === "in_review"
+            ? "accepted"
+            : complaint.status,
+      },
+    };
+
+    if (granted) {
+      updatePayload.$addToSet = { participants: providerObjectId };
+    }
 
     // Update Access
-    await db.collection("complaints").updateOne(
-      { _id: complaintId },
-      {
-        $set: {
-          provider_access_granted: granted,
-          status: granted ? "in_review" : complaint.status, // Update status if granting
-        },
-        $addToSet: { participants: providerId }, // Ensure provider is in participants
-      }
-    );
+    await db.collection("complaints").updateOne({ _id: complaintId }, updatePayload);
 
     // System Message
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
