@@ -283,6 +283,12 @@ Stable:
   - `Quality Gates` for lint/test/build/smoke E2E
   - `Real Gateway Smoke` for scheduled/manual live Razorpay connectivity checks (when secrets are configured)
   - `Governance Audit` for branch-protection required-check drift detection (when admin token is configured)
+- Local release parity command:
+  - `npm run verify:gates` for one-shot typecheck/lint/test/build/smoke execution
+- Docs synchronization guardrails:
+  - `npm run check:docs-sync` for high-impact code changes
+  - CI enforcement in `Quality Gates` workflow
+  - PR checklist in `.github/PULL_REQUEST_TEMPLATE.md`
 - Operational SLO monitor (`/api/cron/monitor-operational-health`) for:
   - overdue held orders (excluding complaint-blocked cases)
   - payout failure spikes
@@ -310,11 +316,11 @@ Stable:
   - MTTR (mean time to resolve) for recent alerts
 - Admin dashboard incident ownership panel shows unacknowledged counts and one-click acknowledge action
 
-Quality snapshot (2026-02-15):
+Quality snapshot (2026-02-19):
 
-- `31` test files, `141` tests passing
+- `50` test files, `214` tests passing
 - `3` Playwright E2E specs, `7` critical role/complaint/settlement journeys passing
-- `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e` all passing on `Mainv2`
+- `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 
 Remaining hardening opportunities:
 

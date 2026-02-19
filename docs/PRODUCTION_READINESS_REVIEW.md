@@ -44,13 +44,17 @@ No open P1/P2 findings remain from the action plan tracked in this report.
 
 1. Documentation drift can recur quickly with rapid iteration; periodic revalidation remains recommended.
 
-## 4) Recommended Action Plan (Priority Order)
+## 4) Operational TODO List (Implemented)
 
-1. **Maintain gate discipline** (`typecheck`, `lint`, full tests, build, smoke e2e) on every release.
-2. **Keep docs synchronized** by updating this report and related docs after major refactors.
-3. **Continue incremental hardening** through targeted regression tests for any new payment, auth, or complaint workflow changes.
+1. [x] **Maintain gate discipline**
+   - Added `npm run verify:gates` (`/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/scripts/verify-gates.mjs`) to run typecheck, lint, tests, build, and smoke e2e in a single command.
+2. [x] **Keep docs synchronized**
+   - Added `npm run check:docs-sync` (`/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/scripts/check-doc-sync.mjs`) and enforced it in CI (`/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/.github/workflows/quality-gates.yml`) for high-impact code changes.
+   - Added PR checklist enforcement via `/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/.github/PULL_REQUEST_TEMPLATE.md`.
+3. [x] **Continue incremental hardening**
+   - Added focused regression coverage for complaint settlement resolution logic (`/Users/faku/Desktop/Projects/LaundryEase/laundry-ease/app/api/admin/complaints/[id]/resolve/route.test.ts`) including reject/provider-favor and split-refund flows.
 
 ## 5) Final Assessment
 
 Current grade: **A / A+ readiness baseline for this review scope**  
-The previously listed hardening checklist is complete. Ongoing excellence now depends on maintaining test/gate discipline and documentation currency.
+The previously listed hardening checklist is complete and now backed by explicit guardrails in scripts, CI, and regression tests.

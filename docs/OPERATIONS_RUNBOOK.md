@@ -1,6 +1,6 @@
 # LaundryEase Operations Runbook
 
-**Version:** 2026-02-15  
+**Version:** 2026-02-19  
 **Scope:** Payment, escrow, complaint, and reliability-critical operational response
 
 ---
@@ -197,3 +197,12 @@ For every `SEV-1`/`SEV-2`:
 - Add automated alert dashboards for payout failure rate, held-order age, and overdue complaints
 - Add staging scheduled smoke for real gateway interaction paths
 - Add archival policy for old webhook payloads
+
+## 10. Release Gate Checklist
+
+Before shipping production-impacting changes:
+
+1. Run `npm run verify:gates` locally (or equivalent CI checks).
+2. If high-impact code changed (`app/api`, `lib`, `types`, or config files), run `npm run check:docs-sync` and update impacted docs.
+3. Confirm smoke journeys pass in serial mode:
+   - `npm run test:e2e -- --workers=1 e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts`

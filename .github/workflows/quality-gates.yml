@@ -60,12 +60,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      - name: Docs Sync Guard
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_RANGE: ${{ github.event.before }}...${{ github.sha }}
+          PR_RANGE: ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            export DOCS_SYNC_DIFF_RANGE="$PR_RANGE"
+          else
+            export DOCS_SYNC_DIFF_RANGE="$PUSH_RANGE"
+          fi
+          echo "Using DOCS_SYNC_DIFF_RANGE=$DOCS_SYNC_DIFF_RANGE"
+          npm run check:docs-sync
 
       - name: Install dependencies
         run: npm ci
