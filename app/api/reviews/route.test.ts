@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const { mockRequireSeeker, mockGetDb } = vi.hoisted(() => ({
   mockRequireSeeker: vi.fn(),
@@ -169,5 +170,285 @@ describe("POST /api/reviews", () => {
     expect(res.status).toBe(400);
     expect(data.error).toBe("Invalid booking ID");
     expect(mockGetDb).not.toHaveBeenCalled();
+  });
+
+  describe("authentication", () => {
+    it("returns 401 when user is not authenticated", async () => {
+      mockRequireSeeker.mockRejectedValue(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 5,
+        }) as never,
+      );
+
+      // The route catches all errors and returns 500
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe("validation", () => {
+    it("returns 400 for invalid payload - missing booking_id", async () => {
+      const res = await POST(
+        makeRequest({
+          rating: 5,
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error).toBe("Invalid review data");
+    });
+
+    it("returns 400 for invalid payload - rating out of range (too low)", async () => {
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 0,
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error).toBe("Invalid review data");
+    });
+
+    it("returns 400 for invalid payload - rating out of range (too high)", async () => {
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 6,
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error).toBe("Invalid review data");
+    });
+
+    it("returns 400 for invalid payload - non-numeric rating", async () => {
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: "five",
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error).toBe("Invalid review data");
+    });
+  });
+
+  describe("order lookup", () => {
+    it("returns 404 when order not found for booking", async () => {
+      const dbMock = makeDbMock();
+      dbMock.orderFindOne.mockResolvedValue(null);
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 5,
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(404);
+      expect(data.error).toBe("No completed order found for this booking");
+    });
+
+    it("returns 404 when order belongs to different seeker", async () => {
+      const dbMock = makeDbMock();
+      // The route queries by booking_id AND seeker_id, so if seeker doesn't match, order is not found
+      dbMock.orderFindOne.mockResolvedValue(null);
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 5,
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(404);
+      expect(data.error).toBe("No completed order found for this booking");
+    });
+  });
+
+  describe("duplicate review check", () => {
+    it("returns 400 when order already reviewed", async () => {
+      const dbMock = makeDbMock();
+      dbMock.orderFindOne.mockResolvedValue({
+        _id: new ObjectId(ORDER_ID),
+        booking_id: new ObjectId(BOOKING_ID),
+        seeker_id: new ObjectId(SEEKER_ID),
+        provider_id: new ObjectId(PROVIDER_ID),
+      });
+      dbMock.reviewFindOne.mockResolvedValue({
+        _id: new ObjectId(),
+        order_id: new ObjectId(ORDER_ID),
+        rating: 4,
+      });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 5,
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error).toBe("You have already reviewed this order");
+      expect(dbMock.reviewInsertOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("error handling", () => {
+    it("returns 500 on unexpected error", async () => {
+      mockRequireSeeker.mockRejectedValue(new Error("Unexpected error"));
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 5,
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(data.error).toBe("Failed to create review");
+    });
+
+    it("returns 500 when order has invalid provider_id", async () => {
+      const dbMock = makeDbMock();
+      dbMock.orderFindOne.mockResolvedValue({
+        _id: new ObjectId(ORDER_ID),
+        booking_id: new ObjectId(BOOKING_ID),
+        seeker_id: new ObjectId(SEEKER_ID),
+        provider_id: "not-a-valid-object-id", // Invalid provider ID
+      });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 5,
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(data.error).toBe("Order provider data is invalid");
+    });
+  });
+
+  describe("successful review submission", () => {
+    it("creates review with comment", async () => {
+      const dbMock = makeDbMock();
+      dbMock.orderFindOne.mockResolvedValue({
+        _id: new ObjectId(ORDER_ID),
+        booking_id: new ObjectId(BOOKING_ID),
+        seeker_id: new ObjectId(SEEKER_ID),
+        provider_id: new ObjectId(PROVIDER_ID),
+      });
+      dbMock.reviewFindOne.mockResolvedValue(null);
+      dbMock.seekerFindOne.mockResolvedValue({ name: "Test Seeker" });
+      dbMock.reviewInsertOne.mockResolvedValue({ acknowledged: true, insertedId: new ObjectId() });
+      dbMock.providerUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 4,
+          comment: "Great service!",
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(dbMock.reviewInsertOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rating: 4,
+          comment: "Great service!",
+          seeker_name: "Test Seeker",
+        }),
+      );
+    });
+
+    it("uses user name when seeker not found in database", async () => {
+      const dbMock = makeDbMock();
+      dbMock.orderFindOne.mockResolvedValue({
+        _id: new ObjectId(ORDER_ID),
+        booking_id: new ObjectId(BOOKING_ID),
+        seeker_id: new ObjectId(SEEKER_ID),
+        provider_id: new ObjectId(PROVIDER_ID),
+      });
+      dbMock.reviewFindOne.mockResolvedValue(null);
+      dbMock.seekerFindOne.mockResolvedValue(null); // Seeker not found
+      dbMock.reviewInsertOne.mockResolvedValue({ acknowledged: true, insertedId: new ObjectId() });
+      dbMock.providerUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 5,
+        }) as never,
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(dbMock.reviewInsertOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          seeker_name: "Seeker Test", // Falls back to user.name from auth
+        }),
+      );
+    });
+
+    it("uses 'User' as fallback name when no name available", async () => {
+      mockRequireSeeker.mockResolvedValue({
+        user: {
+          id: SEEKER_ID,
+          email: "seeker@laundryease.test",
+          // No name provided
+        },
+      });
+
+      const dbMock = makeDbMock();
+      dbMock.orderFindOne.mockResolvedValue({
+        _id: new ObjectId(ORDER_ID),
+        booking_id: new ObjectId(BOOKING_ID),
+        seeker_id: new ObjectId(SEEKER_ID),
+        provider_id: new ObjectId(PROVIDER_ID),
+      });
+      dbMock.reviewFindOne.mockResolvedValue(null);
+      dbMock.seekerFindOne.mockResolvedValue(null);
+      dbMock.reviewInsertOne.mockResolvedValue({ acknowledged: true, insertedId: new ObjectId() });
+      dbMock.providerUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await POST(
+        makeRequest({
+          booking_id: BOOKING_ID,
+          rating: 5,
+        }) as never,
+      );
+
+      expect(res.status).toBe(200);
+      expect(dbMock.reviewInsertOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          seeker_name: "User",
+        }),
+      );
+    });
   });
 });

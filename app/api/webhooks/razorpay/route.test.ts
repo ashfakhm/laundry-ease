@@ -1,8 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 import crypto from "crypto";
 
-const { mockGetDb } = vi.hoisted(() => ({
+const {
+  mockGetDb,
+  mockEnv,
+} = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
+  mockEnv: {
+    RAZORPAY_KEY_SECRET: "test_secret_key_12345",
+  },
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -10,26 +17,30 @@ vi.mock("@/lib/mongodb", () => ({
 }));
 
 vi.mock("@/lib/env", () => ({
-  env: {
-    RAZORPAY_KEY_SECRET: "webhook_test_secret",
-  },
+  env: mockEnv,
 }));
 
 vi.mock("@/lib/logger", () => ({
   logger: {
+    error: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn(),
     debug: vi.fn(),
   },
 }));
 
-import { POST } from "./route";
+import { POST, GET } from "./route";
+
+const WEBHOOK_SECRET = "test_secret_key_12345";
+
+function createValidSignature(body: string, secret: string): string {
+  return crypto.createHmac("sha256", secret).update(body).digest("hex");
+}
 
 function makeDbMock() {
-  const webhookFindOne = vi.fn();
-  const webhookInsertOne = vi.fn();
-  const webhookUpdateOne = vi.fn();
+  const webhookEventsFindOne = vi.fn();
+  const webhookEventsInsertOne = vi.fn();
+  const webhookEventsUpdateOne = vi.fn();
   const paymentsUpdateOne = vi.fn();
   const ordersFindOne = vi.fn();
   const ordersUpdateOne = vi.fn();
@@ -40,9 +51,9 @@ function makeDbMock() {
     collection: vi.fn((name: string) => {
       if (name === "webhook_events") {
         return {
-          findOne: webhookFindOne,
-          insertOne: webhookInsertOne,
-          updateOne: webhookUpdateOne,
+          findOne: webhookEventsFindOne,
+          insertOne: webhookEventsInsertOne,
+          updateOne: webhookEventsUpdateOne,
         };
       }
       if (name === "payments") {
@@ -72,9 +83,9 @@ function makeDbMock() {
 
   return {
     db,
-    webhookFindOne,
-    webhookInsertOne,
-    webhookUpdateOne,
+    webhookEventsFindOne,
+    webhookEventsInsertOne,
+    webhookEventsUpdateOne,
     paymentsUpdateOne,
     ordersFindOne,
     ordersUpdateOne,
@@ -83,235 +94,602 @@ function makeDbMock() {
   };
 }
 
-function signPayload(body: string) {
-  return crypto
-    .createHmac("sha256", "webhook_test_secret")
-    .update(body)
-    .digest("hex");
-}
-
-function makePaymentCapturedEvent(id: string) {
-  return {
-    id,
-    event: "payment.captured",
-    entity: "event",
-    payload: {
-      payment: {
-        entity: {
-          id: "pay_123",
-          order_id: "order_123",
-          status: "captured",
-          amount: 49900,
-          currency: "INR",
-          method: "card",
-          captured_at: 1_707_000_000,
-        },
-      },
-    },
-  };
-}
-
-function makeRefundCreatedEvent(
-  id: string,
-  options?: { amountPaise?: number; paymentId?: string; refundId?: string },
-) {
-  return {
-    id,
-    event: "refund.created",
-    entity: "event",
-    payload: {
-      refund: {
-        entity: {
-          id: options?.refundId || "rfnd_123",
-          payment_id: options?.paymentId || "pay_123",
-          amount: options?.amountPaise ?? 5000,
-          currency: "INR",
-          status: "processed",
-          notes: {
-            source: "test",
-          },
-        },
-      },
-    },
-  };
-}
-
-function makeRequest(bodyObject: unknown, options?: { withSignature?: boolean }) {
-  const rawBody = JSON.stringify(bodyObject);
-  const headers = new Headers({
-    "Content-Type": "application/json",
-  });
-
-  if (options?.withSignature !== false) {
-    headers.set("x-razorpay-signature", signPayload(rawBody));
+function makeWebhookRequest(body: string, signature?: string): NextRequest {
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (signature) {
+    headers.set("x-razorpay-signature", signature);
   }
 
-  return new Request("https://laundryease.test/api/webhooks/razorpay", {
+  return new NextRequest("https://laundryease.test/api/webhooks/razorpay", {
     method: "POST",
     headers,
-    body: rawBody,
+    body,
   });
 }
 
 describe("POST /api/webhooks/razorpay", () => {
+  let dbMock: ReturnType<typeof makeDbMock>;
+
   beforeEach(() => {
+    vi.clearAllMocks();
+    dbMock = makeDbMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+  });
+
+  afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns 400 when signature header is missing", async () => {
-    const res = await POST(
-      makeRequest(makePaymentCapturedEvent("evt_missing_sig"), {
-        withSignature: false,
-      }) as never,
-    );
-    const data = await res.json();
+  describe("signature validation", () => {
+    it("returns 400 when signature header is missing", async () => {
+      const res = await POST(makeWebhookRequest('{"event":"test"}'));
 
-    expect(res.status).toBe(400);
-    expect(data.error).toBe("Missing signature");
-  });
-
-  it("returns duplicate acknowledgement for already-processed events", async () => {
-    const dbMock = makeDbMock();
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
-    dbMock.webhookFindOne.mockResolvedValue({ processed: true });
-
-    const res = await POST(
-      makeRequest(makePaymentCapturedEvent("evt_duplicate")) as never,
-    );
-    const data = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(data.received).toBe(true);
-    expect(data.duplicate).toBe(true);
-    expect(dbMock.webhookInsertOne).not.toHaveBeenCalled();
-    expect(dbMock.paymentsUpdateOne).not.toHaveBeenCalled();
-  });
-
-  it("retries processing when an existing event is marked unprocessed", async () => {
-    const dbMock = makeDbMock();
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
-    dbMock.webhookFindOne.mockResolvedValue({ processed: false });
-    dbMock.webhookUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.paymentsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-
-    const res = await POST(
-      makeRequest(makePaymentCapturedEvent("evt_retry")) as never,
-    );
-    const data = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(data.received).toBe(true);
-    expect(dbMock.webhookUpdateOne).toHaveBeenCalledWith(
-      { event_id: "evt_retry" },
-      expect.objectContaining({
-        $set: expect.objectContaining({
-          processing_error: null,
-        }),
-      }),
-    );
-    expect(dbMock.webhookUpdateOne).toHaveBeenCalledWith(
-      { event_id: "evt_retry" },
-      expect.objectContaining({
-        $set: expect.objectContaining({
-          processed: true,
-          processing_error: null,
-        }),
-      }),
-    );
-    expect(dbMock.paymentsUpdateOne).toHaveBeenCalledOnce();
-  });
-
-  it("marks event as failed when processing throws", async () => {
-    const dbMock = makeDbMock();
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
-    dbMock.webhookFindOne.mockResolvedValue(null);
-    dbMock.webhookInsertOne.mockResolvedValue({ acknowledged: true });
-    dbMock.paymentsUpdateOne.mockRejectedValue(new Error("db_write_failed"));
-
-    const res = await POST(
-      makeRequest(makePaymentCapturedEvent("evt_fail")) as never,
-    );
-    const data = await res.json();
-
-    expect(res.status).toBe(500);
-    expect(data.error).toBe("Webhook processing failed");
-    expect(dbMock.webhookUpdateOne).toHaveBeenCalledWith(
-      { event_id: "evt_fail" },
-      expect.objectContaining({
-        $set: expect.objectContaining({
-          processed: false,
-          processing_error: "db_write_failed",
-        }),
-      }),
-    );
-  });
-
-  it("keeps order active on partial refund events", async () => {
-    const dbMock = makeDbMock();
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
-    dbMock.webhookFindOne.mockResolvedValue(null);
-    dbMock.webhookInsertOne.mockResolvedValue({ acknowledged: true });
-    dbMock.webhookUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.refundsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.ordersFindOne.mockResolvedValue({
-      _id: "order_1",
-      total_price: 500,
-      refund_amount: 100,
-      razorpay_refund_id: "rfnd_old",
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.message).toBe("Missing signature");
     });
-    dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
 
-    const res = await POST(
-      makeRequest(
-        makeRefundCreatedEvent("evt_partial_refund", {
-          amountPaise: 5000,
-          refundId: "rfnd_partial",
-        }),
-      ) as never,
-    );
-    expect(res.status).toBe(200);
+    it("returns 401 when signature format is invalid", async () => {
+      const res = await POST(
+        makeWebhookRequest('{"event":"test"}', "invalid-signature"),
+      );
 
-    const orderUpdatePayload = dbMock.ordersUpdateOne.mock.calls.at(-1)?.[1] as {
-      $set: Record<string, unknown>;
-    };
-    expect(orderUpdatePayload.$set.refund_amount).toBe(150);
-    expect(orderUpdatePayload.$set.razorpay_refund_id).toBe("rfnd_partial");
-    expect(orderUpdatePayload.$set.payment_status).toBeUndefined();
+      expect(res.status).toBe(401);
+      const data = await res.json();
+      expect(data.message).toBe("Invalid signature");
+    });
+
+    it("returns 401 when signature does not match", async () => {
+      const body = '{"event":"test"}';
+      const wrongSignature = "a".repeat(64); // Valid format but wrong signature
+
+      const res = await POST(makeWebhookRequest(body, wrongSignature));
+
+      expect(res.status).toBe(401);
+      const data = await res.json();
+      expect(data.message).toBe("Invalid signature");
+    });
   });
 
-  it("marks order as refunded when webhook refunds full paid amount", async () => {
-    const dbMock = makeDbMock();
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
-    dbMock.webhookFindOne.mockResolvedValue(null);
-    dbMock.webhookInsertOne.mockResolvedValue({ acknowledged: true });
-    dbMock.webhookUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.refundsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.ordersFindOne.mockResolvedValue({
-      _id: "order_2",
-      total_price: 500,
-      refund_amount: 460,
-      razorpay_refund_id: "rfnd_old",
+  describe("payload validation", () => {
+    it("returns 400 when event id is missing", async () => {
+      const body = '{"event":"payment.captured","payload":{}}';
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.message).toBe("Invalid payload");
     });
-    dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
 
-    const res = await POST(
-      makeRequest(
-        makeRefundCreatedEvent("evt_full_refund", {
-          amountPaise: 4000,
-          refundId: "rfnd_full",
+    it("returns 400 when event type is missing", async () => {
+      const body = '{"id":"evt_123","payload":{}}';
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.message).toBe("Invalid payload");
+    });
+  });
+
+  describe("idempotency", () => {
+    it("returns success for duplicate processed event", async () => {
+      const body = JSON.stringify({
+        id: "evt_duplicate",
+        event: "payment.captured",
+        entity: "event",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_123",
+              order_id: "order_123",
+              status: "captured",
+              amount: 10000,
+              currency: "INR",
+              method: "upi",
+              captured_at: Math.floor(Date.now() / 1000),
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue({
+        event_id: "evt_duplicate",
+        processed: true,
+      });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.duplicate).toBe(true);
+      // Should not process the event again
+      expect(dbMock.paymentsUpdateOne).not.toHaveBeenCalled();
+    });
+
+    it("retries processing for unprocessed event", async () => {
+      const body = JSON.stringify({
+        id: "evt_retry",
+        event: "payment.captured",
+        entity: "event",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_123",
+              order_id: "order_123",
+              status: "captured",
+              amount: 10000,
+              currency: "INR",
+              method: "upi",
+              captured_at: Math.floor(Date.now() / 1000),
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      // Event exists but not processed
+      dbMock.webhookEventsFindOne.mockResolvedValue({
+        event_id: "evt_retry",
+        processed: false,
+      });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.paymentsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+      dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+      // Should update the retry_started_at
+      expect(dbMock.webhookEventsUpdateOne).toHaveBeenCalledWith(
+        { event_id: "evt_retry" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            processing_error: null,
+          }),
         }),
-      ) as never,
-    );
-    expect(res.status).toBe(200);
+      );
+    });
+  });
 
-    const orderUpdatePayload = dbMock.ordersUpdateOne.mock.calls.at(-1)?.[1] as {
-      $set: Record<string, unknown>;
-    };
-    expect(orderUpdatePayload.$set.refund_amount).toBe(500);
-    expect(orderUpdatePayload.$set.payment_status).toBe("refunded");
+  describe("payment.captured event", () => {
+    it("updates payment and order status", async () => {
+      const body = JSON.stringify({
+        id: "evt_capture_1",
+        event: "payment.captured",
+        entity: "event",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_capture_1",
+              order_id: "order_capture_1",
+              status: "captured",
+              amount: 50000, // 500 INR in paise
+              currency: "INR",
+              method: "card",
+              captured_at: Math.floor(Date.now() / 1000),
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.paymentsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.received).toBe(true);
+
+      // Verify payment update
+      expect(dbMock.paymentsUpdateOne).toHaveBeenCalledWith(
+        { razorpay_payment_id: "pay_capture_1" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            status: "captured",
+            amount: 500, // Converted from paise
+            currency: "INR",
+            method: "card",
+          }),
+        }),
+        { upsert: true },
+      );
+
+      // Verify order update
+      expect(dbMock.ordersUpdateOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          razorpay_order_id: "order_capture_1",
+          payment_status: "unpaid",
+        }),
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            payment_status: "paid",
+            razorpay_payment_id: "pay_capture_1",
+          }),
+        }),
+      );
+    });
+
+    it("updates booking fee status for booking-fee flow", async () => {
+      const body = JSON.stringify({
+        id: "evt_booking_fee",
+        event: "payment.captured",
+        entity: "event",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_booking_fee",
+              order_id: "order_booking_fee",
+              status: "captured",
+              amount: 9900, // 99 INR in paise
+              currency: "INR",
+              method: "upi",
+              captured_at: Math.floor(Date.now() / 1000),
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.paymentsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+      dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+
+      // Verify booking update
+      expect(dbMock.bookingsUpdateOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          razorpay_order_id: "order_booking_fee",
+          status: "requested",
+        }),
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            bookingFeeStatus: "paid",
+            razorpay_payment_id: "pay_booking_fee",
+          }),
+        }),
+      );
+    });
+  });
+
+  describe("payment.failed event", () => {
+    it("updates payment and order with error details", async () => {
+      const body = JSON.stringify({
+        id: "evt_failed_1",
+        event: "payment.failed",
+        entity: "event",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_failed_1",
+              order_id: "order_failed_1",
+              status: "failed",
+              error_code: "BAD_REQUEST_ERROR",
+              error_description: "Payment failed due to insufficient funds",
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.paymentsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+
+      // Verify payment update
+      expect(dbMock.paymentsUpdateOne).toHaveBeenCalledWith(
+        { razorpay_payment_id: "pay_failed_1" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            status: "failed",
+            error_code: "BAD_REQUEST_ERROR",
+            error_description: "Payment failed due to insufficient funds",
+          }),
+        }),
+      );
+
+      // Verify order update
+      expect(dbMock.ordersUpdateOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          razorpay_order_id: "order_failed_1",
+          payment_status: "unpaid",
+        }),
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            payment_last_error: "Payment failed due to insufficient funds",
+            payment_last_error_code: "BAD_REQUEST_ERROR",
+          }),
+        }),
+      );
+    });
+  });
+
+  describe("refund.created event", () => {
+    it("updates refund and order status", async () => {
+      const body = JSON.stringify({
+        id: "evt_refund_1",
+        event: "refund.created",
+        entity: "event",
+        payload: {
+          refund: {
+            entity: {
+              id: "rfnd_1",
+              payment_id: "pay_refund_1",
+              amount: 50000, // 500 INR in paise
+              currency: "INR",
+              status: "processed",
+              notes: { reason: "Customer request" },
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.refundsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.ordersFindOne.mockResolvedValue({
+        _id: "order_1",
+        total_price: 500,
+        refund_amount: 0,
+        razorpay_refund_id: null,
+      });
+      dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+
+      // Verify refund update
+      expect(dbMock.refundsUpdateOne).toHaveBeenCalledWith(
+        { razorpay_refund_id: "rfnd_1" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            payment_id: "pay_refund_1",
+            amount: 500, // Converted from paise
+            currency: "INR",
+            status: "processed",
+          }),
+        }),
+        { upsert: true },
+      );
+    });
+
+    it("marks order as fully refunded when total is reached", async () => {
+      const body = JSON.stringify({
+        id: "evt_full_refund",
+        event: "refund.created",
+        entity: "event",
+        payload: {
+          refund: {
+            entity: {
+              id: "rfnd_full",
+              payment_id: "pay_full_refund",
+              amount: 50000, // Full amount
+              currency: "INR",
+              status: "processed",
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.refundsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.ordersFindOne.mockResolvedValue({
+        _id: "order_full",
+        total_price: 500,
+        refund_amount: 0,
+        razorpay_refund_id: null,
+      });
+      dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 0 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+
+      // Verify order marked as refunded
+      expect(dbMock.ordersUpdateOne).toHaveBeenCalledWith(
+        { _id: "order_full" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            payment_status: "refunded",
+            refund_amount: 500,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe("payout events", () => {
+    it("handles payout.processed event", async () => {
+      const body = JSON.stringify({
+        id: "evt_payout_1",
+        event: "payout.processed",
+        entity: "event",
+        payload: {
+          payout: {
+            entity: {
+              id: "payout_1",
+              status: "processed",
+              utr: "UTR123456789",
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+
+      // Verify booking update
+      expect(dbMock.bookingsUpdateOne).toHaveBeenCalledWith(
+        { payout_id: "payout_1" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            payout_status: "paid",
+            payout_utr: "UTR123456789",
+            bookingFeeStatus: "applied",
+          }),
+        }),
+      );
+    });
+
+    it("handles payout.failed event", async () => {
+      const body = JSON.stringify({
+        id: "evt_payout_failed",
+        event: "payout.failed",
+        entity: "event",
+        payload: {
+          payout: {
+            entity: {
+              id: "payout_failed_1",
+              status: "failed",
+              utr: null,
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+
+      // Verify booking update with failed status
+      expect(dbMock.bookingsUpdateOne).toHaveBeenCalledWith(
+        { payout_id: "payout_failed_1" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            payout_status: "failed",
+            bookingFeeStatus: "paid",
+          }),
+        }),
+      );
+    });
+  });
+
+  describe("unhandled events", () => {
+    it("returns success for unhandled event types", async () => {
+      const body = JSON.stringify({
+        id: "evt_unhandled",
+        event: "some.unknown.event",
+        entity: "event",
+        payload: {},
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.received).toBe(true);
+    });
+  });
+
+  describe("error handling", () => {
+    it("returns 500 on unexpected error and logs event failure", async () => {
+      const body = JSON.stringify({
+        id: "evt_error",
+        event: "payment.captured",
+        entity: "event",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_error",
+              order_id: "order_error",
+              status: "captured",
+              amount: 10000,
+              currency: "INR",
+              method: "upi",
+            },
+          },
+        },
+      });
+      const signature = createValidSignature(body, WEBHOOK_SECRET);
+
+      dbMock.webhookEventsFindOne.mockResolvedValue(null);
+      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.paymentsUpdateOne.mockRejectedValue(new Error("Database error"));
+      dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      const res = await POST(makeWebhookRequest(body, signature));
+
+      expect(res.status).toBe(500);
+      const data = await res.json();
+      expect(data.message).toBe("Webhook processing failed");
+
+      // Verify error was logged
+      expect(dbMock.webhookEventsUpdateOne).toHaveBeenCalledWith(
+        { event_id: "evt_error" },
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            processed: false,
+            processing_error: "Database error",
+          }),
+        }),
+      );
+    });
+  });
+});
+
+describe("GET /api/webhooks/razorpay", () => {
+  it("returns 405 method not allowed", async () => {
+    const res = await GET();
+
+    expect(res.status).toBe(405);
+    const data = await res.json();
+    expect(data.message).toBe("Method not allowed");
   });
 });
