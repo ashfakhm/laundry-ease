@@ -22,8 +22,8 @@ if (isCloudinaryConfigured) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireAuth();
-    if (!session?.user?.email) {
+    const { user } = await requireAuth();
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

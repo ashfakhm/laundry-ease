@@ -31,21 +31,18 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireAuth();
-
-    if (!session || !session.user) {
+    const { user } = await requireAuth();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    let booking_id: ObjectId;
-    try {
-      booking_id = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { message: "Invalid booking id" },
         { status: 400 },
       );
     }
+    const booking_id = new ObjectId(id);
 
     const booking = await getBookingById(booking_id);
 
@@ -70,7 +67,7 @@ export async function POST(
         ? body.reason.trim().slice(0, 280)
         : undefined;
 
-    const isProvider = session.user.role === Role.PROVIDER;
+    const isProvider = user.role === Role.PROVIDER;
     const { db } = await getDb();
     const now = new Date();
     const pickupSlotTime = toValidDate(booking.pickupSlot?.dateTime);
@@ -79,17 +76,7 @@ export async function POST(
     let allowedStatuses: string[] = ["requested", "pickup_proposed"];
 
     if (isProvider) {
-      if (!session.user.email) {
-        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-      }
-      const provider = await db
-        .collection("providers")
-        .findOne({ email: session.user.email });
-
-      if (
-        !provider ||
-        booking.provider_id.toString() !== provider._id.toString()
-      ) {
+      if (booking.provider_id.toString() !== user.id) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
       }
 
@@ -109,7 +96,7 @@ export async function POST(
         "confirmed",
       ];
     } else {
-      if (booking.seeker_id.toString() !== session.user.id) {
+      if (booking.seeker_id.toString() !== user.id) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
       }
       cancelledBy = "seeker";

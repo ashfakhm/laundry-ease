@@ -27,8 +27,8 @@ export async function GET(
       windowMs: 60 * 1000,
     });
 
-    const session = await requireAuth();
-    if (!session?.user?.email || !session.user.id) {
+    const { user } = await requireAuth();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -40,8 +40,8 @@ export async function GET(
 
     // Only allow seeker or provider
     if (
-      session.user.id !== booking.seeker_id.toString() &&
-      session.user.id !== booking.provider_id.toString()
+      user.id !== booking.seeker_id.toString() &&
+      user.id !== booking.provider_id.toString()
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -92,8 +92,8 @@ export async function POST(
       return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
     }
 
-    const session = await requireAuth();
-    if (!session?.user?.email || !session.user.id) {
+    const { user } = await requireAuth();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -118,8 +118,8 @@ export async function POST(
 
     // Only allow seeker or provider
     let senderRole: "seeker" | "provider" | null = null;
-    if (session.user.id === booking.seeker_id.toString()) senderRole = "seeker";
-    if (session.user.id === booking.provider_id.toString())
+    if (user.id === booking.seeker_id.toString()) senderRole = "seeker";
+    if (user.id === booking.provider_id.toString())
       senderRole = "provider";
     if (!senderRole) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -127,7 +127,7 @@ export async function POST(
 
     const chatMsg = {
       booking_id: bookingId,
-      sender_id: session.user.id,
+      sender_id: user.id,
       sender_role: senderRole,
       message: parsed.data.message.trim(),
       createdAt: new Date(),

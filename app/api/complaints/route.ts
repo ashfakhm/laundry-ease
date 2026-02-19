@@ -1,10 +1,5 @@
 import { COMPLAINT_FILING_WINDOW_MS } from "@/lib/constants";
-import {
-  createComplaint,
-  getOrderById,
-  freezeEscrow,
-  getUserByEmail,
-} from "@/lib/db/index";
+import { createComplaint, getOrderById, freezeEscrow } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireAuth, requireSeeker } from "@/lib/api/auth";
@@ -15,12 +10,11 @@ import { ComplaintMessage } from "@/types/complaints";
 import { Role } from "@/types/enums";
 
 export const POST = withErrorHandling(async (req: Request) => {
-  const session = await requireSeeker();
-  const dbUser = await getUserByEmail(session.user.email);
-  if (!dbUser?._id || dbUser.role !== Role.SEEKER) {
+  const { user } = await requireSeeker();
+  if (!ObjectId.isValid(user.id)) {
     throw Errors.unauthorized();
   }
-  const seekerId = new ObjectId(dbUser._id);
+  const seekerId = new ObjectId(user.id);
 
   const body = await req.json();
   const result = createComplaintSchema.safeParse(body);
@@ -39,8 +33,14 @@ export const POST = withErrorHandling(async (req: Request) => {
   let orderIdObj: ObjectId;
 
   if (order_id) {
+    if (!ObjectId.isValid(order_id)) {
+      throw Errors.validation("Invalid order id");
+    }
     orderIdObj = new ObjectId(order_id);
   } else if (booking_id) {
+    if (!ObjectId.isValid(booking_id)) {
+      throw Errors.validation("Invalid booking id");
+    }
     // Resolve order from booking
     const foundOrder = await db
       .collection("orders")
@@ -140,22 +140,17 @@ export const POST = withErrorHandling(async (req: Request) => {
 });
 
 export const GET = withErrorHandling(async (_req: Request) => {
-  const session = await requireAuth();
-  if (!session?.user?.email) {
-    throw Errors.unauthorized();
-  }
-
-  const dbUser = await getUserByEmail(session.user.email);
-  if (!dbUser?._id) {
+  const { user } = await requireAuth();
+  if (!ObjectId.isValid(user.id) || !user.role) {
     throw Errors.unauthorized();
   }
 
   const { db } = await getDb();
-  const userId = new ObjectId(dbUser._id);
+  const userId = new ObjectId(user.id);
 
   const activeStatuses = ["open", "accepted", "in_review"] as const;
 
-  if (dbUser.role === Role.SEEKER) {
+  if (user.role === Role.SEEKER) {
     const seekerComplaints = await db
       .collection("complaints")
       .find({
@@ -166,7 +161,7 @@ export const GET = withErrorHandling(async (_req: Request) => {
     return successResponse(seekerComplaints);
   }
 
-  if (dbUser.role === Role.PROVIDER) {
+  if (user.role === Role.PROVIDER) {
     const providerComplaints = await db
       .collection("complaints")
       .find({

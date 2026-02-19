@@ -29,8 +29,8 @@ export async function POST(
       return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
     }
 
-    const session = await requireAuth();
-    if (!session?.user?.email || !session.user.id) {
+    const { user } = await requireAuth();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -56,8 +56,8 @@ export async function POST(
 
     // Only allow seeker or provider
     let role: "seeker" | "provider" | null = null;
-    if (session.user.id === booking.seeker_id.toString()) role = "seeker";
-    if (session.user.id === booking.provider_id.toString()) role = "provider";
+    if (user.id === booking.seeker_id.toString()) role = "seeker";
+    if (user.id === booking.provider_id.toString()) role = "provider";
     if (!role) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -65,7 +65,7 @@ export async function POST(
     const dispute = {
       booking_id: bookingId,
       raised_by: role,
-      user_id: session.user.id,
+      user_id: user.id,
       reason,
       details,
       status: "open",

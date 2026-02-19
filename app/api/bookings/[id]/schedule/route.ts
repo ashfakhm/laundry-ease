@@ -6,6 +6,7 @@ import { bookingScheduleSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
+import { Role } from "@/types/enums";
 
 export async function POST(
   req: Request,
@@ -20,8 +21,8 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireAuth();
-    if (!session?.user?.id || !session?.user?.email) {
+    const { user } = await requireAuth();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -40,12 +41,10 @@ export async function POST(
 
     const { dateTime, action } = parsed.data;
 
-    let bookingId: ObjectId;
-    try {
-      bookingId = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
     }
+    const bookingId = new ObjectId(id);
 
     const { db } = await getDb();
     const bookingQuery = { _id: bookingId };
@@ -57,24 +56,17 @@ export async function POST(
 
     // If seeker is confirming the slot
     if (action === "confirm") {
-      // Check if user is the seeker
-      const seekerOr: Array<{ _id?: ObjectId; email?: string }> = [];
-      if (session.user.id && ObjectId.isValid(String(session.user.id))) {
-        seekerOr.push({ _id: new ObjectId(String(session.user.id)) });
-      }
-      if (session.user.email) {
-        seekerOr.push({ email: session.user.email });
-      }
-
-      const seeker = await db.collection("seekers").findOne({ $or: seekerOr });
-      if (!seeker) {
+      if (user.role !== Role.SEEKER) {
         return NextResponse.json(
-          { error: "Seeker not found" },
-          { status: 404 }
+          { error: "Only seekers can confirm pickup slots" },
+          { status: 403 }
         );
       }
-      if (booking.seeker_id.toString() !== seeker._id.toString()) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      if (booking.seeker_id.toString() !== user.id) {
+        return NextResponse.json(
+          { error: "Unauthorized" },
+          { status: 403 }
+        );
       }
       if (booking.status !== "pickup_proposed") {
         return NextResponse.json(
@@ -94,6 +86,12 @@ export async function POST(
     }
 
     // Otherwise, provider proposes a slot
+    if (user.role !== Role.PROVIDER) {
+      return NextResponse.json(
+        { error: "Only providers can propose pickup slots" },
+        { status: 403 }
+      );
+    }
     if (!dateTime) {
       return NextResponse.json(
         { error: "Date and time required" },
@@ -102,17 +100,7 @@ export async function POST(
     }
 
     // Verify booking belongs to this provider
-    const provider = await db
-      .collection("providers")
-      .findOne({ email: session.user.email });
-
-    if (!provider) {
-      return NextResponse.json(
-        { error: "Provider not found" },
-        { status: 404 }
-      );
-    }
-    if (booking.provider_id.toString() !== provider._id.toString()) {
+    if (booking.provider_id.toString() !== user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
     if (

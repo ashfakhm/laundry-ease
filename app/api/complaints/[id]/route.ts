@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { getUserByEmail } from "@/lib/db/index";
 import { logger } from "@/lib/logger";
 import { canAccessComplaintConversation } from "@/lib/complaints/access";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";
@@ -15,18 +14,13 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const session = await requireAuth();
-    if (!session?.user?.email) {
+    const { user } = await requireAuth();
+    if (!ObjectId.isValid(user.id) || !user.role) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
-    }
-
-    const dbUser = await getUserByEmail(session.user.email);
-    if (!dbUser?._id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { db } = await getDb();
@@ -43,8 +37,8 @@ export async function GET(
     }
 
     const access = canAccessComplaintConversation({
-      actorId: dbUser._id.toString(),
-      actorRole: dbUser.role || "seeker",
+      actorId: user.id,
+      actorRole: user.role,
       complaint: {
         seekerId: complaint.seeker_id.toString(),
         providerId: complaint.provider_id.toString(),
@@ -75,7 +69,7 @@ export async function GET(
       default_provider_payout: number;
     } | null = null;
 
-    if (dbUser.role === Role.ADMIN) {
+    if (user.role === Role.ADMIN) {
       const order = await db.collection("orders").findOne(
         { _id: complaint.order_id },
         {
