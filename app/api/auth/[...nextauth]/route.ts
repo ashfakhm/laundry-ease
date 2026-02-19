@@ -66,12 +66,13 @@ export const authOptions: NextAuthOptions = {
       // For Google OAuth, check if user exists in database
       if (account?.provider === "google") {
         const dbUser = await getUserByEmail(user.email);
-        if (!dbUser) {
+        if (!dbUser?._id) {
           // Redirect to choose role page
           return "/choose-role";
         }
-        // Update user object with role from database
+        // Sync role and canonical DB id for OAuth logins.
         user.role = dbUser.role;
+        user.id = dbUser._id.toString();
         return true;
       }
 
@@ -83,6 +84,15 @@ export const authOptions: NextAuthOptions = {
         // User is available on sign-in
         token.role = user.role;
         token.id = user.id;
+      }
+
+      // Keep id/role canonical even for OAuth refresh flows.
+      if ((!token.id || !token.role) && token.email) {
+        const dbUser = await getUserByEmail(token.email);
+        if (dbUser?._id && dbUser.role) {
+          token.id = dbUser._id.toString();
+          token.role = dbUser.role;
+        }
       }
       return token;
     },
