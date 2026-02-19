@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { getUserByEmail } from "@/lib/db/index";
 import { ComplaintMessage } from "@/types/complaints";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { adminComplaintAccessSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireAdmin } from "@/lib/api/auth";
 
 export async function PATCH(
   req: Request,
@@ -28,15 +25,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
     }
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    // Verify Admin
-    const dbUser = await getUserByEmail(session.user.email);
-    if (dbUser?.role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const session = await requireAdmin();
 
     const body = await req.json();
     const parsed = adminComplaintAccessSchema.safeParse(body);

@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
@@ -10,6 +8,7 @@ import { OrderItem } from "@/types/orders";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireSeeker } from "@/lib/api/auth";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -50,7 +49,7 @@ export async function POST(
       windowMs: 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
     if (!session?.user?.id || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
@@ -163,7 +162,7 @@ export async function PUT(
       windowMs: 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
     if (!session?.user?.id || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }

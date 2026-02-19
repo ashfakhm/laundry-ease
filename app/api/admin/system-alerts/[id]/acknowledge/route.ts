@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
-import { getUserByEmail } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { adminSystemAlertAcknowledgeSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 type Ownership = {
   acknowledgedAt?: Date;
@@ -44,15 +41,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid alert id" }, { status: 400 });
     }
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const dbUser = await getUserByEmail(session.user.email);
-    if (dbUser?.role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const session = await requireAdminWithDbCheck();
 
     let body: unknown = {};
     try {

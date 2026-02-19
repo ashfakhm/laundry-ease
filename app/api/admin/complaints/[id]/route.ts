@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { adminComplaintStatusSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireAdmin } from "@/lib/api/auth";
 
 /**
  * PATCH /api/admin/complaints/:id
@@ -29,24 +28,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
     }
 
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requireAdmin();
 
     const { db } = await getDb();
-
-    // Verify admin
-    const admin = await db
-      .collection("admins")
-      .findOne({ email: session.user.email });
-    if (!admin) {
-      return NextResponse.json(
-        { error: "Unauthorized - Admin only" },
-        { status: 403 }
-      );
-    }
 
     const body = await req.json();
     const parsed = adminComplaintStatusSchema.safeParse(body);

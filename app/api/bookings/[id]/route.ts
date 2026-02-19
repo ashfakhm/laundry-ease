@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireSeeker } from "@/lib/api/auth";
 
 export async function DELETE(
   req: Request,
@@ -25,7 +24,7 @@ export async function DELETE(
       return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
     }
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { maskBankDetails } from "@/lib/utils";
 import { getDb } from "@/lib/mongodb";
+import { requireProvider } from "@/lib/api/auth";
 import {
   createRazorpayContact,
   createRazorpayFundAccount,
@@ -15,6 +14,7 @@ import {
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/auth/password-policy";
 import { Role } from "@/types/enums";
+import { AppError } from "@/lib/api/errors";
 import bcrypt from "bcrypt";
 
 /**
@@ -23,7 +23,7 @@ import bcrypt from "bcrypt";
  */
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireProvider();
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -68,6 +68,16 @@ export async function GET() {
 
     return NextResponse.json(safeProvider, { status: 200 });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("PROFILE", "Error fetching provider profile", error);
     return NextResponse.json(
       { error: "Internal server error" },
@@ -82,7 +92,7 @@ export async function GET() {
  */
 export async function PATCH(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireProvider();
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -340,6 +350,16 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json(safeUpdated, { status: 200 });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("PROFILE", "Error updating provider profile", error);
     return NextResponse.json(
       { error: "Internal server error" },

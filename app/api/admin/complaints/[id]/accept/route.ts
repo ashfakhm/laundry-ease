@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getUserByEmail } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { adminComplaintAcceptSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireAdmin } from "@/lib/api/auth";
 
 function getProviderDisplayName(
   provider?: {
@@ -63,16 +60,7 @@ export async function POST(
       );
     }
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Verify Admin
-    const dbUser = await getUserByEmail(session.user.email);
-    if (!dbUser || dbUser.role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const session = await requireAdmin();
 
     // Parse body (optional deadline customization)
     let deadlineDays = 7;
@@ -140,7 +128,7 @@ export async function POST(
     // Create system message
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
       complaint_id: complaintId,
-      sender_id: dbUser._id as ObjectId,
+      sender_id: new ObjectId(session.user.id),
       sender_role: "system",
       message_type: "SYSTEM",
       content: `Admin has accepted this complaint. ${seekerName}'s issue with ${providerDisplayName} is now under review. Provider has ${deadlineDays} days to respond.`,

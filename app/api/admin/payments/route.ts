@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { ObjectId } from "mongodb";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { Role } from "@/types/enums";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { refundRazorpayPayment } from "@/lib/razorpay";
@@ -11,6 +8,7 @@ import { initiateOrderPayout } from "@/lib/payouts";
 import type { Order } from "@/types/orders";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 function toObjectId(value: unknown): ObjectId | null {
   if (value instanceof ObjectId) return value;
@@ -29,10 +27,7 @@ const actionSchema = z.object({
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requireAdminWithDbCheck();
 
     const { db } = await getDb();
     const orders = await db
@@ -99,6 +94,16 @@ export async function GET() {
 
     return NextResponse.json(enrichedOrders);
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ADMIN_PAYMENTS", "Error fetching payments", error);
     return NextResponse.json(
       { error: "Internal server error" },
@@ -116,10 +121,7 @@ export async function POST(req: Request) {
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requireAdminWithDbCheck();
 
     const body = await req.json();
     const parsed = actionSchema.safeParse(body);

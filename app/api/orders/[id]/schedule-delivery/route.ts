@@ -4,11 +4,10 @@ import { ObjectId } from "mongodb";
 import { Order } from "@/types/orders";
 import { logger } from "@/lib/logger";
 import { orderScheduleDeliverySchema } from "@/lib/api/schemas";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Role } from "@/types/enums";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireAuth } from "@/lib/api/auth";
 
 // POST /api/orders/[id]/schedule-delivery
 export async function POST(
@@ -25,7 +24,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireAuth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

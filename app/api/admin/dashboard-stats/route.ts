@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { ObjectId } from "mongodb";
 import { buildAlertAnalytics } from "@/lib/ops/alerts-analytics";
 import { alertAgeMinutes, isAckSlaBreached } from "@/lib/ops/ack-sla";
+import { requireAdmin } from "@/lib/api/auth";
+import { AppError } from "@/lib/api/errors";
 import {
   CRITICAL_ALERT_ACK_SLA_MS,
   HIGH_ALERT_ACK_SLA_MS,
@@ -48,10 +47,7 @@ function toObjectId(value: unknown): ObjectId | null {
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requireAdmin();
 
     const { db } = await getDb();
     const now = new Date();
@@ -388,6 +384,16 @@ export async function GET() {
       recentActiveComplaints,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ADMIN_DASHBOARD", "Error fetching admin dashboard stats", error);
     return NextResponse.json(
       { error: "Internal server error" },

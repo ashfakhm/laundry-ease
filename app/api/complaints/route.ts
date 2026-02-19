@@ -7,13 +7,11 @@ import {
 } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { requireSeeker } from "@/lib/api/auth";
+import { requireAuth, requireSeeker } from "@/lib/api/auth";
 import { successResponse, withErrorHandling } from "@/lib/api/response";
 import { createComplaintSchema } from "@/lib/api/schemas";
 import { Errors } from "@/lib/api/errors";
 import { ComplaintMessage } from "@/types/complaints";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Role } from "@/types/enums";
 
 export const POST = withErrorHandling(async (req: Request) => {
@@ -142,7 +140,7 @@ export const POST = withErrorHandling(async (req: Request) => {
 });
 
 export const GET = withErrorHandling(async (_req: Request) => {
-  const session = await getServerSession(authOptions);
+  const session = await requireAuth();
   if (!session?.user?.email) {
     throw Errors.unauthorized();
   }

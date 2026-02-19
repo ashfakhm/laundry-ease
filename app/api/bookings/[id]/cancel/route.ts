@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getBookingById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -10,6 +8,7 @@ import { refundRazorpayPayment } from "@/lib/razorpay";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateCancellationPolicy } from "@/lib/bookings/cancellation-policy";
+import { requireAuth } from "@/lib/api/auth";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -32,7 +31,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireAuth();
 
     if (!session || !session.user) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

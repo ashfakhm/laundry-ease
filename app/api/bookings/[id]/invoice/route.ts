@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { invoiceCreateSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireProvider } from "@/lib/api/auth";
 
 // POST: Provider creates invoice for a confirmed booking
 export async function POST(
@@ -33,7 +32,7 @@ export async function POST(
       );
     }
 
-    const session = await getServerSession(authOptions);
+    const session = await requireProvider();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

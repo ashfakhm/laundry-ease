@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getOrderById, confirmDelivery } from "@/lib/db/index";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
@@ -11,6 +9,7 @@ import { getDb } from "@/lib/mongodb";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
+import { requireProvider } from "@/lib/api/auth";
 
 const schema = z.object({
   otp: z.string().regex(/^\d{6}$/, "OTP must be 6 digits"),
@@ -31,7 +30,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireProvider();
 
     if (!session || !session.user || session.user.role !== Role.PROVIDER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
+import { AppError } from "@/lib/api/errors";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 interface UserDocument extends Record<string, unknown> {
   name: string;
@@ -14,10 +14,7 @@ interface UserDocument extends Record<string, unknown> {
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    await requireAdminWithDbCheck();
 
     const { db } = await getDb();
 
@@ -51,6 +48,16 @@ export async function GET() {
 
     return NextResponse.json(users);
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     const { logger } = await import("@/lib/logger");
     logger.error("ADMIN_USERS", "Error fetching users", error);
     return NextResponse.json(

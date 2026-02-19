@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getOrderById, getUserByEmail } from "@/lib/db/index";
+import { getOrderById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
 import { refundRazorpayPayment } from "@/lib/razorpay";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { adminComplaintResolveSchema } from "@/lib/api/schemas";
 import { initiateOrderPayout } from "@/lib/payouts";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 const EPSILON = 0.01;
 const PAISE_MULTIPLIER = 100;
@@ -163,15 +161,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const dbUser = await getUserByEmail(session.user.email);
-    if (!dbUser || dbUser.role !== Role.ADMIN) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const session = await requireAdminWithDbCheck();
 
     const body = await req.json();
     const parsed = adminComplaintResolveSchema.safeParse(body);
@@ -347,7 +337,7 @@ export async function POST(
 
       await db.collection("complaint_messages").insertOne({
         complaint_id: complaintId,
-        sender_id: dbUser._id as ObjectId,
+        sender_id: new ObjectId(session.user.id),
         sender_role: "system",
         message_type: "SYSTEM",
         content: !payoutApplied && !refundApplied
@@ -412,7 +402,7 @@ export async function POST(
 
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
       complaint_id: complaintId,
-      sender_id: dbUser._id as ObjectId,
+      sender_id: new ObjectId(session.user.id),
       sender_role: "system",
       message_type: "SYSTEM",
       content: `${resolved.statusMessage}. Seeker: ${formatInr(seekerRefundAmount)}, Provider: ${formatInr(providerPayoutAmount)}, Platform: ${formatInr(platformCommission)}.`,

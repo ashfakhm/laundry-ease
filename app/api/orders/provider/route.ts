@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/api/errors";
+import { requireProvider } from "@/lib/api/auth";
 
 /**
  * GET /api/orders/provider
@@ -11,7 +11,7 @@ import { logger } from "@/lib/logger";
  */
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireProvider();
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,6 +57,16 @@ export async function GET() {
 
     return NextResponse.json(enrichedOrders, { status: 200 });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("ORDERS", "Error fetching provider orders", error);
     return NextResponse.json(
       { error: "Internal server error" },

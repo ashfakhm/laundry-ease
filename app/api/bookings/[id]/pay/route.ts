@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getBookingById } from "@/lib/db/index";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
@@ -10,6 +8,7 @@ import { Booking } from "@/types/bookings";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireSeeker } from "@/lib/api/auth";
 
 function appErrorResponse(error: AppError) {
   return NextResponse.json(
@@ -35,7 +34,7 @@ export async function POST(
       windowMs: 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
@@ -157,7 +156,7 @@ export async function PUT(
       windowMs: 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }

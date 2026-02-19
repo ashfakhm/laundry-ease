@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
 import bcrypt from "bcrypt";
 import { logger } from "@/lib/logger";
 import { updateSeekerProfileSchema } from "@/lib/api/schemas";
 import { ObjectId, type Filter } from "mongodb";
+import { requireSeeker } from "@/lib/api/auth";
+import { AppError } from "@/lib/api/errors";
 import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
@@ -18,7 +18,7 @@ import {
  */
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
 
     if (!session?.user?.id || !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,6 +55,16 @@ export async function GET() {
 
     return NextResponse.json(seeker, { status: 200 });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("PROFILE", "Error fetching seeker profile", error);
     return NextResponse.json(
       { error: "Internal server error" },
@@ -69,7 +79,7 @@ export async function GET() {
  */
 export async function PUT(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
 
     if (!session?.user?.id || !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -172,6 +182,16 @@ export async function PUT(req: Request) {
       message: "Profile updated successfully",
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("PROFILE", "Error updating seeker profile", error);
     return NextResponse.json(
       { error: "Internal server error" },

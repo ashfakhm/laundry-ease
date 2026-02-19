@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getBookingById, acceptBookingWithCapacityCheck } from "@/lib/db/index";
 import { Role } from "@/types/enums";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { requireProvider } from "@/lib/api/auth";
 import {
   createRazorpayContact,
   createRazorpayFundAccount,
@@ -26,7 +25,7 @@ export async function PATCH(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireProvider();
 
     if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { getUserByEmail } from "@/lib/db/index";
@@ -10,6 +8,7 @@ import { complaintMessageSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { canAccessComplaintConversation } from "@/lib/complaints/access";
+import { requireAuth } from "@/lib/api/auth";
 
 type ComplaintAccessDoc = {
   seeker_id: ObjectId;
@@ -27,7 +26,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireAuth();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -79,6 +78,16 @@ export async function GET(
 
     return NextResponse.json(messages);
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("COMPLAINTS", "Error fetching messages", error, {
       complaintId: id,
     });
@@ -103,7 +112,7 @@ export async function POST(
       windowMs: 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireAuth();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

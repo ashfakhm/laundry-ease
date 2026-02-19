@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getOrderById, confirmDelivery } from "@/lib/db/index";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
@@ -12,6 +10,7 @@ import { getDb } from "@/lib/mongodb";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
+import { requireSeeker } from "@/lib/api/auth";
 
 export async function POST(
   req: Request,
@@ -26,7 +25,7 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

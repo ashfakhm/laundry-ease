@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getOrderById } from "@/lib/db/index";
 import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
@@ -9,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { sendDeliveryOtpEmail } from "@/lib/delivery-otp-email";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireProvider } from "@/lib/api/auth";
 
 const MIN_RESEND_INTERVAL_MS = 60_000; // 1 minute
 const MAX_RESENDS = 5;
@@ -50,7 +49,7 @@ export async function POST(
       return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
     }
 
-    const session = await getServerSession(authOptions);
+    const session = await requireProvider();
 
     if (!session || !session.user || session.user.role !== Role.PROVIDER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

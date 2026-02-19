@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
 import { Booking } from "@/types/bookings";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/api/errors";
+import { requireSeeker } from "@/lib/api/auth";
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
 
     if (!session || !session.user || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -42,6 +42,16 @@ export async function GET() {
     
     return NextResponse.json(bookings);
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Error fetching seeker bookings", error);
     return NextResponse.json(
       { message: "Internal server error" },

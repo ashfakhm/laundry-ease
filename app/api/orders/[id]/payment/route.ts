@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
@@ -9,6 +7,7 @@ import { paymentVerifySchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { Role } from "@/types/enums";
+import { requireSeeker } from "@/lib/api/auth";
 
 export const runtime = "nodejs";
 
@@ -37,7 +36,7 @@ export async function POST(
       windowMs: 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
     if (!session?.user?.id || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -124,7 +123,7 @@ export async function PUT(
       windowMs: 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
     if (!session?.user?.id || session.user.role !== Role.SEEKER) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

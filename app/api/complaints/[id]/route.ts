@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { getUserByEmail } from "@/lib/db/index";
 import { logger } from "@/lib/logger";
 import { canAccessComplaintConversation } from "@/lib/complaints/access";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";
+import { AppError } from "@/lib/api/errors";
 import { Role } from "@/types/enums";
+import { requireAuth } from "@/lib/api/auth";
 
 export async function GET(
   req: Request,
@@ -15,7 +15,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireAuth();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -119,6 +119,16 @@ export async function GET(
       settlement_window: settlementWindow,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("COMPLAINTS", "Error fetching complaint", error, {
       complaintId: id,
     });

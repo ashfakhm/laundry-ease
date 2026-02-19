@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Booking } from "@/types/bookings";
@@ -10,12 +8,14 @@ import { bookingArrivedSchema } from "@/lib/api/schemas";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
 import { Role } from "@/types/enums";
+import { AppError } from "@/lib/api/errors";
+import { requireProvider } from "@/lib/api/auth";
 
 // POST /api/bookings/arrived
 export async function POST(req: NextRequest) {
   let bookingId: string | undefined;
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireProvider();
     if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -190,6 +190,16 @@ export async function POST(req: NextRequest) {
       payoutInitiated: Boolean(payoutId),
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("BOOKINGS", "Arrival error", error, { bookingId });
     return NextResponse.json(
       { error: "Internal Server Error" },

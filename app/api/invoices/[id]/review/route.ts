@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { invoiceReviewSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { requireSeeker } from "@/lib/api/auth";
 
 export const runtime = "nodejs";
 
@@ -28,7 +27,7 @@ export async function POST(
       return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
     }
 
-    const session = await getServerSession(authOptions);
+    const session = await requireSeeker();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

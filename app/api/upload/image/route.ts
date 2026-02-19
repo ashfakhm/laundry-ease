@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
+import { AppError } from "@/lib/api/errors";
+import { requireAuth } from "@/lib/api/auth";
 
 // Check if Cloudinary is configured
 const isCloudinaryConfigured = !!(
@@ -22,7 +22,7 @@ if (isCloudinaryConfigured) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await requireAuth();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -91,6 +91,16 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: imageUrl }, { status: 200 });
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("UPLOAD", "Image upload error", error);
     return NextResponse.json(
       { error: "Failed to upload image" },

@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { ObjectId } from "mongodb";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { Role } from "@/types/enums";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
@@ -11,6 +8,7 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import type { Order } from "@/types/orders";
 import type { Booking } from "@/types/bookings";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 function toPaise(amountRupees: number) {
   return Math.round(amountRupees * 100);
@@ -36,10 +34,7 @@ export async function POST(req: Request) {
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== Role.ADMIN) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requireAdminWithDbCheck();
 
     const body = await req.json();
     const parsed = adminRefundSchema.safeParse(body);
