@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { type Filter, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { requireSeeker } from "@/lib/api/auth";
@@ -11,25 +11,14 @@ import { requireSeeker } from "@/lib/api/auth";
  */
 export async function GET() {
   try {
-    const session = await requireSeeker();
-
-    if (!session?.user?.id || !session?.user?.email) {
+    const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { db } = await getDb();
-
-    // Get seeker by stable identity.
-    // Email can change; session.user.id is stable and should be preferred for lookups.
-    const seekerOr: Filter<unknown>[] = [];
-    if (session.user.id && ObjectId.isValid(String(session.user.id))) {
-      seekerOr.push({ _id: new ObjectId(String(session.user.id)) });
-    }
-    if (session.user.email) {
-      seekerOr.push({ email: session.user.email });
-    }
-
-    const seeker = await db.collection("seekers").findOne({ $or: seekerOr });
+    const seekerId = new ObjectId(user.id);
+    const seeker = await db.collection("seekers").findOne({ _id: seekerId });
 
     if (!seeker) {
       return NextResponse.json({ error: "Seeker not found" }, { status: 404 });

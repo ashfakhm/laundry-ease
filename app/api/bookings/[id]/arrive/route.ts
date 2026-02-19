@@ -4,7 +4,6 @@ import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
-import { Role } from "@/types/enums";
 import { calculateDistance } from "@/lib/distance";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
@@ -24,9 +23,8 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireProvider();
-
-    if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -38,12 +36,10 @@ export async function POST(
       typeof body?.lng === "number" ? body.lng : Number.NaN;
     const hasCoordinates = Number.isFinite(lat) && Number.isFinite(lng);
 
-    let bookingId: ObjectId;
-    try {
-      bookingId = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
     }
+    const bookingId = new ObjectId(id);
 
     const bookingQuery = { _id: bookingId };
 
@@ -55,7 +51,7 @@ export async function POST(
     // Verify provider ownership
     const provider = await db
       .collection("providers")
-      .findOne({ email: session.user.email });
+      .findOne({ _id: new ObjectId(user.id) });
 
     if (
       !provider ||

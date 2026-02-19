@@ -7,16 +7,23 @@ import { logger } from "@/lib/logger";
 import { bookingArrivedSchema } from "@/lib/api/schemas";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
-import { Role } from "@/types/enums";
 import { AppError } from "@/lib/api/errors";
 import { requireProvider } from "@/lib/api/auth";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 // POST /api/bookings/arrived
 export async function POST(req: NextRequest) {
   let bookingId: string | undefined;
   try {
-    const session = await requireProvider();
-    if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "bookings:arrived",
+      max: 30,
+      windowMs: 5 * 60 * 1000,
+    });
+
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -36,11 +43,15 @@ export async function POST(req: NextRequest) {
     const parsedData = parsed.data;
     bookingId = parsedData.bookingId;
     const { lat, lng } = parsedData;
+    if (!ObjectId.isValid(bookingId)) {
+      return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
+    }
+    const bookingObjectId = new ObjectId(bookingId);
 
     const { db } = await getDb();
     const booking = await db
       .collection<Booking>("bookings")
-      .findOne({ _id: new ObjectId(bookingId) });
+      .findOne({ _id: bookingObjectId });
 
     if (!booking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
@@ -48,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     const provider = await db
       .collection("providers")
-      .findOne({ email: session.user.email });
+      .findOne({ _id: new ObjectId(user.id) });
 
     if (
       !provider ||
@@ -158,7 +169,7 @@ export async function POST(req: NextRequest) {
     }
 
     const updateResult = await db.collection("bookings").updateOne(
-      { _id: new ObjectId(bookingId), status: "confirmed", arrivedAt: { $exists: false } },
+      { _id: bookingObjectId, status: "confirmed", arrivedAt: { $exists: false } },
       {
         $set: {
           arrivedAt: now,

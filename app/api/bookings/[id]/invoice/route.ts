@@ -21,19 +21,16 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    // Always use ObjectId for MongoDB queries
-    let bookingQuery: { _id: ObjectId };
-    try {
-      bookingQuery = { _id: new ObjectId(id) };
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: "Invalid booking id" },
         { status: 400 }
       );
     }
+    const bookingQuery: { _id: ObjectId } = { _id: new ObjectId(id) };
 
-    const session = await requireProvider();
-    if (!session?.user?.email) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -62,7 +59,7 @@ export async function POST(
     // Only provider can create invoice for their booking
     const provider = await db
       .collection("providers")
-      .findOne({ email: session.user.email });
+      .findOne({ _id: new ObjectId(user.id) });
     if (
       !provider ||
       booking.provider_id.toString() !== provider._id.toString()

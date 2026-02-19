@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { Role } from "@/types/enums";
 import bcrypt from "bcrypt";
 import { logger } from "@/lib/logger";
 import { updateSeekerProfileSchema } from "@/lib/api/schemas";
-import { ObjectId, type Filter } from "mongodb";
+import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";
 import { AppError } from "@/lib/api/errors";
 import {
@@ -18,30 +17,15 @@ import {
  */
 export async function GET() {
   try {
-    const session = await requireSeeker();
-
-    if (!session?.user?.id || !session?.user?.email) {
+    const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const { db } = await getDb();
-
-    // Get seeker by stable identity.
-    // Email can change; session.user.id is stable and should be preferred for lookups.
-    const seekerOr: Filter<unknown>[] = [];
-    if (session.user.id && ObjectId.isValid(String(session.user.id))) {
-      seekerOr.push({ _id: new ObjectId(String(session.user.id)) });
-    }
-    if (session.user.email) {
-      seekerOr.push({ email: session.user.email });
-    }
-
+    const seekerId = new ObjectId(user.id);
     const seeker = await db.collection("seekers").findOne(
-      { $or: seekerOr },
+      { _id: seekerId },
       {
         projection: {
           passwordHash: 0,
@@ -79,27 +63,13 @@ export async function GET() {
  */
 export async function PUT(req: Request) {
   try {
-    const session = await requireSeeker();
-
-    if (!session?.user?.id || !session?.user?.email) {
+    const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const { db } = await getDb();
-
-    const seekerOr: Filter<unknown>[] = [];
-    if (session.user.id && ObjectId.isValid(String(session.user.id))) {
-      seekerOr.push({ _id: new ObjectId(String(session.user.id)) });
-    }
-    if (session.user.email) {
-      seekerOr.push({ email: session.user.email });
-    }
-
-    const seekerFilter: Filter<unknown> = { $or: seekerOr };
+    const seekerFilter = { _id: new ObjectId(user.id) };
 
     const json = await req.json();
     const parsed = updateSeekerProfileSchema.safeParse(json);

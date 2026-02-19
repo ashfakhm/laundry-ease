@@ -13,9 +13,9 @@ import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/auth/password-policy";
-import { Role } from "@/types/enums";
 import { AppError } from "@/lib/api/errors";
 import bcrypt from "bcrypt";
+import { ObjectId } from "mongodb";
 
 /**
  * GET /api/profile/provider
@@ -23,18 +23,15 @@ import bcrypt from "bcrypt";
  */
 export async function GET() {
   try {
-    const session = await requireProvider();
-
-    if (!session?.user?.email) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (session.user.role !== Role.PROVIDER) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { db } = await getDb();
+    const providerId = new ObjectId(user.id);
     const provider = await db.collection("providers").findOne(
-      { email: session.user.email },
+      { _id: providerId },
       {
         projection: {
           passwordHash: 0, // Exclude sensitive data
@@ -92,14 +89,11 @@ export async function GET() {
  */
 export async function PATCH(req: Request) {
   try {
-    const session = await requireProvider();
-
-    if (!session?.user?.email) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (session.user.role !== Role.PROVIDER) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const providerId = new ObjectId(user.id);
 
     const body = await req.json();
     const parsed = updateProviderProfileSchema.safeParse(body);
@@ -195,12 +189,12 @@ export async function PATCH(req: Request) {
         // Fetch current provider to get contact_id if exists, and fallback details
         const currentProvider = await db
           .collection<Provider>("providers")
-          .findOne({ email: session.user.email });
+          .findOne({ _id: providerId });
 
         if (currentProvider) {
           const contactName =
             (updateFields.name as string) || currentProvider.name || "Provider";
-          const contactEmail = session.user.email;
+          const contactEmail = user.email;
           const contactPhone =
             (updateFields.phone as string) || currentProvider.phone || "";
 
@@ -250,7 +244,7 @@ export async function PATCH(req: Request) {
           "PROFILE",
           "Razorpay sync error during profile update",
           err,
-          { email: session.user.email },
+          { email: user.email },
         );
         // Fail the request if critical bank details sync fails so user knows
         return NextResponse.json(
@@ -282,10 +276,7 @@ export async function PATCH(req: Request) {
 
       const provider = await db
         .collection("providers")
-        .findOne(
-          { email: session.user.email },
-          { projection: { passwordHash: 1 } },
-        );
+        .findOne({ _id: providerId }, { projection: { passwordHash: 1 } });
 
       if (!provider || !provider.passwordHash) {
         return NextResponse.json(
@@ -318,7 +309,7 @@ export async function PATCH(req: Request) {
     const result = await db
       .collection("providers")
       .findOneAndUpdate(
-        { email: session.user.email },
+        { _id: providerId },
         { $set: updateFields },
         { returnDocument: "after", projection: { passwordHash: 0 } },
       );

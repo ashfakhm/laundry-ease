@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
-import { Role } from "@/types/enums";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -24,18 +23,15 @@ export async function PATCH(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireProvider();
-
-    if (!session?.user?.email || session.user.role !== Role.PROVIDER) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const { db } = await getDb();
-
-    // Get provider by email
     const provider = await db
       .collection("providers")
-      .findOne({ email: session.user.email });
+      .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
       return NextResponse.json(
@@ -44,12 +40,10 @@ export async function PATCH(
       );
     }
 
-    let booking_id: ObjectId;
-    try {
-      booking_id = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
     }
+    const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {

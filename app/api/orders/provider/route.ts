@@ -11,18 +11,15 @@ import { requireProvider } from "@/lib/api/auth";
  */
 export async function GET() {
   try {
-    const session = await requireProvider();
-
-    if (!session?.user?.email) {
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { db } = await getDb();
+    const providerId = new ObjectId(user.id);
 
-    // Get provider by email
-    const provider = await db
-      .collection("providers")
-      .findOne({ email: session.user.email });
+    const provider = await db.collection("providers").findOne({ _id: providerId });
 
     if (!provider) {
       return NextResponse.json(
@@ -34,7 +31,7 @@ export async function GET() {
     // Fetch all orders for this provider
     const orders = await db
       .collection("orders")
-      .find({ provider_id: provider._id })
+      .find({ provider_id: providerId })
       .sort({ createdAt: -1 })
       .toArray();
 
