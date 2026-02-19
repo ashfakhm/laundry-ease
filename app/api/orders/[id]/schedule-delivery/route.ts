@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Order } from "@/types/orders";
@@ -8,6 +8,12 @@ import { Role } from "@/types/enums";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+  legacyMessageResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 
 // POST /api/orders/[id]/schedule-delivery
 export async function POST(
@@ -26,11 +32,11 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+      return legacyErrorResponse("Invalid order id", 400);
     }
     const orderId = new ObjectId(id);
 
@@ -38,13 +44,9 @@ export async function POST(
     const parsed = orderScheduleDeliverySchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid schedule data",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
+      return legacyMessageResponse("Invalid schedule data", 400, {
+        details: parsed.error.flatten().fieldErrors,
+      });
     }
 
     const parsedData = parsed.data;
@@ -57,44 +59,33 @@ export async function POST(
       .findOne({ _id: orderId });
 
     if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      return legacyErrorResponse("Order not found", 404);
     }
 
     if (action === "propose") {
       if (user.role !== Role.PROVIDER) {
-        return NextResponse.json(
-          { error: "Only providers can propose delivery" },
-          { status: 403 }
-        );
+        return legacyErrorResponse("Only providers can propose delivery", 403);
       }
       if (order.provider_id.toString() !== user.id) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        return legacyErrorResponse("Unauthorized", 403);
       }
 
       if (!dateTime)
-        return NextResponse.json({ error: "Date required" }, { status: 400 });
+        return legacyErrorResponse("Date required", 400);
       if ((order.process_status || "invoiced") !== "ready") {
-        return NextResponse.json(
-          {
-            error:
-              "Delivery slots can only be proposed when order is ready for dispatch",
-            currentStatus: order.process_status || "invoiced",
-          },
-          { status: 409 },
+        return legacyMessageResponse(
+          "Delivery slots can only be proposed when order is ready for dispatch",
+          409,
+          { currentStatus: order.process_status || "invoiced" },
         );
       }
       if (order.deliverySlot?.confirmedAt) {
-        return NextResponse.json(
-          {
-            error: "Delivery slot is already confirmed",
-          },
-          { status: 409 },
-        );
+        return legacyErrorResponse("Delivery slot is already confirmed", 409);
       }
 
       const proposedDate = new Date(dateTime);
       if (Number.isNaN(proposedDate.getTime())) {
-        return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+        return legacyErrorResponse("Invalid date", 400);
       }
 
       const updateResult = await db.collection<Order>("orders").updateOne(
@@ -111,48 +102,36 @@ export async function POST(
         }
       );
       if (updateResult.modifiedCount === 0) {
-        return NextResponse.json(
-          { error: "Order state changed while proposing delivery slot" },
-          { status: 409 },
+        return legacyErrorResponse(
+          "Order state changed while proposing delivery slot",
+          409,
         );
       }
-      return NextResponse.json({ success: true, message: "Delivery proposed" });
+      return legacySuccessResponse({ message: "Delivery proposed" });
     } else if (action === "confirm") {
       if (user.role !== Role.SEEKER) {
-        return NextResponse.json(
-          { error: "Only seekers can confirm delivery slots" },
-          { status: 403 }
-        );
+        return legacyErrorResponse("Only seekers can confirm delivery slots", 403);
       }
       if (order.seeker_id.toString() !== user.id) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        return legacyErrorResponse("Unauthorized", 403);
       }
       if ((order.process_status || "invoiced") !== "ready") {
-        return NextResponse.json(
-          {
-            error:
-              "Delivery slot can only be confirmed while order is ready for dispatch",
-            currentStatus: order.process_status || "invoiced",
-          },
-          { status: 409 },
+        return legacyMessageResponse(
+          "Delivery slot can only be confirmed while order is ready for dispatch",
+          409,
+          { currentStatus: order.process_status || "invoiced" },
         );
       }
 
       if (!order.deliverySlot)
-        return NextResponse.json(
-          { error: "No slot proposed" },
-          { status: 400 }
-        );
+        return legacyErrorResponse("No slot proposed", 400);
       if (order.deliverySlot.proposedBy !== "provider") {
-        return NextResponse.json(
-          { error: "Invalid delivery slot proposal" },
-          { status: 409 },
-        );
+        return legacyErrorResponse("Invalid delivery slot proposal", 409);
       }
       if (order.deliverySlot.confirmedAt) {
-        return NextResponse.json(
-          { success: true, message: "Delivery slot already confirmed" },
-          { status: 200 },
+        return legacySuccessResponse(
+          { message: "Delivery slot already confirmed" },
+          200,
         );
       }
 
@@ -171,34 +150,24 @@ export async function POST(
         }
       );
       if (updateResult.modifiedCount === 0) {
-        return NextResponse.json(
-          { error: "Order state changed while confirming delivery slot" },
-          { status: 409 },
+        return legacyErrorResponse(
+          "Order state changed while confirming delivery slot",
+          409,
         );
       }
-      return NextResponse.json({
-        success: true,
+      return legacySuccessResponse({
         message:
           "Delivery slot confirmed. Provider can now move order to out_for_delivery.",
       });
     }
 
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    return legacyErrorResponse("Invalid action", 400);
   } catch (error: unknown) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ORDERS", "Scheduling error", error, { orderId: id, action });
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Internal Server Error", 500);
   }
 }

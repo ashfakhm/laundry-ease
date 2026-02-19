@@ -4,6 +4,10 @@ import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { requireProvider } from "@/lib/api/auth";
+import {
+  appErrorLegacyResponse,
+  legacyErrorResponse,
+} from "@/lib/api/legacy-response";
 
 /**
  * GET /api/orders/provider
@@ -13,7 +17,7 @@ export async function GET() {
   try {
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const { db } = await getDb();
@@ -22,10 +26,7 @@ export async function GET() {
     const provider = await db.collection("providers").findOne({ _id: providerId });
 
     if (!provider) {
-      return NextResponse.json(
-        { error: "Provider not found" },
-        { status: 404 }
-      );
+      return legacyErrorResponse("Provider not found", 404);
     }
 
     // Fetch all orders for this provider
@@ -55,19 +56,10 @@ export async function GET() {
     return NextResponse.json(enrichedOrders, { status: 200 });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ORDERS", "Error fetching provider orders", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }
