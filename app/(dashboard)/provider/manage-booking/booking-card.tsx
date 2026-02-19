@@ -108,11 +108,10 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
           },
         );
 
-        const res = await fetch("/api/bookings/arrived", {
+        const res = await fetch(`/api/bookings/${booking._id.toString()}/arrive`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            bookingId: booking._id.toString(),
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           }),
