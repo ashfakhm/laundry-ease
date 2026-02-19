@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getOrderById, cancelOrder } from "@/lib/db/index";
-import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
@@ -22,10 +21,10 @@ export async function POST(
       windowMs: 5 * 60 * 1000,
     });
 
-    const session = await requireSeeker();
+    const { user } = await requireSeeker();
 
-    if (!session || !session.user || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ message: "Invalid order id" }, { status: 400 });
     }
 
     const order_id = new ObjectId(id);
@@ -35,7 +34,7 @@ export async function POST(
       return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
-    if (order.seeker_id.toString() !== session.user.id) {
+    if (order.seeker_id.toString() !== user.id) {
       return NextResponse.json(
         { message: "You are not authorized to cancel this order" },
         { status: 403 }
@@ -58,7 +57,7 @@ export async function POST(
 
     const success = await cancelOrder(
       order_id,
-      new ObjectId(session.user.id),
+      new ObjectId(user.id),
       CANCELLATION_FEE
     );
 

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
-import { Role } from "@/types/enums";
 import { ObjectId } from "mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
@@ -34,20 +33,15 @@ export async function POST(
       windowMs: 60 * 1000,
     });
 
-    const session = await requireSeeker();
-    if (!session || !session.user || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireSeeker();
 
-    let booking_id: ObjectId;
-    try {
-      booking_id = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { message: "Invalid booking id" },
         { status: 400 },
       );
     }
+    const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
@@ -57,7 +51,7 @@ export async function POST(
       );
     }
 
-    if (booking.seeker_id.toString() !== session.user.id) {
+    if (booking.seeker_id.toString() !== user.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
@@ -156,20 +150,15 @@ export async function PUT(
       windowMs: 60 * 1000,
     });
 
-    const session = await requireSeeker();
-    if (!session || !session.user || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireSeeker();
 
-    let booking_id: ObjectId;
-    try {
-      booking_id = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { message: "Invalid booking id" },
         { status: 400 },
       );
     }
+    const booking_id = new ObjectId(id);
 
     const body = await req.json();
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = body;
@@ -197,7 +186,7 @@ export async function PUT(
     const { db } = await getDb();
     const booking = await db.collection<Booking>("bookings").findOne({
       _id: booking_id,
-      seeker_id: new ObjectId(session.user.id),
+      seeker_id: new ObjectId(user.id),
     });
 
     if (!booking) {

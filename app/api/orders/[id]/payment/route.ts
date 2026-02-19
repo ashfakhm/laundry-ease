@@ -6,7 +6,6 @@ import { logger } from "@/lib/logger";
 import { paymentVerifySchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { Role } from "@/types/enums";
 import { requireSeeker } from "@/lib/api/auth";
 
 export const runtime = "nodejs";
@@ -36,22 +35,17 @@ export async function POST(
       windowMs: 60 * 1000,
     });
 
-    const session = await requireSeeker();
-    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireSeeker();
 
-    let orderId: ObjectId;
-    try {
-      orderId = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
     }
+    const orderId = new ObjectId(id);
 
     const { db } = await getDb();
     const order = await db.collection("orders").findOne({
       _id: orderId,
-      seeker_id: new ObjectId(session.user.id),
+      seeker_id: new ObjectId(user.id),
     });
 
     if (!order) {
@@ -123,17 +117,12 @@ export async function PUT(
       windowMs: 60 * 1000,
     });
 
-    const session = await requireSeeker();
-    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireSeeker();
 
-    let orderId: ObjectId;
-    try {
-      orderId = new ObjectId(id);
-    } catch {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
     }
+    const orderId = new ObjectId(id);
 
     const body = await req.json();
     const parsed = paymentVerifySchema.safeParse(body);
@@ -153,7 +142,7 @@ export async function PUT(
 
     const order = await db.collection("orders").findOne({
       _id: orderId,
-      seeker_id: new ObjectId(session.user.id),
+      seeker_id: new ObjectId(user.id),
     });
 
     if (!order) {

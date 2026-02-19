@@ -3,7 +3,6 @@ import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
-import { Role } from "@/types/enums";
 import { OrderItem } from "@/types/orders";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
@@ -18,11 +17,8 @@ type InvoiceLineItem = {
 };
 
 function toObjectId(id: string): ObjectId | null {
-  try {
-    return new ObjectId(id);
-  } catch {
-    return null;
-  }
+  if (!ObjectId.isValid(id)) return null;
+  return new ObjectId(id);
 }
 
 function appErrorResponse(error: AppError) {
@@ -49,10 +45,7 @@ export async function POST(
       windowMs: 60 * 1000,
     });
 
-    const session = await requireSeeker();
-    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireSeeker();
 
     const booking_id = toObjectId(id);
     if (!booking_id) {
@@ -64,7 +57,7 @@ export async function POST(
       return NextResponse.json({ message: "Booking not found" }, { status: 404 });
     }
 
-    if (booking.seeker_id.toString() !== session.user.id) {
+    if (booking.seeker_id.toString() !== user.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 
@@ -162,10 +155,7 @@ export async function PUT(
       windowMs: 60 * 1000,
     });
 
-    const session = await requireSeeker();
-    if (!session?.user?.id || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireSeeker();
 
     const booking_id = toObjectId(id);
     if (!booking_id) {
@@ -188,7 +178,7 @@ export async function PUT(
       return NextResponse.json({ message: "Booking not found" }, { status: 404 });
     }
 
-    if (booking.seeker_id.toString() !== session.user.id) {
+    if (booking.seeker_id.toString() !== user.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
 

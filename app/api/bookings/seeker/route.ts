@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { Role } from "@/types/enums";
 import { Booking } from "@/types/bookings";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -9,11 +8,7 @@ import { requireSeeker } from "@/lib/api/auth";
 
 export async function GET() {
   try {
-    const session = await requireSeeker();
-
-    if (!session || !session.user || session.user.role !== Role.SEEKER) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireSeeker();
 
     const { db } = await getDb();
     
@@ -21,7 +16,7 @@ export async function GET() {
     const bookings = await db
       .collection<Booking>("bookings")
       .aggregate([
-        { $match: { seeker_id: new ObjectId(session.user.id) } },
+        { $match: { seeker_id: new ObjectId(user.id) } },
         {
              $lookup: {
                  from: "providers",

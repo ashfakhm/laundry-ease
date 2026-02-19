@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { requireProvider } from "@/lib/api/auth";
 
 export async function GET() {
   try {
-    const session = await requireProvider();
-    if (!session?.user?.id || session.user.role !== Role.PROVIDER) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireProvider();
 
     const { db } = await getDb();
 
@@ -23,7 +19,7 @@ export async function GET() {
       .aggregate([
         {
           $match: {
-            provider_id: new ObjectId(session.user.id),
+            provider_id: new ObjectId(user.id),
             // status: { $ne: "cancelled" } // Optional: Keep cancelled chats if history needed?
             // Usually valid to see history even if cancelled. Let's keep filters minimal.
           },

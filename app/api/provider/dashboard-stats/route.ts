@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { Role } from "@/types/enums";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { requireProvider } from "@/lib/api/auth";
 
 export async function GET() {
   try {
-    const session = await requireProvider();
-    if (!session?.user?.id || session.user.role !== Role.PROVIDER) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = await requireProvider();
 
     const { db } = await getDb();
-    const providerId = new ObjectId(session.user.id);
+    const providerId = new ObjectId(user.id);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
