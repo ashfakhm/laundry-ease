@@ -3,7 +3,7 @@ import { ObjectId } from "mongodb";
 
 type InMemoryEmailJob = {
   _id: ObjectId;
-  kind: "delivery_otp" | "password_reset";
+  kind: "delivery_otp" | "password_reset" | "magic_link";
   payload: Record<string, unknown>;
   status: "pending" | "processing" | "sent" | "failed";
   attempts: number;
@@ -21,11 +21,13 @@ const {
   mockGetDb,
   mockSendDeliveryOtpEmailNow,
   mockSendPasswordResetEmailNow,
+  mockSendMagicLinkEmailNow,
   state,
 } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockSendDeliveryOtpEmailNow: vi.fn(),
   mockSendPasswordResetEmailNow: vi.fn(),
+  mockSendMagicLinkEmailNow: vi.fn(),
   state: {
     jobs: [] as InMemoryEmailJob[],
   },
@@ -41,6 +43,10 @@ vi.mock("@/lib/delivery-otp-email", () => ({
 
 vi.mock("@/lib/password-reset-email", () => ({
   sendPasswordResetEmailNow: mockSendPasswordResetEmailNow,
+}));
+
+vi.mock("@/lib/magic-link-email", () => ({
+  sendMagicLinkEmailNow: mockSendMagicLinkEmailNow,
 }));
 
 import { enqueueEmailOutboxJob, processEmailOutboxBatch } from "@/lib/email-outbox";
@@ -135,6 +141,7 @@ describe("email outbox", () => {
     mockGetDb.mockResolvedValue({ db: makeDb() });
     mockSendDeliveryOtpEmailNow.mockResolvedValue(undefined);
     mockSendPasswordResetEmailNow.mockResolvedValue(undefined);
+    mockSendMagicLinkEmailNow.mockResolvedValue(undefined);
   });
 
   it("enqueues pending email jobs", async () => {
@@ -192,5 +199,23 @@ describe("email outbox", () => {
     expect(state.jobs[0].status).toBe("failed");
     expect(state.jobs[0].attempts).toBe(1);
     expect(String(state.jobs[0].lastError)).toContain("SMTP down");
+  });
+
+  it("dispatches magic-link jobs", async () => {
+    await enqueueEmailOutboxJob({
+      kind: "magic_link",
+      payload: {
+        to: "user@example.com",
+        verificationLink: "https://laundryease.test/verify-email?token=xyz",
+      },
+    });
+
+    const result = await processEmailOutboxBatch({ limit: 10, workerId: "test" });
+
+    expect(result.processed).toBe(1);
+    expect(result.sent).toBe(1);
+    expect(mockSendMagicLinkEmailNow).toHaveBeenCalledOnce();
+    expect(state.jobs[0].kind).toBe("magic_link");
+    expect(state.jobs[0].status).toBe("sent");
   });
 });

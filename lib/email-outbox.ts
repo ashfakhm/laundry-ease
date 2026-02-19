@@ -9,12 +9,17 @@ import {
   sendPasswordResetEmailNow,
   type PasswordResetEmailPayload,
 } from "@/lib/password-reset-email";
+import {
+  sendMagicLinkEmailNow,
+  type MagicLinkEmailPayload,
+} from "@/lib/magic-link-email";
 
-export type EmailOutboxKind = "delivery_otp" | "password_reset";
+export type EmailOutboxKind = "delivery_otp" | "password_reset" | "magic_link";
 
 type EmailOutboxPayloadMap = {
   delivery_otp: DeliveryOtpEmailPayload;
   password_reset: PasswordResetEmailPayload;
+  magic_link: MagicLinkEmailPayload;
 };
 
 export type EmailOutboxStatus = "pending" | "processing" | "sent" | "failed";
@@ -43,7 +48,15 @@ type PasswordResetOutboxJob = EmailOutboxJobBase & {
   payload: PasswordResetEmailPayload;
 };
 
-type EmailOutboxJob = DeliveryOtpOutboxJob | PasswordResetOutboxJob;
+type MagicLinkOutboxJob = EmailOutboxJobBase & {
+  kind: "magic_link";
+  payload: MagicLinkEmailPayload;
+};
+
+type EmailOutboxJob =
+  | DeliveryOtpOutboxJob
+  | PasswordResetOutboxJob
+  | MagicLinkOutboxJob;
 
 export type EnqueueEmailOutboxInput<K extends EmailOutboxKind = EmailOutboxKind> = {
   kind: K;
@@ -93,6 +106,11 @@ async function dispatchEmailJob(job: EmailOutboxJob) {
     return;
   }
 
+  if (job.kind === "magic_link") {
+    await sendMagicLinkEmailNow(job.payload);
+    return;
+  }
+
   throw new Error("Unsupported outbox email kind");
 }
 
@@ -112,18 +130,26 @@ export async function enqueueEmailOutboxJob<K extends EmailOutboxKind>(
     lockedBy: null,
     lastError: null,
   };
-  const doc: EmailOutboxJob =
-    input.kind === "delivery_otp"
-      ? {
-          ...baseFields,
-          kind: "delivery_otp",
-          payload: input.payload as DeliveryOtpEmailPayload,
-        }
-      : {
-          ...baseFields,
-          kind: "password_reset",
-          payload: input.payload as PasswordResetEmailPayload,
-        };
+  let doc: EmailOutboxJob;
+  if (input.kind === "delivery_otp") {
+    doc = {
+      ...baseFields,
+      kind: "delivery_otp",
+      payload: input.payload as DeliveryOtpEmailPayload,
+    };
+  } else if (input.kind === "password_reset") {
+    doc = {
+      ...baseFields,
+      kind: "password_reset",
+      payload: input.payload as PasswordResetEmailPayload,
+    };
+  } else {
+    doc = {
+      ...baseFields,
+      kind: "magic_link",
+      payload: input.payload as MagicLinkEmailPayload,
+    };
+  }
 
   const result = await db.collection<EmailOutboxJob>("email_outbox").insertOne(doc);
   return {

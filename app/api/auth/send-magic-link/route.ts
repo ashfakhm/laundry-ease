@@ -1,31 +1,42 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
+import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
+import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const JWT_SECRET = env.NEXTAUTH_SECRET;
 const BASE_URL = env.NEXTAUTH_URL || env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
-const emailTransporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: env.EMAIL_USER,
-    pass: env.EMAIL_PASS,
-  },
+const sendMagicLinkSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Valid email is required"),
 });
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "auth:send-magic-link:ip",
+      max: 10,
+      windowMs: 15 * 60 * 1000,
+    });
 
-    if (!email) {
+    const payload = await req.json();
+    const parsed = sendMagicLinkSchema.safeParse(payload);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Email is required" },
+        { error: "Valid email is required" },
         { status: 400 }
       );
     }
+    const email = parsed.data.email;
 
     const { db } = await getDb();
 
@@ -49,26 +60,26 @@ export async function POST(req: Request) {
 
     const verificationLink = `${BASE_URL}/verify-email?token=${token}`;
 
-    // Send email
-    await emailTransporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Verify Your Email - LaundryEase",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Verify Your Email</h2>
-          <p>Click the button below to verify your email address:</p>
-          <a href="${verificationLink}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 8px; margin: 20px 0;">
-            Verify Email
-          </a>
-          <p style="color: #666; font-size: 14px;">This link will expire in 24 hours.</p>
-          <p style="color: #666; font-size: 14px;">If you didn't request this, please ignore this email.</p>
-        </div>
-      `,
+    await enqueueEmailOutboxJob({
+      kind: "magic_link",
+      payload: {
+        to: email,
+        verificationLink,
+      },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof AppError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        },
+        { status: error.statusCode },
+      );
+    }
+
     logger.error("AUTH", "Send magic link error", error);
     return NextResponse.json(
       { error: "Failed to send verification email" },
