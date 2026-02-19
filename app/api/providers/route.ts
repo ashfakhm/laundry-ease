@@ -4,6 +4,10 @@ import { logger } from "@/lib/logger";
 import { calculateDistance } from "@/lib/distance";
 import { geocodeLocationText } from "@/lib/geocoding";
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Search for providers based on location, name, services, and other criteria
  * GET /api/providers?location=city&name=john&service=laundry
@@ -38,7 +42,7 @@ export async function GET(req: NextRequest) {
     const providersCollection = db.collection("providers");
 
     // Build query filter
-    const filter: Record<string, unknown> = {};
+    const baseFilter: Record<string, unknown> = {};
     const hasPartialCoords =
       (latParam && !lngParam) || (!latParam && lngParam);
     if (hasPartialCoords) {
@@ -122,23 +126,7 @@ export async function GET(req: NextRequest) {
 
     if (userCoords) {
       // Distance filtering requires provider coordinates.
-      filter.coordinates = { $exists: true, $ne: null };
-
-      // Reduce scan size before in-memory distance checks.
-      // Provider radius is capped in validation, so this coarse window is safe.
-      const candidateRadiusKm = maxRadiusKm ?? 50;
-      const latDelta = candidateRadiusKm / 111;
-      const lngDivisor =
-        111 * Math.max(0.2, Math.cos((userCoords.lat * Math.PI) / 180));
-      const lngDelta = candidateRadiusKm / lngDivisor;
-      filter["coordinates.lat"] = {
-        $gte: userCoords.lat - latDelta,
-        $lte: userCoords.lat + latDelta,
-      };
-      filter["coordinates.lng"] = {
-        $gte: userCoords.lng - lngDelta,
-        $lte: userCoords.lng + lngDelta,
-      };
+      // distance filtering handled below (geo query first; bounding-box fallback).
     }
 
     // Normalize search-radius behavior: only meaningful when we have resolved coordinates.
@@ -148,48 +136,148 @@ export async function GET(req: NextRequest) {
 
     // Name search (escape regex special characters to prevent ReDoS)
     if (name) {
-      filter.name = { $regex: name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      baseFilter.name = { $regex: escapeRegex(name), $options: "i" };
     }
 
     // Service search (escape regex special characters to prevent ReDoS)
     if (service) {
-      filter.services = { $regex: service.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      baseFilter.services = { $regex: escapeRegex(service), $options: "i" };
     }
 
-    // Fetch providers matching filters
+    const fallbackFilter: Record<string, unknown> = { ...baseFilter };
+    if (userCoords) {
+      // Reduce scan size before in-memory distance checks.
+      // Provider radius is capped by schema, so this coarse window is safe.
+      const candidateRadiusKm = maxRadiusKm ?? 50;
+      const latDelta = candidateRadiusKm / 111;
+      const lngDivisor =
+        111 * Math.max(0.2, Math.cos((userCoords.lat * Math.PI) / 180));
+      const lngDelta = candidateRadiusKm / lngDivisor;
+      fallbackFilter.coordinates = { $exists: true, $ne: null };
+      fallbackFilter["coordinates.lat"] = {
+        $gte: userCoords.lat - latDelta,
+        $lte: userCoords.lat + latDelta,
+      };
+      fallbackFilter["coordinates.lng"] = {
+        $gte: userCoords.lng - lngDelta,
+        $lte: userCoords.lng + lngDelta,
+      };
+    }
+
     const candidateFetchLimit = userCoords
       ? Math.min(Math.max(limit * 8, 200), 1000)
       : limit;
 
-    let providers = await providersCollection
-      .find(filter)
-      .project({
-        // Exclude all sensitive data from public listing
-        passwordHash: 0,
-        emailVerified: 0,
-        phoneVerified: 0,
-        documents: 0,
-        bankDetails: 0,
-        razorpay_fund_account_id: 0,
-        razorpay_contact_id: 0,
-      })
-      .limit(candidateFetchLimit)
-      .toArray();
+    let providers: Array<Record<string, unknown>> = [];
+    let usedGeoQuery = false;
+
+    if (userCoords) {
+      try {
+        const geoSearchRadiusKm = maxRadiusKm ?? 50;
+        const geoProviders = await providersCollection
+          .aggregate([
+            {
+              $geoNear: {
+                near: {
+                  type: "Point",
+                  coordinates: [userCoords.lng, userCoords.lat],
+                },
+                distanceField: "distance_meters",
+                query: {
+                  ...baseFilter,
+                  locationGeoJSON: { $exists: true },
+                },
+                spherical: true,
+                maxDistance: Math.round(geoSearchRadiusKm * 1000),
+              },
+            },
+            {
+              $project: {
+                // Exclude all sensitive data from public listing
+                passwordHash: 0,
+                emailVerified: 0,
+                phoneVerified: 0,
+                documents: 0,
+                bankDetails: 0,
+                razorpay_fund_account_id: 0,
+                razorpay_contact_id: 0,
+              },
+            },
+            { $limit: candidateFetchLimit },
+          ])
+          .toArray();
+
+        if (geoProviders.length > 0) {
+          usedGeoQuery = true;
+          providers = geoProviders.map((provider) => {
+            const distanceKm = Number(provider.distance_meters || 0) / 1000;
+            return {
+              ...provider,
+              distance_km: distanceKm,
+              distanceFromSeeker: distanceKm,
+            };
+          });
+        }
+      } catch (error) {
+        if (debug) {
+          logger.warn(
+            "PROVIDER_SEARCH",
+            "Geo query unavailable; falling back to bounding-box search",
+            {
+              reason: error instanceof Error ? error.message : String(error),
+            },
+          );
+        }
+      }
+    }
+
+    if (!usedGeoQuery) {
+      providers = await providersCollection
+        .find(fallbackFilter)
+        .project({
+          // Exclude all sensitive data from public listing
+          passwordHash: 0,
+          emailVerified: 0,
+          phoneVerified: 0,
+          documents: 0,
+          bankDetails: 0,
+          razorpay_fund_account_id: 0,
+          razorpay_contact_id: 0,
+        })
+        .limit(candidateFetchLimit)
+        .toArray();
+    }
 
     // Enforce provider radius coverage and optional seeker search radius
     if (userCoords) {
       providers = providers
         .filter((provider) => {
-          if (!provider.coordinates) return false;
-          const distance = calculateDistance(userCoords, provider.coordinates);
-          const providerRadius = provider.radius_km || 10;
+          let distance = Number(provider.distance_km);
+          if (!Number.isFinite(distance)) {
+            const coords = provider.coordinates as
+              | { lat?: number; lng?: number }
+              | undefined;
+            if (!coords || !Number.isFinite(coords.lat) || !Number.isFinite(coords.lng)) {
+              return false;
+            }
+            distance = calculateDistance(userCoords, {
+              lat: Number(coords.lat),
+              lng: Number(coords.lng),
+            });
+          }
+          const providerRadius = Number(provider.radius_km || 10);
           const coveredByProvider = distance <= providerRadius;
           const withinSeekerSearchRadius =
             maxRadiusKm === null ? true : distance <= maxRadiusKm;
           return coveredByProvider && withinSeekerSearchRadius;
         })
         .map((provider) => {
-          const distance = calculateDistance(userCoords, provider.coordinates);
+          const existingDistance = Number(provider.distance_km);
+          if (Number.isFinite(existingDistance)) {
+            return provider;
+          }
+          const coords = provider.coordinates as { lat: number; lng: number };
+          const distance = calculateDistance(userCoords, coords);
           return {
             ...provider,
             distance_km: distance,
@@ -198,7 +286,7 @@ export async function GET(req: NextRequest) {
         })
         .sort(
           (a, b) =>
-            (a.distance_km || Infinity) - (b.distance_km || Infinity),
+            Number(a.distance_km ?? Infinity) - Number(b.distance_km ?? Infinity),
         )
         .slice(0, limit);
     } else {
@@ -208,9 +296,10 @@ export async function GET(req: NextRequest) {
 
     if (debug) {
       logger.debug("PROVIDER_SEARCH", "Providers found", {
-        filter,
+        filter: usedGeoQuery ? { ...baseFilter, geo: true } : fallbackFilter,
         userCoords,
         maxRadiusKm,
+        usedGeoQuery,
         count: providers.length,
       });
     }

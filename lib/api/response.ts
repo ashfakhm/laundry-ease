@@ -81,12 +81,15 @@ export function errorResponse(error: unknown): NextResponse {
  * Wraps an async handler to catch errors and return consistent responses
  * Compatible with Next.js App Router API routes
  */
-export function withErrorHandling<T>(
-  handler: (req: Request) => Promise<NextResponse<ApiResponse<T>>>
+export function withErrorHandling<T, C = unknown>(
+  handler: (
+    req: Request,
+    context?: C
+  ) => Promise<NextResponse<ApiResponse<T>>>
 ) {
-  return async (req: Request): Promise<Response> => {
+  return async (req: Request, context?: C): Promise<Response> => {
     try {
-      return await handler(req);
+      return await handler(req, context);
     } catch (error) {
       return errorResponse(error);
     }

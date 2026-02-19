@@ -88,6 +88,12 @@ function makeRequest(bookingId: string, body: unknown = {}) {
   );
 }
 
+function makeContext(id: string) {
+  return {
+    params: Promise.resolve({ id }),
+  };
+}
+
 function makeBooking(overrides: Partial<BookingDoc> = {}): BookingDoc {
   return {
     _id: new ObjectId(BOOKING_ID),
@@ -121,7 +127,7 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
       user: { id: SEEKER_ID, role: Role.SEEKER, email: "seeker@test.com" },
     });
 
-    const res = await POST(makeRequest("bad-id"));
+    const res = await POST(makeRequest("bad-id"), makeContext("bad-id"));
     expect(res.status).toBe(400);
   });
 
@@ -135,7 +141,10 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
     dbMock.updateOne.mockResolvedValue({ matchedCount: 1 });
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
-    const res = await POST(makeRequest(BOOKING_ID, { reason: "Need later slot" }));
+    const res = await POST(
+      makeRequest(BOOKING_ID, { reason: "Need later slot" }),
+      makeContext(BOOKING_ID),
+    );
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -163,7 +172,10 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
     dbMock.updateOne.mockResolvedValue({ matchedCount: 1 });
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
-    const res = await POST(makeRequest(BOOKING_ID, { reason: "Delayed traffic" }));
+    const res = await POST(
+      makeRequest(BOOKING_ID, { reason: "Delayed traffic" }),
+      makeContext(BOOKING_ID),
+    );
 
     expect(res.status).toBe(200);
     expect(dbMock.updateOne).toHaveBeenCalledWith(
@@ -191,7 +203,7 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
     dbMock.findOne.mockResolvedValue(makeBooking());
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
-    const res = await POST(makeRequest(BOOKING_ID));
+    const res = await POST(makeRequest(BOOKING_ID), makeContext(BOOKING_ID));
     expect(res.status).toBe(403);
   });
 
@@ -208,7 +220,7 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
     );
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
-    const res = await POST(makeRequest(BOOKING_ID));
+    const res = await POST(makeRequest(BOOKING_ID), makeContext(BOOKING_ID));
     expect(res.status).toBe(422);
   });
 });

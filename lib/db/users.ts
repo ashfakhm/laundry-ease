@@ -170,6 +170,17 @@ export async function createProvider(data: {
     profilePicture: data.profilePicture,
     bannerImage: data.bannerImage,
     coordinates: data.coordinates,
+    ...(data.coordinates
+      ? {
+          locationGeoJSON: {
+            type: "Point" as const,
+            coordinates: [data.coordinates.lng, data.coordinates.lat] as [
+              number,
+              number,
+            ],
+          },
+        }
+      : {}),
   };
 
   const res = await db.collection<Provider>("providers").insertOne(provider);

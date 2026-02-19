@@ -99,6 +99,14 @@ const INDEX_SPECS: IndexSpec[] = [
     critical: true,
   },
   {
+    collection: "providers",
+    keys: { locationGeoJSON: "2dsphere" },
+    options: {
+      name: "providers_location_geo_2dsphere",
+      partialFilterExpression: { locationGeoJSON: { $exists: true } },
+    },
+  },
+  {
     collection: "admins",
     keys: { email: 1 },
     options: {

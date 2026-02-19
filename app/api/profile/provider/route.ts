@@ -145,7 +145,13 @@ export async function PATCH(req: Request) {
       updateFields.free_radius_km = Number(free_radius_km);
     if (per_km_rate !== undefined)
       updateFields.per_km_rate = Number(per_km_rate);
-    if (coordinates !== undefined) updateFields.coordinates = coordinates;
+    if (coordinates !== undefined) {
+      updateFields.coordinates = coordinates;
+      updateFields.locationGeoJSON = {
+        type: "Point",
+        coordinates: [coordinates.lng, coordinates.lat],
+      };
+    }
     if (capacity !== undefined) updateFields.capacity = Number(capacity);
     if (phone !== undefined) updateFields.phone = phone;
     if (profilePicture !== undefined)
