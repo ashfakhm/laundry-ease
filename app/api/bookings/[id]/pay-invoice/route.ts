@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
-import { ObjectId } from "mongodb";
+import { MongoServerError, ObjectId } from "mongodb";
 import { OrderItem } from "@/types/orders";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
+import { paymentVerifySchema } from "@/lib/api/schemas";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -162,15 +163,19 @@ export async function PUT(
       return NextResponse.json({ message: "Invalid booking id" }, { status: 400 });
     }
 
-    const body = await req.json();
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
-
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    const body = await req.json().catch(() => null);
+    const parsed = paymentVerifySchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { message: "Missing payment fields" },
-        { status: 400 }
+        {
+          message: "Invalid payment fields",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 },
       );
     }
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      parsed.data;
 
     const { db } = await getDb();
     const booking = await getBookingById(booking_id);
@@ -276,19 +281,53 @@ export async function PUT(
       updatedAt: now,
     };
 
-    const res = await db.collection("orders").insertOne(orderData);
-    await db.collection("bookings").updateOne(
-      { _id: booking_id, status: "invoice_created" },
+    let insertedOrderId: ObjectId | null = null;
+    try {
+      const insertResult = await db.collection("orders").insertOne(orderData);
+      insertedOrderId = insertResult.insertedId;
+    } catch (error) {
+      if (error instanceof MongoServerError && error.code === 11000) {
+        const concurrentOrder = await db.collection("orders").findOne({ booking_id });
+        if (concurrentOrder?.razorpay_payment_id === razorpay_payment_id) {
+          return NextResponse.json({ success: true, orderId: concurrentOrder._id });
+        }
+        return NextResponse.json(
+          { message: "Order already exists for this booking" },
+          { status: 409 },
+        );
+      }
+      throw error;
+    }
+
+    const bookingUpdateResult = await db.collection("bookings").updateOne(
+      {
+        _id: booking_id,
+        status: "invoice_created",
+        $or: [{ order_id: { $exists: false } }, { order_id: null }],
+      },
       {
         $set: {
           status: "completed",
-          order_id: res.insertedId,
+          order_id: insertedOrderId,
           updatedAt: now,
         },
-      }
+      },
     );
 
-    return NextResponse.json({ success: true, orderId: res.insertedId });
+    if (bookingUpdateResult.modifiedCount === 0) {
+      if (insertedOrderId) {
+        await db.collection("orders").deleteOne({
+          _id: insertedOrderId,
+          booking_id,
+        });
+      }
+      return NextResponse.json(
+        { message: "Booking state changed while finalizing order. Please retry." },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json({ success: true, orderId: insertedOrderId });
   } catch (error) {
     if (error instanceof AppError) {
       return appErrorResponse(error);

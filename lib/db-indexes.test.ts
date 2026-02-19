@@ -23,20 +23,21 @@ function makeDb(failingIndexNames: Set<string>): Db {
 
 const originalNodeEnv = process.env.NODE_ENV;
 const originalAllowStartWithIndexErrors = process.env.ALLOW_START_WITH_INDEX_ERRORS;
+const mutableEnv = process.env as Record<string, string | undefined>;
 
 afterEach(() => {
-  process.env.NODE_ENV = originalNodeEnv;
+  mutableEnv.NODE_ENV = originalNodeEnv;
   if (originalAllowStartWithIndexErrors === undefined) {
-    delete process.env.ALLOW_START_WITH_INDEX_ERRORS;
+    delete mutableEnv.ALLOW_START_WITH_INDEX_ERRORS;
   } else {
-    process.env.ALLOW_START_WITH_INDEX_ERRORS = originalAllowStartWithIndexErrors;
+    mutableEnv.ALLOW_START_WITH_INDEX_ERRORS = originalAllowStartWithIndexErrors;
   }
 });
 
 describe("ensureDbIndexes", () => {
   it("fails fast in production when a critical index cannot be created", async () => {
-    process.env.NODE_ENV = "production";
-    delete process.env.ALLOW_START_WITH_INDEX_ERRORS;
+    mutableEnv.NODE_ENV = "production";
+    delete mutableEnv.ALLOW_START_WITH_INDEX_ERRORS;
 
     const db = makeDb(new Set(["orders_booking_id_unique"]));
 
@@ -46,8 +47,8 @@ describe("ensureDbIndexes", () => {
   });
 
   it("allows startup when override is set even if critical index fails", async () => {
-    process.env.NODE_ENV = "production";
-    process.env.ALLOW_START_WITH_INDEX_ERRORS = "1";
+    mutableEnv.NODE_ENV = "production";
+    mutableEnv.ALLOW_START_WITH_INDEX_ERRORS = "1";
 
     const db = makeDb(new Set(["orders_booking_id_unique"]));
 
@@ -55,8 +56,8 @@ describe("ensureDbIndexes", () => {
   });
 
   it("does not fail startup for non-critical index failures", async () => {
-    process.env.NODE_ENV = "production";
-    delete process.env.ALLOW_START_WITH_INDEX_ERRORS;
+    mutableEnv.NODE_ENV = "production";
+    delete mutableEnv.ALLOW_START_WITH_INDEX_ERRORS;
 
     const db = makeDb(new Set(["bookings_provider_status_createdAt"]));
 

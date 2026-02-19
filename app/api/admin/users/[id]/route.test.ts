@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
+import type { NextRequest } from "next/server";
 import { Role } from "@/types/enums";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
@@ -43,7 +44,7 @@ function makeRequest(body: unknown) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  });
+  }) as unknown as NextRequest;
 }
 
 describe("DELETE /api/admin/users/[id]", () => {

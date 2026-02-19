@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
+import type { NextRequest } from "next/server";
 import { Role } from "@/types/enums";
 
 const {
@@ -71,7 +72,7 @@ function makeRequest(orderId: string, body: unknown) {
       },
       body: JSON.stringify(body),
     },
-  );
+  ) as unknown as NextRequest;
 }
 
 describe("POST /api/orders/[id]/schedule-delivery", () => {
@@ -203,10 +204,12 @@ describe("POST /api/orders/[id]/schedule-delivery", () => {
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
     expect(dbMock.updateOne).toHaveBeenCalledWith(
-      { _id: expect.any(ObjectId) },
+      { _id: expect.any(ObjectId), process_status: "ready" },
       expect.objectContaining({
         $set: expect.objectContaining({
-          process_status: "ready",
+          deliverySlot: expect.objectContaining({
+            proposedBy: "provider",
+          }),
         }),
       }),
     );

@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
     const name = searchParams.get("name");
     const service = searchParams.get("service");
     const deadline = searchParams.get("deadline");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const rawLimit = Number(searchParams.get("limit") || "50");
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(Math.floor(rawLimit), 100))
+      : 50;
 
     const debug = process.env.PROVIDER_SEARCH_DEBUG === "true";
     if (debug) {
@@ -120,6 +123,22 @@ export async function GET(req: NextRequest) {
     if (userCoords) {
       // Distance filtering requires provider coordinates.
       filter.coordinates = { $exists: true, $ne: null };
+
+      // Reduce scan size before in-memory distance checks.
+      // Provider radius is capped in validation, so this coarse window is safe.
+      const candidateRadiusKm = maxRadiusKm ?? 50;
+      const latDelta = candidateRadiusKm / 111;
+      const lngDivisor =
+        111 * Math.max(0.2, Math.cos((userCoords.lat * Math.PI) / 180));
+      const lngDelta = candidateRadiusKm / lngDivisor;
+      filter["coordinates.lat"] = {
+        $gte: userCoords.lat - latDelta,
+        $lte: userCoords.lat + latDelta,
+      };
+      filter["coordinates.lng"] = {
+        $gte: userCoords.lng - lngDelta,
+        $lte: userCoords.lng + lngDelta,
+      };
     }
 
     // Normalize search-radius behavior: only meaningful when we have resolved coordinates.
@@ -138,6 +157,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch providers matching filters
+    const candidateFetchLimit = userCoords
+      ? Math.min(Math.max(limit * 8, 200), 1000)
+      : limit;
+
     let providers = await providersCollection
       .find(filter)
       .project({
@@ -150,6 +173,7 @@ export async function GET(req: NextRequest) {
         razorpay_fund_account_id: 0,
         razorpay_contact_id: 0,
       })
+      .limit(candidateFetchLimit)
       .toArray();
 
     // Enforce provider radius coverage and optional seeker search radius

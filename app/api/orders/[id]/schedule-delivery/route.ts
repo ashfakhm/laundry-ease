@@ -73,20 +73,49 @@ export async function POST(
 
       if (!dateTime)
         return NextResponse.json({ error: "Date required" }, { status: 400 });
+      if ((order.process_status || "invoiced") !== "ready") {
+        return NextResponse.json(
+          {
+            error:
+              "Delivery slots can only be proposed when order is ready for dispatch",
+            currentStatus: order.process_status || "invoiced",
+          },
+          { status: 409 },
+        );
+      }
+      if (order.deliverySlot?.confirmedAt) {
+        return NextResponse.json(
+          {
+            error: "Delivery slot is already confirmed",
+          },
+          { status: 409 },
+        );
+      }
 
-      await db.collection<Order>("orders").updateOne(
-        { _id: orderId },
+      const proposedDate = new Date(dateTime);
+      if (Number.isNaN(proposedDate.getTime())) {
+        return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+      }
+
+      const updateResult = await db.collection<Order>("orders").updateOne(
+        { _id: orderId, process_status: "ready" },
         {
           $set: {
             deliverySlot: {
               proposedBy: "provider",
-              dateTime: new Date(dateTime),
+              dateTime: proposedDate,
               proposedAt: new Date(),
             },
-            process_status: "ready", // Assuming proposing delivery means it's ready
+            updatedAt: new Date(),
           },
         }
       );
+      if (updateResult.modifiedCount === 0) {
+        return NextResponse.json(
+          { error: "Order state changed while proposing delivery slot" },
+          { status: 409 },
+        );
+      }
       return NextResponse.json({ success: true, message: "Delivery proposed" });
     } else if (action === "confirm") {
       if (user.role !== Role.SEEKER) {
@@ -98,25 +127,59 @@ export async function POST(
       if (order.seeker_id.toString() !== user.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
+      if ((order.process_status || "invoiced") !== "ready") {
+        return NextResponse.json(
+          {
+            error:
+              "Delivery slot can only be confirmed while order is ready for dispatch",
+            currentStatus: order.process_status || "invoiced",
+          },
+          { status: 409 },
+        );
+      }
 
       if (!order.deliverySlot)
         return NextResponse.json(
           { error: "No slot proposed" },
           { status: 400 }
         );
+      if (order.deliverySlot.proposedBy !== "provider") {
+        return NextResponse.json(
+          { error: "Invalid delivery slot proposal" },
+          { status: 409 },
+        );
+      }
+      if (order.deliverySlot.confirmedAt) {
+        return NextResponse.json(
+          { success: true, message: "Delivery slot already confirmed" },
+          { status: 200 },
+        );
+      }
 
-      await db.collection<Order>("orders").updateOne(
-        { _id: orderId },
+      const updateResult = await db.collection<Order>("orders").updateOne(
+        {
+          _id: orderId,
+          process_status: "ready",
+          "deliverySlot.proposedBy": "provider",
+          "deliverySlot.confirmedAt": { $exists: false },
+        },
         {
           $set: {
             "deliverySlot.confirmedAt": new Date(),
-            process_status: "out_for_delivery", // Or waiting for pickup, but strict flow usually moves to out_for_delivery on confirmation or actual dispatch
+            updatedAt: new Date(),
           },
         }
       );
+      if (updateResult.modifiedCount === 0) {
+        return NextResponse.json(
+          { error: "Order state changed while confirming delivery slot" },
+          { status: 409 },
+        );
+      }
       return NextResponse.json({
         success: true,
-        message: "Delivery confirmed",
+        message:
+          "Delivery slot confirmed. Provider can now move order to out_for_delivery.",
       });
     }
 
