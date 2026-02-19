@@ -81,6 +81,9 @@ export type Booking = {
   payout_status?: "pending" | "processing" | "paid" | "failed";
   payout_id?: string;
   payout_utr?: string;
+  payout_lock_at?: Date | string;
+  payout_failure_reason?: string;
+  payout_failure_at?: Date | string;
   payout_initiated_at?: Date | string;
   payout_updated_at?: Date | string;
   booking_fee_released_at?: Date | string;
