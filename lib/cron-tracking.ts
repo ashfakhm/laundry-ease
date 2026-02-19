@@ -15,7 +15,7 @@
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import type { CronJobName } from "@/lib/constants";
-import type { ObjectId, InsertOneResult } from "mongodb";
+import type { ObjectId } from "mongodb";
 
 export interface CronRunDocument {
   _id?: ObjectId;
@@ -28,25 +28,34 @@ export interface CronRunDocument {
   error?: string;
 }
 
+export interface CronRunStartResult {
+  acknowledged: boolean;
+  insertedId: ObjectId | null;
+}
+
 /**
  * Record the start of a cron job run.
- * Returns the InsertOneResult so the caller can reference the _id.
+ * Returns a minimal result payload so callers can reference the _id.
  */
 export async function startCronRun(
   job: CronJobName,
-): Promise<InsertOneResult<CronRunDocument>> {
+): Promise<CronRunStartResult> {
   try {
     const { db } = await getDb();
-    return await db.collection<CronRunDocument>("cron_runs").insertOne({
+    const result = await db.collection<CronRunDocument>("cron_runs").insertOne({
       job,
       status: "running",
       startedAt: new Date(),
     });
+    return {
+      acknowledged: result.acknowledged,
+      insertedId: result.insertedId,
+    };
   } catch (err) {
     logger.error("CRON_TRACKING", `Failed to record start of ${job}`, err);
     // Return a stub so callers don't crash — observability should never
     // break the actual cron logic.
-    return { acknowledged: false, insertedId: null as unknown as ObjectId };
+    return { acknowledged: false, insertedId: null };
   }
 }
 

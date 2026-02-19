@@ -1,7 +1,8 @@
 import { getDb } from "@/lib/mongodb";
-import { PopulatedBooking } from "@/types/bookings";
+import { Booking, PopulatedBooking } from "@/types/bookings";
 import { ObjectId } from "mongodb";
 import { requireProvider, requireSeeker } from "@/lib/api/auth";
+type BookingDocument = Booking & { order_id?: ObjectId | string };
 
 export async function getProviderBookings(): Promise<{
   success: boolean;
@@ -29,7 +30,7 @@ export async function getProviderBookings(): Promise<{
     // Fetch all bookings for this provider where fee is paid
     // Providers only see bookings after seeker has paid the booking fee
     const bookings = await db
-      .collection("bookings")
+      .collection<BookingDocument>("bookings")
       .find({
         provider_id: providerId,
         bookingFeeStatus: { $in: ["paid", "applied"] },
@@ -41,6 +42,7 @@ export async function getProviderBookings(): Promise<{
     // Note: In a larger scale, we would use $lookup aggregation, but manual population is fine for now
     const populatedBookings: PopulatedBooking[] = await Promise.all(
       bookings.map(async (booking) => {
+        const { seeker_id: _seekerId, ...bookingWithoutSeeker } = booking;
         const seeker = await db.collection("seekers").findOne(
           { _id: new ObjectId(booking.seeker_id) },
           {
@@ -56,13 +58,10 @@ export async function getProviderBookings(): Promise<{
         );
 
         return {
-          ...booking,
+          ...bookingWithoutSeeker,
           _id: booking._id.toString(),
-          seeker_id: booking.seeker_id.toString(), // Removed in type but kept for safety/reference if needed, though Omit should hide it.
-          // Actually Omit<Booking, "seeker_id"> removes it from the type, so we shouldn't rely on it being there in the return type.
-          // But spreading `...booking` keeps it at runtime.
           provider_id: booking.provider_id.toString(),
-          createdAt: booking.createdAt.toISOString(), // Serialize dates for Server Components
+          createdAt: new Date(booking.createdAt).toISOString(),
           order_id: booking.order_id ? booking.order_id.toString() : undefined,
           deadline: booking.deadline
             ? new Date(booking.deadline).toISOString()
@@ -84,7 +83,7 @@ export async function getProviderBookings(): Promise<{
             address: seeker?.address,
             image: seeker?.image,
           },
-        } as unknown as PopulatedBooking;
+        } as PopulatedBooking;
       }),
     );
 
@@ -119,7 +118,7 @@ export async function getSeekerBookings(): Promise<{
 
     // Fetch all bookings for this seeker (exclude cancelled/rejected)
     const bookings = await db
-      .collection("bookings")
+      .collection<BookingDocument>("bookings")
       .find({
         seeker_id: seekerId,
         status: { $nin: ["cancelled", "rejected"] },
@@ -130,6 +129,7 @@ export async function getSeekerBookings(): Promise<{
     // Fetch provider details for each booking
     const populatedBookings: PopulatedSeekerBooking[] = await Promise.all(
       bookings.map(async (booking) => {
+        const { provider_id: _providerId, ...bookingWithoutProvider } = booking;
         const provider = await db.collection("providers").findOne(
           { _id: new ObjectId(booking.provider_id) },
           {
@@ -147,11 +147,10 @@ export async function getSeekerBookings(): Promise<{
         );
 
         return {
-          ...booking,
+          ...bookingWithoutProvider,
           _id: booking._id.toString(),
           seeker_id: booking.seeker_id.toString(),
-          provider_id: booking.provider_id.toString(), // Kept mostly for ref, omitted in type wrapper if strict
-          createdAt: booking.createdAt.toISOString(),
+          createdAt: new Date(booking.createdAt).toISOString(),
           order_id: booking.order_id ? booking.order_id.toString() : undefined,
           deadline: booking.deadline
             ? new Date(booking.deadline).toISOString()
@@ -175,7 +174,7 @@ export async function getSeekerBookings(): Promise<{
             profilePicture: provider?.profilePicture,
             bannerImage: provider?.bannerImage,
           },
-        } as unknown as PopulatedSeekerBooking;
+        } as PopulatedSeekerBooking;
       }),
     );
 
