@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
-const { mockRequireAdmin, mockGetDb, mockLoggerError } = vi.hoisted(() => ({
-  mockRequireAdmin: vi.fn(),
+const { mockRequireAdminWithDbCheck, mockGetDb, mockLoggerError } = vi.hoisted(() => ({
+  mockRequireAdminWithDbCheck: vi.fn(),
   mockGetDb: vi.fn(),
   mockLoggerError: vi.fn(),
 }));
 
 vi.mock("@/lib/api/auth", () => ({
-  requireAdmin: mockRequireAdmin,
+  requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -135,7 +135,7 @@ function makeDbMock() {
 describe("GET /api/admin/dashboard-stats", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAdmin.mockResolvedValue({
+    mockRequireAdminWithDbCheck.mockResolvedValue({
       user: {
         id: new ObjectId().toString(),
         role: "admin",
@@ -145,7 +145,7 @@ describe("GET /api/admin/dashboard-stats", () => {
   });
 
   it("returns 401 when session is missing", async () => {
-    mockRequireAdmin.mockRejectedValue(
+    mockRequireAdminWithDbCheck.mockRejectedValue(
       new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
     );
 
@@ -158,7 +158,7 @@ describe("GET /api/admin/dashboard-stats", () => {
   });
 
   it("returns 401 when session user is not admin", async () => {
-    mockRequireAdmin.mockRejectedValue(
+    mockRequireAdminWithDbCheck.mockRejectedValue(
       new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"),
     );
 

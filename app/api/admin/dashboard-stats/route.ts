@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 import { ObjectId } from "mongodb";
 import { buildAlertAnalytics } from "@/lib/ops/alerts-analytics";
 import { alertAgeMinutes, isAckSlaBreached } from "@/lib/ops/ack-sla";
-import { requireAdmin } from "@/lib/api/auth";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { AppError } from "@/lib/api/errors";
 import {
   CRITICAL_ALERT_ACK_SLA_MS,
@@ -47,7 +47,7 @@ function toObjectId(value: unknown): ObjectId | null {
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireAdminWithDbCheck();
 
     const { db } = await getDb();
     const now = new Date();
@@ -221,7 +221,17 @@ export async function GET() {
           $group: {
             _id: null,
             totalEscrow: {
-              $sum: { $add: ["$total_price", "$delivery_charge"] },
+              $sum: {
+                $ifNull: [
+                  "$total_price",
+                  {
+                    $add: [
+                      { $ifNull: ["$subtotal", 0] },
+                      { $ifNull: ["$delivery_charge", 0] },
+                    ],
+                  },
+                ],
+              },
             },
           },
         },
@@ -262,7 +272,17 @@ export async function GET() {
           $group: {
             _id: null,
             totalRevenue: {
-              $sum: { $add: ["$total_price", "$delivery_charge"] },
+              $sum: {
+                $ifNull: [
+                  "$total_price",
+                  {
+                    $add: [
+                      { $ifNull: ["$subtotal", 0] },
+                      { $ifNull: ["$delivery_charge", 0] },
+                    ],
+                  },
+                ],
+              },
             },
           },
         },

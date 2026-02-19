@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
-import { requireAdmin } from "@/lib/api/auth";
+import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 /**
  * GET /api/admin/complaints
@@ -11,48 +10,74 @@ import { requireAdmin } from "@/lib/api/auth";
  */
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireAdminWithDbCheck();
 
     const { db } = await getDb();
 
-    // Fetch all complaints
+    // Fetch complaints and enrich seeker/provider in a single query plan
     const complaints = await db
       .collection("complaints")
-      .find({})
-      .sort({ createdAt: -1 })
+      .aggregate([
+        { $sort: { createdAt: -1 } },
+        {
+          $addFields: {
+            seekerObjectId: {
+              $convert: {
+                input: "$seeker_id",
+                to: "objectId",
+                onError: null,
+                onNull: null,
+              },
+            },
+            providerObjectId: {
+              $convert: {
+                input: "$provider_id",
+                to: "objectId",
+                onError: null,
+                onNull: null,
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "seekers",
+            localField: "seekerObjectId",
+            foreignField: "_id",
+            as: "seeker",
+            pipeline: [{ $project: { name: 1, email: 1 } }],
+          },
+        },
+        {
+          $lookup: {
+            from: "providers",
+            localField: "providerObjectId",
+            foreignField: "_id",
+            as: "provider",
+            pipeline: [{ $project: { name: 1, businessName: 1, profilePicture: 1 } }],
+          },
+        },
+        {
+          $set: {
+            seeker: { $ifNull: [{ $arrayElemAt: ["$seeker", 0] }, null] },
+            provider: { $ifNull: [{ $arrayElemAt: ["$provider", 0] }, null] },
+          },
+        },
+        {
+          $unset: ["seekerObjectId", "providerObjectId"],
+        },
+      ])
       .toArray();
 
-    // Enrich with seeker and provider details
-    const enrichedComplaints = await Promise.all(
-      complaints.map(async (complaint) => {
-        const [seeker, provider] = await Promise.all([
-          db
-            .collection("seekers")
-            .findOne(
-              { _id: new ObjectId(complaint.seeker_id) },
-              { projection: { name: 1, email: 1 } },
-            ),
-          db
-            .collection("providers")
-            .findOne(
-              { _id: new ObjectId(complaint.provider_id) },
-              { projection: { name: 1, businessName: 1, profilePicture: 1 } },
-            ),
-        ]);
+    const normalizedComplaints = complaints.map((complaint) => ({
+      ...complaint,
+      _id: complaint._id.toString(),
+      seeker_id: complaint.seeker_id?.toString() || null,
+      provider_id: complaint.provider_id?.toString() || null,
+      order_id: complaint.order_id?.toString() || null,
+    }));
 
-        return {
-          ...complaint,
-          _id: complaint._id.toString(),
-          seeker_id: complaint.seeker_id?.toString() || null,
-          provider_id: complaint.provider_id?.toString() || null,
-          order_id: complaint.order_id?.toString() || null,
-          seeker: seeker || null,
-          provider: provider || null,
-        };
-      }),
-    );
-
-    return NextResponse.json(enrichedComplaints, { status: 200 });
+    return NextResponse.json(normalizedComplaints, { status: 200 });
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json(
