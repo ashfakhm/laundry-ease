@@ -3,6 +3,13 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { AppError } from "@/lib/api/errors";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import { Role } from "@/types/enums";
+import { z } from "zod";
+
+const banUserSchema = z.object({
+  blocked_until: z.string().datetime(),
+  role: z.enum([Role.SEEKER, Role.PROVIDER]),
+});
 
 export async function PATCH(
   req: NextRequest,
@@ -12,21 +19,29 @@ export async function PATCH(
     await requireAdminWithDbCheck();
 
     const { id } = await params;
-    const { blocked_until, role } = await req.json();
-    if (!blocked_until || !role || !["seeker", "provider"].includes(role)) {
+    const body = await req.json().catch(() => null);
+    const parsed = banUserSchema.safeParse(body);
+
+    if (!ObjectId.isValid(id) || !parsed.success) {
       return NextResponse.json(
         { error: "Missing or invalid parameters" },
         { status: 400 }
       );
     }
+
+    const blockedUntil = new Date(parsed.data.blocked_until);
+    const collection =
+      parsed.data.role === Role.PROVIDER ? "providers" : "seekers";
+
     const { db } = await getDb();
-    const collection = role === "provider" ? "providers" : "seekers";
     const result = await db
       .collection(collection)
-      .updateOne({ _id: new ObjectId(id) }, { $set: { blocked_until } });
+      .updateOne({ _id: new ObjectId(id) }, { $set: { blocked_until: blockedUntil } });
+
     if (result.modifiedCount === 1) {
       return NextResponse.json({ ok: true });
     }
+
     return NextResponse.json(
       { error: "User not found or not updated" },
       { status: 404 }

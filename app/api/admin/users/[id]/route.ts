@@ -4,6 +4,11 @@ import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
 import { AppError } from "@/lib/api/errors";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import { z } from "zod";
+
+const deleteUserSchema = z.object({
+  role: z.enum([Role.SEEKER, Role.PROVIDER]),
+});
 
 export async function DELETE(
   req: NextRequest,
@@ -13,13 +18,17 @@ export async function DELETE(
     await requireAdminWithDbCheck();
 
     const { id } = await params;
-    const { role } = await req.json();
-    if (!role || ![Role.SEEKER, Role.PROVIDER].includes(role as Role)) {
+    const body = await req.json().catch(() => null);
+    const parsed = deleteUserSchema.safeParse(body);
+
+    if (!ObjectId.isValid(id) || !parsed.success) {
       return NextResponse.json(
         { error: "Missing or invalid parameters" },
         { status: 400 }
       );
     }
+
+    const { role } = parsed.data;
     const { db } = await getDb();
     const collection = role === Role.PROVIDER ? "providers" : "seekers";
     const result = await db
