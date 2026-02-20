@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import bcrypt from "bcrypt";
 import { logger } from "@/lib/logger";

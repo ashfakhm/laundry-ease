@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
 import { NextRequest } from "next/server";
 
@@ -36,6 +36,7 @@ const mockClient = {
 };
 
 describe("GET /api/cron/reconciliation", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let dbMock: any;
 
   beforeEach(() => {

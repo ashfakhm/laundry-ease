@@ -37,7 +37,10 @@ export async function POST(
 
   return successResponse({
     message: "Payment verified",
-    idempotent: "idempotent" in data ? (data as any).idempotent : false,
+    idempotent:
+      "idempotent" in data
+        ? (data as Record<string, unknown>).idempotent
+        : false,
     ...data,
   });
 }

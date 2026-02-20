@@ -2,7 +2,6 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { GET, PATCH } from "./route";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
-import bcrypt from "bcrypt";
 
 const { mockRequireProvider, mockGetDb } = vi.hoisted(() => ({
   mockRequireProvider: vi.fn(),
@@ -146,7 +145,6 @@ describe("provider profile route", () => {
     });
 
     it("returns 400 when no fields to update", async () => {
-      const mockResult = { success: true, data: {} };
       // In strict parsing, empty body might fail schema or pass with no known keys
       // schema usually allows partials.
 

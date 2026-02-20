@@ -31,6 +31,7 @@ describe("Middleware Security Hardening", () => {
 
     it("allows admin access when no allowlist is allowed (default safe but warns)", async () => {
       // Setup: Admin user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockGetToken.mockResolvedValue({ role: "admin" } as any);
 
       // Setup: No allowlist set
@@ -52,6 +53,7 @@ describe("Middleware Security Hardening", () => {
 
     it("blocks admin access from non-whitelisted IP", async () => {
       // Setup: Admin user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockGetToken.mockResolvedValue({ role: "admin" } as any);
 
       // Setup: Strict allowlist
@@ -68,6 +70,7 @@ describe("Middleware Security Hardening", () => {
 
     it("allows admin access from whitelisted IP", async () => {
       // Setup: Admin user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockGetToken.mockResolvedValue({ role: "admin" } as any);
 
       // Setup: Strict allowlist
@@ -83,6 +86,7 @@ describe("Middleware Security Hardening", () => {
 
     it("allows localhost in development even if not explicitly in allowlist (dev convenience)", async () => {
       // Setup: Admin user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockGetToken.mockResolvedValue({ role: "admin" } as any);
       vi.stubEnv("NODE_ENV", "development");
       vi.stubEnv("ADMIN_ALLOWLIST_IPS", "10.0.0.5");
@@ -97,6 +101,7 @@ describe("Middleware Security Hardening", () => {
 
     it("allows execution continues to other checks if IP passes", async () => {
       // Setup: Admin user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockGetToken.mockResolvedValue({ role: "admin" } as any);
       vi.stubEnv("ADMIN_ALLOWLIST_IPS", "127.0.0.1");
 

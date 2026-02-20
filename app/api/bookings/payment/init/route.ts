@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { bookingPaymentInitSchema } from "@/lib/api/schemas";
 import { POST as createBookingFeeOrder } from "../../[id]/pay/route";
 import { env } from "@/lib/env";

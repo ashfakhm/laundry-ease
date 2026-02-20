@@ -1,9 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, PUT } from "./route";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
-import bcrypt from "bcrypt";
-import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const { mockRequireSeeker, mockGetDb } = vi.hoisted(() => ({
   mockRequireSeeker: vi.fn(),

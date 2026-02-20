@@ -398,17 +398,21 @@ export function FixedPriceListSection({ form }: FormProps) {
                         className="w-full h-9 pl-6 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                     </div>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(form.formState.errors.items as any)?.[index]?.name && (
                       <p className="text-xs text-destructive">
                         {
+                          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                           (form.formState.errors.items as any)[index]?.name
                             ?.message as string
                         }
                       </p>
                     )}
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(form.formState.errors.items as any)?.[index]?.price && (
                       <p className="text-xs text-destructive">
                         {
+                          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                           (form.formState.errors.items as any)[index]?.price
                             ?.message as string
                         }

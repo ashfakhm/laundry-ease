@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
               order.razorpay_order_id,
             );
             const successPayment = rzpPayments.items.find(
-              (p: any) => p.status === "captured",
+              (p: { status: string }) => p.status === "captured",
             );
 
             if (successPayment) {
