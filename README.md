@@ -172,6 +172,7 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 - `NEXT_PUBLIC_BASE_URL` - Public URL for email links
 - `NEXT_PUBLIC_APP_URL` - Alternative app URL
 - `CSP_ENFORCE` - Set to `true` to switch CSP header from Report-Only to enforcement mode
+- `TRUST_PROXY` - Set to `true` to securely read `x-forwarded-for` headers if behind a trusted reverse proxy (required for Admin IP Allowlist)
 - `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name
 - `CLOUDINARY_API_KEY` - Cloudinary API key
 - `CLOUDINARY_API_SECRET` - Cloudinary API secret

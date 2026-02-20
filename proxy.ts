@@ -1,7 +1,25 @@
 import { getToken } from "next-auth/jwt";
 import type { JWT } from "next-auth/jwt";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { NextRequest, NextFetchEvent } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+let ratelimit: Ratelimit | null = null;
+if (redisUrl && redisToken) {
+  ratelimit = new Ratelimit({
+    redis: new Redis({
+      url: redisUrl,
+      token: redisToken,
+    }),
+    limiter: Ratelimit.slidingWindow(10, "10 s"),
+    ephemeralCache: new Map(),
+    analytics: true,
+  });
+}
 import {
   collectAllowedOriginsFromRequest,
   extractRequestOrigin,
@@ -52,9 +70,34 @@ const bypassApiOriginGuard = createRouteMatcher([
 
 /* ================= PROXY (Next.js 16+) ================= */
 
-export async function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest, ev?: NextFetchEvent) {
   const pathname = req.nextUrl.pathname;
   const token = (await getToken({ req })) as JWT | null;
+
+  /* 0.5️⃣ Rate Limiting for Auth & OTP (Protection against brute force / spam) */
+  if (
+    ratelimit &&
+    (pathname.startsWith("/api/auth/") ||
+      pathname.startsWith("/api/otp/") ||
+      pathname.startsWith("/api/signup") ||
+      pathname.startsWith("/api/forgot-password") ||
+      pathname.startsWith("/api/reset-password"))
+  ) {
+    const ip =
+      req.headers.get("x-real-ip") ||
+      req.headers.get("x-forwarded-for")?.split(",")[0] ||
+      "127.0.0.1";
+    const { success, pending } = await ratelimit.limit(`rl_${ip}_${pathname}`);
+    if (ev) {
+      ev.waitUntil(pending);
+    }
+    if (!success) {
+      console.warn(
+        `[Security] Rate limit exceeded for IP: ${ip} on ${pathname}`,
+      );
+      return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
+    }
+  }
 
   /* 0️⃣ Security Hardening: Admin IP Whitelisting */
   if (isAdminRoute(req)) {
@@ -63,8 +106,14 @@ export async function proxy(req: NextRequest) {
       .filter(Boolean);
 
     if (allowedIps && allowedIps.length > 0) {
-      const clientIp =
-        req.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
+      let clientIp = "127.0.0.1";
+      if (process.env.TRUST_PROXY === "true") {
+        clientIp =
+          req.headers.get("x-real-ip") ||
+          req.headers.get("x-forwarded-for")?.split(",")[0] ||
+          "127.0.0.1";
+      }
+      clientIp = clientIp.trim();
 
       // Allow localhost for dev convenience if not explicitly blocked
       const isLocalhost = clientIp === "127.0.0.1" || clientIp === "::1";
