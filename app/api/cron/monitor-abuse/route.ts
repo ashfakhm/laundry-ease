@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
@@ -7,21 +6,28 @@ import {
   EXCESSIVE_CANCELLATION_THRESHOLD,
 } from "@/lib/constants";
 import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 // GET /api/cron/monitor-abuse
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   // Verify Cron Secret - CRITICAL for production security
   const authHeader = req.headers.get("authorization");
   if (!env.CRON_SECRET) {
     logger.error("CRON", "CRON_SECRET not configured - cron endpoint disabled");
-    return NextResponse.json(
-      { error: "Cron endpoint not configured" },
-      { status: 503 },
+    return errorResponse(
+      new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        503,
+        "Cron endpoint not configured",
+      ),
     );
   }
 
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return errorResponse(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+    );
   }
 
   const run = await startCronRun("monitor-abuse");
@@ -85,17 +91,16 @@ export async function GET(req: NextRequest) {
     }
 
     const result = {
-      success: true,
       flaggedCount: cancelledBookings.length,
       flaggedUsers: cancelledBookings.map((b) => b._id),
     };
 
     await completeCronRun(run.insertedId, "success", result);
 
-    return NextResponse.json(result);
+    return successResponse(result);
   } catch (error: unknown) {
     await completeCronRun(run.insertedId, "error", undefined, error);
     logger.error("CRON", "Abuse monitor error", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

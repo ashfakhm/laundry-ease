@@ -106,7 +106,12 @@ describe("GET /api/cron/notify-system-alerts", () => {
     const body = await res.json();
 
     expect(res.status).toBe(401);
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error).toEqual(
+      expect.objectContaining({
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+      }),
+    );
     expect(mockStartCronRun).not.toHaveBeenCalled();
   });
 
@@ -144,9 +149,9 @@ describe("GET /api/cron/notify-system-alerts", () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.openAlerts).toBe(1);
-    expect(body.due.notify).toBe(1);
-    expect(body.delivered.notify.skipped).toBe(false);
+    expect(body.data.openAlerts).toBe(1);
+    expect(body.data.due.notify).toBe(1);
+    expect(body.data.delivered.notify.skipped).toBe(false);
 
     expect(mockStartCronRun).toHaveBeenCalledWith("notify-system-alerts");
     expect(mockDeliverAlertDigest).toHaveBeenCalledTimes(1);
@@ -155,7 +160,10 @@ describe("GET /api/cron/notify-system-alerts", () => {
     expect(mockCompleteCronRun).toHaveBeenCalledWith(
       expect.any(ObjectId),
       "success",
-      expect.objectContaining({ success: true }),
+      expect.objectContaining({
+        openAlerts: 1,
+        due: expect.objectContaining({ notify: 1 }),
+      }),
     );
   });
 });

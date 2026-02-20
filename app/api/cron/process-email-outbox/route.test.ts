@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 
-const {
-  mockProcessEmailOutboxBatch,
-  mockStartCronRun,
-  mockCompleteCronRun,
-} = vi.hoisted(() => ({
-  mockProcessEmailOutboxBatch: vi.fn(),
-  mockStartCronRun: vi.fn(),
-  mockCompleteCronRun: vi.fn(),
-}));
+const { mockProcessEmailOutboxBatch, mockStartCronRun, mockCompleteCronRun } =
+  vi.hoisted(() => ({
+    mockProcessEmailOutboxBatch: vi.fn(),
+    mockStartCronRun: vi.fn(),
+    mockCompleteCronRun: vi.fn(),
+  }));
 
 vi.mock("@/lib/env", () => ({
   env: {
@@ -59,7 +56,12 @@ describe("GET /api/cron/process-email-outbox", () => {
     const body = await res.json();
 
     expect(res.status).toBe(401);
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error).toEqual(
+      expect.objectContaining({
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+      }),
+    );
     expect(mockProcessEmailOutboxBatch).not.toHaveBeenCalled();
   });
 
@@ -76,8 +78,8 @@ describe("GET /api/cron/process-email-outbox", () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.limit).toBe(75);
-    expect(body.processed).toBe(2);
+    expect(body.data.limit).toBe(75);
+    expect(body.data.processed).toBe(2);
     expect(mockStartCronRun).toHaveBeenCalledWith("process-email-outbox");
     expect(mockProcessEmailOutboxBatch).toHaveBeenCalledWith({
       limit: 75,

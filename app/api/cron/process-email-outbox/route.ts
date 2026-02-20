@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { processEmailOutboxBatch } from "@/lib/email-outbox";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -19,14 +21,19 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (!env.CRON_SECRET) {
     logger.error("CRON", "CRON_SECRET not configured - email outbox disabled");
-    return NextResponse.json(
-      { error: "Cron endpoint not configured" },
-      { status: 503 },
+    return errorResponse(
+      new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        503,
+        "Cron endpoint not configured",
+      ),
     );
   }
 
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return errorResponse(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+    );
   }
 
   const run = await startCronRun("process-email-outbox");
@@ -40,20 +47,16 @@ export async function GET(req: NextRequest) {
     });
 
     const response = {
-      success: true,
       ...result,
       limit,
       processedAt: new Date().toISOString(),
     };
 
     await completeCronRun(run.insertedId, "success", response);
-    return NextResponse.json(response);
+    return successResponse(response);
   } catch (error) {
     await completeCronRun(run.insertedId, "error", undefined, error);
     logger.error("CRON", "Email outbox cron failed", error);
-    return NextResponse.json(
-      { error: "Email outbox processing failed" },
-      { status: 500 },
-    );
+    return errorResponse(error);
   }
 }

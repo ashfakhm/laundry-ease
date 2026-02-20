@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { processEligibleEscrowPayouts } from "@/lib/payouts";
 import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,14 +14,19 @@ export async function GET(req: NextRequest) {
         "CRON",
         "CRON_SECRET not configured - cron endpoint disabled",
       );
-      return NextResponse.json(
-        { error: "Cron endpoint not configured" },
-        { status: 503 },
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          503,
+          "Cron endpoint not configured",
+        ),
       );
     }
 
     if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     const run = await startCronRun("process-payouts");
@@ -34,8 +41,7 @@ export async function GET(req: NextRequest) {
         results: result.results,
       });
 
-      return NextResponse.json({
-        success: true,
+      return successResponse({
         processed: result.processed,
         results: result.results,
       });
@@ -45,6 +51,6 @@ export async function GET(req: NextRequest) {
     }
   } catch (error: unknown) {
     logger.error("CRON", "Process payouts cron error", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

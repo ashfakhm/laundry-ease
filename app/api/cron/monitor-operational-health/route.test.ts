@@ -107,7 +107,12 @@ describe("GET /api/cron/monitor-operational-health", () => {
     const body = await res.json();
 
     expect(res.status).toBe(401);
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error).toEqual(
+      expect.objectContaining({
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+      }),
+    );
     expect(mockStartCronRun).not.toHaveBeenCalled();
   });
 
@@ -132,14 +137,17 @@ describe("GET /api/cron/monitor-operational-health", () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.activeSignals).toEqual([]);
-    expect(body.openedOrUpdated).toBe(0);
-    expect(body.resolvedCount).toBe(0);
+    expect(body.data.activeSignals).toEqual([]);
+    expect(body.data.openedOrUpdated).toBe(0);
+    expect(body.data.resolvedCount).toBe(0);
     expect(mockStartCronRun).toHaveBeenCalledWith("monitor-operational-health");
     expect(mockCompleteCronRun).toHaveBeenCalledWith(
       expect.any(ObjectId),
       "success",
-      expect.objectContaining({ success: true }),
+      expect.objectContaining({
+        activeSignals: [],
+        openedOrUpdated: 0,
+      }),
     );
   });
 });

@@ -49,26 +49,36 @@ describe("GET /api/cron/process-payouts", () => {
   });
 
   it("returns 401 when token is missing", async () => {
-    const req = new Request("https://laundryease.test/api/cron/process-payouts");
+    const req = new Request(
+      "https://laundryease.test/api/cron/process-payouts",
+    );
     const res = await GET(req as never);
     const body = await res.json();
 
     expect(res.status).toBe(401);
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error).toEqual(
+      expect.objectContaining({
+        code: "UNAUTHORIZED",
+        message: "Unauthorized",
+      }),
+    );
     expect(mockStartCronRun).not.toHaveBeenCalled();
   });
 
   it("processes payouts when authorized", async () => {
-    const req = new Request("https://laundryease.test/api/cron/process-payouts", {
-      headers: { authorization: "Bearer test-cron-secret" },
-    });
+    const req = new Request(
+      "https://laundryease.test/api/cron/process-payouts",
+      {
+        headers: { authorization: "Bearer test-cron-secret" },
+      },
+    );
 
     const res = await GET(req as never);
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.processed).toBe(2);
+    expect(body.data.processed).toBe(2);
     expect(mockStartCronRun).toHaveBeenCalledWith("process-payouts");
     expect(mockProcessEligibleEscrowPayouts).toHaveBeenCalledWith({
       source: "cron_process_payouts",

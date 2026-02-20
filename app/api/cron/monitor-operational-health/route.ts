@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
@@ -13,15 +13,14 @@ import {
   type OperationalSignal,
 } from "@/lib/ops/health";
 import { ObjectId } from "mongodb";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const ACTIVE_COMPLAINT_STATUSES = ["open", "accepted", "in_review"] as const;
 
 type OperationalAlertDocument = {
   kind: "operational";
-  key:
-    | "overdue_held_orders"
-    | "payout_failures_spike"
-    | "overdue_complaints";
+  key: "overdue_held_orders" | "payout_failures_spike" | "overdue_complaints";
   entityType: "system";
   entityId: "global";
   severity: "critical" | "high";
@@ -53,14 +52,19 @@ export async function GET(req: NextRequest) {
       "CRON",
       "CRON_SECRET not configured - operational monitor endpoint disabled",
     );
-    return NextResponse.json(
-      { error: "Cron endpoint not configured" },
-      { status: 503 },
+    return errorResponse(
+      new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        503,
+        "Cron endpoint not configured",
+      ),
     );
   }
 
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return errorResponse(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+    );
   }
 
   const run = await startCronRun("monitor-operational-health");
@@ -176,10 +180,7 @@ export async function GET(req: NextRequest) {
     }
 
     const existingOpenAlerts = await alertCollection
-      .find(
-        { kind: "operational", status: "open" },
-        { projection: { key: 1 } },
-      )
+      .find({ kind: "operational", status: "open" }, { projection: { key: 1 } })
       .toArray();
 
     const resolveOps = existingOpenAlerts
@@ -212,7 +213,6 @@ export async function GET(req: NextRequest) {
     }
 
     const result = {
-      success: true,
       monitoredAt: now.toISOString(),
       metrics: {
         actionableOverdueHeldOrders,
@@ -244,13 +244,10 @@ export async function GET(req: NextRequest) {
       metrics: result.metrics,
     });
 
-    return NextResponse.json(result);
+    return successResponse(result);
   } catch (error) {
     await completeCronRun(run.insertedId, "error", undefined, error);
     logger.error("CRON", "Operational health monitor failed", error);
-    return NextResponse.json(
-      { error: "Operational health monitor failed" },
-      { status: 500 },
-    );
+    return errorResponse(error);
   }
 }

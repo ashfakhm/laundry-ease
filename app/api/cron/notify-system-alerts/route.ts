@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
@@ -11,6 +11,8 @@ import {
   type AlertDeliveryResult,
 } from "@/lib/ops/alert-channels";
 import type { ObjectId } from "mongodb";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 type SystemAlertDocument = {
   _id: ObjectId;
@@ -62,14 +64,19 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (!env.CRON_SECRET) {
     logger.error("CRON", "CRON_SECRET not configured - notify alerts disabled");
-    return NextResponse.json(
-      { error: "Cron endpoint not configured" },
-      { status: 503 },
+    return errorResponse(
+      new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        503,
+        "Cron endpoint not configured",
+      ),
     );
   }
 
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return errorResponse(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+    );
   }
 
   const run = await startCronRun("notify-system-alerts");
@@ -118,7 +125,8 @@ export async function GET(req: NextRequest) {
         routingDecisions.map((decision) => ({
           updateOne: {
             filter: {
-              _id: alerts.find((alert) => alert._id.toString() === decision.id)?._id,
+              _id: alerts.find((alert) => alert._id.toString() === decision.id)
+                ?._id,
               status: "open",
               $or: [
                 { "ownership.acknowledgedAt": { $exists: false } },
@@ -273,7 +281,6 @@ export async function GET(req: NextRequest) {
     }
 
     const result = {
-      success: true,
       at: now.toISOString(),
       openAlerts: alerts.length,
       due: {
@@ -293,13 +300,10 @@ export async function GET(req: NextRequest) {
 
     await completeCronRun(run.insertedId, "success", result);
     logger.info("CRON", "System alert notifications completed", result);
-    return NextResponse.json(result);
+    return successResponse(result);
   } catch (error) {
     await completeCronRun(run.insertedId, "error", undefined, error);
     logger.error("CRON", "System alert notifications failed", error);
-    return NextResponse.json(
-      { error: "System alert notification failed" },
-      { status: 500 },
-    );
+    return errorResponse(error);
   }
 }
