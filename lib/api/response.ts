@@ -10,14 +10,17 @@ import { logger } from "@/lib/logger";
 
 export function successResponse<T>(
   data: T,
-  status = 200
+  status = 200,
 ): NextResponse<ApiSuccessResponse<T>> {
   return NextResponse.json(
     {
       success: true as const,
+      ok: true,
+      message: null,
+      error: null,
       data,
     },
-    { status }
+    { status },
   );
 }
 
@@ -27,13 +30,15 @@ export function errorResponse(error: unknown): NextResponse {
     return NextResponse.json(
       {
         success: false as const,
+        ok: false,
+        message: error.message,
         error: {
           code: error.code,
           message: error.message,
           ...(error.details && { details: error.details }),
         },
       },
-      { status: error.statusCode }
+      { status: error.statusCode },
     );
   }
 
@@ -48,13 +53,15 @@ export function errorResponse(error: unknown): NextResponse {
     return NextResponse.json(
       {
         success: false as const,
+        ok: false,
+        message: "Validation failed",
         error: {
           code: ErrorCode.VALIDATION_ERROR,
           message: "Validation failed",
           details: { fields: fieldErrors },
         },
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -68,12 +75,14 @@ export function errorResponse(error: unknown): NextResponse {
   return NextResponse.json(
     {
       success: false as const,
+      ok: false,
+      message: "An unexpected error occurred",
       error: {
         code: ErrorCode.INTERNAL_ERROR,
         message: "An unexpected error occurred",
       },
     },
-    { status: 500 }
+    { status: 500 },
   );
 }
 
@@ -82,10 +91,7 @@ export function errorResponse(error: unknown): NextResponse {
  * Compatible with Next.js App Router API routes
  */
 export function withErrorHandling<T, C = unknown>(
-  handler: (
-    req: Request,
-    context?: C
-  ) => Promise<NextResponse<ApiResponse<T>>>
+  handler: (req: Request, context?: C) => Promise<NextResponse<ApiResponse<T>>>,
 ) {
   return async (req: Request, context?: C): Promise<Response> => {
     try {

@@ -8,7 +8,7 @@ export class AppError extends Error {
     public readonly code: ErrorCode,
     public readonly statusCode: number,
     message: string,
-    public readonly details?: Record<string, unknown>
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "AppError";
@@ -42,6 +42,7 @@ export const ErrorCode = {
   DUPLICATE_RESOURCE: "DUPLICATE_RESOURCE",
   BOOKING_ALREADY_PROCESSED: "BOOKING_ALREADY_PROCESSED",
   ORDER_ALREADY_PAID: "ORDER_ALREADY_PAID",
+  CONFLICT: "CONFLICT",
 
   // Business Logic (422)
   INVALID_STATE_TRANSITION: "INVALID_STATE_TRANSITION",
@@ -105,6 +106,6 @@ export const Errors = {
     new AppError(
       ErrorCode.RATE_LIMITED,
       429,
-      "Too many requests. Please try again later."
+      "Too many requests. Please try again later.",
     ),
 } as const;
