@@ -63,7 +63,10 @@ async function hasBlockingComplaint(orderId: ObjectId): Promise<boolean> {
   return Boolean(complaint);
 }
 
-async function releasePayoutLock(orderId: ObjectId, set?: Record<string, unknown>) {
+async function releasePayoutLock(
+  orderId: ObjectId,
+  set?: Record<string, unknown>,
+) {
   const { db } = await getDb();
   await db.collection<Order>("orders").updateOne(
     { _id: orderId },
@@ -141,7 +144,9 @@ export async function initiateOrderPayout(
   }
 
   try {
-    const lockedOrder = await db.collection<Order>("orders").findOne({ _id: orderId });
+    const lockedOrder = await db
+      .collection<Order>("orders")
+      .findOne({ _id: orderId });
     if (!lockedOrder) {
       await releasePayoutLock(orderId);
       return { orderId: orderId.toString(), status: "not_found" };
@@ -181,11 +186,16 @@ export async function initiateOrderPayout(
       const released = await releaseEscrowPayment(orderId);
       if (!released) {
         await releasePayoutLock(orderId, { payout_status: "pending" });
-        return { orderId: orderId.toString(), status: "escrow_release_blocked" };
+        return {
+          orderId: orderId.toString(),
+          status: "escrow_release_blocked",
+        };
       }
     }
 
-    const currentOrder = await db.collection<Order>("orders").findOne({ _id: orderId });
+    const currentOrder = await db
+      .collection<Order>("orders")
+      .findOne({ _id: orderId });
     if (!currentOrder) {
       await releasePayoutLock(orderId);
       return { orderId: orderId.toString(), status: "not_found" };
@@ -244,7 +254,10 @@ export async function initiateOrderPayout(
         );
       } else {
         platformCommission = round2(
-          Math.max(0, Number(currentOrder.total_price || 0) - providerPayoutAmount),
+          Math.max(
+            0,
+            Number(currentOrder.total_price || 0) - providerPayoutAmount,
+          ),
         );
       }
     } else {
@@ -345,12 +358,27 @@ export async function processEligibleEscrowPayouts(options?: {
     .toArray();
 
   const results: PayoutResult[] = [];
+  const CONCURRENCY_LIMIT = 5;
 
-  for (const order of candidateOrders) {
-    const result = await initiateOrderPayout(order._id, {
-      source,
-    });
-    results.push(result);
+  for (let i = 0; i < candidateOrders.length; i += CONCURRENCY_LIMIT) {
+    const chunk = candidateOrders.slice(i, i + CONCURRENCY_LIMIT);
+    const chunkPromises = chunk.map((order) =>
+      initiateOrderPayout(order._id, { source }),
+    );
+
+    const chunkResults = await Promise.allSettled(chunkPromises);
+
+    for (const res of chunkResults) {
+      if (res.status === "fulfilled") {
+        results.push(res.value);
+      } else {
+        logger.error(
+          "PAYOUTS",
+          "Unexpected error in batch payout chunk",
+          res.reason,
+        );
+      }
+    }
   }
 
   return {
