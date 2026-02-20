@@ -56,6 +56,29 @@ export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const token = (await getToken({ req })) as JWT | null;
 
+  /* 0️⃣ Security Hardening: Admin IP Whitelisting */
+  if (isAdminRoute(req)) {
+    const allowedIps = process.env.ADMIN_ALLOWLIST_IPS?.split(",")
+      .map((ip) => ip.trim())
+      .filter(Boolean);
+
+    if (allowedIps && allowedIps.length > 0) {
+      const clientIp =
+        req.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
+
+      // Allow localhost for dev convenience if not explicitly blocked
+      const isLocalhost = clientIp === "127.0.0.1" || clientIp === "::1";
+      const isAllowed =
+        allowedIps.includes(clientIp) ||
+        (process.env.NODE_ENV !== "production" && isLocalhost);
+
+      if (!isAllowed) {
+        console.warn(`[Security] Blocked Admin access from IP: ${clientIp}`);
+        return NextResponse.redirect(new URL("/unauthorized", req.url));
+      }
+    }
+  }
+
   if (
     pathname.startsWith("/api/") &&
     isUnsafeHttpMethod(req.method) &&

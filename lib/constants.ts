@@ -102,6 +102,7 @@ export const CRON_JOB_NAMES = [
   "monitor-operational-health",
   "notify-system-alerts",
   "process-email-outbox",
+  "reconciliation",
 ] as const;
 
 export type CronJobName = (typeof CRON_JOB_NAMES)[number];

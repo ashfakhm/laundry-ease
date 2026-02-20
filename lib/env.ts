@@ -47,6 +47,10 @@ const envSchema = z.object({
   OPS_ALERT_EMAIL_TO: z.string().optional().or(z.literal("")),
   OPS_ALERT_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
   OPS_ALERT_WEBHOOK_BEARER: z.string().optional().or(z.literal("")),
+
+  // Security Hardening
+  CSP_ENFORCE: z.enum(["true", "false"]).optional().default("false"),
+  ADMIN_ALLOWLIST_IPS: z.string().optional().or(z.literal("")),
 });
 
 export const env = envSchema.parse(process.env);
