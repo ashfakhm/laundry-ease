@@ -275,6 +275,7 @@ export async function POST(
 
     let refund: { id?: string } | null = null;
     let payoutApplied = false;
+    let payoutPendingManual = false;
     let refundApplied = false;
 
     try {
@@ -292,14 +293,44 @@ export async function POST(
           "already_processing",
         ]);
 
-        if (!successStatuses.has(payoutResult.status)) {
+        // When RazorpayX is not configured or provider has no fund account,
+        // mark payout as pending manual transfer instead of failing entirely.
+        const manualPayoutStatuses = new Set([
+          "failed_no_fund_account",
+          "failed_account_not_configured",
+        ]);
+
+        if (successStatuses.has(payoutResult.status)) {
+          payoutApplied = true;
+        } else if (manualPayoutStatuses.has(payoutResult.status)) {
+          payoutPendingManual = true;
+          await db.collection("orders").updateOne(
+            { _id: orderId },
+            {
+              $set: {
+                payout_status: "pending_manual",
+                provider_payout_amount: providerPayoutAmount,
+                platform_commission: round2(platformCommission),
+                payout_updated_at: new Date(),
+              },
+              $unset: {
+                payout_lock_at: "",
+                payout_failure_reason: "",
+                payout_failure_at: "",
+              },
+            },
+          );
+          logger.warn("ADMIN_COMPLAINTS", "Payout marked as pending_manual", {
+            complaintId: id,
+            reason: payoutResult.status,
+            providerPayoutAmount,
+          });
+        } else {
           throw new Error(
             payoutResult.message ||
               `Unable to release payout (status: ${payoutResult.status})`,
           );
         }
-
-        payoutApplied = true;
       }
 
       if (seekerRefundAmount > EPSILON) {
@@ -408,12 +439,15 @@ export async function POST(
       },
     );
 
+    const manualNote = payoutPendingManual
+      ? " Provider payout requires manual transfer."
+      : "";
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
       complaint_id: complaintId,
       sender_id: new ObjectId(session.user.id),
       sender_role: "system",
       message_type: "SYSTEM",
-      content: `${resolved.statusMessage}. Seeker: ${formatInr(seekerRefundAmount)}, Provider: ${formatInr(providerPayoutAmount)}, Platform: ${formatInr(platformCommission)}.`,
+      content: `${resolved.statusMessage}. Seeker: ${formatInr(seekerRefundAmount)}, Provider: ${formatInr(providerPayoutAmount)}, Platform: ${formatInr(platformCommission)}.${manualNote}`,
       createdAt: new Date(),
     };
 
@@ -422,6 +456,7 @@ export async function POST(
     return legacySuccessResponse({
       outcome: resolved.dbOutcome,
       status: resolved.dbStatus,
+      payoutPendingManual,
       settlement: {
         seeker_refund_amount: seekerRefundAmount,
         provider_payout_amount: providerPayoutAmount,

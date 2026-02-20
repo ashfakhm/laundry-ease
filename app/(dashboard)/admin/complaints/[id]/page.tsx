@@ -160,6 +160,11 @@ export default function AdminComplaintDetailPage({
         } else {
           showToast.success("Complaint resolved successfully");
         }
+        if (data?.payoutPendingManual) {
+          showToast.error(
+            `⚠️ Provider payout of ${formatInr(Number(settlement?.provider_payout_amount || 0))} requires manual transfer (UPI/bank).`,
+          );
+        }
         router.push("/admin/complaints");
       } else {
         showToast.error(
