@@ -161,20 +161,38 @@ export default function AdminComplaintDetailPage({
           showToast.success("Complaint resolved successfully");
         }
         if (data?.payoutPendingManual || data?.refundPendingManual) {
-          const parts: string[] = [];
-          if (data?.payoutPendingManual) {
-            parts.push(
-              `Provider payout of ${formatInr(Number(settlement?.provider_payout_amount || 0))}`,
+          const details = data.manualTransferDetails || {};
+          const lines: string[] = ["⚠️ MANUAL TRANSFER REQUIRED\n"];
+
+          if (data?.payoutPendingManual && details.provider) {
+            const p = details.provider;
+            lines.push(
+              `── Provider Payout: ${formatInr(Number(settlement?.provider_payout_amount || 0))} ──`,
             );
+            lines.push(`Name: ${p.name}`);
+            if (p.upiId) lines.push(`UPI: ${p.upiId}`);
+            if (p.accountNumber) lines.push(`Account: ${p.accountNumber}`);
+            if (p.ifsc) lines.push(`IFSC: ${p.ifsc}`);
+            if (p.accountHolderName)
+              lines.push(`Holder: ${p.accountHolderName}`);
+            if (p.email) lines.push(`Email: ${p.email}`);
+            if (p.phone) lines.push(`Phone: ${p.phone}`);
+            lines.push("");
           }
-          if (data?.refundPendingManual) {
-            parts.push(
-              `Seeker refund of ${formatInr(Number(settlement?.seeker_refund_amount || 0))}`,
+
+          if (data?.refundPendingManual && details.seeker) {
+            const s = details.seeker;
+            lines.push(
+              `── Seeker Refund: ${formatInr(Number(settlement?.seeker_refund_amount || 0))} ──`,
             );
+            lines.push(`Name: ${s.name}`);
+            if (s.email) lines.push(`Email: ${s.email}`);
+            if (s.phone) lines.push(`Phone: ${s.phone}`);
+            lines.push("");
           }
-          showToast.error(
-            `⚠️ ${parts.join(" and ")} requires manual transfer (UPI/bank).`,
-          );
+
+          lines.push("Please transfer the amounts manually via UPI/bank.");
+          alert(lines.join("\n"));
         }
         router.push("/admin/complaints");
       } else {

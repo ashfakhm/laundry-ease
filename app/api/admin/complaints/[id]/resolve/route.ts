@@ -482,11 +482,62 @@ export async function POST(
 
     await db.collection("complaint_messages").insertOne(systemMsg);
 
+    // Fetch contact/bank details for manual transfers
+    let manualTransferDetails: Record<string, unknown> | undefined;
+    if (payoutPendingManual || refundPendingManual) {
+      manualTransferDetails = {};
+
+      if (payoutPendingManual && order.provider_id) {
+        const provider = await db
+          .collection("providers")
+          .findOne(
+            { _id: order.provider_id },
+            {
+              projection: {
+                name: 1,
+                businessName: 1,
+                email: 1,
+                phone: 1,
+                bankDetails: 1,
+              },
+            },
+          );
+        if (provider) {
+          manualTransferDetails.provider = {
+            name: provider.businessName || provider.name || "Provider",
+            email: provider.email,
+            phone: provider.phone,
+            upiId: provider.bankDetails?.upiId || null,
+            accountNumber: provider.bankDetails?.accountNumber || null,
+            ifsc: provider.bankDetails?.ifsc || null,
+            accountHolderName: provider.bankDetails?.accountHolderName || null,
+          };
+        }
+      }
+
+      if (refundPendingManual && order.seeker_id) {
+        const seeker = await db
+          .collection("seekers")
+          .findOne(
+            { _id: order.seeker_id },
+            { projection: { name: 1, email: 1, phone: 1 } },
+          );
+        if (seeker) {
+          manualTransferDetails.seeker = {
+            name: seeker.name || "Seeker",
+            email: seeker.email,
+            phone: seeker.phone,
+          };
+        }
+      }
+    }
+
     return legacySuccessResponse({
       outcome: resolved.dbOutcome,
       status: resolved.dbStatus,
       payoutPendingManual,
       refundPendingManual,
+      manualTransferDetails,
       settlement: {
         seeker_refund_amount: seekerRefundAmount,
         provider_payout_amount: providerPayoutAmount,
