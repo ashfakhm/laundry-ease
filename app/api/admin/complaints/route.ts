@@ -6,14 +6,21 @@ import {
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
+import { enforceRateLimit } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
 /**
  * GET /api/admin/complaints
  * Fetch all complaints with seeker and provider details
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await enforceRateLimit(req, {
+      bucket: "admin:complaints:get",
+      max: 40,
+      windowMs: 60 * 1000,
+    });
+
     await requireAdminWithDbCheck();
 
     const { db } = await getDb();

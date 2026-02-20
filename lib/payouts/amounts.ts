@@ -1,4 +1,5 @@
 import { DEFAULT_PLATFORM_COMMISSION_RATE } from "@/lib/constants";
+import Decimal from "decimal.js";
 
 type PayoutAmountInput = {
   total_price?: number | null;
@@ -11,53 +12,71 @@ export type PayoutAmountBreakdown = {
   platformCommission: number;
 };
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+function toDecimal(value: unknown): Decimal | null {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  return new Decimal(num);
 }
 
-function toFiniteNumber(value: unknown): number | null {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : null;
+/**
+ * Ensures a decimal is not negative and rounded to 2 decimal places.
+ */
+function normalizePositiveDecimal(dec: Decimal): number {
+  return Decimal.max(0, dec).toDecimalPlaces(2).toNumber();
 }
 
 /**
  * Derives payout split with a deterministic fallback:
  * 1) respect stored provider payout when present
  * 2) otherwise respect stored platform commission when present
- * 3) otherwise fallback to 5% platform commission
+ * 3) otherwise fallback to default platform commission (e.g. 5%)
  */
 export function derivePayoutAmounts(
   order: PayoutAmountInput,
 ): PayoutAmountBreakdown {
-  const total = round2(Math.max(0, toFiniteNumber(order.total_price) ?? 0));
-  const storedPayout = toFiniteNumber(order.provider_payout_amount);
-  const storedCommission = toFiniteNumber(order.platform_commission);
+  const total = toDecimal(order.total_price) ?? new Decimal(0);
+  const normalizedTotal = Decimal.max(0, total);
+
+  const storedPayout = toDecimal(order.provider_payout_amount);
+  const storedCommission = toDecimal(order.platform_commission);
 
   if (storedPayout !== null) {
-    const normalizedPayout = round2(Math.max(0, storedPayout));
-    const derivedCommission = round2(Math.max(0, total - normalizedPayout));
+    const normalizedPayout = Decimal.max(0, storedPayout);
+    const derivedCommission = Decimal.max(
+      0,
+      normalizedTotal.minus(normalizedPayout),
+    );
+
     return {
-      providerPayoutAmount: normalizedPayout,
+      providerPayoutAmount: normalizePositiveDecimal(normalizedPayout),
       platformCommission:
         storedCommission !== null
-          ? round2(Math.max(0, storedCommission))
-          : derivedCommission,
+          ? normalizePositiveDecimal(storedCommission)
+          : normalizePositiveDecimal(derivedCommission),
     };
   }
 
   if (storedCommission !== null) {
-    const normalizedCommission = round2(Math.max(0, storedCommission));
+    const normalizedCommission = Decimal.max(0, storedCommission);
     return {
-      providerPayoutAmount: round2(Math.max(0, total - normalizedCommission)),
-      platformCommission: normalizedCommission,
+      providerPayoutAmount: normalizePositiveDecimal(
+        normalizedTotal.minus(normalizedCommission),
+      ),
+      platformCommission: normalizePositiveDecimal(normalizedCommission),
     };
   }
 
-  const defaultCommission = round2(
-    Math.max(0, total * DEFAULT_PLATFORM_COMMISSION_RATE),
+  const defaultCommissionRate = new Decimal(DEFAULT_PLATFORM_COMMISSION_RATE);
+  const defaultCommission = Decimal.max(
+    0,
+    normalizedTotal.times(defaultCommissionRate),
   );
+
   return {
-    providerPayoutAmount: round2(Math.max(0, total - defaultCommission)),
-    platformCommission: defaultCommission,
+    providerPayoutAmount: normalizePositiveDecimal(
+      normalizedTotal.minus(defaultCommission),
+    ),
+    platformCommission: normalizePositiveDecimal(defaultCommission),
   };
 }

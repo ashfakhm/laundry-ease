@@ -9,6 +9,7 @@ import { ObjectId } from "mongodb";
 import { buildAlertAnalytics } from "@/lib/ops/alerts-analytics";
 import { alertAgeMinutes, isAckSlaBreached } from "@/lib/ops/ack-sla";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import { enforceRateLimit } from "@/lib/api/security";
 import { AppError } from "@/lib/api/errors";
 import {
   CRITICAL_ALERT_ACK_SLA_MS,
@@ -49,8 +50,13 @@ function toObjectId(value: unknown): ObjectId | null {
   return null;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await enforceRateLimit(req, {
+      bucket: "admin:dashboard_stats:get",
+      max: 30, // Dashboard stats are extremely heavy
+      windowMs: 60 * 1000,
+    });
     await requireAdminWithDbCheck();
 
     const { db } = await getDb();

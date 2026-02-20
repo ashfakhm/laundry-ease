@@ -151,7 +151,7 @@ describe("GET /api/admin/dashboard-stats", () => {
       new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
     );
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost"));
     const data = await res.json();
 
     expect(res.status).toBe(401);
@@ -164,7 +164,7 @@ describe("GET /api/admin/dashboard-stats", () => {
       new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"),
     );
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost"));
 
     expect(res.status).toBe(403);
     expect(mockGetDb).not.toHaveBeenCalled();
@@ -284,7 +284,7 @@ describe("GET /api/admin/dashboard-stats", () => {
       },
     ]);
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost"));
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -444,7 +444,7 @@ describe("GET /api/admin/dashboard-stats", () => {
   it("returns 500 when db read fails", async () => {
     mockGetDb.mockRejectedValue(new Error("db_unavailable"));
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost"));
     const data = await res.json();
 
     expect(res.status).toBe(500);

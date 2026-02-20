@@ -7,6 +7,7 @@ import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
 import { AppError } from "@/lib/api/errors";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import { enforceRateLimit } from "@/lib/api/security";
 import { WithId } from "mongodb";
 
 interface UserDocument {
@@ -20,8 +21,14 @@ interface UserDocument {
 
 type UserWithRole = WithId<UserDocument> & { role: Role };
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await enforceRateLimit(req, {
+      bucket: "admin:users:get",
+      max: 40,
+      windowMs: 60 * 1000,
+    });
+
     await requireAdminWithDbCheck();
 
     const { db } = await getDb();

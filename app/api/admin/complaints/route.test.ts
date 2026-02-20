@@ -72,7 +72,7 @@ describe("GET /api/admin/complaints", () => {
       },
     ]);
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -93,7 +93,7 @@ describe("GET /api/admin/complaints", () => {
       new AppError(ErrorCode.FORBIDDEN, 403, "Admin access required"),
     );
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost"));
     const body = await res.json();
 
     expect(res.status).toBe(403);

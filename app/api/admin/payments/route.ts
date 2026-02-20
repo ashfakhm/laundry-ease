@@ -29,8 +29,13 @@ const actionSchema = z.object({
   reason: z.string().min(3).optional(),
 });
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    await enforceRateLimit(req, {
+      bucket: "admin:payments:get",
+      max: 40,
+      windowMs: 60 * 1000,
+    });
     await requireAdminWithDbCheck();
 
     const { db } = await getDb();
