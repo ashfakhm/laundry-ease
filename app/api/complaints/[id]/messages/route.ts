@@ -133,11 +133,16 @@ export async function GET(
     const messageQuery: {
       complaint_id: ObjectId;
       createdAt?: { $gt: Date };
+      message_type?: { $ne: string };
     } = {
       complaint_id: complaintId,
     };
     if (since) {
       messageQuery.createdAt = { $gt: since };
+    }
+    // Hide internal system messages (error logs, financial details) from non-admin users
+    if (user.role !== "admin") {
+      messageQuery.message_type = { $ne: "SYSTEM" };
     }
 
     const messages = await db
