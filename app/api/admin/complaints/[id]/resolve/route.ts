@@ -7,7 +7,10 @@ import { getOrderById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
-import { refundRazorpayPayment } from "@/lib/razorpay";
+import {
+  refundRazorpayPayment,
+  fetchRazorpayPaymentDetails,
+} from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
 import { adminComplaintResolveSchema } from "@/lib/api/schemas";
 import { initiateOrderPayout } from "@/lib/payouts";
@@ -488,20 +491,18 @@ export async function POST(
       manualTransferDetails = {};
 
       if (payoutPendingManual && order.provider_id) {
-        const provider = await db
-          .collection("providers")
-          .findOne(
-            { _id: order.provider_id },
-            {
-              projection: {
-                name: 1,
-                businessName: 1,
-                email: 1,
-                phone: 1,
-                bankDetails: 1,
-              },
+        const provider = await db.collection("providers").findOne(
+          { _id: order.provider_id },
+          {
+            projection: {
+              name: 1,
+              businessName: 1,
+              email: 1,
+              phone: 1,
+              bankDetails: 1,
             },
-          );
+          },
+        );
         if (provider) {
           manualTransferDetails.provider = {
             name: provider.businessName || provider.name || "Provider",
@@ -522,11 +523,25 @@ export async function POST(
             { _id: order.seeker_id },
             { projection: { name: 1, email: 1, phone: 1 } },
           );
+
+        // Fetch payment method details from Razorpay to get seeker's UPI/bank info
+        let paymentDetails = null;
+        if (order.razorpay_payment_id) {
+          paymentDetails = await fetchRazorpayPaymentDetails(
+            order.razorpay_payment_id,
+          );
+        }
+
         if (seeker) {
           manualTransferDetails.seeker = {
             name: seeker.name || "Seeker",
-            email: seeker.email,
-            phone: seeker.phone,
+            email: paymentDetails?.email || seeker.email,
+            phone: paymentDetails?.contact || seeker.phone,
+            paymentMethod: paymentDetails?.method || null,
+            vpa: paymentDetails?.vpa || null,
+            bank: paymentDetails?.bank || null,
+            card: paymentDetails?.card || null,
+            wallet: paymentDetails?.wallet || null,
           };
         }
       }

@@ -87,7 +87,7 @@ interface RazorpayPayouts {
 export async function createRazorpayOrder(
   amount: number,
   receipt: string,
-  currency: string = "INR"
+  currency: string = "INR",
 ) {
   const options: RazorpayOrderOptions = {
     amount: amount.toString(),
@@ -99,7 +99,9 @@ export async function createRazorpayOrder(
     const order = await razorpay.orders.create(options);
     return order;
   } catch (error) {
-    logger.error("RAZORPAY", "Error creating Razorpay order", error, { receipt });
+    logger.error("RAZORPAY", "Error creating Razorpay order", error, {
+      receipt,
+    });
     throw error;
   }
 }
@@ -113,7 +115,7 @@ export async function createRazorpayOrder(
 export function verifyRazorpaySignature(
   orderId: string,
   paymentId: string,
-  signature: string
+  signature: string,
 ): boolean {
   if (!process.env.RAZORPAY_KEY_SECRET) {
     throw new Error("RAZORPAY_KEY_SECRET is not configured");
@@ -136,7 +138,7 @@ export function verifyRazorpaySignature(
 export async function refundRazorpayPayment(
   paymentId: string,
   amount?: number,
-  notes?: Record<string, string>
+  notes?: Record<string, string>,
 ) {
   if (isE2EFakePaymentsEnabled()) {
     return {
@@ -158,8 +160,41 @@ export async function refundRazorpayPayment(
     const refund = await razorpay.payments.refund(paymentId, params);
     return refund;
   } catch (error) {
-    logger.error("RAZORPAY", "Error refunding Razorpay payment", error, { paymentId, amount });
+    logger.error("RAZORPAY", "Error refunding Razorpay payment", error, {
+      paymentId,
+      amount,
+    });
     throw error;
+  }
+}
+
+/**
+ * Fetch payment details (method, VPA, bank, card info) for a given payment ID
+ * Useful for extracting seeker's payment details for manual refund
+ */
+export async function fetchRazorpayPaymentDetails(paymentId: string) {
+  try {
+    const payment = await razorpay.payments.fetch(paymentId);
+    return {
+      method: payment.method || null, // upi, card, netbanking, wallet
+      vpa: payment.vpa || null, // UPI VPA (e.g. user@upi)
+      bank: payment.bank || null, // Bank code for netbanking
+      wallet: payment.wallet || null,
+      email: payment.email || null,
+      contact: payment.contact || null,
+      card: payment.card
+        ? {
+            last4: payment.card.last4 || null,
+            network: payment.card.network || null,
+            issuer: payment.card.issuer || null,
+          }
+        : null,
+    };
+  } catch (error) {
+    logger.error("RAZORPAY", "Error fetching payment details", error, {
+      paymentId,
+    });
+    return null;
   }
 }
 
@@ -193,7 +228,7 @@ async function razorpayFetch<T>(
       .catch(() => ({ error: { description: res.statusText } }));
     throw new Error(
       (err as { error?: { description?: string } }).error?.description ||
-        "Razorpay API Error"
+        "Razorpay API Error",
     );
   }
   return res.json() as Promise<T>;
@@ -212,7 +247,9 @@ export async function createRazorpayContact(data: {
   try {
     return await razorpayFetch<RazorpayContact>("/contacts", "POST", data);
   } catch (error) {
-    logger.error("RAZORPAY", "Error creating Razorpay contact", error, { name: data.name });
+    logger.error("RAZORPAY", "Error creating Razorpay contact", error, {
+      name: data.name,
+    });
     throw error;
   }
 }
@@ -236,7 +273,9 @@ export async function createRazorpayFundAccount(data: {
       data,
     );
   } catch (error) {
-    logger.error("RAZORPAY", "Error creating Fund Account", error, { contactId: data.contact_id });
+    logger.error("RAZORPAY", "Error creating Fund Account", error, {
+      contactId: data.contact_id,
+    });
     throw error;
   }
 }
@@ -258,7 +297,9 @@ export async function createRazorpayFundAccountVpa(data: {
       data,
     );
   } catch (error) {
-    logger.error("RAZORPAY", "Error creating VPA Fund Account", error, { contactId: data.contact_id });
+    logger.error("RAZORPAY", "Error creating VPA Fund Account", error, {
+      contactId: data.contact_id,
+    });
     throw error;
   }
 }
@@ -298,7 +339,10 @@ export async function createRazorpayPayout(data: {
     }
     return await payoutsApi.create(data);
   } catch (error) {
-    logger.error("RAZORPAY", "Error creating Payout", error, { fundAccountId: data.fund_account_id, amount: data.amount });
+    logger.error("RAZORPAY", "Error creating Payout", error, {
+      fundAccountId: data.fund_account_id,
+      amount: data.amount,
+    });
     throw error;
   }
 }

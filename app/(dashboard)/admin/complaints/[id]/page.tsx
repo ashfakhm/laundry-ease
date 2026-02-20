@@ -186,6 +186,15 @@ export default function AdminComplaintDetailPage({
               `── Seeker Refund: ${formatInr(Number(settlement?.seeker_refund_amount || 0))} ──`,
             );
             lines.push(`Name: ${s.name}`);
+            if (s.paymentMethod)
+              lines.push(`Payment Method: ${s.paymentMethod.toUpperCase()}`);
+            if (s.vpa) lines.push(`UPI: ${s.vpa}`);
+            if (s.bank) lines.push(`Bank: ${s.bank}`);
+            if (s.wallet) lines.push(`Wallet: ${s.wallet}`);
+            if (s.card)
+              lines.push(
+                `Card: ${s.card.network || ""} ****${s.card.last4 || ""}${s.card.issuer ? ` (${s.card.issuer})` : ""}`,
+              );
             if (s.email) lines.push(`Email: ${s.email}`);
             if (s.phone) lines.push(`Phone: ${s.phone}`);
             lines.push("");
