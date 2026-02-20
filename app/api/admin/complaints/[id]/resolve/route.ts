@@ -277,6 +277,7 @@ export async function POST(
     let payoutApplied = false;
     let payoutPendingManual = false;
     let refundApplied = false;
+    let refundPendingManual = false;
 
     try {
       if (providerPayoutAmount > EPSILON) {
@@ -335,21 +336,45 @@ export async function POST(
 
       if (seekerRefundAmount > EPSILON) {
         if (!order.razorpay_payment_id) {
-          throw new Error(
-            "Cannot process refund: payment reference missing on order.",
+          // No payment reference — mark as manual refund needed
+          refundPendingManual = true;
+          logger.warn(
+            "ADMIN_COMPLAINTS",
+            "Refund marked as pending_manual (no payment ID)",
+            {
+              complaintId: id,
+              seekerRefundAmount,
+            },
           );
+        } else {
+          try {
+            refund = await refundRazorpayPayment(
+              order.razorpay_payment_id,
+              toPaise(seekerRefundAmount),
+              {
+                source: "complaint_resolution",
+                complaint_id: complaintId.toString(),
+                outcome: resolved.dbOutcome,
+              },
+            );
+            refundApplied = true;
+          } catch (refundError) {
+            // Razorpay refund failed — mark as manual refund needed
+            refundPendingManual = true;
+            logger.warn(
+              "ADMIN_COMPLAINTS",
+              "Refund marked as pending_manual (Razorpay error)",
+              {
+                complaintId: id,
+                seekerRefundAmount,
+                error:
+                  refundError instanceof Error
+                    ? refundError.message
+                    : String(refundError),
+              },
+            );
+          }
         }
-
-        refund = await refundRazorpayPayment(
-          order.razorpay_payment_id,
-          toPaise(seekerRefundAmount),
-          {
-            source: "complaint_resolution",
-            complaint_id: complaintId.toString(),
-            outcome: resolved.dbOutcome,
-          },
-        );
-        refundApplied = true;
       }
     } catch (finError: unknown) {
       if (!payoutApplied && !refundApplied) {
@@ -439,9 +464,13 @@ export async function POST(
       },
     );
 
-    const manualNote = payoutPendingManual
-      ? " Provider payout requires manual transfer."
-      : "";
+    const manualNotes: string[] = [];
+    if (payoutPendingManual)
+      manualNotes.push("Provider payout requires manual transfer.");
+    if (refundPendingManual)
+      manualNotes.push("Seeker refund requires manual transfer.");
+    const manualNote =
+      manualNotes.length > 0 ? " " + manualNotes.join(" ") : "";
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
       complaint_id: complaintId,
       sender_id: new ObjectId(session.user.id),
@@ -457,6 +486,7 @@ export async function POST(
       outcome: resolved.dbOutcome,
       status: resolved.dbStatus,
       payoutPendingManual,
+      refundPendingManual,
       settlement: {
         seeker_refund_amount: seekerRefundAmount,
         provider_payout_amount: providerPayoutAmount,

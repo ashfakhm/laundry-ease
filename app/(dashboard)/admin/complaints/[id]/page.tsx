@@ -160,9 +160,20 @@ export default function AdminComplaintDetailPage({
         } else {
           showToast.success("Complaint resolved successfully");
         }
-        if (data?.payoutPendingManual) {
+        if (data?.payoutPendingManual || data?.refundPendingManual) {
+          const parts: string[] = [];
+          if (data?.payoutPendingManual) {
+            parts.push(
+              `Provider payout of ${formatInr(Number(settlement?.provider_payout_amount || 0))}`,
+            );
+          }
+          if (data?.refundPendingManual) {
+            parts.push(
+              `Seeker refund of ${formatInr(Number(settlement?.seeker_refund_amount || 0))}`,
+            );
+          }
           showToast.error(
-            `⚠️ Provider payout of ${formatInr(Number(settlement?.provider_payout_amount || 0))} requires manual transfer (UPI/bank).`,
+            `⚠️ ${parts.join(" and ")} requires manual transfer (UPI/bank).`,
           );
         }
         router.push("/admin/complaints");
