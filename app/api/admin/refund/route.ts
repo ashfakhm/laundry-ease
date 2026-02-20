@@ -1,16 +1,11 @@
-import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { adminRefundSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import {
-  legacyMessageBody,
-  legacySuccessBody,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import type { Order } from "@/types/orders";
 import type { Booking } from "@/types/bookings";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
@@ -19,7 +14,10 @@ function toPaise(amountRupees: number) {
   return Math.round(amountRupees * 100);
 }
 
-function buildRefundNotes(reason: string | undefined, context: Record<string, string>) {
+function buildRefundNotes(
+  reason: string | undefined,
+  context: Record<string, string>,
+) {
   return {
     ...(reason ? { reason } : {}),
     ...context,
@@ -44,11 +42,11 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsed = adminRefundSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        legacyMessageBody("Invalid refund data", {
-          details: parsed.error.flatten().fieldErrors,
-        }),
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid refund data",
+        parsed.error.flatten().fieldErrors,
       );
     }
 
@@ -59,16 +57,18 @@ export async function POST(req: Request) {
     const { amount, reason } = parsedData;
 
     if (!bookingId && !orderId) {
-      return NextResponse.json(
-        legacyMessageBody("Either bookingId or orderId is required"),
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Either bookingId or orderId is required",
       );
     }
 
     if (bookingId && orderId) {
-      return NextResponse.json(
-        legacyMessageBody("Provide only one target: bookingId or orderId"),
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Provide only one target: bookingId or orderId",
       );
     }
 
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
     if (orderId) {
       if (!ObjectId.isValid(orderId)) {
-        return NextResponse.json(legacyMessageBody("Invalid orderId"), { status: 400 });
+        throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid orderId");
       }
 
       const orderObjectId = new ObjectId(orderId);
@@ -84,47 +84,50 @@ export async function POST(req: Request) {
         _id: orderObjectId,
       });
       if (!order) {
-        return NextResponse.json(legacyMessageBody("Order not found"), { status: 404 });
+        throw new AppError(ErrorCode.NOT_FOUND, 404, "Order not found");
       }
 
-      if (!order.razorpay_payment_id || order.razorpay_payment_id !== paymentId) {
-        return NextResponse.json(
-          legacyMessageBody("Payment ID does not match this order"),
-          { status: 409 },
+      if (
+        !order.razorpay_payment_id ||
+        order.razorpay_payment_id !== paymentId
+      ) {
+        throw new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Payment ID does not match this order",
         );
       }
 
       if (order.payment_status === "refunded") {
-        return NextResponse.json(
-          legacySuccessBody({
-            idempotent: true,
-            message: "Order is already refunded",
-          }),
-        );
+        return successResponse({
+          idempotent: true,
+          message: "Order is already refunded",
+        });
       }
 
       if (!["paid", "held", "released"].includes(order.payment_status)) {
-        return NextResponse.json(
-          legacyMessageBody("Order payment is not in a refundable state"),
-          { status: 409 },
+        throw new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Order payment is not in a refundable state",
         );
       }
 
       if (order.payout_id && order.payout_status !== "failed") {
-        return NextResponse.json(
-          legacyMessageBody(
-            "Cannot auto-refund after payout has started. Resolve manually with provider recovery.",
-          ),
-          { status: 409 },
+        throw new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Cannot auto-refund after payout has started. Resolve manually with provider recovery.",
         );
       }
 
       const refundAmountRupees =
         typeof amount === "number" ? amount : Number(order.total_price || 0);
       if (!Number.isFinite(refundAmountRupees) || refundAmountRupees <= 0) {
-        return NextResponse.json(
-          legacyMessageBody("Invalid refund amount"),
-          { status: 400 },
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid refund amount",
         );
       }
 
@@ -164,11 +167,11 @@ export async function POST(req: Request) {
         at: new Date(),
       });
 
-      return NextResponse.json(legacySuccessBody({ refund }));
+      return successResponse({ refund });
     }
 
     if (!ObjectId.isValid(bookingId!)) {
-      return NextResponse.json(legacyMessageBody("Invalid bookingId"), { status: 400 });
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid bookingId");
     }
 
     const bookingObjectId = new ObjectId(bookingId!);
@@ -176,47 +179,50 @@ export async function POST(req: Request) {
       _id: bookingObjectId,
     });
     if (!booking) {
-      return NextResponse.json(legacyMessageBody("Booking not found"), { status: 404 });
+      throw new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found");
     }
 
-    if (!booking.razorpay_payment_id || booking.razorpay_payment_id !== paymentId) {
-      return NextResponse.json(
-        legacyMessageBody("Payment ID does not match this booking"),
-        { status: 409 },
+    if (
+      !booking.razorpay_payment_id ||
+      booking.razorpay_payment_id !== paymentId
+    ) {
+      throw new AppError(
+        ErrorCode.CONFLICT,
+        409,
+        "Payment ID does not match this booking",
       );
     }
 
     if (booking.bookingFeeStatus === "refunded") {
-      return NextResponse.json(
-        legacySuccessBody({
-          idempotent: true,
-          message: "Booking fee is already refunded",
-        }),
-      );
+      return successResponse({
+        idempotent: true,
+        message: "Booking fee is already refunded",
+      });
     }
 
     if (booking.bookingFeeStatus === "applied") {
-      return NextResponse.json(
-        legacyMessageBody(
-          "Booking fee was already released to provider and cannot be auto-refunded.",
-        ),
-        { status: 409 },
+      throw new AppError(
+        ErrorCode.CONFLICT,
+        409,
+        "Booking fee was already released to provider and cannot be auto-refunded.",
       );
     }
 
     if (booking.bookingFeeStatus !== "paid") {
-      return NextResponse.json(
-        legacyMessageBody("Booking fee is not in a refundable state"),
-        { status: 409 },
+      throw new AppError(
+        ErrorCode.CONFLICT,
+        409,
+        "Booking fee is not in a refundable state",
       );
     }
 
     const refundAmountRupees =
       typeof amount === "number" ? amount : Number(booking.bookingFee || 0);
     if (!Number.isFinite(refundAmountRupees) || refundAmountRupees <= 0) {
-      return NextResponse.json(
-        legacyMessageBody("Invalid refund amount"),
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid refund amount",
       );
     }
 
@@ -254,10 +260,10 @@ export async function POST(req: Request) {
       at: new Date(),
     });
 
-    return NextResponse.json(legacySuccessBody({ refund }));
+    return successResponse({ refund });
   } catch (error: unknown) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return errorResponse(error);
     }
 
     logger.error("ADMIN_REFUND", "Refund error", error, {
@@ -266,9 +272,6 @@ export async function POST(req: Request) {
       orderId,
     });
 
-    return NextResponse.json(
-      legacyMessageBody("Internal server error"),
-      { status: 500 },
-    );
+    return errorResponse(error);
   }
 }

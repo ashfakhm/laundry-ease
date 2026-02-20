@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { ObjectId, type Db, type MongoClient } from "mongodb";
 
@@ -139,12 +147,17 @@ describe("POST /api/admin/refund (integration)", () => {
       }),
     );
 
-    const updatedOrder = await db.collection("orders").findOne({ _id: orderId });
+    const updatedOrder = await db
+      .collection("orders")
+      .findOne({ _id: orderId });
     expect(updatedOrder?.payment_status).toBe("refunded");
     expect(updatedOrder?.refund_reason).toBe("Manual settlement correction");
     expect(updatedOrder?.razorpay_refund_id).toBe("rfnd_live_1");
 
-    const logs = await db.collection("admin_logs").find({ orderId: orderId.toString() }).toArray();
+    const logs = await db
+      .collection("admin_logs")
+      .find({ orderId: orderId.toString() })
+      .toArray();
     expect(logs).toHaveLength(1);
   });
 
@@ -169,7 +182,7 @@ describe("POST /api/admin/refund (integration)", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.idempotent).toBe(true);
+    expect(data.data.idempotent).toBe(true);
     expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
   });
 
@@ -197,7 +210,9 @@ describe("POST /api/admin/refund (integration)", () => {
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
 
-    const updatedBooking = await db.collection("bookings").findOne({ _id: bookingId });
+    const updatedBooking = await db
+      .collection("bookings")
+      .findOne({ _id: bookingId });
     expect(updatedBooking?.bookingFeeStatus).toBe("refunded");
     expect(updatedBooking?.booking_fee_refund_id).toBe("rfnd_live_1");
   });

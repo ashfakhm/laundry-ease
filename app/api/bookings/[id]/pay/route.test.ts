@@ -1,132 +1,206 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { POST, PUT } from "./route";
 import { ObjectId } from "mongodb";
 
-const {
-  mockRequireSeeker,
-  mockGetDb,
-  mockVerifyRazorpaySignature,
-  mockRequireSameOrigin,
-  mockEnforceRateLimit,
-} = vi.hoisted(() => ({
-  mockRequireSeeker: vi.fn(),
-  mockGetDb: vi.fn(),
-  mockVerifyRazorpaySignature: vi.fn(),
-  mockRequireSameOrigin: vi.fn(),
-  mockEnforceRateLimit: vi.fn(),
-}));
+// Mocks
+const mockGetBookingById = vi.fn();
+const mockGetDb = vi.fn();
+const mockCreateRazorpayOrder = vi.fn();
+const mockVerifyRazorpaySignature = vi.fn();
+const mockRequireSeeker = vi.fn();
+const mockRequireSameOrigin = vi.fn();
+const mockEnforceRateLimit = vi.fn();
+const mockUpdateOne = vi.fn();
+const mockFindOne = vi.fn();
 
-vi.mock("@/lib/api/auth", () => ({
-  requireSeeker: mockRequireSeeker,
+vi.mock("@/lib/db/index", () => ({
+  getBookingById: (id: unknown) => mockGetBookingById(id),
 }));
 
 vi.mock("@/lib/mongodb", () => ({
-  getDb: mockGetDb,
+  getDb: () => mockGetDb(),
 }));
 
 vi.mock("@/lib/razorpay", () => ({
-  createRazorpayOrder: vi.fn(),
-  verifyRazorpaySignature: mockVerifyRazorpaySignature,
+  createRazorpayOrder: (amount: unknown, receipt: unknown) =>
+    mockCreateRazorpayOrder(amount, receipt),
+  verifyRazorpaySignature: (
+    orderId: unknown,
+    paymentId: unknown,
+    sig: unknown,
+  ) => mockVerifyRazorpaySignature(orderId, paymentId, sig),
+}));
+
+vi.mock("@/lib/api/auth", () => ({
+  requireSeeker: () => mockRequireSeeker(),
 }));
 
 vi.mock("@/lib/api/security", () => ({
-  requireSameOrigin: mockRequireSameOrigin,
-  enforceRateLimit: mockEnforceRateLimit,
-}));
-
-vi.mock("@/lib/db/index", () => ({
-  getBookingById: vi.fn(),
+  requireSameOrigin: (req: unknown) => mockRequireSameOrigin(req),
+  enforceRateLimit: (req: unknown, opts: unknown) =>
+    mockEnforceRateLimit(req, opts),
 }));
 
 vi.mock("@/lib/logger", () => ({
   logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn(),
   },
 }));
 
-import { PUT } from "./route";
-
-describe("PUT /api/bookings/[id]/pay", () => {
+describe("/api/bookings/[id]/pay", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireSameOrigin.mockResolvedValue(undefined);
-    mockEnforceRateLimit.mockResolvedValue(undefined);
-    mockVerifyRazorpaySignature.mockReturnValue(true);
-    mockRequireSeeker.mockResolvedValue({
-      user: { id: new ObjectId().toString(), role: "seeker" },
-    });
-  });
-
-  it("returns compatibility error payload for invalid booking id", async () => {
-    const req = new Request("https://laundryease.test/api/bookings/bad/pay", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        razorpay_payment_id: "pay_1",
-        razorpay_order_id: "order_1",
-        razorpay_signature: "sig_1",
-      }),
-    });
-
-    const res = await PUT(req, { params: Promise.resolve({ id: "bad-id" }) });
-    const body = await res.json();
-
-    expect(res.status).toBe(400);
-    expect(body.message).toBe("Invalid booking id");
-    expect(body.error).toBe("Invalid booking id");
-  });
-
-  it("returns compatibility success payload for idempotent paid booking", async () => {
-    const bookingId = new ObjectId();
-    const seekerId = new ObjectId();
-    const paymentId = "pay_1";
-    const orderId = "order_1";
-
-    mockRequireSeeker.mockResolvedValue({
-      user: { id: seekerId.toString(), role: "seeker" },
-    });
-
-    const findOne = vi.fn().mockResolvedValue({
-      _id: bookingId,
-      seeker_id: seekerId,
-      status: "requested",
-      bookingFeeStatus: "paid",
-      razorpay_payment_id: paymentId,
-      razorpay_order_id: orderId,
-    });
+    // Default mock implementations
     mockGetDb.mockResolvedValue({
       db: {
-        collection: vi.fn(() => ({
-          findOne,
-          updateOne: vi.fn(),
-        })),
-      },
-    });
-
-    const req = new Request(
-      `https://laundryease.test/api/bookings/${bookingId.toString()}/pay`,
-      {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          razorpay_payment_id: paymentId,
-          razorpay_order_id: orderId,
-          razorpay_signature: "sig_1",
+        collection: () => ({
+          updateOne: mockUpdateOne,
+          findOne: mockFindOne,
         }),
       },
-    );
-
-    const res = await PUT(req, {
-      params: Promise.resolve({ id: bookingId.toString() }),
     });
-    const body = await res.json();
+    mockRequireSameOrigin.mockResolvedValue(undefined);
+    mockEnforceRateLimit.mockResolvedValue(undefined);
+  });
 
-    expect(res.status).toBe(200);
-    expect(body.success).toBe(true);
-    expect(body.ok).toBe(true);
-    expect(body.idempotent).toBe(true);
-    expect(body.message).toBe("Payment successful");
+  describe("POST (Create Order)", () => {
+    it("should create a razorpay order successfully", async () => {
+      const bookingId = new ObjectId();
+      const seekerId = new ObjectId();
+
+      const req = new Request("http://localhost");
+      const params = Promise.resolve({ id: bookingId.toString() });
+
+      mockRequireSeeker.mockResolvedValue({
+        user: { id: seekerId.toString() },
+      });
+      mockGetBookingById.mockResolvedValue({
+        _id: bookingId,
+        seeker_id: seekerId, // Match seeker
+        status: "requested",
+        bookingFee: 50,
+        bookingFeeStatus: "pending",
+      });
+      mockCreateRazorpayOrder.mockResolvedValue({
+        id: "rp_order_1",
+        amount: 5000,
+        currency: "INR",
+      });
+
+      const res = await POST(req, { params });
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.ok).toBe(true); // Legacy compatibility
+      expect(json.data.id).toBe("rp_order_1");
+
+      // Match the $set object loosely since it contains a dynamic Date
+      expect(mockUpdateOne).toHaveBeenCalledWith(
+        { _id: bookingId },
+        {
+          $set: expect.objectContaining({
+            razorpay_order_id: "rp_order_1",
+          }),
+        },
+      );
+    });
+
+    it("should return 400 for invalid booking fee", async () => {
+      const bookingId = new ObjectId();
+      const seekerId = new ObjectId();
+      const params = Promise.resolve({ id: bookingId.toString() });
+      const req = new Request("http://localhost");
+
+      mockRequireSeeker.mockResolvedValue({
+        user: { id: seekerId.toString() },
+      });
+      mockGetBookingById.mockResolvedValue({
+        _id: bookingId,
+        seeker_id: seekerId,
+        status: "requested",
+        bookingFee: 0, // Invalid
+      });
+
+      const res = await POST(req, { params });
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.success).toBe(false);
+      // Check standard top-level message
+      expect(json.message).toBe("Invalid booking fee amount");
+      // Check nested error object message
+      expect(json.error.message).toBe("Invalid booking fee amount");
+    });
+  });
+
+  describe("PUT (Verify Payment)", () => {
+    it("should verify payment successfully", async () => {
+      const bookingId = new ObjectId();
+      const seekerId = new ObjectId();
+      const req = new Request("http://localhost", {
+        method: "PUT",
+        body: JSON.stringify({
+          razorpay_payment_id: "pay_1",
+          razorpay_order_id: "order_1",
+          razorpay_signature: "sig_1",
+        }),
+      });
+      const params = Promise.resolve({ id: bookingId.toString() });
+
+      mockRequireSeeker.mockResolvedValue({
+        user: { id: seekerId.toString() },
+      });
+      mockVerifyRazorpaySignature.mockReturnValue(true);
+      mockFindOne.mockResolvedValue({
+        _id: bookingId,
+        seeker_id: seekerId,
+        status: "requested",
+        razorpay_order_id: "order_1",
+        bookingFeeStatus: "pending",
+      });
+      mockUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      const res = await PUT(req, { params });
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.data.message).toBe("Payment successful");
+    });
+
+    it("should return idempotency response if already paid", async () => {
+      const bookingId = new ObjectId();
+      const seekerId = new ObjectId();
+      const req = new Request("http://localhost", {
+        method: "PUT",
+        body: JSON.stringify({
+          razorpay_payment_id: "pay_1", // Same ID
+          razorpay_order_id: "order_1",
+          razorpay_signature: "sig_1",
+        }),
+      });
+      const params = Promise.resolve({ id: bookingId.toString() });
+
+      mockRequireSeeker.mockResolvedValue({
+        user: { id: seekerId.toString() },
+      });
+      mockVerifyRazorpaySignature.mockReturnValue(true);
+      mockFindOne.mockResolvedValue({
+        _id: bookingId,
+        seeker_id: seekerId,
+        status: "requested",
+        razorpay_order_id: "order_1",
+        bookingFeeStatus: "paid", // Already paid
+        razorpay_payment_id: "pay_1", // Matching ID
+      });
+
+      const res = await PUT(req, { params });
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.data.idempotent).toBe(true);
+    });
   });
 });

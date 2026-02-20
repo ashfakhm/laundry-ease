@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 
 const { mockVerifyBookingFeePayment } = vi.hoisted(() => ({
   mockVerifyBookingFeePayment: vi.fn(),
@@ -14,14 +14,17 @@ import { POST } from "./route";
 const BOOKING_ID = "507f1f77bcf86cd799439072";
 
 function makeRequest(body: unknown): NextRequest {
-  return new Request("https://laundryease.test/api/bookings/payment/verify", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      origin: "https://laundryease.test",
+  return new NextRequest(
+    "https://laundryease.test/api/bookings/payment/verify",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        origin: "https://laundryease.test",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  }) as unknown as NextRequest;
+  );
 }
 
 describe("POST /api/bookings/payment/verify (legacy alias)", () => {
@@ -44,7 +47,13 @@ describe("POST /api/bookings/payment/verify (legacy alias)", () => {
 
   it("normalizes payload and wraps upstream success", async () => {
     mockVerifyBookingFeePayment.mockResolvedValue(
-      Response.json({ message: "Payment successful", idempotent: false }, { status: 200 }),
+      Response.json(
+        {
+          success: true,
+          data: { message: "Payment successful", idempotent: false },
+        },
+        { status: 200 },
+      ),
     );
 
     const res = await POST(
@@ -56,7 +65,8 @@ describe("POST /api/bookings/payment/verify (legacy alias)", () => {
       }),
     );
 
-    const forwardedReq = mockVerifyBookingFeePayment.mock.calls[0][0] as Request;
+    const forwardedReq = mockVerifyBookingFeePayment.mock
+      .calls[0][0] as Request;
     const forwardedBody = await forwardedReq.json();
     const params = await mockVerifyBookingFeePayment.mock.calls[0][1].params;
     const data = await res.json();
@@ -75,4 +85,3 @@ describe("POST /api/bookings/payment/verify (legacy alias)", () => {
     });
   });
 });
-

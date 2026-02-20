@@ -73,14 +73,17 @@ function makeDbMock() {
 }
 
 function makeRequest(method: "POST" | "PUT", body: unknown) {
-  return new Request(`https://laundryease.test/api/orders/${ORDER_ID}/payment`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      origin: "https://laundryease.test",
+  return new Request(
+    `https://laundryease.test/api/orders/${ORDER_ID}/payment`,
+    {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        origin: "https://laundryease.test",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+  );
 }
 
 describe("order payment route", () => {
@@ -126,7 +129,7 @@ describe("order payment route", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.id).toBe("order_rzp_1");
+    expect(data.data.id).toBe("order_rzp_1");
     expect(mockCreateRazorpayOrder).toHaveBeenCalledWith(49900, ORDER_ID);
     expect(dbMock.orderUpdateOne).toHaveBeenCalledOnce();
   });
@@ -153,7 +156,7 @@ describe("order payment route", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.idempotent).toBe(true);
+    expect(data.data.idempotent).toBe(true);
     expect(mockVerifyRazorpaySignature).not.toHaveBeenCalled();
   });
 
@@ -179,7 +182,7 @@ describe("order payment route", () => {
     const data = await res.json();
 
     expect(res.status).toBe(409);
-    expect(data.error).toBe("Order is already paid");
+    expect(data.message).toBe("Order is already paid");
   });
 
   it("marks unpaid order as paid after signature verification", async () => {
@@ -207,6 +210,7 @@ describe("order payment route", () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
+    expect(data.data.updated).toBe(true);
     expect(mockVerifyRazorpaySignature).toHaveBeenCalledWith(
       "order_1",
       "pay_1",
@@ -254,7 +258,7 @@ describe("order payment route", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.idempotent).toBe(true);
+    expect(data.data.idempotent).toBe(true);
   });
 
   it("rejects invalid signature", async () => {
@@ -279,7 +283,7 @@ describe("order payment route", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toBe("Invalid signature");
+    expect(data.message).toBe("Invalid signature");
     expect(dbMock.orderUpdateOne).not.toHaveBeenCalled();
   });
 });

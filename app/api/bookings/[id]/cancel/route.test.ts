@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
 import { AppError, ErrorCode } from "@/lib/api/errors";
@@ -107,6 +107,12 @@ describe("POST /api/bookings/[id]/cancel", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T10:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns 401 when not authenticated", async () => {

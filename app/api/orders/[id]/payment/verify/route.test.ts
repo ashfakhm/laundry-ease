@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 
 const { mockVerifyOrderPayment } = vi.hoisted(() => ({
   mockVerifyOrderPayment: vi.fn(),
@@ -14,14 +14,17 @@ import { POST } from "./route";
 const ORDER_ID = "507f1f77bcf86cd799439061";
 
 function makeRequest(body: unknown): NextRequest {
-  return new Request(`https://laundryease.test/api/orders/${ORDER_ID}/payment/verify`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      origin: "https://laundryease.test",
+  return new NextRequest(
+    `https://laundryease.test/api/orders/${ORDER_ID}/payment/verify`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        origin: "https://laundryease.test",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  }) as unknown as NextRequest;
+  );
 }
 
 describe("POST /api/orders/[id]/payment/verify (legacy alias)", () => {
@@ -31,7 +34,10 @@ describe("POST /api/orders/[id]/payment/verify (legacy alias)", () => {
 
   it("normalizes camelCase payload before forwarding", async () => {
     mockVerifyOrderPayment.mockResolvedValue(
-      Response.json({ success: true, idempotent: true }, { status: 200 }),
+      Response.json(
+        { success: true, data: { idempotent: true } },
+        { status: 200 },
+      ),
     );
 
     const res = await POST(
@@ -53,10 +59,10 @@ describe("POST /api/orders/[id]/payment/verify (legacy alias)", () => {
       razorpay_payment_id: "pay_1",
       razorpay_signature: "sig_1",
     });
-    expect(data).toEqual({
-      success: true,
-      message: "Payment verified",
+    expect(data.success).toBe(true);
+    expect(data.data).toEqual({
       idempotent: true,
+      message: "Payment verified",
     });
   });
 
@@ -79,4 +85,3 @@ describe("POST /api/orders/[id]/payment/verify (legacy alias)", () => {
     expect(data.error).toBe("Invalid signature");
   });
 });
-

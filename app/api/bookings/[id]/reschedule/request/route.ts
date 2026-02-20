@@ -5,7 +5,6 @@ import { successResponse, withErrorHandling } from "@/lib/api/response";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { legacySuccessBody } from "@/lib/api/legacy-response";
 
 const requestRescheduleSchema = z.object({
   reason: z.string().trim().min(1).max(300).optional(),
@@ -78,7 +77,10 @@ export const POST = withErrorHandling(
       );
     }
 
-    if (booking.status === "invoice_created" || booking.status === "completed") {
+    if (
+      booking.status === "invoice_created" ||
+      booking.status === "completed"
+    ) {
       throw Errors.invalidState(
         "Reschedule is not allowed after invoice creation",
       );
@@ -125,6 +127,6 @@ export const POST = withErrorHandling(
       throw Errors.invalidState("Booking was not in a reschedulable state");
     }
 
-    return successResponse(legacySuccessBody());
+    return successResponse({});
   },
 );

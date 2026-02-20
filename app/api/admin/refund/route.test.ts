@@ -150,7 +150,11 @@ describe("POST /api/admin/refund", () => {
 
     const data = await res.json();
     expect(res.status).toBe(400);
-    expect(data.error).toBe("Invalid refund data");
+    expect(data.error).toEqual(
+      expect.objectContaining({
+        message: "Invalid refund data",
+      }),
+    );
     expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
   });
 
@@ -216,7 +220,7 @@ describe("POST /api/admin/refund", () => {
 
     const data = await res.json();
     expect(res.status).toBe(200);
-    expect(data.idempotent).toBe(true);
+    expect(data.data.idempotent).toBe(true);
     expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
     expect(dbMock.orderUpdateOne).not.toHaveBeenCalled();
     expect(dbMock.adminLogsInsertOne).not.toHaveBeenCalled();

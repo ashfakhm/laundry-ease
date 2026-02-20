@@ -243,7 +243,9 @@ describe("POST /api/bookings/[id]/invoice", () => {
 
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.message).toBe("Invoice can only be created for confirmed bookings");
+      expect(data.message).toBe(
+        "Invoice can only be created for confirmed bookings",
+      );
     });
   });
 
@@ -323,8 +325,16 @@ describe("POST /api/bookings/[id]/invoice", () => {
             status: "invoice_created",
             invoice: expect.objectContaining({
               items: expect.arrayContaining([
-                expect.objectContaining({ itemType: "Shirt", quantity: 5, unitPrice: 50 }),
-                expect.objectContaining({ itemType: "Pants", quantity: 3, unitPrice: 75 }),
+                expect.objectContaining({
+                  itemType: "Shirt",
+                  quantity: 5,
+                  unitPrice: 50,
+                }),
+                expect.objectContaining({
+                  itemType: "Pants",
+                  quantity: 3,
+                  unitPrice: 75,
+                }),
               ]),
               notes: "Test invoice",
               photos: ["https://example.com/photo1.jpg"],
@@ -452,7 +462,7 @@ describe("POST /api/bookings/[id]/invoice", () => {
 
       expect(res.status).toBe(500);
       const data = await res.json();
-      expect(data.message).toBe("Internal server error");
+      expect(data.message).toBe("An unexpected error occurred");
     });
   });
 });

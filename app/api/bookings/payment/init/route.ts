@@ -2,36 +2,49 @@ import { NextRequest, NextResponse } from "next/server";
 import { bookingPaymentInitSchema } from "@/lib/api/schemas";
 import { POST as createBookingFeeOrder } from "../../[id]/pay/route";
 import { env } from "@/lib/env";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode, ApiSuccessResponse } from "@/lib/api/errors";
 
 // Legacy alias for booking fee payment init.
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const parsed = bookingPaymentInitSchema.safeParse(body);
+  try {
+    const body = await req.json();
+    const parsed = bookingPaymentInitSchema.safeParse(body);
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: "Invalid booking ID",
-        details: parsed.error.flatten().fieldErrors,
-      },
-      { status: 400 },
-    );
+    if (!parsed.success) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid booking ID",
+        parsed.error.flatten().fieldErrors,
+      );
+    }
+
+    // Call the actual handler
+    const res = await createBookingFeeOrder(req, {
+      params: Promise.resolve({ id: parsed.data.bookingId }),
+    });
+
+    if (!res.ok) {
+      // If the underlying handler failed, we just pass through the error response
+      return res;
+    }
+
+    const json = (await res.json()) as ApiSuccessResponse<{
+      id: string;
+      amount: number;
+      currency: string;
+    }>;
+    // The inner handler returns data: { id, amount, currency }
+    const { id, amount, currency } = json.data;
+
+    return successResponse({
+      orderId: id,
+      amount: amount,
+      currency: currency,
+      keyId: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    return errorResponse(error);
   }
-
-  const res = await createBookingFeeOrder(req, {
-    params: Promise.resolve({ id: parsed.data.bookingId }),
-  });
-
-  if (!res.ok) {
-    return res;
-  }
-
-  const data = await res.json();
-  return NextResponse.json({
-    success: true,
-    orderId: data.id,
-    amount: data.amount,
-    currency: data.currency,
-    keyId: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-  });
 }

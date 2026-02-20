@@ -1,21 +1,16 @@
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { invoiceCreateSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
-import {
-  legacyMessageBody,
-  legacySuccessBody,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 // POST: Provider creates invoice for a confirmed booking
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -27,27 +22,24 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        legacyMessageBody("Invalid booking id"),
-        { status: 400 }
-      );
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id");
     }
     const bookingQuery: { _id: ObjectId } = { _id: new ObjectId(id) };
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json(legacyMessageBody("Unauthorized"), { status: 401 });
+      throw new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized");
     }
 
     const body = await req.json();
     const parsed = invoiceCreateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        legacyMessageBody("Invalid invoice data", {
-          details: parsed.error.flatten().fieldErrors,
-        }),
-        { status: 400 }
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid invoice data",
+        parsed.error.flatten().fieldErrors,
       );
     }
 
@@ -57,7 +49,7 @@ export async function POST(
 
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
-      return NextResponse.json(legacyMessageBody("Booking not found"), { status: 404 });
+      throw new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found");
     }
 
     // Only provider can create invoice for their booking
@@ -68,12 +60,13 @@ export async function POST(
       !provider ||
       booking.provider_id.toString() !== provider._id.toString()
     ) {
-      return NextResponse.json(legacyMessageBody("Unauthorized"), { status: 403 });
+      throw new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized");
     }
     if (booking.status !== "confirmed") {
-      return NextResponse.json(
-        legacyMessageBody("Invoice can only be created for confirmed bookings"),
-        { status: 400 }
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invoice can only be created for confirmed bookings",
       );
     }
 
@@ -81,7 +74,7 @@ export async function POST(
     // Calculate totals - Zod already validates all numbers are nonnegative
     const calculatedSubtotal = items.reduce(
       (sum: number, it) => sum + it.quantity * it.unitPrice,
-      0
+      0,
     );
     const cleanSubtotal =
       subtotal !== undefined ? subtotal : calculatedSubtotal;
@@ -118,16 +111,13 @@ export async function POST(
 
     // NOTE: Seeker notification for invoice review could be added here using existing Twilio/email infrastructure
 
-    return NextResponse.json(legacySuccessBody());
+    return successResponse({});
   } catch (error) {
-    if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+    if (!(error instanceof AppError)) {
+      logger.error("BOOKINGS", "Create invoice error", error, {
+        bookingId: id,
+      });
     }
-
-    logger.error("BOOKINGS", "Create invoice error", error, { bookingId: id });
-    return NextResponse.json(
-      legacyMessageBody("Internal server error"),
-      { status: 500 }
-    );
+    return errorResponse(error);
   }
 }

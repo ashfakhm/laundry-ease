@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  const data = await res.json();
+  const json = await res.json();
+  const data = json.data || json; // Fallback for safety
+
   return NextResponse.json({
     success: true,
     message: data?.message || "Payment verified",

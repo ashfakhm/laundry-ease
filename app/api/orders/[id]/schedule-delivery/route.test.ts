@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { Role } from "@/types/enums";
 
 const {
@@ -62,7 +62,7 @@ function makeDbMock() {
 }
 
 function makeRequest(orderId: string, body: unknown) {
-  return new Request(
+  return new NextRequest(
     `https://laundryease.test/api/orders/${orderId}/schedule-delivery`,
     {
       method: "POST",
@@ -72,7 +72,7 @@ function makeRequest(orderId: string, body: unknown) {
       },
       body: JSON.stringify(body),
     },
-  ) as unknown as NextRequest;
+  );
 }
 
 describe("POST /api/orders/[id]/schedule-delivery", () => {

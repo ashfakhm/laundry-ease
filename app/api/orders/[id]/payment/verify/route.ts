@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { PUT as verifyOrderPayment } from "../route";
+import { successResponse } from "@/lib/api/response";
+import { ApiSuccessResponse } from "@/lib/api/errors";
 
 // Legacy alias for order payment verification.
 // Accepts legacy camelCase payload and forwards canonical snake_case body.
@@ -28,10 +30,14 @@ export async function POST(
     return res;
   }
 
-  const data = await res.json();
-  return NextResponse.json({
-    success: Boolean(data?.success ?? true),
-    message: data?.message || "Payment verified",
-    idempotent: Boolean(data?.idempotent ?? false),
+  const json = (await res.json()) as ApiSuccessResponse<
+    { updated: boolean } | { idempotent: boolean }
+  >;
+  const data = json.data || json; // Fallback for safety
+
+  return successResponse({
+    message: "Payment verified",
+    idempotent: "idempotent" in data ? (data as any).idempotent : false,
+    ...data,
   });
 }

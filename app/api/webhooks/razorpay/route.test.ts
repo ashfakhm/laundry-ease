@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import crypto from "crypto";
 
-const {
-  mockGetDb,
-  mockEnv,
-} = vi.hoisted(() => ({
+const { mockGetDb, mockEnv } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockEnv: {
     RAZORPAY_KEY_SECRET: "test_secret_key_12345",
@@ -108,13 +105,20 @@ function makeWebhookRequest(body: string, signature?: string): NextRequest {
   });
 }
 
+const mockClient = {
+  startSession: vi.fn(() => ({
+    withTransaction: vi.fn(async (callback) => await callback({})),
+    endSession: vi.fn(),
+  })),
+};
+
 describe("POST /api/webhooks/razorpay", () => {
   let dbMock: ReturnType<typeof makeDbMock>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     dbMock = makeDbMock();
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    mockGetDb.mockResolvedValue({ db: dbMock.db, client: mockClient });
   });
 
   afterEach(() => {
@@ -208,7 +212,7 @@ describe("POST /api/webhooks/razorpay", () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
-      expect(data.duplicate).toBe(true);
+      expect(data.data.duplicate).toBe(true);
       // Should not process the event again
       expect(dbMock.paymentsUpdateOne).not.toHaveBeenCalled();
     });
@@ -293,7 +297,7 @@ describe("POST /api/webhooks/razorpay", () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
-      expect(data.received).toBe(true);
+      expect(data.data.received).toBe(true);
 
       // Verify payment update
       expect(dbMock.paymentsUpdateOne).toHaveBeenCalledWith(
@@ -306,7 +310,7 @@ describe("POST /api/webhooks/razorpay", () => {
             method: "card",
           }),
         }),
-        { upsert: true },
+        expect.objectContaining({ upsert: true, session: expect.anything() }),
       );
 
       // Verify order update
@@ -321,6 +325,7 @@ describe("POST /api/webhooks/razorpay", () => {
             razorpay_payment_id: "pay_capture_1",
           }),
         }),
+        expect.objectContaining({ session: expect.anything() }),
       );
     });
 
@@ -368,6 +373,7 @@ describe("POST /api/webhooks/razorpay", () => {
             razorpay_payment_id: "pay_booking_fee",
           }),
         }),
+        expect.objectContaining({ session: expect.anything() }),
       );
     });
   });
@@ -414,6 +420,7 @@ describe("POST /api/webhooks/razorpay", () => {
             error_description: "Payment failed due to insufficient funds",
           }),
         }),
+        expect.objectContaining({ session: expect.anything() }),
       );
 
       // Verify order update
@@ -428,6 +435,7 @@ describe("POST /api/webhooks/razorpay", () => {
             payment_last_error_code: "BAD_REQUEST_ERROR",
           }),
         }),
+        expect.objectContaining({ session: expect.anything() }),
       );
     });
   });
@@ -481,7 +489,7 @@ describe("POST /api/webhooks/razorpay", () => {
             status: "processed",
           }),
         }),
-        { upsert: true },
+        expect.objectContaining({ upsert: true, session: expect.anything() }),
       );
     });
 
@@ -530,6 +538,7 @@ describe("POST /api/webhooks/razorpay", () => {
             refund_amount: 500,
           }),
         }),
+        expect.objectContaining({ session: expect.anything() }),
       );
     });
   });
@@ -572,6 +581,7 @@ describe("POST /api/webhooks/razorpay", () => {
             bookingFeeStatus: "applied",
           }),
         }),
+        expect.objectContaining({ session: expect.anything() }),
       );
     });
 
@@ -611,6 +621,7 @@ describe("POST /api/webhooks/razorpay", () => {
             bookingFeeStatus: "paid",
           }),
         }),
+        expect.objectContaining({ session: expect.anything() }),
       );
     });
   });
@@ -634,7 +645,7 @@ describe("POST /api/webhooks/razorpay", () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.success).toBe(true);
-      expect(data.received).toBe(true);
+      expect(data.data.received).toBe(true);
     });
   });
 
@@ -668,7 +679,7 @@ describe("POST /api/webhooks/razorpay", () => {
 
       expect(res.status).toBe(500);
       const data = await res.json();
-      expect(data.message).toBe("Webhook processing failed");
+      expect(data.message).toBe("An unexpected error occurred");
 
       // Verify error was logged
       expect(dbMock.webhookEventsUpdateOne).toHaveBeenCalledWith(

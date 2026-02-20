@@ -1,26 +1,12 @@
-import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
-import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
+import { createRazorpayOrder } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { Booking } from "@/types/bookings";
-import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
-import {
-  appErrorLegacyResponse,
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
-
-function fail(
-  message: string,
-  status: number,
-  details?: Record<string, unknown>,
-) {
-  return legacyErrorResponse(message, status, details);
-}
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 // POST: Create Razorpay Order for Booking Fee
 export async function POST(
@@ -39,23 +25,24 @@ export async function POST(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return fail("Invalid booking id", 400);
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id");
     }
     const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return fail("Booking not found", 404);
+      throw new AppError(ErrorCode.BOOKING_NOT_FOUND, 404, "Booking not found");
     }
 
     if (booking.seeker_id.toString() !== user.id) {
-      return fail("Unauthorized", 403);
+      throw new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized");
     }
 
     if (booking.status !== "requested") {
-      return fail(
-        "Booking fee can only be paid while booking is waiting for provider response.",
+      throw new AppError(
+        ErrorCode.INVALID_STATE_TRANSITION,
         409,
+        "Booking fee can only be paid while booking is waiting for provider response.",
       );
     }
 
@@ -63,26 +50,39 @@ export async function POST(
       booking.bookingFeeStatus === "paid" ||
       booking.bookingFeeStatus === "applied"
     ) {
-      return fail("Booking fee already paid", 400);
+      throw new AppError(
+        ErrorCode.BOOKING_ALREADY_PROCESSED,
+        400,
+        "Booking fee already paid",
+      );
     }
 
     if (
       booking.bookingFeeStatus === "refunded" ||
       booking.bookingFeeStatus === "forfeited"
     ) {
-      return fail(
-        "Booking fee payment is not allowed for refunded or forfeited bookings.",
+      throw new AppError(
+        ErrorCode.INVALID_STATE_TRANSITION,
         409,
+        "Booking fee payment is not allowed for refunded or forfeited bookings.",
       );
     }
 
     if (!booking.bookingFee || booking.bookingFee <= 0) {
-      return fail("Invalid booking fee amount", 400);
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid booking fee amount",
+      );
     }
 
     const amount = Math.round(booking.bookingFee * 100);
     if (amount <= 0) {
-      return fail("Invalid booking fee amount", 400);
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid booking fee amount",
+      );
     }
 
     const razorpayOrder = await createRazorpayOrder(amount, id);
@@ -98,20 +98,13 @@ export async function POST(
       },
     );
 
-    return NextResponse.json({
+    return successResponse({
       id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
     });
   } catch (error) {
-    if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
-    }
-
-    logger.error("BOOKINGS", "Error creating booking fee order", error, {
-      bookingId: id,
-    });
-    return fail("Internal server error", 500);
+    return errorResponse(error);
   }
 }
 
@@ -132,7 +125,7 @@ export async function PUT(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return fail("Invalid booking id", 400);
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id");
     }
     const booking_id = new ObjectId(id);
 
@@ -140,8 +133,15 @@ export async function PUT(
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = body;
 
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
-      return fail("Missing payment fields", 400);
+      throw new AppError(
+        ErrorCode.MISSING_REQUIRED_FIELD,
+        400,
+        "Missing payment fields",
+      );
     }
+
+    // Lazy load to avoid circular deps if any, or just standard import fix
+    const { verifyRazorpaySignature } = await import("@/lib/razorpay");
 
     const isValid = verifyRazorpaySignature(
       razorpay_order_id,
@@ -150,7 +150,11 @@ export async function PUT(
     );
 
     if (!isValid) {
-      return fail("Invalid signature", 400);
+      throw new AppError(
+        ErrorCode.INVALID_CREDENTIALS,
+        400,
+        "Invalid signature",
+      );
     }
 
     const { db } = await getDb();
@@ -160,7 +164,7 @@ export async function PUT(
     });
 
     if (!booking) {
-      return fail("Booking not found", 404);
+      throw new AppError(ErrorCode.BOOKING_NOT_FOUND, 404, "Booking not found");
     }
 
     if (
@@ -168,17 +172,17 @@ export async function PUT(
         booking.bookingFeeStatus === "applied") &&
       booking.razorpay_payment_id === razorpay_payment_id
     ) {
-      return legacySuccessResponse({
+      return successResponse({
         message: "Payment successful",
-        error: null,
         idempotent: true,
       });
     }
 
     if (booking.status !== "requested") {
-      return fail(
-        "Booking fee cannot be captured because booking is no longer pending provider response.",
+      throw new AppError(
+        ErrorCode.INVALID_STATE_TRANSITION,
         409,
+        "Booking fee cannot be captured because booking is no longer pending provider response.",
       );
     }
 
@@ -186,7 +190,11 @@ export async function PUT(
       !booking.razorpay_order_id ||
       booking.razorpay_order_id !== razorpay_order_id
     ) {
-      return fail("Razorpay order mismatch", 400);
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Razorpay order mismatch",
+      );
     }
 
     const res = await db.collection<Booking>("bookings").updateOne(
@@ -208,21 +216,17 @@ export async function PUT(
     );
 
     if (res.modifiedCount > 0) {
-      return legacySuccessResponse({
+      return successResponse({
         message: "Payment successful",
-        error: null,
       });
     } else {
-      return fail("Failed to update booking status", 409);
+      throw new AppError(
+        ErrorCode.INVALID_STATE_TRANSITION,
+        409,
+        "Failed to update booking status",
+      );
     }
   } catch (error) {
-    if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
-    }
-
-    logger.error("BOOKINGS", "Error verifying booking fee", error, {
-      bookingId: id,
-    });
-    return fail("Internal server error", 500);
+    return errorResponse(error);
   }
 }

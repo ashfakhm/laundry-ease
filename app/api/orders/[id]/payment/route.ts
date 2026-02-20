@@ -4,10 +4,10 @@ import { ObjectId } from "mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
 import { paymentVerifySchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
-import { appErrorMessageResponse } from "@/lib/api/legacy-response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 export const runtime = "nodejs";
 
@@ -29,7 +29,7 @@ export async function POST(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id");
     }
     const orderId = new ObjectId(id);
 
@@ -40,7 +40,7 @@ export async function POST(
     });
 
     if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      throw new AppError(ErrorCode.NOT_FOUND, 404, "Order not found");
     }
 
     if (
@@ -49,17 +49,15 @@ export async function POST(
       order.payment_status === "released" ||
       order.payment_status === "refunded"
     ) {
-      return NextResponse.json(
-        { error: "Order is already paid" },
-        { status: 400 },
-      );
+      throw new AppError(ErrorCode.CONFLICT, 400, "Order is already paid");
     }
 
     const amountInPaise = Math.round(order.total_price * 100);
     if (amountInPaise <= 0) {
-      return NextResponse.json(
-        { error: "Invalid order amount" },
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid order amount",
       );
     }
 
@@ -74,22 +72,15 @@ export async function POST(
       },
     );
 
-    return NextResponse.json({
+    return successResponse({
       id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
       key: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
-    if (error instanceof AppError) {
-      return appErrorMessageResponse(error, "error");
-    }
-
     logger.error("ORDERS", "Payment init error", error, { orderId: id });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return errorResponse(error);
   }
 }
 
@@ -111,19 +102,18 @@ export async function PUT(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id");
     }
     const orderId = new ObjectId(id);
 
     const body = await req.json();
     const parsed = paymentVerifySchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid payment verification payload",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid payment verification payload",
+        parsed.error.flatten().fieldErrors,
       );
     }
 
@@ -137,7 +127,7 @@ export async function PUT(
     });
 
     if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      throw new AppError(ErrorCode.NOT_FOUND, 404, "Order not found");
     }
 
     if (
@@ -146,7 +136,7 @@ export async function PUT(
         order.payment_status === "released") &&
       order.razorpay_payment_id === razorpay_payment_id
     ) {
-      return NextResponse.json({ success: true, idempotent: true });
+      return successResponse({ idempotent: true });
     }
 
     if (
@@ -154,19 +144,17 @@ export async function PUT(
       order.payment_status === "held" ||
       order.payment_status === "released"
     ) {
-      return NextResponse.json(
-        { error: "Order is already paid" },
-        { status: 409 },
-      );
+      throw new AppError(ErrorCode.CONFLICT, 409, "Order is already paid");
     }
 
     if (
       !order.razorpay_order_id ||
       order.razorpay_order_id !== razorpay_order_id
     ) {
-      return NextResponse.json(
-        { error: "Razorpay order mismatch" },
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Razorpay order mismatch",
       );
     }
 
@@ -177,7 +165,7 @@ export async function PUT(
     );
 
     if (!isValid) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid signature");
     }
 
     const now = new Date();
@@ -202,26 +190,20 @@ export async function PUT(
         ["paid", "held", "released"].includes(latest.payment_status) &&
         latest.razorpay_payment_id === razorpay_payment_id
       ) {
-        return NextResponse.json({ success: true, idempotent: true });
+        return successResponse({ idempotent: true });
       }
-      return NextResponse.json(
-        { error: "Order payment state changed. Please refresh and retry." },
-        { status: 409 },
+      throw new AppError(
+        ErrorCode.CONFLICT,
+        409,
+        "Order payment state changed. Please refresh and retry.",
       );
     }
 
-    return NextResponse.json({ success: true });
+    return successResponse({ updated: true });
   } catch (error) {
-    if (error instanceof AppError) {
-      return appErrorMessageResponse(error, "error");
-    }
-
     logger.error("ORDERS", "Payment verification error", error, {
       orderId: id,
     });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return errorResponse(error);
   }
 }
