@@ -66,7 +66,9 @@ export default function ComplaintsPage() {
 
   async function fetchComplaints() {
     try {
-      const response = await fetch("/api/admin/complaints");
+      const response = await fetch("/api/admin/complaints", {
+        cache: "no-store",
+      });
       if (response.ok) {
         const data = await response.json();
         setComplaints(data);
@@ -83,11 +85,19 @@ export default function ComplaintsPage() {
     return c.status === filter;
   });
   const openCount = complaints.filter((c) => c.status === "open").length;
-  const acceptedCount = complaints.filter((c) => c.status === "accepted").length;
-  const inReviewCount = complaints.filter((c) => c.status === "in_review").length;
+  const acceptedCount = complaints.filter(
+    (c) => c.status === "accepted",
+  ).length;
+  const inReviewCount = complaints.filter(
+    (c) => c.status === "in_review",
+  ).length;
   const inProgressCount = acceptedCount + inReviewCount;
-  const resolvedCount = complaints.filter((c) => c.status === "resolved").length;
-  const rejectedCount = complaints.filter((c) => c.status === "rejected").length;
+  const resolvedCount = complaints.filter(
+    (c) => c.status === "resolved",
+  ).length;
+  const rejectedCount = complaints.filter(
+    (c) => c.status === "rejected",
+  ).length;
   const activeCount = openCount + inProgressCount;
 
   function getStatusBadge(status: string) {
@@ -333,9 +343,7 @@ export default function ComplaintsPage() {
                             {complaint.provider.profilePicture ? (
                               <Image
                                 src={complaint.provider.profilePicture}
-                                alt={
-                                  getProviderDisplayName(complaint.provider)
-                                }
+                                alt={getProviderDisplayName(complaint.provider)}
                                 width={32}
                                 height={32}
                                 className="h-full w-full object-cover"
@@ -367,7 +375,6 @@ export default function ComplaintsPage() {
           </div>
         )}
       </div>
-
     </main>
   );
 }

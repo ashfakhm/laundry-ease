@@ -1,5 +1,6 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import useSWR from "swr";
 import { Send, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { EvidenceUpload } from "@/components/ui/evidence-upload";
@@ -40,7 +41,6 @@ export default function BookingChat({
   selfRole: "seeker" | "provider";
 }) {
   const router = useRouter();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,38 +59,35 @@ export default function BookingChat({
     success: null,
   });
 
-  const fetchMessages = useCallback(
-    async (incremental = false) => {
-      try {
-        const res = await fetch(`/api/bookings/${bookingId}/chat`, {
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error("Failed to fetch messages");
-        const data = await res.json();
+  const fetcher = (url: string) =>
+    fetch(url, { cache: "no-store" }).then((r) => {
+      if (!r.ok) throw new Error("Failed to load");
+      return r.json();
+    });
 
+  const { data: messages = [], mutate } = useSWR<ChatMessage[]>(
+    `/api/bookings/${bookingId}/chat`,
+    fetcher,
+    {
+      refreshInterval: 5000,
+      revalidateOnFocus: true,
+      onSuccess: (data) => {
         if (data.length > 0) {
           const latestCreatedAt = data[data.length - 1].createdAt;
           if (latestMessageAtRef.current !== latestCreatedAt) {
             latestMessageAtRef.current = latestCreatedAt;
             setShouldAutoScroll(true);
           }
-        } else if (!incremental) {
+        } else if (latestMessageAtRef.current === null) {
           setShouldAutoScroll(true);
+          latestMessageAtRef.current = "empty";
         }
-
-        setMessages(data);
-      } catch {
+      },
+      onError: () => {
         setError("Could not load chat");
-      }
+      },
     },
-    [bookingId],
   );
-
-  useEffect(() => {
-    fetchMessages(false);
-    const interval = setInterval(() => fetchMessages(true), 5000);
-    return () => clearInterval(interval);
-  }, [fetchMessages]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -106,7 +103,7 @@ export default function BookingChat({
       if (!res.ok) throw new Error("Failed to send message");
       setInput("");
       setShouldAutoScroll(true);
-      fetchMessages(true);
+      mutate();
     } catch {
       setError("Could not send message");
     } finally {

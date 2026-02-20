@@ -338,10 +338,12 @@ export async function initiateOrderPayout(
 
 export async function processEligibleEscrowPayouts(options?: {
   source?: string;
+  limit?: number;
 }): Promise<PayoutBatchResult> {
   const { db } = await getDb();
   const now = new Date();
   const source = options?.source || "payout_batch";
+  const limit = options?.limit || 50; // Protective limit for serverless timeouts
 
   const candidateOrders = await db
     .collection<Order>("orders")
@@ -355,6 +357,7 @@ export async function processEligibleEscrowPayouts(options?: {
         },
       ],
     })
+    .limit(limit)
     .toArray();
 
   const results: PayoutResult[] = [];

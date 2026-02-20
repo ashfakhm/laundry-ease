@@ -84,7 +84,9 @@ export default function SeekerDashboardPage() {
     async function fetchSeekerProfile() {
       try {
         if (session?.user?.email) {
-          const response = await fetch(`/api/profile/seeker`);
+          const response = await fetch(`/api/profile/seeker`, {
+            cache: "no-store",
+          });
           if (response.ok) {
             const json = await response.json();
             const data = json.data ?? json;
@@ -126,7 +128,9 @@ export default function SeekerDashboardPage() {
         if (selectedService) params.append("service", selectedService);
         if (deadline) params.append("deadline", deadline);
 
-        const response = await fetch(`/api/providers?${params.toString()}`);
+        const response = await fetch(`/api/providers?${params.toString()}`, {
+          cache: "no-store",
+        });
         if (response.ok) {
           const data = await response.json();
           setProviders(data.providers || []);
@@ -180,6 +184,7 @@ export default function SeekerDashboardPage() {
     setBookingInProgress(providerId);
     try {
       const response = await fetch("/api/bookings", {
+        cache: "no-store",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

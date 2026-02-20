@@ -36,7 +36,7 @@ export default function UserManagementPage() {
 
   async function fetchUsers() {
     try {
-      const response = await fetch("/api/admin/users");
+      const response = await fetch("/api/admin/users", { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
@@ -58,7 +58,8 @@ export default function UserManagementPage() {
   const blockedUsers = users.filter(
     (u) => u.blocked_until && new Date(u.blocked_until) > new Date(),
   ).length;
-  const seekerShare = totalUsers > 0 ? Math.round((seekerCount / totalUsers) * 100) : 0;
+  const seekerShare =
+    totalUsers > 0 ? Math.round((seekerCount / totalUsers) * 100) : 0;
   const providerShare =
     totalUsers > 0 ? Math.round((providerCount / totalUsers) * 100) : 0;
 

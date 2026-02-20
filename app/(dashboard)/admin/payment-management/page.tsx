@@ -51,7 +51,7 @@ export default function AdminPaymentManagementPage() {
   async function fetchPayments() {
     try {
       setLoading(true);
-      const res = await fetch("/api/admin/payments");
+      const res = await fetch("/api/admin/payments", { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
         setPayments(Array.isArray(json) ? json : (json.data ?? []));

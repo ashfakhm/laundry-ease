@@ -95,7 +95,7 @@ export default function SeekerProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const res = await fetch("/api/profile/seeker");
+        const res = await fetch("/api/profile/seeker", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load profile");
         const json = await res.json();
         const data = json.data ?? json;

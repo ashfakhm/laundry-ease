@@ -57,13 +57,15 @@ export default function ViewOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "paid" | "unpaid" | "cancelled">(
-    "all"
+    "all",
   );
 
   useEffect(() => {
     async function fetchOrders() {
       try {
-        const response = await fetch("/api/orders/seeker");
+        const response = await fetch("/api/orders/seeker", {
+          cache: "no-store",
+        });
         if (response.ok) {
           const data = await response.json();
           setOrders(data);
@@ -202,7 +204,7 @@ export default function ViewOrdersPage() {
                     !o.cancellation_status &&
                     (o.payment_status === "paid" ||
                       o.payment_status === "held" ||
-                      o.payment_status === "released")
+                      o.payment_status === "released"),
                 ).length
               }
             />
@@ -240,9 +242,12 @@ export default function ViewOrdersPage() {
                 : `No ${filter} orders to display at the moment.`}
             </p>
             {filter === "all" && (
-                <Link href="/seeker" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">
-                    Find Providers <ArrowRight className="w-4 h-4" />
-                </Link>
+              <Link
+                href="/seeker"
+                className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline"
+              >
+                Find Providers <ArrowRight className="w-4 h-4" />
+              </Link>
             )}
           </motion.div>
         ) : (
@@ -257,122 +262,169 @@ export default function ViewOrdersPage() {
                   className="group relative rounded-3xl border border-border/60 bg-card p-0 shadow-sm transition-all hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 overflow-hidden"
                 >
                   {/* Card Status Line */}
-                  <div className={cn(
+                  <div
+                    className={cn(
                       "absolute top-0 left-0 w-1.5 h-full transition-colors",
-                      order.payment_status === 'paid' ? "bg-emerald-500" : 
-                      order.cancellation_status ? "bg-destructive" : "bg-amber-500"
-                  )} />
+                      order.payment_status === "paid"
+                        ? "bg-emerald-500"
+                        : order.cancellation_status
+                          ? "bg-destructive"
+                          : "bg-amber-500",
+                    )}
+                  />
 
                   <div className="p-6 md:p-8 pl-8 md:pl-10">
                     <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-                      
                       {/* Left: Main Details */}
                       <div className="flex-1 space-y-6">
                         {/* Header: ID + Status */}
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-sm">
-                           <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-heading font-black text-2xl text-foreground tracking-tight">
-                                        #{order.booking_id ? order.booking_id.toString().slice(-6).toUpperCase() : order._id.slice(-6).toUpperCase()}
-                                    </span>
-                                    {getStatusBadge(order)}
-                                </div>
-                                <div className="flex items-center gap-2 text-muted-foreground font-medium text-xs">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    {new Date(order.createdAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                                </div>
-                           </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-heading font-black text-2xl text-foreground tracking-tight">
+                                #
+                                {order.booking_id
+                                  ? order.booking_id
+                                      .toString()
+                                      .slice(-6)
+                                      .toUpperCase()
+                                  : order._id.slice(-6).toUpperCase()}
+                              </span>
+                              {getStatusBadge(order)}
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground font-medium text-xs">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {new Date(order.createdAt).toLocaleDateString(
+                                undefined,
+                                {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
+                            </div>
+                          </div>
                         </div>
 
                         {/* Middle: Provider & Items Grid */}
                         <div className="grid sm:grid-cols-2 gap-6">
-                            
-                            {/* Provider Mini-Card */}
-                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 flex items-start gap-4">
-                                {/* Provider Profile Picture */}
-                                <div className="relative h-10 w-10 rounded-full overflow-hidden border border-border/50 bg-background shadow-sm shrink-0">
-                                  {order.provider?.profilePicture ? (
-                                    <Image
-                                      src={order.provider.profilePicture}
-                                      alt={order.provider.name}
-                                      fill
-                                      sizes="40px"
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="h-full w-full bg-background flex items-center justify-center text-lg font-bold text-primary">
-                                      {order.provider?.businessName?.[0] || order.provider?.name?.[0] || "P"}
-                                    </div>
-                                  )}
+                          {/* Provider Mini-Card */}
+                          <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 flex items-start gap-4">
+                            {/* Provider Profile Picture */}
+                            <div className="relative h-10 w-10 rounded-full overflow-hidden border border-border/50 bg-background shadow-sm shrink-0">
+                              {order.provider?.profilePicture ? (
+                                <Image
+                                  src={order.provider.profilePicture}
+                                  alt={order.provider.name}
+                                  fill
+                                  sizes="40px"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="h-full w-full bg-background flex items-center justify-center text-lg font-bold text-primary">
+                                  {order.provider?.businessName?.[0] ||
+                                    order.provider?.name?.[0] ||
+                                    "P"}
                                 </div>
-                                <div className="min-w-0">
-                                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Provider</p>
-                                    <p className="font-bold text-sm truncate">{order.provider?.businessName || order.provider?.name}</p>
-                                    <Link href={`/seeker/provider/${order.provider?._id}`} className="text-[10px] text-primary hover:underline font-medium flex items-center gap-1 mt-1">
-                                        View Profile <ChevronRight className="w-2.5 h-2.5" />
-                                    </Link>
-                                </div>
+                              )}
                             </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
+                                Provider
+                              </p>
+                              <p className="font-bold text-sm truncate">
+                                {order.provider?.businessName ||
+                                  order.provider?.name}
+                              </p>
+                              <Link
+                                href={`/seeker/provider/${order.provider?._id}`}
+                                className="text-[10px] text-primary hover:underline font-medium flex items-center gap-1 mt-1"
+                              >
+                                View Profile{" "}
+                                <ChevronRight className="w-2.5 h-2.5" />
+                              </Link>
+                            </div>
+                          </div>
 
-                            {/* Items Summary */}
-                            <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 relative overflow-hidden">
-                                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                                    <Package className="w-3.5 h-3.5" /> Order Summary
-                                </p>
-                                <div className="space-y-1 text-sm font-medium">
-                                    {order.items.slice(0, 2).map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center text-foreground/80">
-                                            <span>{item.quantity}x {item.name}</span>
-                                            <span className="text-muted-foreground">₹{item.line_total}</span>
-                                        </div>
-                                    ))}
-                                    {order.items.length > 2 && (
-                                        <p className="text-xs text-muted-foreground pt-1 italic">
-                                            + {order.items.length - 2} more items...
-                                        </p>
-                                    )}
+                          {/* Items Summary */}
+                          <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 relative overflow-hidden">
+                            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                              <Package className="w-3.5 h-3.5" /> Order Summary
+                            </p>
+                            <div className="space-y-1 text-sm font-medium">
+                              {order.items.slice(0, 2).map((item, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between items-center text-foreground/80"
+                                >
+                                  <span>
+                                    {item.quantity}x {item.name}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    ₹{item.line_total}
+                                  </span>
                                 </div>
+                              ))}
+                              {order.items.length > 2 && (
+                                <p className="text-xs text-muted-foreground pt-1 italic">
+                                  + {order.items.length - 2} more items...
+                                </p>
+                              )}
                             </div>
+                          </div>
                         </div>
                       </div>
 
                       {/* Right: Actions & Total - Sticky-ish behavior on Desktop */}
                       <div className="flex flex-col items-start lg:items-end gap-5 lg:min-w-[200px] border-t lg:border-t-0 lg:border-l border-border/50 pt-6 lg:pt-0 lg:pl-8">
-                         
-                         <div className="w-full text-left lg:text-right">
-                            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Amount</p>
-                            <p className="text-3xl font-heading font-black text-foreground mt-1">
-                                ₹{Math.round(order.total_price + order.delivery_charge)}
-                            </p>
-                            <p className="text-xs text-emerald-600 font-bold mt-1 flex lg:justify-end items-center gap-1">
-                                {order.payment_status === 'paid' ? (
-                                    <><ShieldCheck className="w-3 h-3" /> Paid via Razorpay</>
-                                ) : order.payment_status === 'unpaid' && !order.cancellation_status ? (
-                                    <span className="text-amber-600">Payment Pending</span>
-                                ) : null}
-                            </p>
-                         </div>
-
-                         <div className="w-full space-y-3">
-                            {order.payment_status === "unpaid" && !order.cancellation_status && (
-                                <PaymentButton 
-                                    orderId={order._id} 
-                                    amount={order.total_price + order.delivery_charge} 
-                                    className="w-full"
-                                />
+                        <div className="w-full text-left lg:text-right">
+                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Total Amount
+                          </p>
+                          <p className="text-3xl font-heading font-black text-foreground mt-1">
+                            ₹
+                            {Math.round(
+                              order.total_price + order.delivery_charge,
                             )}
-                            
-                            <Link
-                                href={`/seeker/orders/${order._id}`}
-                                className={cn(
-                                    "flex items-center justify-center w-full rounded-xl py-2.5 text-sm font-bold transition-all border",
-                                    "border-border bg-background hover:bg-muted text-foreground hover:shadow-sm"
-                                )}
-                            >
-                                View Order Details
-                            </Link>
-                         </div>
+                          </p>
+                          <p className="text-xs text-emerald-600 font-bold mt-1 flex lg:justify-end items-center gap-1">
+                            {order.payment_status === "paid" ? (
+                              <>
+                                <ShieldCheck className="w-3 h-3" /> Paid via
+                                Razorpay
+                              </>
+                            ) : order.payment_status === "unpaid" &&
+                              !order.cancellation_status ? (
+                              <span className="text-amber-600">
+                                Payment Pending
+                              </span>
+                            ) : null}
+                          </p>
+                        </div>
 
+                        <div className="w-full space-y-3">
+                          {order.payment_status === "unpaid" &&
+                            !order.cancellation_status && (
+                              <PaymentButton
+                                orderId={order._id}
+                                amount={
+                                  order.total_price + order.delivery_charge
+                                }
+                                className="w-full"
+                              />
+                            )}
+
+                          <Link
+                            href={`/seeker/orders/${order._id}`}
+                            className={cn(
+                              "flex items-center justify-center w-full rounded-xl py-2.5 text-sm font-bold transition-all border",
+                              "border-border bg-background hover:bg-muted text-foreground hover:shadow-sm",
+                            )}
+                          >
+                            View Order Details
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -404,7 +456,7 @@ function FilterButton({
         "flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-bold transition-all shadow-sm border",
         active
           ? "bg-foreground text-background border-foreground shadow-md scale-105"
-          : "bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+          : "bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {label}
@@ -414,7 +466,7 @@ function FilterButton({
             "ml-1 px-1.5 py-0.5 rounded-full text-[9px]",
             active
               ? "bg-background/20 text-background"
-              : "bg-muted-foreground/10 text-muted-foreground"
+              : "bg-muted-foreground/10 text-muted-foreground",
           )}
         >
           {count}
