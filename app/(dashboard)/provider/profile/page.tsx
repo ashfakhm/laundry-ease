@@ -50,8 +50,8 @@ export default function ProviderProfilePage() {
       try {
         const response = await fetch("/api/profile/provider");
         if (response.ok) {
-          const data = await response.json();
-          setProvider(data);
+          const json = await response.json();
+          setProvider(json.data ?? json);
         } else {
           console.error("Failed to fetch provider profile");
         }
@@ -71,8 +71,10 @@ export default function ProviderProfilePage() {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
         <div className="text-center">
-            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground font-medium">Loading your profile...</p>
+          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground font-medium">
+            Loading your profile...
+          </p>
         </div>
       </div>
     );
@@ -114,111 +116,134 @@ export default function ProviderProfilePage() {
         <div className="grid gap-8 lg:grid-cols-3 items-start">
           {/* Left Column - Provider Info */}
           <div className="lg:col-span-2 space-y-8">
-            
             <ProviderHeader provider={provider} />
 
             {/* 1. Header Card */}
             <div className="rounded-3xl border border-border bg-card p-6 md:p-8 shadow-sm">
-                <div className="flex flex-col md:flex-row gap-6 items-start">
-
-                    <div className="flex-1 space-y-2">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div>
-                                <h1 className="font-heading text-3xl font-bold">
-                                    {provider.businessName || provider.name}
-                                </h1>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                                    <MapPin className="w-4 h-4" />
-                                    {provider.location || "Location not set"}
-                                    <span className="text-border mx-1">|</span>
-                                    <span className="text-primary font-medium flex items-center gap-1">
-                                        <Star className="w-3.5 h-3.5 fill-current" />
-                                        {provider.rating ? provider.rating.toFixed(1) : "New"} Rating
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col items-end">
-                                <div className="text-right">
-                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Booking Price
-                                    </p>
-                                    <p className="text-3xl font-bold text-primary">
-                                        ₹{provider.pricing || 0}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {provider.bio && (
-                            <p className="text-muted-foreground leading-relaxed pt-2">
-                                {provider.bio}
-                            </p>
-                        )}
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                <div className="flex-1 space-y-2">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h1 className="font-heading text-3xl font-bold">
+                        {provider.businessName || provider.name}
+                      </h1>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <MapPin className="w-4 h-4" />
+                        {provider.location || "Location not set"}
+                        <span className="text-border mx-1">|</span>
+                        <span className="text-primary font-medium flex items-center gap-1">
+                          <Star className="w-3.5 h-3.5 fill-current" />
+                          {provider.rating
+                            ? provider.rating.toFixed(1)
+                            : "New"}{" "}
+                          Rating
+                        </span>
+                      </div>
                     </div>
-                </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-8 pt-8 border-t border-border/50">
-                    <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Joined</p>
-                        <p className="text-sm font-semibold flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-primary" />
-                            {provider.createdAt
-                                ? new Date(provider.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })
-                                : "Recently"}
+                    <div className="flex flex-col items-end">
+                      <div className="text-right">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Booking Price
                         </p>
-                    </div>
-                    <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Service Radius</p>
-                        <p className="text-sm font-semibold flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-primary" />
-                            {provider.radius_km || 10} km
+                        <p className="text-3xl font-bold text-primary">
+                          ₹{provider.pricing || 0}
                         </p>
+                      </div>
                     </div>
+                  </div>
+
+                  {provider.bio && (
+                    <p className="text-muted-foreground leading-relaxed pt-2">
+                      {provider.bio}
+                    </p>
+                  )}
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-8 pt-8 border-t border-border/50">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Joined</p>
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    {provider.createdAt
+                      ? new Date(provider.createdAt).toLocaleDateString(
+                          undefined,
+                          { month: "short", year: "numeric" },
+                        )
+                      : "Recently"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Service Radius
+                  </p>
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    {provider.radius_km || 10} km
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* 2. Services & Pricing Grid */}
             <div className="grid md:grid-cols-2 gap-6">
-                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
-                    <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
-                        <Package className="w-5 h-5 text-primary" />
-                        Services
-                    </h3>
-                    <div className="space-y-3">
-                        {provider.services && provider.services.length > 0 ? (
-                            provider.services.map((service, i) => (
-                                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-colors">
-                                    <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shadow-sm">
-                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                    </div>
-                                    <span className="font-medium text-sm">{service}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground italic">No services listed yet.</p>
-                        )}
-                    </div>
+              <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
+                <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-primary" />
+                  Services
+                </h3>
+                <div className="space-y-3">
+                  {provider.services && provider.services.length > 0 ? (
+                    provider.services.map((service, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-colors"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shadow-sm">
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        </div>
+                        <span className="font-medium text-sm">{service}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      No services listed yet.
+                    </p>
+                  )}
                 </div>
+              </div>
 
-                <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
-                    <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-primary" />
-                        Item Rates
-                    </h3>
-                    <div className="space-y-3">
-                        {provider.pricingRates && Object.keys(provider.pricingRates).length > 0 ? (
-                            Object.entries(provider.pricingRates).map(([item, rate], i) => (
-                                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-colors">
-                                    <span className="font-medium text-sm text-muted-foreground capitalize">{item}</span>
-                                    <span className="font-bold text-foreground">₹{rate}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground italic">No custom rates set.</p>
-                        )}
-                    </div>
+              <div className="rounded-3xl border border-border bg-card p-6 shadow-sm h-full">
+                <h3 className="font-heading text-lg font-bold mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  Item Rates
+                </h3>
+                <div className="space-y-3">
+                  {provider.pricingRates &&
+                  Object.keys(provider.pricingRates).length > 0 ? (
+                    Object.entries(provider.pricingRates).map(
+                      ([item, rate], i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-colors"
+                        >
+                          <span className="font-medium text-sm text-muted-foreground capitalize">
+                            {item}
+                          </span>
+                          <span className="font-bold text-foreground">
+                            ₹{rate}
+                          </span>
+                        </div>
+                      ),
+                    )
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      No custom rates set.
+                    </p>
+                  )}
                 </div>
+              </div>
             </div>
 
             {/* 3. Description */}
@@ -234,12 +259,14 @@ export default function ProviderProfilePage() {
             {/* 4. Reviews Section */}
             <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-6">
-                 <h3 className="font-heading text-lg font-bold">Client Reviews</h3>
-                 {provider.reviewCount ? (
-                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-bold">
-                        {provider.reviewCount}
-                    </span>
-                 ) : null}
+                <h3 className="font-heading text-lg font-bold">
+                  Client Reviews
+                </h3>
+                {provider.reviewCount ? (
+                  <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-bold">
+                    {provider.reviewCount}
+                  </span>
+                ) : null}
               </div>
               <ReviewsList providerId={provider._id} />
             </div>
@@ -249,10 +276,12 @@ export default function ProviderProfilePage() {
           <div className="lg:col-span-1">
             <div className="sticky top-6 rounded-3xl border border-border bg-card p-6 shadow-xl shadow-black/5">
               <h3 className="font-heading text-lg font-bold flex items-center gap-2">
-                 Contact Information
+                Contact Information
               </h3>
-              <p className="text-sm text-muted-foreground mb-6">Your public contact details</p>
-              
+              <p className="text-sm text-muted-foreground mb-6">
+                Your public contact details
+              </p>
+
               <div className="space-y-4">
                 <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 p-4">
                   <Mail className="h-4 w-4 text-muted-foreground" />
@@ -278,8 +307,9 @@ export default function ProviderProfilePage() {
                   <p className="text-sm font-bold">Public Preview</p>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                  This page reflects exactly what seekers see when they visit your profile. 
-                  Use the &quot;Edit Profile&quot; button to update any incorrect information.
+                  This page reflects exactly what seekers see when they visit
+                  your profile. Use the &quot;Edit Profile&quot; button to
+                  update any incorrect information.
                 </p>
               </div>
             </div>
