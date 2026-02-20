@@ -85,7 +85,7 @@ const STATUS_LABELS: Record<
 };
 
 function deriveAllowedNextStates(
-  current: NonNullable<OrderWithProcessStatus["process_status"]>
+  current: NonNullable<OrderWithProcessStatus["process_status"]>,
 ): Array<
   | "processing"
   | "washing"
@@ -128,7 +128,7 @@ export default function OrderStatusPage() {
   // OTP Modal State
   const [otpModalOpen, setOtpModalOpen] = useState(false);
   const [selectedOrderForOtp, setSelectedOrderForOtp] = useState<string | null>(
-    null
+    null,
   );
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -142,7 +142,7 @@ export default function OrderStatusPage() {
   async function updateStatus(
     orderId: string,
     newStatus: string,
-    otp?: string
+    otp?: string,
   ) {
     if (newStatus === "delivered" && !otp) {
       // Open Modal
@@ -179,8 +179,8 @@ export default function OrderStatusPage() {
                       ? new Date().toISOString()
                       : o.otp_confirmed_at,
                 }
-              : o
-          )
+              : o,
+          ),
         );
         // Close modal if open
         if (otpModalOpen) setOtpModalOpen(false);
@@ -201,8 +201,8 @@ export default function OrderStatusPage() {
                       data.currentStatus as OrderWithProcessStatus["process_status"],
                     allowedNextStates: data.allowedNextStates,
                   }
-                : o
-            )
+                : o,
+            ),
           );
         }
 
@@ -250,8 +250,8 @@ export default function OrderStatusPage() {
                   otp_confirmed_at: new Date().toISOString(),
                   allowedNextStates: [],
                 }
-              : o
-          )
+              : o,
+          ),
         );
 
         toast.success(data?.message || "Delivery confirmed");
@@ -287,7 +287,7 @@ export default function OrderStatusPage() {
         if (retryAfterSeconds > 0) {
           setResendCooldownMs(retryAfterSeconds * 1000);
           setResendInfo(
-            `Please wait ${retryAfterSeconds}s before resending the OTP.`
+            `Please wait ${retryAfterSeconds}s before resending the OTP.`,
           );
         }
 
@@ -328,7 +328,9 @@ export default function OrderStatusPage() {
   useEffect(() => {
     async function fetchOrders() {
       try {
-        const response = await fetch("/api/orders/provider");
+        const response = await fetch("/api/orders/provider", {
+          cache: "no-store",
+        });
         if (response.ok) {
           const data = await response.json();
           setOrders(data);
@@ -342,6 +344,8 @@ export default function OrderStatusPage() {
 
     if (session) {
       fetchOrders();
+      const interval = setInterval(fetchOrders, 20000); // Poll every 20s
+      return () => clearInterval(interval);
     }
   }, [session]);
 
@@ -443,7 +447,7 @@ export default function OrderStatusPage() {
                 (o) =>
                   !o.cancellation_status &&
                   o.payment_status !== "released" &&
-                  !o.otp_confirmed_at
+                  !o.otp_confirmed_at,
               ).length
             }
             )
@@ -459,7 +463,7 @@ export default function OrderStatusPage() {
             Completed (
             {
               orders.filter(
-                (o) => o.payment_status === "released" || !!o.otp_confirmed_at
+                (o) => o.payment_status === "released" || !!o.otp_confirmed_at,
               ).length
             }
             )
@@ -548,7 +552,7 @@ export default function OrderStatusPage() {
                                       >;
 
                                       const unique = Array.from(
-                                        new Set(options)
+                                        new Set(options),
                                       );
 
                                       return unique.map((s) => (
@@ -570,7 +574,7 @@ export default function OrderStatusPage() {
                               year: "numeric",
                               month: "long",
                               day: "numeric",
-                            }
+                            },
                           )}
                         </div>
                       </div>

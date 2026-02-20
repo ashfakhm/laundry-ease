@@ -45,6 +45,8 @@ export default function BookingChat({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
+  const latestMessageAtRef = useRef<string | null>(null);
 
   const [dispute, setDispute] = useState<DisputeState>({
     open: false,
@@ -57,20 +59,36 @@ export default function BookingChat({
     success: null,
   });
 
-  const fetchMessages = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/bookings/${bookingId}/chat`);
-      if (!res.ok) throw new Error("Failed to fetch messages");
-      const data = await res.json();
-      setMessages(data);
-    } catch {
-      setError("Could not load chat");
-    }
-  }, [bookingId]);
+  const fetchMessages = useCallback(
+    async (incremental = false) => {
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}/chat`, {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error("Failed to fetch messages");
+        const data = await res.json();
+
+        if (data.length > 0) {
+          const latestCreatedAt = data[data.length - 1].createdAt;
+          if (latestMessageAtRef.current !== latestCreatedAt) {
+            latestMessageAtRef.current = latestCreatedAt;
+            setShouldAutoScroll(true);
+          }
+        } else if (!incremental) {
+          setShouldAutoScroll(true);
+        }
+
+        setMessages(data);
+      } catch {
+        setError("Could not load chat");
+      }
+    },
+    [bookingId],
+  );
 
   useEffect(() => {
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
+    fetchMessages(false);
+    const interval = setInterval(() => fetchMessages(true), 5000);
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
@@ -87,7 +105,8 @@ export default function BookingChat({
       });
       if (!res.ok) throw new Error("Failed to send message");
       setInput("");
-      fetchMessages();
+      setShouldAutoScroll(true);
+      fetchMessages(true);
     } catch {
       setError("Could not send message");
     } finally {
@@ -140,8 +159,11 @@ export default function BookingChat({
   }
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (shouldAutoScroll) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      setShouldAutoScroll(false);
+    }
+  }, [messages, shouldAutoScroll]);
 
   return (
     <div className="flex flex-col h-full bg-background/50 relative">

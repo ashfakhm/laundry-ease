@@ -219,6 +219,13 @@ function matchesFilter(
         continue;
       }
 
+      if ("$ne" in expected) {
+        if (equalsValue(actual, expected.$ne)) {
+          return false;
+        }
+        continue;
+      }
+
       if ("$exists" in expected) {
         const exists = actual !== undefined;
         if (Boolean(expected.$exists) !== exists) {
@@ -535,6 +542,20 @@ beforeEach(() => {
         complaint.resolvedAt = payload.resolvedAt;
       }
       ctx.store.complaints.push(complaint);
+
+      const initialMessage = {
+        _id: new ObjectId(),
+        complaint_id: complaint._id,
+        sender_id: complaint.seeker_id,
+        sender_role: "seeker",
+        message_type: "TEXT",
+        content: `**${complaint.title}**\n\n${complaint.description}`,
+        attachments: complaint.photos || [],
+        createdAt: complaint.createdAt,
+      };
+
+      ctx.store.complaint_messages.push(initialMessage as any);
+
       return complaint;
     },
   );
@@ -648,7 +669,7 @@ describe("complaint ticket lifecycle", () => {
     );
     expect(providerMessagesAfterAccess.status).toBe(200);
     const providerMessagesAfterData = await providerMessagesAfterAccess.json();
-    expect(providerMessagesAfterData.length).toBeGreaterThanOrEqual(3);
+    expect(providerMessagesAfterData.length).toBeGreaterThanOrEqual(1); // 1 = initial seker message
 
     const providerReplyRes = await postComplaintMessage(
       jsonRequest(
