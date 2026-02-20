@@ -1,13 +1,7 @@
-import { NextResponse } from "next/server";
 import { uploadInvoicePhoto } from "@/lib/cloudinary";
 import { requireAuth } from "@/lib/api/auth";
-import { AppError } from "@/lib/api/errors";
-import { logger } from "@/lib/logger";
-import {
-  legacyMessageBody,
-  legacySuccessBody,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 export const runtime = "nodejs";
 
@@ -25,34 +19,32 @@ export async function POST(req: Request) {
     const file = formData.get("file");
 
     if (!file || typeof file === "string") {
-      return NextResponse.json(legacyMessageBody("No file uploaded"), { status: 400 });
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "No file uploaded");
     }
 
     // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        legacyMessageBody("Invalid file type. Only JPG, PNG, and WebP are allowed."),
-        { status: 400 }
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid file type. Only JPG, PNG, and WebP are allowed.",
       );
     }
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        legacyMessageBody("File too large. Maximum size is 5MB."),
-        { status: 400 }
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "File too large. Maximum size is 5MB.",
       );
     }
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const url = await uploadInvoicePhoto(buffer, file.name, file.type);
-    return NextResponse.json(legacySuccessBody({ url }));
+    return successResponse({ url });
   } catch (error) {
-    if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
-    }
-    logger.error("UPLOAD", "Upload error", error);
-    return NextResponse.json(legacyMessageBody("Upload failed"), { status: 500 });
+    return errorResponse(error);
   }
 }

@@ -265,19 +265,19 @@ function makeCursor<T extends Record<string, unknown>>(items: T[]) {
 function getCollectionData(name: string): Record<string, unknown>[] {
   switch (name) {
     case "orders":
-      return ctx.store.orders as unknown as Record<string, unknown>[];
+      return ctx.store.orders;
     case "complaints":
-      return ctx.store.complaints as unknown as Record<string, unknown>[];
+      return ctx.store.complaints;
     case "complaint_messages":
-      return ctx.store.complaint_messages as unknown as Record<string, unknown>[];
+      return ctx.store.complaint_messages;
     case "notifications":
-      return ctx.store.notifications as unknown as Record<string, unknown>[];
+      return ctx.store.notifications;
     case "seekers":
-      return ctx.store.seekers as unknown as Record<string, unknown>[];
+      return ctx.store.seekers;
     case "providers":
-      return ctx.store.providers as unknown as Record<string, unknown>[];
+      return ctx.store.providers;
     case "admins":
-      return ctx.store.admins as unknown as Record<string, unknown>[];
+      return ctx.store.admins;
     default:
       throw new Error(`Unknown in-memory collection: ${name}`);
   }
@@ -290,10 +290,14 @@ function makeDb() {
 
       return {
         async findOne(filter: Record<string, unknown>) {
-          return collectionData.find((doc) => matchesFilter(doc, filter)) || null;
+          return (
+            collectionData.find((doc) => matchesFilter(doc, filter)) || null
+          );
         },
         find(filter: Record<string, unknown> = {}) {
-          const found = collectionData.filter((doc) => matchesFilter(doc, filter));
+          const found = collectionData.filter((doc) =>
+            matchesFilter(doc, filter),
+          );
           return makeCursor(found);
         },
         async insertOne(doc: Record<string, unknown>) {
@@ -324,7 +328,9 @@ function makeDb() {
           filter: Record<string, unknown>,
           update: Record<string, unknown>,
         ) {
-          const idx = collectionData.findIndex((doc) => matchesFilter(doc, filter));
+          const idx = collectionData.findIndex((doc) =>
+            matchesFilter(doc, filter),
+          );
           if (idx === -1) return { matchedCount: 0, modifiedCount: 0 };
 
           const target = collectionData[idx] as Record<string, unknown>;

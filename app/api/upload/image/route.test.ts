@@ -1,16 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 
-const {
-  mockRequireAuth,
-  mockRequireSameOrigin,
-  mockEnforceRateLimit,
-} = vi.hoisted(() => ({
-  mockRequireAuth: vi.fn(),
-  mockRequireSameOrigin: vi.fn(),
-  mockEnforceRateLimit: vi.fn(),
-}));
+const { mockRequireAuth, mockRequireSameOrigin, mockEnforceRateLimit } =
+  vi.hoisted(() => ({
+    mockRequireAuth: vi.fn(),
+    mockRequireSameOrigin: vi.fn(),
+    mockEnforceRateLimit: vi.fn(),
+  }));
 
 vi.mock("@/lib/api/auth", () => ({
   requireAuth: mockRequireAuth,
@@ -36,13 +33,13 @@ function makeRequest(file: File, folder?: string) {
   if (folder) {
     formData.set("folder", folder);
   }
-  return new Request("https://laundryease.test/api/upload/image", {
+  return new NextRequest("https://laundryease.test/api/upload/image", {
     method: "POST",
     headers: {
       origin: "https://laundryease.test",
     },
     body: formData,
-  }) as unknown as NextRequest;
+  });
 }
 
 describe("POST /api/upload/image", () => {

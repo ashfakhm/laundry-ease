@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { Role } from "@/types/enums";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
@@ -38,13 +38,13 @@ function makeDbMock() {
 }
 
 function makeRequest(body: unknown) {
-  return new Request("https://laundryease.test/api/admin/users/123", {
+  return new NextRequest("https://laundryease.test/api/admin/users/123", {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  }) as unknown as NextRequest;
+  });
 }
 
 describe("DELETE /api/admin/users/[id]", () => {

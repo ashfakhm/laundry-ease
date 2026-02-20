@@ -30,7 +30,7 @@ function createMockFile(
   content: BlobPart = "test image content",
   name = "test.jpg",
   type = "image/jpeg",
-  size?: number
+  size?: number,
 ): File {
   const file = new File([content], name, { type });
   if (size !== undefined) {
@@ -65,7 +65,9 @@ describe("POST /api/upload", () => {
         email: "user@laundryease.test",
       },
     });
-    mockUploadInvoicePhoto.mockResolvedValue("https://cloudinary.test/image.jpg");
+    mockUploadInvoicePhoto.mockResolvedValue(
+      "https://cloudinary.test/image.jpg",
+    );
   });
 
   afterEach(() => {
@@ -91,7 +93,11 @@ describe("POST /api/upload", () => {
       const data = await res.json();
 
       expect(res.status).toBe(400);
-      expect(data.error).toBe("No file uploaded");
+      expect(data.error).toEqual(
+        expect.objectContaining({
+          message: "No file uploaded",
+        }),
+      );
     });
 
     it("returns 400 when file is a string instead of File object", async () => {
@@ -99,7 +105,11 @@ describe("POST /api/upload", () => {
       const data = await res.json();
 
       expect(res.status).toBe(400);
-      expect(data.error).toBe("No file uploaded");
+      expect(data.error).toEqual(
+        expect.objectContaining({
+          message: "No file uploaded",
+        }),
+      );
     });
 
     it("returns 400 for invalid file type (gif)", async () => {
@@ -108,8 +118,8 @@ describe("POST /api/upload", () => {
       const data = await res.json();
 
       expect(res.status).toBe(400);
-      expect(data.error).toContain("Invalid file type");
-      expect(data.error).toContain("JPG, PNG, and WebP");
+      expect(data.error.message).toContain("Invalid file type");
+      expect(data.error.message).toContain("JPG, PNG, and WebP");
     });
 
     it("returns 400 for invalid file type (pdf)", async () => {
@@ -118,7 +128,7 @@ describe("POST /api/upload", () => {
       const data = await res.json();
 
       expect(res.status).toBe(400);
-      expect(data.error).toContain("Invalid file type");
+      expect(data.error.message).toContain("Invalid file type");
     });
 
     it("returns 400 for invalid file type (video)", async () => {
@@ -127,7 +137,7 @@ describe("POST /api/upload", () => {
       const data = await res.json();
 
       expect(res.status).toBe(400);
-      expect(data.error).toContain("Invalid file type");
+      expect(data.error.message).toContain("Invalid file type");
     });
 
     it("returns 400 when file size exceeds 5MB", async () => {
@@ -138,8 +148,8 @@ describe("POST /api/upload", () => {
       const data = await res.json();
 
       expect(res.status).toBe(400);
-      expect(data.error).toContain("File too large");
-      expect(data.error).toContain("5MB");
+      expect(data.error.message).toContain("File too large");
+      expect(data.error.message).toContain("5MB");
     });
   });
 
@@ -151,11 +161,11 @@ describe("POST /api/upload", () => {
 
       expect(res.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.url).toBe("https://cloudinary.test/image.jpg");
+      expect(data.data.url).toBe("https://cloudinary.test/image.jpg");
       expect(mockUploadInvoicePhoto).toHaveBeenCalledWith(
         expect.any(Buffer),
         "photo.jpg",
-        "image/jpeg"
+        "image/jpeg",
       );
     });
 
@@ -169,7 +179,7 @@ describe("POST /api/upload", () => {
       expect(mockUploadInvoicePhoto).toHaveBeenCalledWith(
         expect.any(Buffer),
         "photo.png",
-        "image/png"
+        "image/png",
       );
     });
 
@@ -183,7 +193,7 @@ describe("POST /api/upload", () => {
       expect(mockUploadInvoicePhoto).toHaveBeenCalledWith(
         expect.any(Buffer),
         "photo.webp",
-        "image/webp"
+        "image/webp",
       );
     });
 
@@ -201,19 +211,25 @@ describe("POST /api/upload", () => {
 
   describe("Cloudinary error handling", () => {
     it("returns 500 when Cloudinary upload fails", async () => {
-      mockUploadInvoicePhoto.mockRejectedValue(new Error("Cloudinary service unavailable"));
+      mockUploadInvoicePhoto.mockRejectedValue(
+        new Error("Cloudinary service unavailable"),
+      );
 
       const file = createMockFile();
       const res = await POST(makeRequest(file));
       const data = await res.json();
 
       expect(res.status).toBe(500);
-      expect(data.error).toBe("Upload failed");
+      expect(data.error).toEqual(
+        expect.objectContaining({
+          message: "An unexpected error occurred",
+        }),
+      );
     });
 
     it("handles AppError from Cloudinary upload", async () => {
       mockUploadInvoicePhoto.mockRejectedValue(
-        new AppError(ErrorCode.INTERNAL_ERROR, 500, "Upload failed")
+        new AppError(ErrorCode.INTERNAL_ERROR, 500, "Upload failed"),
       );
 
       const file = createMockFile();
@@ -233,7 +249,11 @@ describe("POST /api/upload", () => {
       const data = await res.json();
 
       expect(res.status).toBe(500);
-      expect(data.error).toBe("Upload failed");
+      expect(data.error).toEqual(
+        expect.objectContaining({
+          message: "An unexpected error occurred",
+        }),
+      );
     });
   });
 });

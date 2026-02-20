@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { Role } from "@/types/enums";
 
 const { mockRequireAdminWithDbCheck, mockGetDb } = vi.hoisted(() => ({
@@ -37,13 +37,13 @@ function makeDbMock() {
 }
 
 function makeRequest(body: unknown) {
-  return new Request("https://laundryease.test/api/admin/users/123/ban", {
+  return new NextRequest("https://laundryease.test/api/admin/users/123/ban", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-  }) as unknown as NextRequest;
+  });
 }
 
 describe("PATCH /api/admin/users/[id]/ban", () => {

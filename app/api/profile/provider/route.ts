@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { maskBankDetails } from "@/lib/utils";
 import { getDb } from "@/lib/mongodb";
 import { requireProvider } from "@/lib/api/auth";
@@ -13,9 +12,10 @@ import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/auth/password-policy";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import bcrypt from "bcrypt";
 import { ObjectId } from "mongodb";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 /**
  * GET /api/profile/provider
@@ -25,7 +25,7 @@ export async function GET() {
   try {
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      throw new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized");
     }
 
     const { db } = await getDb();
@@ -42,44 +42,26 @@ export async function GET() {
     );
 
     if (!provider) {
-      return NextResponse.json(
-        { error: "Provider profile not found" },
-        { status: 404 },
+      throw new AppError(
+        ErrorCode.PROVIDER_NOT_FOUND,
+        404,
+        "Provider profile not found",
       );
     }
 
     // Mask bank details before returning by creating a safe copy for the response
+
     const safeProvider = {
       ...provider,
       bankDetails: provider.bankDetails
-        ? maskBankDetails(
-            provider.bankDetails as {
-              accountNumber?: string;
-              ifsc?: string;
-              upiId?: string;
-              accountHolderName?: string;
-            },
-          )
+        ? maskBankDetails(provider.bankDetails)
         : undefined,
-    } as unknown;
+    };
 
-    return NextResponse.json(safeProvider, { status: 200 });
+    return successResponse(safeProvider);
   } catch (error) {
-    if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
-    }
-
     logger.error("PROFILE", "Error fetching provider profile", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return errorResponse(error);
   }
 }
 
@@ -91,7 +73,7 @@ export async function PATCH(req: Request) {
   try {
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      throw new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized");
     }
     const providerId = new ObjectId(user.id);
 
@@ -99,9 +81,11 @@ export async function PATCH(req: Request) {
     const parsed = updateProviderProfileSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid data", details: parsed.error.flatten().fieldErrors },
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Invalid data",
+        parsed.error.flatten().fieldErrors,
       );
     }
 
@@ -171,14 +155,6 @@ export async function PATCH(req: Request) {
         ...(bankIFSC ? { ifsc: bankIFSC } : {}),
         ...(upiId ? { upiId } : {}),
       };
-
-      // If updating partial bank details, we need to merge with existing if not provided?
-      // Actually, for simplicity, let's assume the frontend sends the whole object or we use dot notation for specific fields if we want partial updates.
-      // But typically React Hook Form sends the whole form.
-      // Let's use dot notation to be safe and avoid overwriting with nulls if not intended, OR simpler:
-      // constructing the object. However, mongo update with $set replacement of nested object replaces the whole object.
-      // Better to use dot notation for nested fields if we want to support partial updates, OR fetch existing and merge.
-      // Given the form will send all fields, replacing the object is okay, BUT better to use specific fields.
 
       if (bankAccountHolder !== undefined)
         updateFields["bankDetails.accountHolderName"] = bankAccountHolder;
@@ -253,11 +229,10 @@ export async function PATCH(req: Request) {
           { email: user.email },
         );
         // Fail the request if critical bank details sync fails so user knows
-        return NextResponse.json(
-          {
-            error: "Failed to sync bank details with payment gateway",
-          },
-          { status: 500 },
+        throw new AppError(
+          ErrorCode.INVALID_STATE_TRANSITION,
+          500,
+          "Failed to sync bank details with payment gateway",
         );
       }
     }
@@ -267,16 +242,18 @@ export async function PATCH(req: Request) {
     // Secure Password Change Logic
     if (newPassword) {
       if (!isStrongPassword(newPassword)) {
-        return NextResponse.json(
-          { error: PASSWORD_POLICY_MESSAGE },
-          { status: 400 },
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          PASSWORD_POLICY_MESSAGE,
         );
       }
 
       if (!currentPassword) {
-        return NextResponse.json(
-          { error: "Current password is required to set a new password" },
-          { status: 400 },
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Current password is required to set a new password",
         );
       }
 
@@ -285,9 +262,10 @@ export async function PATCH(req: Request) {
         .findOne({ _id: providerId }, { projection: { passwordHash: 1 } });
 
       if (!provider || !provider.passwordHash) {
-        return NextResponse.json(
-          { error: "Provider not found or no password set" },
-          { status: 404 },
+        throw new AppError(
+          ErrorCode.PROVIDER_NOT_FOUND,
+          404,
+          "Provider not found or no password set",
         );
       }
 
@@ -296,9 +274,10 @@ export async function PATCH(req: Request) {
         provider.passwordHash,
       );
       if (!isMatch) {
-        return NextResponse.json(
-          { error: "Incorrect current password" },
-          { status: 401 },
+        throw new AppError(
+          ErrorCode.UNAUTHORIZED,
+          401,
+          "Incorrect current password",
         );
       }
 
@@ -306,9 +285,10 @@ export async function PATCH(req: Request) {
     }
 
     if (Object.keys(updateFields).length === 0) {
-      return NextResponse.json(
-        { error: "No fields to update" },
-        { status: 400 },
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "No fields to update",
       );
     }
 
@@ -321,9 +301,10 @@ export async function PATCH(req: Request) {
       );
 
     if (!result) {
-      return NextResponse.json(
-        { error: "Provider not found" },
-        { status: 404 },
+      throw new AppError(
+        ErrorCode.PROVIDER_NOT_FOUND,
+        404,
+        "Provider not found",
       );
     }
 
@@ -345,22 +326,9 @@ export async function PATCH(req: Request) {
         : undefined,
     } as unknown;
 
-    return NextResponse.json(safeUpdated, { status: 200 });
+    return successResponse(safeUpdated);
   } catch (error) {
-    if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
-    }
-
     logger.error("PROFILE", "Error updating provider profile", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return errorResponse(error);
   }
 }
