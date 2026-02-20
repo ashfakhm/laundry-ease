@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     // Authentication check - only providers can update bank details
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
     }
 
     const payload = await req.json().catch(() => null);
@@ -102,6 +102,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     logger.error("PROVIDER", "Error saving bank details", error);
-    return NextResponse.json({ error: "Failed to save bank details" }, { status: 500 });
+    return NextResponse.json({ success: false, ok: false, message: "Failed to save bank details" , error: { code: "ERROR", message: "Failed to save bank details"  } }, { status: 500 });
   }
 }

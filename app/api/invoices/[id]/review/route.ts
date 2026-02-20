@@ -261,12 +261,12 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid booking id" }, { status: 400 });
+      return NextResponse.json({ success: false, ok: false, message: "Invalid booking id" , error: { code: "ERROR", message: "Invalid booking id"  } }, { status: 400 });
     }
 
     const { user } = await requireSeeker();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
     }
 
     const body = await req.json();
@@ -290,7 +290,7 @@ export async function POST(
     const booking = await db.collection("bookings").findOne({ _id: bookingId });
 
     if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      return NextResponse.json({ success: false, ok: false, message: "Booking not found" , error: { code: "ERROR", message: "Booking not found"  } }, { status: 404 });
     }
 
     if (booking.seeker_id.toString() !== user.id) {

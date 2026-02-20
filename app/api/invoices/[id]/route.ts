@@ -20,19 +20,16 @@ export async function POST(
 
     const { id } = await params;
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid booking ID" }, { status: 400 });
+      return NextResponse.json({ success: false, ok: false, message: "Invalid booking ID" , error: { code: "ERROR", message: "Invalid booking ID"  } }, { status: 400 });
     }
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
     }
 
     const body = await req.json();
     const parsed = invoiceCreateSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid invoice data", details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, ok: false, message: "Invalid invoice data", details: parsed.error.flatten().fieldErrors , error: { code: "ERROR", message: "Invalid invoice data", details: parsed.error.flatten().fieldErrors  } }, { status: 400 });
     }
 
     const { db } = await getDb();
@@ -43,18 +40,15 @@ export async function POST(
       _id: bookingId,
     });
     if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      return NextResponse.json({ success: false, ok: false, message: "Booking not found" , error: { code: "ERROR", message: "Booking not found"  } }, { status: 404 });
     }
 
     if (String(booking.provider_id) !== user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 403 });
     }
 
     if (booking.status !== "confirmed" && booking.status !== "invoice_created") {
-      return NextResponse.json(
-        { error: "Invoice can only be created for confirmed bookings" },
-        { status: 409 }
-      );
+      return NextResponse.json({ success: false, ok: false, message: "Invoice can only be created for confirmed bookings" , error: { code: "ERROR", message: "Invoice can only be created for confirmed bookings"  } }, { status: 409 });
     }
 
     const calculatedSubtotal = parsed.data.items.reduce(
@@ -121,9 +115,6 @@ export async function POST(
     }
 
     logger.error("INVOICES", "Error creating invoice", error);
-    return NextResponse.json(
-      { error: "Failed to create invoice" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, ok: false, message: "Failed to create invoice" , error: { code: "ERROR", message: "Failed to create invoice"  } }, { status: 500 });
   }
 }

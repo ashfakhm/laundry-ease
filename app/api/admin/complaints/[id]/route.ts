@@ -13,7 +13,7 @@ import { requireAdminWithDbCheck } from "@/lib/api/auth";
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -25,7 +25,15 @@ export async function PATCH(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          ok: false,
+          message: "Invalid complaint id",
+          error: { code: "ERROR", message: "Invalid complaint id" },
+        },
+        { status: 400 },
+      );
     }
 
     await requireAdminWithDbCheck();
@@ -36,10 +44,16 @@ export async function PATCH(
     if (!parsed.success) {
       return NextResponse.json(
         {
-          error: "Invalid status data",
-          details: parsed.error.flatten().fieldErrors,
+          success: false,
+          ok: false,
+          message: "Invalid status data",
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid status data",
+            details: parsed.error.flatten().fieldErrors,
+          },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -52,8 +66,13 @@ export async function PATCH(
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
-        { error: "Complaint not found" },
-        { status: 404 }
+        {
+          success: false,
+          ok: false,
+          message: "Complaint not found",
+          error: { code: "ERROR", message: "Complaint not found" },
+        },
+        { status: 404 },
       );
     }
 
@@ -73,8 +92,13 @@ export async function PATCH(
       complaintId: id,
     });
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      {
+        success: false,
+        ok: false,
+        message: "Internal server error",
+        error: { code: "ERROR", message: "Internal server error" },
+      },
+      { status: 500 },
     );
   }
 }

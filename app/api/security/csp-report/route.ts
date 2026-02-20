@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     }
 
     logger.error("SECURITY", "Failed to process CSP report", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ success: false, ok: false, message: "Internal server error" , error: { code: "ERROR", message: "Internal server error"  } }, { status: 500 });
   }
 }
 

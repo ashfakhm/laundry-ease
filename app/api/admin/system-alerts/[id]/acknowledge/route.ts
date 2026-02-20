@@ -38,7 +38,7 @@ export async function PATCH(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid alert id" }, { status: 400 });
+      return NextResponse.json({ success: false, ok: false, message: "Invalid alert id" , error: { code: "ERROR", message: "Invalid alert id"  } }, { status: 400 });
     }
 
     const session = await requireAdminWithDbCheck();
@@ -75,7 +75,7 @@ export async function PATCH(
     );
 
     if (!alert) {
-      return NextResponse.json({ error: "Alert not found" }, { status: 404 });
+      return NextResponse.json({ success: false, ok: false, message: "Alert not found" , error: { code: "ERROR", message: "Alert not found"  } }, { status: 404 });
     }
 
     if (alert.status !== "open") {

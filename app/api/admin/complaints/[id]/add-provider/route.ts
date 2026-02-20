@@ -23,7 +23,7 @@ export async function POST(
     const session = await requireAdminWithDbCheck();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
+      return NextResponse.json({ success: false, ok: false, message: "Invalid complaint ID" , error: { code: "ERROR", message: "Invalid complaint ID"  } }, { status: 400 });
     }
 
     const { db } = await getDb();
@@ -33,7 +33,7 @@ export async function POST(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint)
-      return NextResponse.json({ error: "Not Found" }, { status: 404 });
+      return NextResponse.json({ success: false, ok: false, message: "Not Found" , error: { code: "ERROR", message: "Not Found"  } }, { status: 404 });
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
       return NextResponse.json(
@@ -113,6 +113,6 @@ export async function POST(
       error,
       { complaintId: id },
     );
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json({ success: false, ok: false, message: "Internal Error" , error: { code: "ERROR", message: "Internal Error"  } }, { status: 500 });
   }
 }

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     const { target, type, code } = parsed.data;
     const res = await verifyOtp(target, type, code);
-    if (!res.ok) return NextResponse.json({ error: res.error }, { status: 400 });
+    if (!res.ok) return NextResponse.json({ success: false, ok: false, message: res.error , error: { code: "ERROR", message: res.error  } }, { status: 400 });
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof AppError) {

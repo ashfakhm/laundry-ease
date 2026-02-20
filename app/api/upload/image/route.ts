@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
     }
 
     const formData = await req.formData();
@@ -44,28 +44,22 @@ export async function POST(req: NextRequest) {
     const folder = (formData.get("folder") as string) || "provider-images";
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      return NextResponse.json({ success: false, ok: false, message: "No file provided" , error: { code: "ERROR", message: "No file provided"  } }, { status: 400 });
     }
     if (!/^[a-zA-Z0-9/_-]{1,80}$/.test(folder)) {
-      return NextResponse.json({ error: "Invalid folder name" }, { status: 400 });
+      return NextResponse.json({ success: false, ok: false, message: "Invalid folder name" , error: { code: "ERROR", message: "Invalid folder name"  } }, { status: 400 });
     }
 
     // Validate file type
     const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only JPG, PNG, and WebP are allowed." },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, ok: false, message: "Invalid file type. Only JPG, PNG, and WebP are allowed." , error: { code: "ERROR", message: "Invalid file type. Only JPG, PNG, and WebP are allowed."  } }, { status: 400 });
     }
 
     // Validate file size (5MB max)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "File too large. Maximum size is 5MB." },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, ok: false, message: "File too large. Maximum size is 5MB." , error: { code: "ERROR", message: "File too large. Maximum size is 5MB."  } }, { status: 400 });
     }
 
     // Convert file to buffer
@@ -122,9 +116,6 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error("UPLOAD", "Image upload error", error);
-    return NextResponse.json(
-      { error: "Failed to upload image" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, ok: false, message: "Failed to upload image" , error: { code: "ERROR", message: "Failed to upload image"  } }, { status: 500 });
   }
 }

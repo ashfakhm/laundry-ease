@@ -25,10 +25,7 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = forgotPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Valid email is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, ok: false, message: "Valid email is required" , error: { code: "ERROR", message: "Valid email is required"  } }, { status: 400 });
     }
 
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
@@ -91,9 +88,6 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error("AUTH", "Forgot password error", error);
-    return NextResponse.json(
-      { error: "An error occurred. Please try again later." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, ok: false, message: "An error occurred. Please try again later." , error: { code: "ERROR", message: "An error occurred. Please try again later."  } }, { status: 500 });
   }
 }

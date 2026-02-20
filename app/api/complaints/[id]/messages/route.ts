@@ -42,17 +42,33 @@ function parseSinceParam(rawSince: string | null): Date | null {
  */
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id) || !user.role) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        {
+          success: false,
+          ok: false,
+          message: "Unauthorized",
+          error: { code: "ERROR", message: "Unauthorized" },
+        },
+        { status: 401 },
+      );
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          ok: false,
+          message: "Invalid complaint ID",
+          error: { code: "ERROR", message: "Invalid complaint ID" },
+        },
+        { status: 400 },
+      );
     }
 
     const requestUrl = new URL(req.url);
@@ -60,8 +76,13 @@ export async function GET(
     const since = parseSinceParam(sinceRaw);
     if (sinceRaw && !since) {
       return NextResponse.json(
-        { error: "Invalid since timestamp" },
-        { status: 400 }
+        {
+          success: false,
+          ok: false,
+          message: "Invalid since timestamp",
+          error: { code: "ERROR", message: "Invalid since timestamp" },
+        },
+        { status: 400 },
       );
     }
     const limit = parseMessagesLimit(requestUrl.searchParams.get("limit"));
@@ -76,8 +97,13 @@ export async function GET(
       .findOne({ _id: complaintId });
     if (!complaint) {
       return NextResponse.json(
-        { error: "Complaint not found" },
-        { status: 404 }
+        {
+          success: false,
+          ok: false,
+          message: "Complaint not found",
+          error: { code: "ERROR", message: "Complaint not found" },
+        },
+        { status: 404 },
       );
     }
 
@@ -92,7 +118,15 @@ export async function GET(
       },
     });
     if (!access.allowed) {
-      return NextResponse.json({ error: access.error }, { status: 403 });
+      return NextResponse.json(
+        {
+          success: false,
+          ok: false,
+          message: access.error,
+          error: { code: "ERROR", message: access.error },
+        },
+        { status: 403 },
+      );
     }
 
     // Fetch Messages
@@ -128,7 +162,15 @@ export async function GET(
     logger.error("COMPLAINTS", "Error fetching messages", error, {
       complaintId: id,
     });
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        ok: false,
+        message: "Internal Error",
+        error: { code: "ERROR", message: "Internal Error" },
+      },
+      { status: 500 },
+    );
   }
 }
 
@@ -138,7 +180,7 @@ export async function GET(
  */
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -151,11 +193,27 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id) || !user.role) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        {
+          success: false,
+          ok: false,
+          message: "Unauthorized",
+          error: { code: "ERROR", message: "Unauthorized" },
+        },
+        { status: 401 },
+      );
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          ok: false,
+          message: "Invalid complaint ID",
+          error: { code: "ERROR", message: "Invalid complaint ID" },
+        },
+        { status: 400 },
+      );
     }
 
     const body = await req.json();
@@ -164,10 +222,16 @@ export async function POST(
     if (!parsed.success) {
       return NextResponse.json(
         {
-          error: "Invalid message data",
-          details: parsed.error.flatten().fieldErrors,
+          success: false,
+          ok: false,
+          message: "Invalid message data",
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid message data",
+            details: parsed.error.flatten().fieldErrors,
+          },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -183,8 +247,13 @@ export async function POST(
       .findOne({ _id: complaintId });
     if (!complaint) {
       return NextResponse.json(
-        { error: "Complaint not found" },
-        { status: 404 }
+        {
+          success: false,
+          ok: false,
+          message: "Complaint not found",
+          error: { code: "ERROR", message: "Complaint not found" },
+        },
+        { status: 404 },
       );
     }
 
@@ -199,7 +268,15 @@ export async function POST(
       },
     });
     if (!access.allowed) {
-      return NextResponse.json({ error: access.error }, { status: 403 });
+      return NextResponse.json(
+        {
+          success: false,
+          ok: false,
+          message: access.error,
+          error: { code: "ERROR", message: access.error },
+        },
+        { status: 403 },
+      );
     }
 
     // Construct Message
@@ -210,7 +287,8 @@ export async function POST(
       complaint_id: complaintId,
       sender_id: actorId,
       sender_role: access.role,
-      message_type: attachments.length > 0 && content.length === 0 ? "IMAGE" : "TEXT",
+      message_type:
+        attachments.length > 0 && content.length === 0 ? "IMAGE" : "TEXT",
       content,
       attachments,
       createdAt: new Date(),
@@ -233,6 +311,14 @@ export async function POST(
     logger.error("COMPLAINTS", "Error creating message", error, {
       complaintId: id,
     });
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        ok: false,
+        message: "Internal Error",
+        error: { code: "ERROR", message: "Internal Error" },
+      },
+      { status: 500 },
+    );
   }
 }

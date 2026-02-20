@@ -16,11 +16,11 @@ export async function GET(
   try {
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id) || !user.role) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid complaint ID" }, { status: 400 });
+      return NextResponse.json({ success: false, ok: false, message: "Invalid complaint ID" , error: { code: "ERROR", message: "Invalid complaint ID"  } }, { status: 400 });
     }
 
     const { db } = await getDb();
@@ -30,10 +30,7 @@ export async function GET(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return NextResponse.json(
-        { error: "Complaint not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, ok: false, message: "Complaint not found" , error: { code: "ERROR", message: "Complaint not found"  } }, { status: 404 });
     }
 
     const access = canAccessComplaintConversation({
@@ -48,7 +45,7 @@ export async function GET(
     });
 
     if (!access.allowed) {
-      return NextResponse.json({ error: "Access Denied" }, { status: 403 });
+      return NextResponse.json({ success: false, ok: false, message: "Access Denied" , error: { code: "ERROR", message: "Access Denied"  } }, { status: 403 });
     }
 
     const [seeker, provider] = await Promise.all([
@@ -126,6 +123,6 @@ export async function GET(
     logger.error("COMPLAINTS", "Error fetching complaint", error, {
       complaintId: id,
     });
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json({ success: false, ok: false, message: "Internal Error" , error: { code: "ERROR", message: "Internal Error"  } }, { status: 500 });
   }
 }

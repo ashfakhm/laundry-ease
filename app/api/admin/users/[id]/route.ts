@@ -22,10 +22,7 @@ export async function DELETE(
     const parsed = deleteUserSchema.safeParse(body);
 
     if (!ObjectId.isValid(id) || !parsed.success) {
-      return NextResponse.json(
-        { error: "Missing or invalid parameters" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, ok: false, message: "Missing or invalid parameters" , error: { code: "ERROR", message: "Missing or invalid parameters"  } }, { status: 400 });
     }
 
     const { role } = parsed.data;
@@ -37,10 +34,7 @@ export async function DELETE(
     if (result.deletedCount === 1) {
       return NextResponse.json({ ok: true });
     }
-    return NextResponse.json(
-      { error: "User not found or not deleted" },
-      { status: 404 }
-    );
+    return NextResponse.json({ success: false, ok: false, message: "User not found or not deleted" , error: { code: "ERROR", message: "User not found or not deleted"  } }, { status: 404 });
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json(

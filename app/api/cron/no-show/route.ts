@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   }
 
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
   }
 
   const run = await startCronRun("no-show");
