@@ -97,7 +97,8 @@ export default function SeekerProfilePage() {
       try {
         const res = await fetch("/api/profile/seeker");
         if (!res.ok) throw new Error("Failed to load profile");
-        const data = await res.json();
+        const json = await res.json();
+        const data = json.data ?? json;
 
         form.reset({
           name: data.name || "",

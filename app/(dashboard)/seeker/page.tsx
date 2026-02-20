@@ -86,7 +86,8 @@ export default function SeekerDashboardPage() {
         if (session?.user?.email) {
           const response = await fetch(`/api/profile/seeker`);
           if (response.ok) {
-            const data = await response.json();
+            const json = await response.json();
+            const data = json.data ?? json;
             if (data.address?.city) {
               const location = data.address.city;
               setSeekerLocation(location);

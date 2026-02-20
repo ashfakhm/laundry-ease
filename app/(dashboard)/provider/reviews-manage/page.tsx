@@ -25,10 +25,11 @@ export default function ReviewsManagePage() {
     async function fetchReviews() {
       if (!session?.user?.id) return;
       try {
-        const res = await fetch(`/api/reviews?provider_id=${session.user.id}`);
+        const res = await fetch(`/api/providers/${session.user.id}/reviews`);
         if (res.ok) {
-          const data = await res.json();
-          setReviews(Array.isArray(data) ? data : []);
+          const json = await res.json();
+          const data = Array.isArray(json) ? json : (json.data ?? []);
+          setReviews(data);
         }
       } catch (error) {
         console.error("Failed to fetch reviews", error);
@@ -39,12 +40,16 @@ export default function ReviewsManagePage() {
   }, [session?.user?.id]);
 
   const averageRating = useMemo(
-    () => reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) : 0,
-    [reviews]
+    () =>
+      reviews.length > 0
+        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+        : 0,
+    [reviews],
   );
-  
+
   const fiveStarCount = reviews.filter((r) => r.rating === 5).length;
-  const fiveStarPercentage = reviews.length > 0 ? (fiveStarCount / reviews.length) * 100 : 0;
+  const fiveStarPercentage =
+    reviews.length > 0 ? (fiveStarCount / reviews.length) * 100 : 0;
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background">
@@ -81,9 +86,7 @@ export default function ReviewsManagePage() {
               <Star className="h-5 w-5" />
               <p className="text-sm font-semibold">5-Star Reviews</p>
             </div>
-            <p className="mt-2 text-3xl font-bold">
-              {fiveStarCount}
-            </p>
+            <p className="mt-2 text-3xl font-bold">{fiveStarCount}</p>
             <p className="text-xs text-muted-foreground">
               {fiveStarPercentage.toFixed(0)}% of total
             </p>
@@ -115,7 +118,9 @@ export default function ReviewsManagePage() {
                         </span>
                       </div>
                       <div>
-                        <p className="font-semibold">{review.seeker?.name || "LaundryEase User"}</p>
+                        <p className="font-semibold">
+                          {review.seeker?.name || "LaundryEase User"}
+                        </p>
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-0.5">
                             {[...Array(5)].map((_, i) => (
@@ -143,7 +148,12 @@ export default function ReviewsManagePage() {
                       {review.comment}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Order #{review.booking_id ? String(review.booking_id).slice(-6).toUpperCase() : (review.order_id ? String(review.order_id).slice(-6).toUpperCase() : "N/A")}
+                      Order #
+                      {review.booking_id
+                        ? String(review.booking_id).slice(-6).toUpperCase()
+                        : review.order_id
+                          ? String(review.order_id).slice(-6).toUpperCase()
+                          : "N/A"}
                     </p>
                   </div>
                 </div>

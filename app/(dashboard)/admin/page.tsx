@@ -128,8 +128,8 @@ export default function AdminDashboardPage() {
         cache: "no-store",
       });
       if (response.ok) {
-        const data = await response.json();
-        setStats(data);
+        const json = await response.json();
+        setStats(json.data ?? json);
         setLoadError(null);
       } else {
         setStats(null);
@@ -149,13 +149,16 @@ export default function AdminDashboardPage() {
   async function acknowledgeAlert(alertId: string) {
     setAckInFlight(alertId);
     try {
-      const response = await fetch(`/api/admin/system-alerts/${alertId}/acknowledge`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `/api/admin/system-alerts/${alertId}/acknowledge`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
         },
-        body: JSON.stringify({}),
-      });
+      );
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
@@ -178,8 +181,10 @@ export default function AdminDashboardPage() {
   const criticalSystemAlerts = stats?.criticalSystemAlerts ?? 0;
   const highSystemAlerts = stats?.highSystemAlerts ?? 0;
   const systemAlertCount = stats?.systemAlertCount ?? 0;
-  const unacknowledgedSystemAlertCount = stats?.unacknowledgedSystemAlertCount ?? 0;
-  const ackSlaBreachedSystemAlertCount = stats?.ackSlaBreachedSystemAlertCount ?? 0;
+  const unacknowledgedSystemAlertCount =
+    stats?.unacknowledgedSystemAlertCount ?? 0;
+  const ackSlaBreachedSystemAlertCount =
+    stats?.ackSlaBreachedSystemAlertCount ?? 0;
   const totalProviders = stats?.totalProviders ?? 0;
   const utilizationPct = stats?.providerUtilizationPct ?? 0;
   const recentActiveComplaints = stats?.recentActiveComplaints ?? [];
@@ -522,7 +527,9 @@ export default function AdminDashboardPage() {
                         disabled={ackInFlight === alert._id}
                         className="inline-flex h-fit items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
                       >
-                        {ackInFlight === alert._id ? "Acknowledging..." : "Acknowledge"}
+                        {ackInFlight === alert._id
+                          ? "Acknowledging..."
+                          : "Acknowledge"}
                       </button>
                     )}
                   </div>
