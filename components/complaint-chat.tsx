@@ -80,57 +80,65 @@ export default function ComplaintChat({
   });
   const latestMessageAtRef = useRef<string | null>(null);
 
-  const fetchMessages = useCallback(async (incremental = false) => {
-    try {
-      const query = new URLSearchParams({
-        limit: "120",
-      });
-      if (incremental && latestMessageAtRef.current) {
-        query.set("since", latestMessageAtRef.current);
-      }
+  const fetchMessages = useCallback(
+    async (incremental = false) => {
+      try {
+        const query = new URLSearchParams({
+          limit: "120",
+        });
+        if (incremental && latestMessageAtRef.current) {
+          query.set("since", latestMessageAtRef.current);
+        }
 
-      const res = await fetch(`/api/complaints/${complaintId}/messages?${query}`, {
-        cache: "no-store",
-      });
-      if (res.status === 403) {
-        const data = await res.json();
-        if (data.error?.includes("resolved")) {
-          setIsResolved(true);
-          setIsAccessBlocked(true);
-          setError("Dispute is resolved. Chat is archived.");
+        const res = await fetch(
+          `/api/complaints/${complaintId}/messages?${query}`,
+          {
+            cache: "no-store",
+          },
+        );
+        if (res.status === 403) {
+          const data = await res.json();
+          if (data.error?.includes("resolved")) {
+            setIsResolved(true);
+            setIsAccessBlocked(true);
+            setError("Dispute is resolved. Chat is archived.");
+          } else {
+            setIsAccessBlocked(true);
+            setError(data.error || "Access Denied");
+          }
+          return;
+        }
+        if (!res.ok) throw new Error("Failed to fetch messages");
+        const data = (await res.json()) as ChatMessage[];
+
+        if (incremental && latestMessageAtRef.current) {
+          if (data.length > 0) {
+            latestMessageAtRef.current = data[data.length - 1].createdAt;
+            setMessages((prev) => {
+              const seen = new Set(prev.map((msg) => String(msg._id)));
+              const appended = data.filter((msg) => !seen.has(String(msg._id)));
+              return appended.length > 0 ? [...prev, ...appended] : prev;
+            });
+            setShouldAutoScroll(true);
+          }
         } else {
-          setIsAccessBlocked(true);
-          setError(data.error || "Access Denied");
+          setMessages(data);
+          latestMessageAtRef.current =
+            data.length > 0 ? data[data.length - 1].createdAt : null;
+          setShouldAutoScroll(true);
         }
-        return;
-      }
-      if (!res.ok) throw new Error("Failed to fetch messages");
-      const data = (await res.json()) as ChatMessage[];
 
-      if (incremental && latestMessageAtRef.current) {
-        if (data.length > 0) {
-          latestMessageAtRef.current = data[data.length - 1].createdAt;
-          setMessages((prev) => {
-            const seen = new Set(prev.map((msg) => String(msg._id)));
-            const appended = data.filter((msg) => !seen.has(String(msg._id)));
-            return appended.length > 0 ? [...prev, ...appended] : prev;
-          });
-        }
-      } else {
-        setMessages(data);
-        latestMessageAtRef.current =
-          data.length > 0 ? data[data.length - 1].createdAt : null;
+        setError(null);
+        setIsResolved(false);
+        setIsAccessBlocked(false);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load messages. Retrying...");
+        setIsAccessBlocked(false);
       }
-
-      setError(null);
-      setIsResolved(false);
-      setIsAccessBlocked(false);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load messages. Retrying...");
-      setIsAccessBlocked(false);
-    }
-  }, [complaintId]);
+    },
+    [complaintId],
+  );
 
   const fetchParticipants = useCallback(async () => {
     try {
@@ -433,7 +441,9 @@ export default function ComplaintChat({
               className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
               onClick={() => fileInputRef.current?.click()}
               disabled={
-                loading || uploadingAttachments || pendingAttachments.length >= 5
+                loading ||
+                uploadingAttachments ||
+                pendingAttachments.length >= 5
               }
               title="Attach images"
             >
