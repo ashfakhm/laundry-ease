@@ -53,8 +53,8 @@ export default function AdminPaymentManagementPage() {
       setLoading(true);
       const res = await fetch("/api/admin/payments");
       if (res.ok) {
-        const data = await res.json();
-        setPayments(data);
+        const json = await res.json();
+        setPayments(Array.isArray(json) ? json : (json.data ?? []));
       }
     } catch (error) {
       console.error("Failed to fetch payments", error);
