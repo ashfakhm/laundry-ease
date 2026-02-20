@@ -1,4 +1,8 @@
-import { NextResponse } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
@@ -9,14 +13,11 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const JWT_SECRET = env.NEXTAUTH_SECRET;
-const BASE_URL = env.NEXTAUTH_URL || env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+const BASE_URL =
+  env.NEXTAUTH_URL || env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 const sendMagicLinkSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email("Valid email is required"),
+  email: z.string().trim().toLowerCase().email("Valid email is required"),
 });
 
 export async function POST(req: Request) {
@@ -31,10 +32,7 @@ export async function POST(req: Request) {
     const payload = await req.json();
     const parsed = sendMagicLinkSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Valid email is required" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Valid email is required", 400);
     }
     const email = parsed.data.email;
 
@@ -45,18 +43,13 @@ export async function POST(req: Request) {
     const provider = await db.collection("providers").findOne({ email });
 
     if (!seeker && !provider) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return legacyErrorResponse("User not found", 404);
     }
 
     // Generate JWT token (valid for 24 hours)
-    const token = jwt.sign(
-      { email, type: "email_verification" },
-      JWT_SECRET,
-      { expiresIn: "24h" }
-    );
+    const token = jwt.sign({ email, type: "email_verification" }, JWT_SECRET, {
+      expiresIn: "24h",
+    });
 
     const verificationLink = `${BASE_URL}/verify-email?token=${token}`;
 
@@ -68,22 +61,13 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true });
+    return legacySuccessResponse();
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("AUTH", "Send magic link error", error);
-    return NextResponse.json(
-      { error: "Failed to send verification email" },
-      { status: 500 }
-    );
+    return legacyErrorResponse("Failed to send verification email", 500);
   }
 }

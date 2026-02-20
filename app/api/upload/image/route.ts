@@ -1,4 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
@@ -36,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id)) {
-      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const formData = await req.formData();
@@ -44,22 +49,25 @@ export async function POST(req: NextRequest) {
     const folder = (formData.get("folder") as string) || "provider-images";
 
     if (!file) {
-      return NextResponse.json({ success: false, ok: false, message: "No file provided" , error: { code: "ERROR", message: "No file provided"  } }, { status: 400 });
+      return legacyErrorResponse("No file provided", 400);
     }
     if (!/^[a-zA-Z0-9/_-]{1,80}$/.test(folder)) {
-      return NextResponse.json({ success: false, ok: false, message: "Invalid folder name" , error: { code: "ERROR", message: "Invalid folder name"  } }, { status: 400 });
+      return legacyErrorResponse("Invalid folder name", 400);
     }
 
     // Validate file type
     const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      return NextResponse.json({ success: false, ok: false, message: "Invalid file type. Only JPG, PNG, and WebP are allowed." , error: { code: "ERROR", message: "Invalid file type. Only JPG, PNG, and WebP are allowed."  } }, { status: 400 });
+      return legacyErrorResponse(
+        "Invalid file type. Only JPG, PNG, and WebP are allowed.",
+        400,
+      );
     }
 
     // Validate file size (5MB max)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json({ success: false, ok: false, message: "File too large. Maximum size is 5MB." , error: { code: "ERROR", message: "File too large. Maximum size is 5MB."  } }, { status: 400 });
+      return legacyErrorResponse("File too large. Maximum size is 5MB.", 400);
     }
 
     // Convert file to buffer
@@ -87,35 +95,32 @@ export async function POST(req: NextRequest) {
             (error, result) => {
               if (error) return reject(error);
               resolve(result?.secure_url || "");
-            }
+            },
           )
           .end(buffer);
       });
     } else if (allowBase64Fallback) {
       // Fallback to base64 encoding
-      logger.warn("UPLOAD", "Cloudinary not configured. Using base64 encoding as fallback.");
+      logger.warn(
+        "UPLOAD",
+        "Cloudinary not configured. Using base64 encoding as fallback.",
+      );
       const base64 = buffer.toString("base64");
       imageUrl = `data:${file.type};base64,${base64}`;
     } else {
-      return NextResponse.json(
-        { error: "Image upload service is unavailable. Please try again later." },
-        { status: 503 },
+      return legacyErrorResponse(
+        "Image upload service is unavailable. Please try again later.",
+        503,
       );
     }
 
-    return NextResponse.json({ url: imageUrl }, { status: 200 });
+    return legacySuccessResponse({ url: imageUrl }, 200);
   } catch (error: unknown) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("UPLOAD", "Image upload error", error);
-    return NextResponse.json({ success: false, ok: false, message: "Failed to upload image" , error: { code: "ERROR", message: "Failed to upload image"  } }, { status: 500 });
+    return legacyErrorResponse("Failed to upload image", 500);
   }
 }

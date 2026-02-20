@@ -1,3 +1,7 @@
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { ObjectId } from "mongodb";
@@ -21,32 +25,16 @@ export async function POST(req: Request) {
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Unauthorized",
-          error: { code: "ERROR", message: "Unauthorized" },
-        },
-        { status: 401 },
-      );
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const payload = await req.json();
     const parsed = bookingPaymentInitSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid booking payment request",
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Invalid booking payment request",
-            details: parsed.error.flatten().fieldErrors,
-          },
-        },
-        { status: 400 },
+      return legacyErrorResponse(
+        "Invalid booking payment request",
+        400,
+        parsed.error.flatten().fieldErrors,
       );
     }
 
@@ -59,31 +47,13 @@ export async function POST(req: Request) {
     });
 
     if (!booking) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Booking not found",
-          error: { code: "ERROR", message: "Booking not found" },
-        },
-        { status: 404 },
-      );
+      return legacyErrorResponse("Booking not found", 404);
     }
 
     if (booking.status !== "requested") {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message:
-            "Booking fee can only be paid while booking is waiting for provider response.",
-          error: {
-            code: "ERROR",
-            message:
-              "Booking fee can only be paid while booking is waiting for provider response.",
-          },
-        },
-        { status: 409 },
+      return legacyErrorResponse(
+        "Booking fee can only be paid while booking is waiting for provider response.",
+        409,
       );
     }
 
@@ -91,15 +61,7 @@ export async function POST(req: Request) {
       booking.bookingFeeStatus === "paid" ||
       booking.bookingFeeStatus === "applied"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Booking fee already paid",
-          error: { code: "ERROR", message: "Booking fee already paid" },
-        },
-        { status: 409 },
-      );
+      return legacyErrorResponse("Booking fee already paid", 409);
     }
 
     if (
@@ -157,7 +119,7 @@ export async function POST(req: Request) {
       },
     );
 
-    return NextResponse.json({
+    return legacySuccessResponse({
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
@@ -175,17 +137,9 @@ export async function POST(req: Request) {
     }
 
     logger.error("PAYMENTS", "Razorpay order creation error", error);
-    return NextResponse.json(
-      {
-        success: false,
-        ok: false,
-        message: "Payment temporarily unavailable. Please try again later.",
-        error: {
-          code: "ERROR",
-          message: "Payment temporarily unavailable. Please try again later.",
-        },
-      },
-      { status: 500 },
+    return legacyErrorResponse(
+      "Payment temporarily unavailable. Please try again later.",
+      500,
     );
   }
 }

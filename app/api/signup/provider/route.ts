@@ -1,4 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 import { emailExists, createProvider } from "@/lib/db/index";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 import { signupProviderSchema } from "@/lib/api/schemas";
@@ -14,10 +18,7 @@ export async function POST(req: NextRequest) {
   const payload = await req.json();
   const parsed = signupProviderSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return legacyErrorResponse("Invalid data", 400, parsed.error.flatten());
   }
   const {
     name,
@@ -47,19 +48,13 @@ export async function POST(req: NextRequest) {
   const emailOk = await isOtpVerifiedRecently(normalizedEmail, "email");
   const phoneOk = await isOtpVerifiedRecently(phone, "phone");
   if (!emailOk || !phoneOk) {
-    return NextResponse.json(
-      { error: "Email and phone must be verified via OTP" },
-      { status: 400 },
-    );
+    return legacyErrorResponse("Email and phone must be verified via OTP", 400);
   }
 
   // Check if email already exists in any collection
   const exists = await emailExists(normalizedEmail);
   if (exists) {
-    return NextResponse.json(
-      { error: "Email already in use" },
-      { status: 409 },
-    );
+    return legacyErrorResponse("Email already in use", 409);
   }
 
   // Create provider in providers collection
@@ -144,5 +139,5 @@ export async function POST(req: NextRequest) {
     // They can retry syncing by updating their profile later.
   }
 
-  return NextResponse.json({ ok: true });
+  return legacySuccessResponse();
 }

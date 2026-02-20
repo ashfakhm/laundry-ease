@@ -155,6 +155,7 @@ describe("POST /api/admin/complaints/[id]/add-provider", () => {
     expect(res.status).toBe(200);
     expect(data).toEqual({
       success: true,
+      ok: true,
       idempotent: true,
       message: "Provider already added",
     });
@@ -187,7 +188,7 @@ describe("POST /api/admin/complaints/[id]/add-provider", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({ success: true });
+    expect(data).toEqual({ success: true, ok: true });
     expect(dbMock.complaintUpdateOne).toHaveBeenCalledWith(
       { _id: complaintId },
       {
@@ -204,7 +205,8 @@ describe("POST /api/admin/complaints/[id]/add-provider", () => {
       expect.objectContaining({
         complaint_id: complaintId,
         sender_role: "system",
-        content: "Ash Laundry Services has been added to this conversation by Admin",
+        content:
+          "Ash Laundry Services has been added to this conversation by Admin",
       }),
     );
   });

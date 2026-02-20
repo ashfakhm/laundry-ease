@@ -1,4 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
@@ -12,7 +17,7 @@ const deleteUserSchema = z.object({
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireAdminWithDbCheck();
@@ -22,7 +27,7 @@ export async function DELETE(
     const parsed = deleteUserSchema.safeParse(body);
 
     if (!ObjectId.isValid(id) || !parsed.success) {
-      return NextResponse.json({ success: false, ok: false, message: "Missing or invalid parameters" , error: { code: "ERROR", message: "Missing or invalid parameters"  } }, { status: 400 });
+      return legacyErrorResponse("Missing or invalid parameters", 400);
     }
 
     const { role } = parsed.data;
@@ -32,25 +37,16 @@ export async function DELETE(
       .collection(collection)
       .deleteOne({ _id: new ObjectId(id) });
     if (result.deletedCount === 1) {
-      return NextResponse.json({ ok: true });
+      return legacySuccessResponse();
     }
-    return NextResponse.json({ success: false, ok: false, message: "User not found or not deleted" , error: { code: "ERROR", message: "User not found or not deleted"  } }, { status: 404 });
+    return legacyErrorResponse("User not found or not deleted", 404);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     const { logger } = await import("@/lib/logger");
     logger.error("ADMIN_USERS", "Failed to delete user", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

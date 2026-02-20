@@ -1,3 +1,7 @@
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -13,23 +17,27 @@ import { logger } from "@/lib/logger";
  */
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { user } = await requireProvider();
 
     const { id } = await params;
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, ok: false, message: "Invalid booking ID" , error: { code: "ERROR", message: "Invalid booking ID"  } }, { status: 400 });
+      return legacyErrorResponse("Invalid booking ID", 400);
     }
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const body = await req.json();
     const parsed = invoiceCreateSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ success: false, ok: false, message: "Invalid invoice data", details: parsed.error.flatten().fieldErrors , error: { code: "ERROR", message: "Invalid invoice data", details: parsed.error.flatten().fieldErrors  } }, { status: 400 });
+      return legacyErrorResponse(
+        "Invalid invoice data",
+        400,
+        parsed.error.flatten().fieldErrors,
+      );
     }
 
     const { db } = await getDb();
@@ -40,20 +48,26 @@ export async function POST(
       _id: bookingId,
     });
     if (!booking) {
-      return NextResponse.json({ success: false, ok: false, message: "Booking not found" , error: { code: "ERROR", message: "Booking not found"  } }, { status: 404 });
+      return legacyErrorResponse("Booking not found", 404);
     }
 
     if (String(booking.provider_id) !== user.id) {
-      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 403 });
+      return legacyErrorResponse("Unauthorized", 403);
     }
 
-    if (booking.status !== "confirmed" && booking.status !== "invoice_created") {
-      return NextResponse.json({ success: false, ok: false, message: "Invoice can only be created for confirmed bookings" , error: { code: "ERROR", message: "Invoice can only be created for confirmed bookings"  } }, { status: 409 });
+    if (
+      booking.status !== "confirmed" &&
+      booking.status !== "invoice_created"
+    ) {
+      return legacyErrorResponse(
+        "Invoice can only be created for confirmed bookings",
+        409,
+      );
     }
 
     const calculatedSubtotal = parsed.data.items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
-      0
+      0,
     );
     const cleanSubtotal =
       parsed.data.subtotal !== undefined
@@ -88,7 +102,7 @@ export async function POST(
           provider_id: providerId,
         },
       },
-      { upsert: true }
+      { upsert: true },
     );
 
     await db.collection("bookings").updateOne(
@@ -99,10 +113,10 @@ export async function POST(
           invoice: invoicePayload,
           updatedAt: now,
         },
-      }
+      },
     );
 
-    return NextResponse.json({ ok: true });
+    return legacySuccessResponse();
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json(
@@ -115,6 +129,6 @@ export async function POST(
     }
 
     logger.error("INVOICES", "Error creating invoice", error);
-    return NextResponse.json({ success: false, ok: false, message: "Failed to create invoice" , error: { code: "ERROR", message: "Failed to create invoice"  } }, { status: 500 });
+    return legacyErrorResponse("Failed to create invoice", 500);
   }
 }

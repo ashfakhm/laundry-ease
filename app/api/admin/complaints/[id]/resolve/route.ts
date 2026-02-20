@@ -1,4 +1,8 @@
-import { NextResponse } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { getOrderById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -15,12 +19,13 @@ import { requireAdminWithDbCheck } from "@/lib/api/auth";
 const EPSILON = 0.01;
 const PAISE_MULTIPLIER = 100;
 
-type RequestOutcome = "refund_full" | "refund_partial" | "release_payout" | "reject";
-
-type ComplaintDbOutcome =
+type RequestOutcome =
   | "refund_full"
   | "refund_partial"
-  | "release_payout";
+  | "release_payout"
+  | "reject";
+
+type ComplaintDbOutcome = "refund_full" | "refund_partial" | "release_payout";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -80,12 +85,18 @@ function normalizeRefundAmount(
     };
   }
 
-  if (typeof seekerRefundAmountInput !== "number" || !Number.isFinite(seekerRefundAmountInput)) {
+  if (
+    typeof seekerRefundAmountInput !== "number" ||
+    !Number.isFinite(seekerRefundAmountInput)
+  ) {
     throw new Error("seeker_refund_amount is required for partial settlement.");
   }
 
   const normalizedAmount = round2(seekerRefundAmountInput);
-  if (normalizedAmount < 0 || normalizedAmount - distributableAmount > EPSILON) {
+  if (
+    normalizedAmount < 0 ||
+    normalizedAmount - distributableAmount > EPSILON
+  ) {
     throw new Error(
       `seeker_refund_amount must be within 0 and ${distributableAmount.toFixed(2)}.`,
     );
@@ -167,39 +178,36 @@ export async function POST(
     const parsed = adminComplaintResolveSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid resolution data",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 },
+      return legacyErrorResponse(
+        "Invalid resolution data",
+        400,
+        parsed.error.flatten().fieldErrors,
       );
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
+      return legacyErrorResponse("Invalid complaint id", 400);
     }
 
     const { outcome, seeker_refund_amount } = parsed.data;
     const { db } = await getDb();
     const complaintId = new ObjectId(id);
 
-    const complaint = await db.collection("complaints").findOne({ _id: complaintId });
+    const complaint = await db
+      .collection("complaints")
+      .findOne({ _id: complaintId });
     if (!complaint) {
-      return NextResponse.json({ error: "Not Found" }, { status: 404 });
+      return legacyErrorResponse("Not Found", 404);
     }
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return NextResponse.json(
-        { error: "Complaint has already been finalized" },
-        { status: 409 },
-      );
+      return legacyErrorResponse("Complaint has already been finalized", 409);
     }
 
     const orderId = complaint.order_id;
     const order = await getOrderById(orderId);
     if (!order) {
-      return NextResponse.json({ error: "Order Not Found" }, { status: 404 });
+      return legacyErrorResponse("Order Not Found", 404);
     }
 
     const { providerPayoutAmount: distributableAmount, platformCommission } =
@@ -211,12 +219,9 @@ export async function POST(
       outcome !== "release_payout" &&
       outcome !== "reject"
     ) {
-      return NextResponse.json(
-        {
-          error:
-            "Order has no distributable amount remaining for complaint settlement.",
-        },
-        { status: 409 },
+      return legacyErrorResponse(
+        "Order has no distributable amount remaining for complaint settlement.",
+        409,
       );
     }
 
@@ -228,8 +233,9 @@ export async function POST(
         normalizedDistributableAmount,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid settlement amount";
-      return NextResponse.json({ error: message }, { status: 400 });
+      const message =
+        error instanceof Error ? error.message : "Invalid settlement amount";
+      return legacyErrorResponse(message, 400);
     }
 
     const seekerRefundAmount = settlement.seekerRefundAmount;
@@ -318,14 +324,20 @@ export async function POST(
       if (!payoutApplied && !refundApplied) {
         await db
           .collection("complaints")
-          .updateOne({ _id: complaintId }, buildComplaintRevertUpdate(complaint));
+          .updateOne(
+            { _id: complaintId },
+            buildComplaintRevertUpdate(complaint),
+          );
       }
 
       const details =
-        finError instanceof Error ? finError.message : "Unknown financial error";
-      const safeDetails = !payoutApplied && !refundApplied
-        ? "Financial action failed during complaint resolution"
-        : "Partial financial action completed; manual follow-up required";
+        finError instanceof Error
+          ? finError.message
+          : "Unknown financial error";
+      const safeDetails =
+        !payoutApplied && !refundApplied
+          ? "Financial action failed during complaint resolution"
+          : "Partial financial action completed; manual follow-up required";
 
       logger.error("ADMIN_COMPLAINTS", "Financial action failed", finError, {
         complaintId: id,
@@ -340,23 +352,19 @@ export async function POST(
         sender_id: new ObjectId(session.user.id),
         sender_role: "system",
         message_type: "SYSTEM",
-        content: !payoutApplied && !refundApplied
-          ? `Failed to finalize complaint due to financial action error: ${details}`
-          : `Complaint finalized but follow-up is needed. ${details}. payoutApplied=${payoutApplied}, refundApplied=${refundApplied}`,
+        content:
+          !payoutApplied && !refundApplied
+            ? `Failed to finalize complaint due to financial action error: ${details}`
+            : `Complaint finalized but follow-up is needed. ${details}. payoutApplied=${payoutApplied}, refundApplied=${refundApplied}`,
         createdAt: new Date(),
       });
 
-      return NextResponse.json(
-        {
-          error:
-            !payoutApplied && !refundApplied
-              ? "Financial Action Failed"
-              : "Financial Action Partially Applied",
-          details: safeDetails,
-          payoutApplied,
-          refundApplied,
-        },
-        { status: 500 },
+      return legacyErrorResponse(
+        !payoutApplied && !refundApplied
+          ? "Financial Action Failed"
+          : "Financial Action Partially Applied",
+        500,
+        { details: safeDetails, payoutApplied, refundApplied },
       );
     }
 
@@ -411,8 +419,7 @@ export async function POST(
 
     await db.collection("complaint_messages").insertOne(systemMsg);
 
-    return NextResponse.json({
-      success: true,
+    return legacySuccessResponse({
       outcome: resolved.dbOutcome,
       status: resolved.dbStatus,
       settlement: {
@@ -424,18 +431,12 @@ export async function POST(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error resolving dispute", error, {
       complaintId: id,
     });
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return legacyErrorResponse("Internal Error", 500);
   }
 }

@@ -1,4 +1,8 @@
-import { NextResponse } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { z } from "zod";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -58,10 +62,7 @@ export async function GET() {
       seekerIds.length > 0
         ? db
             .collection("seekers")
-            .find(
-              { _id: { $in: seekerIds } },
-              { projection: { name: 1 } },
-            )
+            .find({ _id: { $in: seekerIds } }, { projection: { name: 1 } })
             .toArray()
         : Promise.resolve([]),
       providerIds.length > 0
@@ -92,23 +93,14 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(enrichedOrders);
+    return legacySuccessResponse({ data: enrichedOrders });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ADMIN_PAYMENTS", "Error fetching payments", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }
 
@@ -126,15 +118,16 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsed = actionSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.flatten().fieldErrors },
-        { status: 400 },
+      return legacyErrorResponse(
+        "Validation error",
+        400,
+        parsed.error.flatten().fieldErrors,
       );
     }
 
     const { orderId, action, amount, reason } = parsed.data;
     if (!ObjectId.isValid(orderId)) {
-      return NextResponse.json({ error: "Invalid order ID" }, { status: 400 });
+      return legacyErrorResponse("Invalid order ID", 400);
     }
 
     const { db } = await getDb();
@@ -143,7 +136,7 @@ export async function POST(req: Request) {
       _id: orderObjectId,
     });
     if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      return legacyErrorResponse("Order not found", 404);
     }
 
     if (action === "release_payout") {
@@ -159,14 +152,11 @@ export async function POST(req: Request) {
       ]);
 
       if (!successStatuses.has(payoutResult.status)) {
-        return NextResponse.json(
-          {
-            error:
-              payoutResult.message ||
-              `Unable to initiate payout (${payoutResult.status})`,
-            result: payoutResult,
-          },
-          { status: 409 },
+        return legacyErrorResponse(
+          payoutResult.message ||
+            `Unable to initiate payout (${payoutResult.status})`,
+          409,
+          { result: payoutResult },
         );
       }
 
@@ -179,48 +169,39 @@ export async function POST(req: Request) {
         at: new Date(),
       });
 
-      return NextResponse.json({ ok: true, result: payoutResult });
+      return legacySuccessResponse({ result: payoutResult });
     }
 
     if (action === "refund") {
       if (order.payment_status === "refunded") {
-        return NextResponse.json({
-          ok: true,
+        return legacySuccessResponse({
           result: "already_refunded",
           idempotent: true,
         });
       }
 
       if (!["paid", "held", "released"].includes(order.payment_status)) {
-        return NextResponse.json(
-          { error: "Order payment is not in a refundable state" },
-          { status: 409 },
+        return legacyErrorResponse(
+          "Order payment is not in a refundable state",
+          409,
         );
       }
 
       if (order.payout_id && order.payout_status !== "failed") {
-        return NextResponse.json(
-          {
-            error:
-              "Cannot auto-refund after payout has been initiated. Resolve manually with provider recovery.",
-          },
-          { status: 409 },
+        return legacyErrorResponse(
+          "Cannot auto-refund after payout has been initiated. Resolve manually with provider recovery.",
+          409,
         );
       }
 
       if (!order.razorpay_payment_id) {
-        return NextResponse.json(
-          { error: "Payment reference missing on order" },
-          { status: 409 },
-        );
+        return legacyErrorResponse("Payment reference missing on order", 409);
       }
 
-      const refundAmount = typeof amount === "number" ? amount : Number(order.total_price || 0);
+      const refundAmount =
+        typeof amount === "number" ? amount : Number(order.total_price || 0);
       if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
-        return NextResponse.json(
-          { error: "Invalid refund amount" },
-          { status: 400 },
-        );
+        return legacyErrorResponse("Invalid refund amount", 400);
       }
 
       const refund = await refundRazorpayPayment(
@@ -258,14 +239,11 @@ export async function POST(req: Request) {
         at: new Date(),
       });
 
-      return NextResponse.json({ ok: true, result: refund });
+      return legacySuccessResponse({ result: refund });
     }
 
     if (typeof amount !== "number" || !reason) {
-      return NextResponse.json(
-        { error: "Penalty amount and reason are required" },
-        { status: 400 },
-      );
+      return legacyErrorResponse("Penalty amount and reason are required", 400);
     }
 
     await db.collection<Order>("orders").updateOne(
@@ -289,25 +267,15 @@ export async function POST(req: Request) {
       at: new Date(),
     });
 
-    return NextResponse.json({
-      ok: true,
+    return legacySuccessResponse({
       result: { status: "penalty_recorded", amount },
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ADMIN_PAYMENTS", "Error in admin payment action", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

@@ -1,4 +1,8 @@
-import { NextResponse } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { ObjectId } from "mongodb";
@@ -51,7 +55,9 @@ export async function GET() {
 
     const { db } = await getDb();
     const now = new Date();
-    const criticalAckSlaCutoff = new Date(now.getTime() - CRITICAL_ALERT_ACK_SLA_MS);
+    const criticalAckSlaCutoff = new Date(
+      now.getTime() - CRITICAL_ALERT_ACK_SLA_MS,
+    );
     const highAckSlaCutoff = new Date(now.getTime() - HIGH_ALERT_ACK_SLA_MS);
 
     // 0. Count open operational/integrity alerts by severity
@@ -176,7 +182,9 @@ export async function GET() {
         firstSeenAt: row.firstSeenAt
           ? new Date(row.firstSeenAt).toISOString()
           : null,
-        lastSeenAt: row.lastSeenAt ? new Date(row.lastSeenAt).toISOString() : null,
+        lastSeenAt: row.lastSeenAt
+          ? new Date(row.lastSeenAt).toISOString()
+          : null,
         acknowledgedAt: row.ownership?.acknowledgedAt
           ? new Date(row.ownership.acknowledgedAt).toISOString()
           : null,
@@ -333,10 +341,7 @@ export async function GET() {
       seekerIds.length > 0
         ? db
             .collection("seekers")
-            .find(
-              { _id: { $in: seekerIds } },
-              { projection: { name: 1 } },
-            )
+            .find({ _id: { $in: seekerIds } }, { projection: { name: 1 } })
             .toArray()
         : Promise.resolve([]),
       providerIds.length > 0
@@ -373,13 +378,15 @@ export async function GET() {
               ? row.title.trim()
               : null,
           status: row.status || "open",
-          createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+          createdAt: row.createdAt
+            ? new Date(row.createdAt).toISOString()
+            : null,
           seekerName: seeker?.name || "Seeker",
           providerName: providerDisplay,
         };
       });
 
-    return NextResponse.json({
+    return legacySuccessResponse({
       criticalSystemAlerts,
       highSystemAlerts,
       systemAlertCount: criticalSystemAlerts + highSystemAlerts,
@@ -405,19 +412,14 @@ export async function GET() {
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
-    logger.error("ADMIN_DASHBOARD", "Error fetching admin dashboard stats", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+    logger.error(
+      "ADMIN_DASHBOARD",
+      "Error fetching admin dashboard stats",
+      error,
     );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

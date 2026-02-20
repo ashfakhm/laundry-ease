@@ -1,4 +1,8 @@
-import { NextResponse } from "next/server";
+// no NextRequest needed
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
 import { checkNoShows } from "@/cron/no-show-check";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
@@ -9,14 +13,11 @@ export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
   if (!env.CRON_SECRET) {
     logger.error("CRON", "CRON_SECRET not configured - cron endpoint disabled");
-    return NextResponse.json(
-      { error: "Cron endpoint not configured" },
-      { status: 503 },
-    );
+    return legacyErrorResponse("Cron endpoint not configured", 503);
   }
 
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
+    return legacyErrorResponse("Unauthorized", 401);
   }
 
   const run = await startCronRun("no-show");
@@ -26,13 +27,10 @@ export async function GET(req: Request) {
 
     await completeCronRun(run.insertedId, "success", results);
 
-    return NextResponse.json({ success: true, results });
+    return legacySuccessResponse({ results });
   } catch (error) {
     await completeCronRun(run.insertedId, "error", undefined, error);
     logger.error("CRON", "No-show cron job failed", error);
-    return NextResponse.json(
-      { success: false, error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Internal Server Error", 500);
   }
 }

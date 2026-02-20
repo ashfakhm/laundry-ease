@@ -1,4 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+} from "@/lib/api/legacy-response";
+import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { Provider } from "@/types/users";
 import {
@@ -12,7 +16,10 @@ import { z } from "zod";
 
 const bankDetailsPayloadSchema = z.object({
   bankDetails: z.object({
-    accountHolderName: z.string().trim().min(2, "Account holder name is required"),
+    accountHolderName: z
+      .string()
+      .trim()
+      .min(2, "Account holder name is required"),
     accountNumber: z.string().trim().min(6, "Account number is required"),
     ifsc: z
       .string()
@@ -27,18 +34,16 @@ export async function POST(req: NextRequest) {
     // Authentication check - only providers can update bank details
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
+      return legacyErrorResponse("Unauthorized", 401);
     }
 
     const payload = await req.json().catch(() => null);
     const parsed = bankDetailsPayloadSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Missing or invalid bank details",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 },
+      return legacyErrorResponse(
+        "Missing or invalid bank details",
+        400,
+        parsed.error.flatten().fieldErrors,
       );
     }
     const { bankDetails } = parsed.data;
@@ -50,10 +55,7 @@ export async function POST(req: NextRequest) {
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return NextResponse.json(
-        { error: "Provider not found" },
-        { status: 404 },
-      );
+      return legacyErrorResponse("Provider not found", 404);
     }
 
     // 1. Create Contact in RazorpayX
@@ -96,12 +98,11 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    return NextResponse.json({
-      success: true,
+    return legacySuccessResponse({
       message: "Bank details saved and linked to Razorpay",
     });
   } catch (error: unknown) {
     logger.error("PROVIDER", "Error saving bank details", error);
-    return NextResponse.json({ success: false, ok: false, message: "Failed to save bank details" , error: { code: "ERROR", message: "Failed to save bank details"  } }, { status: 500 });
+    return legacyErrorResponse("Failed to save bank details", 500);
   }
 }

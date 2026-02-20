@@ -103,7 +103,7 @@ describe("DELETE /api/admin/users/[id]", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({ ok: true });
+    expect(data.ok).toBe(true);
     expect(dbMock.db.collection).toHaveBeenCalledWith("seekers");
     expect(dbMock.deleteOne).toHaveBeenCalledWith({
       _id: expect.any(ObjectId),

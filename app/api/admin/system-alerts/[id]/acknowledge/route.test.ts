@@ -109,7 +109,7 @@ describe("PATCH /api/admin/system-alerts/[id]/acknowledge", () => {
     const data = await res.json();
 
     expect(res.status).toBe(401);
-    expect(data).toEqual({ error: "Unauthorized" });
+    expect(data.error).toBe("Unauthorized");
   });
 
   it("returns 403 when user is not admin", async () => {

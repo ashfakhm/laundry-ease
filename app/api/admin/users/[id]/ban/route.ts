@@ -1,4 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { AppError } from "@/lib/api/errors";
@@ -13,7 +18,7 @@ const banUserSchema = z.object({
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireAdminWithDbCheck();
@@ -23,10 +28,7 @@ export async function PATCH(
     const parsed = banUserSchema.safeParse(body);
 
     if (!ObjectId.isValid(id) || !parsed.success) {
-      return NextResponse.json(
-        { error: "Missing or invalid parameters" },
-        { status: 400 }
-      );
+      return legacyErrorResponse("Missing or invalid parameters", 400);
     }
 
     const blockedUntil = new Date(parsed.data.blocked_until);
@@ -36,32 +38,23 @@ export async function PATCH(
     const { db } = await getDb();
     const result = await db
       .collection(collection)
-      .updateOne({ _id: new ObjectId(id) }, { $set: { blocked_until: blockedUntil } });
+      .updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { blocked_until: blockedUntil } },
+      );
 
     if (result.modifiedCount === 1) {
-      return NextResponse.json({ ok: true });
+      return legacySuccessResponse();
     }
 
-    return NextResponse.json(
-      { error: "User not found or not updated" },
-      { status: 404 }
-    );
+    return legacyErrorResponse("User not found or not updated", 404);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     const { logger } = await import("@/lib/logger");
     logger.error("ADMIN_USERS", "Failed to ban user", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

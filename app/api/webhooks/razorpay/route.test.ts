@@ -36,6 +36,7 @@ function createValidSignature(body: string, secret: string): string {
 
 function makeDbMock() {
   const webhookEventsFindOne = vi.fn();
+  const webhookEventsFindOneAndUpdate = vi.fn();
   const webhookEventsInsertOne = vi.fn();
   const webhookEventsUpdateOne = vi.fn();
   const paymentsUpdateOne = vi.fn();
@@ -49,6 +50,7 @@ function makeDbMock() {
       if (name === "webhook_events") {
         return {
           findOne: webhookEventsFindOne,
+          findOneAndUpdate: webhookEventsFindOneAndUpdate,
           insertOne: webhookEventsInsertOne,
           updateOne: webhookEventsUpdateOne,
         };
@@ -81,6 +83,7 @@ function makeDbMock() {
   return {
     db,
     webhookEventsFindOne,
+    webhookEventsFindOneAndUpdate,
     webhookEventsInsertOne,
     webhookEventsUpdateOne,
     paymentsUpdateOne,
@@ -202,7 +205,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue({
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue({
         event_id: "evt_duplicate",
         processed: true,
       });
@@ -239,7 +242,7 @@ describe("POST /api/webhooks/razorpay", () => {
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
       // Event exists but not processed
-      dbMock.webhookEventsFindOne.mockResolvedValue({
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue({
         event_id: "evt_retry",
         processed: false,
       });
@@ -285,8 +288,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.paymentsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
@@ -350,8 +352,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.paymentsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 0 });
@@ -398,8 +399,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.paymentsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
@@ -461,8 +461,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.refundsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.ordersFindOne.mockResolvedValue({
@@ -512,8 +511,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.refundsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.ordersFindOne.mockResolvedValue({
@@ -561,8 +559,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
@@ -602,8 +599,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
       dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
@@ -636,8 +632,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
 
       const res = await POST(makeWebhookRequest(body, signature));
@@ -670,8 +665,7 @@ describe("POST /api/webhooks/razorpay", () => {
       });
       const signature = createValidSignature(body, WEBHOOK_SECRET);
 
-      dbMock.webhookEventsFindOne.mockResolvedValue(null);
-      dbMock.webhookEventsInsertOne.mockResolvedValue({ acknowledged: true });
+      dbMock.webhookEventsFindOneAndUpdate.mockResolvedValue(null);
       dbMock.paymentsUpdateOne.mockRejectedValue(new Error("Database error"));
       dbMock.webhookEventsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
 

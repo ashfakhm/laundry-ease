@@ -1,4 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { otpVerifySchema } from "@/lib/api/schemas";
 import { verifyOtp } from "@/lib/otp";
 import { AppError } from "@/lib/api/errors";
@@ -17,31 +22,23 @@ export async function POST(req: NextRequest) {
     const json = await req.json();
     const parsed = otpVerifySchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid params", details: parsed.error.flatten().fieldErrors },
-        { status: 400 },
+      return legacyErrorResponse(
+        "Invalid params",
+        400,
+        parsed.error.flatten().fieldErrors,
       );
     }
 
     const { target, type, code } = parsed.data;
     const res = await verifyOtp(target, type, code);
-    if (!res.ok) return NextResponse.json({ success: false, ok: false, message: res.error , error: { code: "ERROR", message: res.error  } }, { status: 400 });
-    return NextResponse.json({ ok: true });
+    if (!res.ok) return legacyErrorResponse(res.error || "Invalid OTP", 400);
+    return legacySuccessResponse();
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("OTP", "Error verifying OTP", error);
-    return NextResponse.json(
-      { error: "Failed to verify OTP" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Failed to verify OTP", 500);
   }
 }

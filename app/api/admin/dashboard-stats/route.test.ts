@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
-const { mockRequireAdminWithDbCheck, mockGetDb, mockLoggerError } = vi.hoisted(() => ({
-  mockRequireAdminWithDbCheck: vi.fn(),
-  mockGetDb: vi.fn(),
-  mockLoggerError: vi.fn(),
-}));
+const { mockRequireAdminWithDbCheck, mockGetDb, mockLoggerError } = vi.hoisted(
+  () => ({
+    mockRequireAdminWithDbCheck: vi.fn(),
+    mockGetDb: vi.fn(),
+    mockLoggerError: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/api/auth", () => ({
   requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
@@ -153,7 +155,7 @@ describe("GET /api/admin/dashboard-stats", () => {
     const data = await res.json();
 
     expect(res.status).toBe(401);
-    expect(data).toEqual({ error: "Unauthorized" });
+    expect(data.error).toBe("Unauthorized");
     expect(mockGetDb).not.toHaveBeenCalled();
   });
 
@@ -446,7 +448,7 @@ describe("GET /api/admin/dashboard-stats", () => {
     const data = await res.json();
 
     expect(res.status).toBe(500);
-    expect(data).toEqual({ error: "Internal server error" });
+    expect(data.error).toBe("Internal server error");
     expect(mockLoggerError).toHaveBeenCalledWith(
       "ADMIN_DASHBOARD",
       "Error fetching admin dashboard stats",

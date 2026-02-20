@@ -89,7 +89,7 @@ describe("POST /api/otp/request", () => {
     const data = await res.json();
 
     expect(res.status).toBe(429);
-    expect(data.ok).toBe(false);
+    expect(data.error).toBeDefined();
   });
 
   it("returns 502 for non-rate-limit OTP dispatch failures", async () => {
@@ -104,7 +104,7 @@ describe("POST /api/otp/request", () => {
     const data = await res.json();
 
     expect(res.status).toBe(502);
-    expect(data.ok).toBe(false);
+    expect(data.error).toBe("Failed to send OTP");
   });
 
   it("returns 200 for successful OTP requests", async () => {

@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  legacyErrorResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
@@ -54,7 +58,9 @@ export async function GET() {
             localField: "providerObjectId",
             foreignField: "_id",
             as: "provider",
-            pipeline: [{ $project: { name: 1, businessName: 1, profilePicture: 1 } }],
+            pipeline: [
+              { $project: { name: 1, businessName: 1, profilePicture: 1 } },
+            ],
           },
         },
         {
@@ -80,19 +86,10 @@ export async function GET() {
     return NextResponse.json(normalizedComplaints, { status: 200 });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error fetching complaints", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return legacyErrorResponse("Internal server error", 500);
   }
 }

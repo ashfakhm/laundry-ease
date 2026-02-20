@@ -1,4 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  legacyErrorResponse,
+  legacyMessageResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import { getUserByEmail } from "@/lib/db/index";
 import { createHash, randomBytes } from "crypto";
@@ -25,7 +30,7 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = forgotPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json({ success: false, ok: false, message: "Valid email is required" , error: { code: "ERROR", message: "Valid email is required"  } }, { status: 400 });
+      return legacyErrorResponse("Valid email is required", 400);
     }
 
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
@@ -45,11 +50,13 @@ export async function POST(req: NextRequest) {
 
     // Keep response generic to avoid account enumeration.
     if (!user?._id || !user.passwordHash) {
-      return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
+      return legacyMessageResponse(GENERIC_RESPONSE.message, 200);
     }
 
     const resetToken = randomBytes(32).toString("hex");
-    const resetTokenHash = createHash("sha256").update(resetToken).digest("hex");
+    const resetTokenHash = createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
 
     const { db } = await getDb();
@@ -75,19 +82,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
+    return legacyMessageResponse(GENERIC_RESPONSE.message, 200);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode }
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error("AUTH", "Forgot password error", error);
-    return NextResponse.json({ success: false, ok: false, message: "An error occurred. Please try again later." , error: { code: "ERROR", message: "An error occurred. Please try again later."  } }, { status: 500 });
+    return legacyErrorResponse(
+      "An error occurred. Please try again later.",
+      500,
+    );
   }
 }

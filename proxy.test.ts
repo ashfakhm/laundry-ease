@@ -13,6 +13,7 @@ describe("Middleware Security Hardening", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+    vi.stubEnv("TRUST_PROXY", "true");
   });
 
   afterEach(() => {

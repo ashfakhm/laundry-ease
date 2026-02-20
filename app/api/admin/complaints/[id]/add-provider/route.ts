@@ -1,4 +1,8 @@
-import { NextResponse } from "next/server";
+import {
+  legacyErrorResponse,
+  legacySuccessResponse,
+  appErrorLegacyResponse,
+} from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
@@ -23,7 +27,7 @@ export async function POST(
     const session = await requireAdminWithDbCheck();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, ok: false, message: "Invalid complaint ID" , error: { code: "ERROR", message: "Invalid complaint ID"  } }, { status: 400 });
+      return legacyErrorResponse("Invalid complaint ID", 400);
     }
 
     const { db } = await getDb();
@@ -32,35 +36,36 @@ export async function POST(
     const complaint = await db
       .collection("complaints")
       .findOne({ _id: complaintId });
-    if (!complaint)
-      return NextResponse.json({ success: false, ok: false, message: "Not Found" , error: { code: "ERROR", message: "Not Found"  } }, { status: 404 });
+    if (!complaint) {
+      return legacyErrorResponse("Not Found", 404);
+    }
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return NextResponse.json(
-        { error: "Cannot add provider after complaint is finalized" },
-        { status: 409 },
+      return legacyErrorResponse(
+        "Cannot add provider after complaint is finalized",
+        409,
       );
     }
 
     if (complaint.status !== "accepted" && complaint.status !== "in_review") {
-      return NextResponse.json(
-        { error: "Complaint must be accepted before adding provider" },
-        { status: 409 },
+      return legacyErrorResponse(
+        "Complaint must be accepted before adding provider",
+        409,
       );
     }
 
     // Check if provider already has access
     if (complaint.provider_access_granted) {
-      return NextResponse.json(
-        { success: true, idempotent: true, message: "Provider already added" },
-        { status: 200 },
+      return legacySuccessResponse(
+        { idempotent: true, message: "Provider already added" },
+        200,
       );
     }
 
     if (!ObjectId.isValid(String(complaint.provider_id))) {
-      return NextResponse.json(
-        { error: "Complaint provider reference is invalid" },
-        { status: 409 },
+      return legacyErrorResponse(
+        "Complaint provider reference is invalid",
+        409,
       );
     }
     const providerObjectId = new ObjectId(String(complaint.provider_id));
@@ -95,16 +100,10 @@ export async function POST(
 
     await db.collection("complaint_messages").insertOne(systemMsg);
 
-    return NextResponse.json({ success: true });
+    return legacySuccessResponse();
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return appErrorLegacyResponse(error);
     }
 
     logger.error(
@@ -113,6 +112,6 @@ export async function POST(
       error,
       { complaintId: id },
     );
-    return NextResponse.json({ success: false, ok: false, message: "Internal Error" , error: { code: "ERROR", message: "Internal Error"  } }, { status: 500 });
+    return legacyErrorResponse("Internal Error", 500);
   }
 }

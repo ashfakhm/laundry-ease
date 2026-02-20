@@ -121,7 +121,7 @@ describe("PATCH /api/admin/users/[id]/ban", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({ ok: true });
+    expect(data.ok).toBe(true);
     expect(dbMock.db.collection).toHaveBeenCalledWith("providers");
     expect(dbMock.updateOne).toHaveBeenCalledWith(
       { _id: expect.any(ObjectId) },
