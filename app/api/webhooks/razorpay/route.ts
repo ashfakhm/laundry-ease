@@ -80,38 +80,38 @@ export async function POST(req: NextRequest) {
     // Idempotency guard:
     // - processed=true => duplicate retry from provider, ignore safely
     // - processed=false => prior failed/incomplete attempt, retry processing
-    const existingEvent = await webhookEvents.findOne(
+    const existingEvent = await webhookEvents.findOneAndUpdate(
       { event_id: event.id },
-      { projection: { processed: 1 } },
+      {
+        $setOnInsert: {
+          event_type: event.event,
+          entity: event.entity,
+          payload: event.payload,
+          received_at: new Date(),
+          processed: false,
+        },
+      },
+      { upsert: true, returnDocument: "before" },
     );
 
-    if (existingEvent?.processed) {
-      logger.info("WEBHOOK", "Duplicate webhook event ignored", {
-        eventId: event.id,
-        eventType: event.event,
-      });
-      return successResponse({ received: true, duplicate: true });
-    }
-
-    if (!existingEvent) {
-      await webhookEvents.insertOne({
-        event_id: event.id,
-        event_type: event.event,
-        entity: event.entity,
-        payload: event.payload,
-        received_at: new Date(),
-        processed: false,
-      });
-    } else {
-      await webhookEvents.updateOne(
-        { event_id: event.id },
-        {
-          $set: {
-            processing_error: null,
-            retry_started_at: new Date(),
+    if (existingEvent) {
+      if (existingEvent.processed) {
+        logger.info("WEBHOOK", "Duplicate webhook event ignored", {
+          eventId: event.id,
+          eventType: event.event,
+        });
+        return successResponse({ received: true, duplicate: true });
+      } else {
+        await webhookEvents.updateOne(
+          { event_id: event.id },
+          {
+            $set: {
+              processing_error: null,
+              retry_started_at: new Date(),
+            },
           },
-        },
-      );
+        );
+      }
     }
 
     // Handle different event types
