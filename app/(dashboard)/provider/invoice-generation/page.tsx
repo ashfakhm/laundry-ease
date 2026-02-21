@@ -53,20 +53,23 @@ export default function InvoiceGenerationPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [ordersData, profileData] = await Promise.all([
+        const [ordersRes, profileRes] = await Promise.all([
           getProviderOrders(),
           getProviderProfile(),
         ]);
 
-        // Filter for delivered orders (otp_confirmed_at is set)
-        // The server action returns data where otp_confirmed_at is either string or null.
-        // We ensure TS knows it's an array.
-        if (Array.isArray(ordersData)) {
-          setOrders((ordersData as Order[]).filter((o) => o.otp_confirmed_at));
+        if (ordersRes.success && Array.isArray(ordersRes.data)) {
+          setOrders(
+            (ordersRes.data as Order[]).filter((o) => o.otp_confirmed_at),
+          );
+        } else if (!ordersRes.success) {
+          console.error("Order fetch error:", ordersRes.error);
         }
 
-        if (profileData) {
-          setProvider(profileData);
+        if (profileRes.success && profileRes.data) {
+          setProvider(profileRes.data as ProviderProfile);
+        } else if (!profileRes.success) {
+          console.error("Profile fetch error:", profileRes.error);
         }
       } catch (error) {
         console.error("Error fetching data:", error);

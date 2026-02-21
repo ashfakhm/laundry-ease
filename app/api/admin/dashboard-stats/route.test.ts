@@ -26,6 +26,14 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+vi.mock("@/lib/api/security", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/security")>();
+  return {
+    ...actual,
+    enforceRateLimit: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 import { GET } from "./route";
 
 function makeDbMock() {

@@ -14,8 +14,8 @@ vi.mock("@/lib/complaints/access", () => ({
 }));
 vi.mock("@/lib/payouts/amounts", () => ({
   derivePayoutAmounts: vi.fn().mockReturnValue({
-    providerPayoutAmount: 800,
-    platformCommission: 200,
+    providerPayoutAmountPaise: 80000,
+    platformCommissionPaise: 20000,
   }),
 }));
 vi.mock("@/lib/logger", () => ({

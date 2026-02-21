@@ -10,8 +10,8 @@ describe("derivePayoutAmounts", () => {
         platform_commission: 90,
       }),
     ).toEqual({
-      providerPayoutAmount: 1110,
-      platformCommission: 90,
+      providerPayoutAmountPaise: 111000,
+      platformCommissionPaise: 9000,
     });
   });
 
@@ -22,8 +22,8 @@ describe("derivePayoutAmounts", () => {
         provider_payout_amount: 940,
       }),
     ).toEqual({
-      providerPayoutAmount: 940,
-      platformCommission: 60,
+      providerPayoutAmountPaise: 94000,
+      platformCommissionPaise: 6000,
     });
   });
 
@@ -34,8 +34,8 @@ describe("derivePayoutAmounts", () => {
         platform_commission: 50,
       }),
     ).toEqual({
-      providerPayoutAmount: 950,
-      platformCommission: 50,
+      providerPayoutAmountPaise: 95000,
+      platformCommissionPaise: 5000,
     });
   });
 
@@ -45,21 +45,20 @@ describe("derivePayoutAmounts", () => {
         total_price: 1000,
       }),
     ).toEqual({
-      providerPayoutAmount: 950,
-      platformCommission: 50,
+      providerPayoutAmountPaise: 95000,
+      platformCommissionPaise: 5000,
     });
   });
 
-  it("clamps negatives and rounds to 2 decimals", () => {
+  it("clamps negatives and rounds to 2 decimals mathematically converted to paise", () => {
     expect(
       derivePayoutAmounts({
         total_price: 999.995,
         provider_payout_amount: -15,
       }),
     ).toEqual({
-      providerPayoutAmount: 0,
-      platformCommission: 1000,
+      providerPayoutAmountPaise: 0,
+      platformCommissionPaise: 100000,
     });
   });
 });
-

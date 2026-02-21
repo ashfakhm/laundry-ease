@@ -84,8 +84,10 @@ export async function proxy(req: NextRequest, ev?: NextFetchEvent) {
       pathname.startsWith("/api/reset-password"))
   ) {
     const ip =
-      req.headers.get("x-real-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0] ||
+      req.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip")?.trim() ||
+      req.headers.get("cf-connecting-ip")?.trim() ||
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "127.0.0.1";
     const { success, pending } = await ratelimit.limit(`rl_${ip}_${pathname}`);
     if (ev) {
@@ -109,7 +111,9 @@ export async function proxy(req: NextRequest, ev?: NextFetchEvent) {
       let clientIp = "127.0.0.1";
       if (process.env.TRUST_PROXY === "true") {
         clientIp =
+          req.headers.get("x-vercel-forwarded-for")?.split(",")[0] ||
           req.headers.get("x-real-ip") ||
+          req.headers.get("cf-connecting-ip") ||
           req.headers.get("x-forwarded-for")?.split(",")[0] ||
           "127.0.0.1";
       }

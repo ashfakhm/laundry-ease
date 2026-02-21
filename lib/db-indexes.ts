@@ -145,6 +145,16 @@ const INDEX_SPECS: IndexSpec[] = [
 
   // Query/performance indexes
   {
+    collection: "orders",
+    keys: { payment_status: 1 },
+    options: { name: "orders_payment_status" },
+  },
+  {
+    collection: "system_alerts",
+    keys: { status: 1, severity: 1 },
+    options: { name: "system_alerts_status_severity" },
+  },
+  {
     collection: "bookings",
     keys: { provider_id: 1, status: 1, createdAt: -1 },
     options: { name: "bookings_provider_status_createdAt" },
@@ -212,7 +222,10 @@ function isIndexFailFastEnabled(): boolean {
   );
 }
 
-async function createIndexSafe(db: Db, spec: IndexSpec): Promise<IndexCreateResult> {
+async function createIndexSafe(
+  db: Db,
+  spec: IndexSpec,
+): Promise<IndexCreateResult> {
   const indexName = String(spec.options?.name || "unnamed");
   try {
     await db.collection(spec.collection).createIndex(spec.keys, spec.options);

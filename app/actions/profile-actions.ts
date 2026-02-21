@@ -8,18 +8,21 @@ export async function getProviderProfile() {
   let providerId: ObjectId;
   try {
     const { user } = await requireProvider();
-    if (!ObjectId.isValid(user.id)) throw new Error("Unauthorized");
+    if (!ObjectId.isValid(user.id))
+      return { success: false, error: "Unauthorized" };
     providerId = new ObjectId(user.id);
   } catch {
-    throw new Error("Unauthorized");
+    return { success: false, error: "Unauthorized" };
   }
 
   const { db } = await getDb();
 
-  const provider = await db.collection("providers").findOne({ _id: providerId });
+  const provider = await db
+    .collection("providers")
+    .findOne({ _id: providerId });
 
   if (!provider) {
-    throw new Error("Provider not found");
+    return { success: false, error: "Provider not found" };
   }
 
   // Map database schema to UI requirements
@@ -32,11 +35,14 @@ export async function getProviderProfile() {
   }));
 
   return {
-    _id: provider._id.toString(),
-    name: provider.name || "",
-    businessName: provider.businessName,
-    email: provider.email,
-    phone: provider.phone || "",
-    services: services,
+    success: true,
+    data: {
+      _id: provider._id.toString(),
+      name: provider.name || "",
+      businessName: provider.businessName,
+      email: provider.email,
+      phone: provider.phone || "",
+      services: services,
+    },
   };
 }

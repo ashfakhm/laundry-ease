@@ -236,6 +236,7 @@ export async function initiateOrderPayout(
 
     let providerPayoutAmount: number;
     let platformCommission: number;
+    let amountInPaise: number;
 
     if (
       typeof options?.overrideProviderPayoutAmount === "number" &&
@@ -260,13 +261,18 @@ export async function initiateOrderPayout(
           ),
         );
       }
+      amountInPaise = Math.round(providerPayoutAmount * PAISE_MULTIPLIER);
     } else {
       const derived = derivePayoutAmounts(currentOrder);
-      providerPayoutAmount = derived.providerPayoutAmount;
-      platformCommission = derived.platformCommission;
+      amountInPaise = derived.providerPayoutAmountPaise;
+      providerPayoutAmount = round2(
+        derived.providerPayoutAmountPaise / PAISE_MULTIPLIER,
+      );
+      platformCommission = round2(
+        derived.platformCommissionPaise / PAISE_MULTIPLIER,
+      );
     }
 
-    const amountInPaise = Math.round(providerPayoutAmount * PAISE_MULTIPLIER);
     if (amountInPaise <= 0) {
       await releasePayoutLock(orderId, {
         payout_status: "failed",

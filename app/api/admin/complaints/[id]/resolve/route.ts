@@ -213,8 +213,11 @@ export async function POST(
       return legacyErrorResponse("Order Not Found", 404);
     }
 
-    const { providerPayoutAmount: distributableAmount, platformCommission } =
+    const { providerPayoutAmountPaise, platformCommissionPaise } =
       derivePayoutAmounts(order);
+
+    const distributableAmount = providerPayoutAmountPaise / 100;
+    const platformCommission = platformCommissionPaise / 100;
 
     const normalizedDistributableAmount = round2(distributableAmount);
     if (

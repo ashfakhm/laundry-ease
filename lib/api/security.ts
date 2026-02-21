@@ -38,9 +38,10 @@ export type RateLimitResult = {
 };
 
 export function extractClientIp(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const [first] = forwarded
+  // Trust strict proxy headers first
+  const vercelForwarded = req.headers.get("x-vercel-forwarded-for");
+  if (vercelForwarded) {
+    const [first] = vercelForwarded
       .split(",")
       .map((ip) => ip.trim())
       .filter(Boolean);
@@ -53,7 +54,17 @@ export function extractClientIp(req: Request): string {
   const cfIp = req.headers.get("cf-connecting-ip")?.trim();
   if (cfIp) return cfIp;
 
-  return "unknown";
+  // Fallback to x-forwarded-for but recognize it is spoofable
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const [first] = forwarded
+      .split(",")
+      .map((ip) => ip.trim())
+      .filter(Boolean);
+    if (first) return first;
+  }
+
+  return "127.0.0.1";
 }
 
 export function collectAllowedOrigins(req: Request): string[] {
@@ -113,7 +124,9 @@ async function ensureRateLimitIndexes(
   );
 }
 
-async function getRateLimitCollection(): Promise<Collection<RateLimitDocument>> {
+async function getRateLimitCollection(): Promise<
+  Collection<RateLimitDocument>
+> {
   const { getDb } = await import("../mongodb");
   const { db } = await getDb();
   const collection = db.collection<RateLimitDocument>(RATE_LIMIT_COLLECTION);

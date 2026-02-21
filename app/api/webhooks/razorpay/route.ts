@@ -77,9 +77,9 @@ export async function POST(req: NextRequest) {
     const { db } = await getDb();
     const webhookEvents = db.collection("webhook_events");
 
-    // Idempotency guard:
-    // - processed=true => duplicate retry from provider, ignore safely
-    // - processed=false => prior failed/incomplete attempt, retry processing
+    // Idempotency and locking guard:
+    const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+
     const existingEvent = await webhookEvents.findOneAndUpdate(
       { event_id: event.id },
       {
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
           payload: event.payload,
           received_at: new Date(),
           processed: false,
+          processing_started_at: new Date(),
         },
       },
       { upsert: true, returnDocument: "before" },
@@ -101,16 +102,48 @@ export async function POST(req: NextRequest) {
           eventType: event.event,
         });
         return successResponse({ received: true, duplicate: true });
-      } else {
-        await webhookEvents.updateOne(
-          { event_id: event.id },
-          {
-            $set: {
-              processing_error: null,
-              retry_started_at: new Date(),
+      }
+
+      // Check if another instance is currently processing this event
+      const now = new Date();
+      const lockTime = existingEvent.processing_started_at?.getTime() || 0;
+
+      if (now.getTime() - lockTime < LOCK_TIMEOUT_MS) {
+        logger.info("WEBHOOK", "Webhook currently processing, ignoring", {
+          eventId: event.id,
+        });
+        return successResponse({ received: true, processing: true });
+      }
+
+      // Try to acquire the lock for retry if the previous lock timed out
+      const retryLock = await webhookEvents.findOneAndUpdate(
+        {
+          event_id: event.id,
+          processed: false,
+          $or: [
+            { processing_started_at: { $exists: false } },
+            { processing_started_at: null },
+            {
+              processing_started_at: {
+                $lt: new Date(now.getTime() - LOCK_TIMEOUT_MS),
+              },
             },
+          ],
+        },
+        {
+          $set: {
+            processing_started_at: new Date(),
+            processing_error: null,
+            retry_started_at: new Date(),
           },
-        );
+        },
+      );
+
+      if (!retryLock) {
+        logger.info("WEBHOOK", "Failed to acquire retry lock, ignoring", {
+          eventId: event.id,
+        });
+        return successResponse({ received: true, processing: true });
       }
     }
 
@@ -426,6 +459,7 @@ export async function POST(req: NextRequest) {
           {
             $set: {
               processed: false,
+              processing_started_at: null,
               processing_error:
                 error instanceof Error ? error.message : String(error),
               failed_at: new Date(),

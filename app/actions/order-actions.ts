@@ -8,19 +8,22 @@ export async function getProviderOrders() {
   let providerId: ObjectId;
   try {
     const { user } = await requireProvider();
-    if (!ObjectId.isValid(user.id)) throw new Error("Unauthorized");
+    if (!ObjectId.isValid(user.id))
+      return { success: false, error: "Unauthorized" };
     providerId = new ObjectId(user.id);
   } catch {
-    throw new Error("Unauthorized");
+    return { success: false, error: "Unauthorized" };
   }
 
   const { db } = await getDb();
 
   // Find provider to get the ID
-  const provider = await db.collection("providers").findOne({ _id: providerId });
+  const provider = await db
+    .collection("providers")
+    .findOne({ _id: providerId });
 
   if (!provider) {
-    throw new Error("Provider not found");
+    return { success: false, error: "Provider not found" };
   }
 
   // Fetch orders for this provider from the orders collection
@@ -74,5 +77,5 @@ export async function getProviderOrders() {
     ])
     .toArray();
 
-  return orders;
+  return { success: true, data: orders };
 }

@@ -8,8 +8,8 @@ type PayoutAmountInput = {
 };
 
 export type PayoutAmountBreakdown = {
-  providerPayoutAmount: number;
-  platformCommission: number;
+  providerPayoutAmountPaise: number;
+  platformCommissionPaise: number;
 };
 
 function toDecimal(value: unknown): Decimal | null {
@@ -20,10 +20,10 @@ function toDecimal(value: unknown): Decimal | null {
 }
 
 /**
- * Ensures a decimal is not negative and rounded to 2 decimal places.
+ * Ensures a decimal is not negative and is a mathematically precise integer for paise.
  */
-function normalizePositiveDecimal(dec: Decimal): number {
-  return Decimal.max(0, dec).toDecimalPlaces(2).toNumber();
+function normalizeToPaiseInteger(dec: Decimal): number {
+  return Decimal.max(0, dec).times(100).toDecimalPlaces(0).toNumber();
 }
 
 /**
@@ -49,21 +49,21 @@ export function derivePayoutAmounts(
     );
 
     return {
-      providerPayoutAmount: normalizePositiveDecimal(normalizedPayout),
-      platformCommission:
+      providerPayoutAmountPaise: normalizeToPaiseInteger(normalizedPayout),
+      platformCommissionPaise:
         storedCommission !== null
-          ? normalizePositiveDecimal(storedCommission)
-          : normalizePositiveDecimal(derivedCommission),
+          ? normalizeToPaiseInteger(storedCommission)
+          : normalizeToPaiseInteger(derivedCommission),
     };
   }
 
   if (storedCommission !== null) {
     const normalizedCommission = Decimal.max(0, storedCommission);
     return {
-      providerPayoutAmount: normalizePositiveDecimal(
+      providerPayoutAmountPaise: normalizeToPaiseInteger(
         normalizedTotal.minus(normalizedCommission),
       ),
-      platformCommission: normalizePositiveDecimal(normalizedCommission),
+      platformCommissionPaise: normalizeToPaiseInteger(normalizedCommission),
     };
   }
 
@@ -74,9 +74,9 @@ export function derivePayoutAmounts(
   );
 
   return {
-    providerPayoutAmount: normalizePositiveDecimal(
+    providerPayoutAmountPaise: normalizeToPaiseInteger(
       normalizedTotal.minus(defaultCommission),
     ),
-    platformCommission: normalizePositiveDecimal(defaultCommission),
+    platformCommissionPaise: normalizeToPaiseInteger(defaultCommission),
   };
 }
