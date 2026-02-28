@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-LaundryEase is a **Next.js 16** full-stack marketplace application that connects laundry service seekers with providers. The platform is distinguished by its **escrow-backed workflow system** that ensures trust between parties through verified payments, tracked order states, and delivery confirmation via OTP.
+LaundryEase is a **Next.js 16.1.6** full-stack marketplace application that connects laundry service seekers with providers. The platform is distinguished by its **escrow-backed workflow system** that ensures trust between parties through verified payments, tracked order states, and delivery confirmation via OTP.
 
 ---
 
@@ -10,30 +10,33 @@ LaundryEase is a **Next.js 16** full-stack marketplace application that connects
 
 ### Frontend
 
-| Technology      | Version | Purpose                                    |
-| --------------- | ------- | ------------------------------------------ |
-| Next.js         | 16.1.6  | Full-stack React framework with App Router |
-| React           | 19.2.4  | UI library                                 |
-| TypeScript      | 5.x     | Type safety                                |
-| Tailwind CSS    | 4.1.18  | Styling                                    |
-| Framer Motion   | 12.29.2 | Animations                                 |
-| Radix UI        | Latest  | Accessible UI primitives                   |
-| shadcn/ui       | 3.8.1   | Component library                          |
-| React Hook Form | 7.71.1  | Form handling                              |
-| Zod             | 4.3.6   | Schema validation                          |
+| Technology      | Version | Purpose                                     |
+| --------------- | ------- | ------------------------------------------- |
+| Next.js         | 16.1.6  | Full-stack React framework with App Router  |
+| React           | 19.2.4  | UI library                                  |
+| TypeScript      | 5.x     | Type safety                                 |
+| Tailwind CSS    | 4.1.18  | Styling                                     |
+| Framer Motion   | 12.29.2 | Animations                                  |
+| Radix UI        | Latest  | Accessible UI primitives                    |
+| shadcn/ui       | 3.8.1   | Component library                           |
+| React Hook Form | 7.71.1  | Form handling                               |
+| Zod             | 4.3.6   | Schema validation                           |
+| SWR             | Latest  | Client-side data fetching with revalidation |
 
 ### Backend
 
-| Technology      | Purpose             |
-| --------------- | ------------------- |
-| MongoDB         | Primary database    |
-| NextAuth.js     | Authentication      |
-| Razorpay        | Payment gateway     |
-| RazorpayX       | Escrow & payouts    |
-| Twilio          | SMS OTP             |
-| Nodemailer      | Email notifications |
-| Cloudinary      | Image uploads       |
-| Google Maps API | Location services   |
+| Technology      | Purpose                                        |
+| --------------- | ---------------------------------------------- |
+| MongoDB 6.21    | Primary database (native driver)               |
+| NextAuth.js     | Authentication (Google OAuth + credentials)    |
+| Razorpay        | Payment gateway                                |
+| RazorpayX       | Escrow & provider payouts                      |
+| Twilio          | SMS OTP delivery                               |
+| Nodemailer      | Email notifications (via outbox queue)         |
+| Cloudinary      | Image uploads (CDN-backed)                     |
+| Google Maps API | Location services (Places, Geocoding, Maps JS) |
+| Pino            | Structured JSON logging with secret redaction  |
+| decimal.js      | Precise monetary calculations (no float drift) |
 
 ### Testing & Quality
 
@@ -72,18 +75,38 @@ laundry-ease/
 │   ├── seeker/                   # Seeker-specific
 │   └── providers/                # Context providers
 ├── lib/                          # Core business logic
-│   ├── api/                      # API utilities
+│   ├── api/                      # API utilities (errors, auth, schemas, security/rate-limiting)
 │   ├── auth/                     # Auth helpers
-│   ├── bookings/                 # Booking logic
-│   ├── complaints/               # Complaint logic
-│   ├── db/                       # Database operations
+│   ├── bookings/                 # Booking logic (cancellation)
+│   ├── complaints/               # Complaint access control
+│   ├── db/                       # Database operations (bookings, orders, users)
 │   ├── ops/                      # Operations/alerting
-│   ├── orders/                   # Order logic
-│   ├── payouts/                  # Payout logic
-│   └── security/                 # Security utilities
+│   │   ├── ack-sla.ts            # Alert acknowledgement SLA tracking
+│   │   ├── alert-channels.ts     # Email/webhook alert delivery
+│   │   ├── alert-delivery.ts     # Delivery plan builder (notify + escalate)
+│   │   ├── alerts-analytics.ts   # 7-day trend, burn-rate, MTTR
+│   │   ├── health.ts             # Operational signal evaluation
+│   │   └── owner-routing.ts      # SLA-based alert owner assignment
+│   ├── orders/                   # Order state machine & compensation
+│   ├── payouts/                  # Payout calculation logic
+│   ├── security/                 # CSP and origin checks
+│   ├── constants.ts              # Centralized business constants
+│   ├── cron-tracking.ts          # Cron job run observability
+│   ├── db-indexes.ts             # Database index bootstrap
+│   ├── email-outbox.ts           # Queued email delivery with retry/backoff
+│   ├── env.ts                    # Environment variable validation (Zod)
+│   ├── logger.ts                 # Structured Pino logging with secret redaction
+│   ├── mongodb.ts                # Database connection
+│   ├── payouts.ts                # Payout orchestration engine
+│   └── razorpay.ts               # Payment gateway integration
 ├── types/                        # TypeScript types
 ├── cron/                         # Cron job scripts
-├── e2e/                          # E2E tests
+├── e2e/                          # E2E tests (Playwright)
+├── scripts/                      # CI/dev utility scripts
+├── .github/workflows/            # CI/CD workflows
+│   ├── quality-gates.yml         # Lint/test/build/E2E on every push
+│   ├── real-gateway-smoke.yml    # Live Razorpay connectivity checks
+│   └── governance-audit.yml      # Branch-protection drift detection
 └── docs/                         # Documentation
 ```
 
@@ -354,10 +377,24 @@ app/api/
 2. **CSP Headers** ([`lib/security/csp.ts`](lib/security/csp.ts:1))
    - Content-Security-Policy in Report-Only mode
    - Report endpoint at `/api/security/csp-report`
+   - Enforceable via `CSP_ENFORCE` env var
 
 3. **Role-Based Access Control**
    - Middleware-level route protection
    - API-level role validation
+
+4. **Rate Limiting** ([`lib/api/security.ts`](lib/api/security.ts:1))
+   - MongoDB-backed per-IP/actor rate limiting
+   - TTL auto-cleanup on rate limit counters
+   - Protected endpoints: admin actions, signup, password reset, cron
+
+5. **Structured Log Redaction**
+   - Pino logger natively redacts `password`, `token`, `otp`, `apiKey`, `secret` fields
+   - Prevents credential leakage in log output
+
+6. **Proxy Trust Model**
+   - Secure IP extraction via `x-vercel-forwarded-for`, `x-real-ip`, `cf-connecting-ip`
+   - Configurable via `TRUST_PROXY` env var
 
 ---
 
@@ -365,15 +402,19 @@ app/api/
 
 Defined in [`vercel.json`](vercel.json:1):
 
-| Endpoint                               | Schedule     | Purpose                      |
-| -------------------------------------- | ------------ | ---------------------------- |
-| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject expired bookings |
-| `/api/cron/no-show`                    | Every 5 min  | Detect no-shows              |
-| `/api/cron/process-payouts`            | Every 15 min | Process pending payouts      |
-| `/api/cron/audit-integrity`            | Every 30 min | Data integrity checks        |
-| `/api/cron/monitor-abuse`              | Daily 2 AM   | Abuse monitoring             |
-| `/api/cron/monitor-operational-health` | Hourly       | Health monitoring            |
-| `/api/cron/notify-system-alerts`       | Every 15 min | Alert notifications          |
+| Endpoint                               | Schedule     | Purpose                                   |
+| -------------------------------------- | ------------ | ----------------------------------------- |
+| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject expired booking requests      |
+| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows                  |
+| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine    |
+| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency  |
+| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks |
+| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with escalation            |
+| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns    |
+
+Additional registered jobs: `release-payouts` (legacy compatibility), `process-email-outbox`, `reconciliation`.
+
+All cron runs are tracked in `cron_runs` collection via `lib/cron-tracking.ts` with job name, start time, duration, status, and result.
 
 ---
 
@@ -381,22 +422,25 @@ Defined in [`vercel.json`](vercel.json:1):
 
 ### Collections
 
-| Collection              | Purpose                     |
-| ----------------------- | --------------------------- |
-| `seekers`               | Seeker user profiles        |
-| `providers`             | Provider user profiles      |
-| `admins`                | Admin user profiles         |
-| `bookings`              | Booking records             |
-| `orders`                | Order records               |
-| `complaints`            | Complaint records           |
-| `reviews`               | Provider reviews            |
-| `otp_codes`             | OTP verification codes      |
-| `password_reset_tokens` | Password reset tokens       |
-| `webhook_events`        | Idempotent webhook tracking |
-| `payments`              | Payment records             |
-| `refunds`               | Refund records              |
-| `email_outbox`          | Email queue                 |
-| `system_alerts`         | Operational alerts          |
+| Collection              | Purpose                                          |
+| ----------------------- | ------------------------------------------------ |
+| `seekers`               | Seeker user profiles                             |
+| `providers`             | Provider user profiles (with location, capacity) |
+| `admins`                | Admin user profiles                              |
+| `bookings`              | Booking records                                  |
+| `orders`                | Order records                                    |
+| `complaints`            | Complaint records with chat messages             |
+| `reviews`               | Provider reviews                                 |
+| `payments`              | Payment records                                  |
+| `refunds`               | Refund records (Razorpay)                        |
+| `audit_logs`            | Full history of state changes                    |
+| `webhook_events`        | Idempotent webhook tracking (by event_id)        |
+| `email_outbox`          | Queued emails with retry/backoff tracking        |
+| `system_alerts`         | Operational alerts (health, payout, complaint)   |
+| `cron_runs`             | Cron job execution history                       |
+| `otp_codes`             | OTP verification codes (TTL auto-expired)        |
+| `password_reset_tokens` | Password reset tokens (TTL auto-expired)         |
+| `api_rate_limits`       | Rate limit counters (TTL auto-expired)           |
 
 ### Key Indexes ([`lib/db-indexes.ts`](lib/db-indexes.ts:1))
 
@@ -416,6 +460,7 @@ Defined in [`vercel.json`](vercel.json:1):
 
 - `orders.payment_status` - Speeds up escrow aggregations
 - `system_alerts.status_severity` - Speeds up dashboard alerts monitoring
+- `api_rate_limits.key_window` - Speeds up rate limit lookups
 
 **TTL:**
 
@@ -428,15 +473,24 @@ Defined in [`vercel.json`](vercel.json:1):
 
 From [`lib/constants.ts`](lib/constants.ts:1):
 
-| Constant                           | Value      | Purpose               |
-| ---------------------------------- | ---------- | --------------------- |
-| `DEFAULT_PLATFORM_COMMISSION_RATE` | 5%         | Platform fee          |
-| `BOOKING_FEE_INR`                  | ₹149       | Upfront booking fee   |
-| `ESCROW_RELEASE_WINDOW_MS`         | 24 hours   | Escrow hold period    |
-| `MIN_PICKUP_ADVANCE_MS`            | 48 hours   | Minimum pickup notice |
-| `DELIVERY_OTP_TTL_MS`              | 10 minutes | OTP validity          |
-| `COMPLAINT_FILING_WINDOW_MS`       | 24 hours   | Complaint deadline    |
-| `SESSION_MAX_AGE_SECONDS`          | 7 days     | Session duration      |
+| Constant                              | Value      | Purpose                            |
+| ------------------------------------- | ---------- | ---------------------------------- |
+| `DEFAULT_PLATFORM_COMMISSION_RATE`    | 5%         | Platform fee                       |
+| `BOOKING_FEE_INR`                     | ₹149       | Upfront booking fee                |
+| `ESCROW_RELEASE_WINDOW_MS`            | 24 hours   | Escrow hold period                 |
+| `STALE_PAYOUT_CUTOFF_MS`              | 15 minutes | Stale payout processing threshold  |
+| `MIN_PICKUP_ADVANCE_MS`               | 48 hours   | Minimum pickup notice              |
+| `DELIVERY_OTP_TTL_MS`                 | 10 minutes | OTP validity                       |
+| `COMPLAINT_FILING_WINDOW_MS`          | 24 hours   | Complaint deadline                 |
+| `SESSION_MAX_AGE_SECONDS`             | 7 days     | Session duration                   |
+| `ABUSE_LOOKBACK_DAYS`                 | 30 days    | Cancellation monitoring window     |
+| `EXCESSIVE_CANCELLATION_THRESHOLD`    | 3          | Cancellation abuse trigger         |
+| `OVERDUE_HELD_ORDERS_ALERT_THRESHOLD` | 3          | Held order alert trigger           |
+| `PAYOUT_FAILURE_ALERT_THRESHOLD`      | 3          | Payout failure alert trigger       |
+| `OVERDUE_COMPLAINTS_ALERT_THRESHOLD`  | 2          | Overdue complaint alert trigger    |
+| `CRITICAL_ALERT_ACK_SLA_MS`           | 15 minutes | Critical alert acknowledgement SLA |
+| `HIGH_ALERT_ACK_SLA_MS`               | 60 minutes | High alert acknowledgement SLA     |
+| `ALERT_NOTIFICATION_DEDUPE_MS`        | 1 hour     | Alert notification spacing         |
 
 ---
 
@@ -530,6 +584,15 @@ Each role has its own layout:
    - Idempotent webhook processing
    - Escrow hold before release
 
+5. **Rate Limiting**
+   - MongoDB-backed per-IP/actor rate limiting ([`lib/api/security.ts`](lib/api/security.ts:1))
+   - TTL auto-cleanup on `api_rate_limits` collection
+   - Protected: admin actions, signup, password reset, cron endpoints
+
+6. **Log Redaction**
+   - Pino logger natively redacts sensitive fields (`password`, `token`, `otp`, `apiKey`, `secret`)
+   - Pretty-printing in dev, structured JSON in production
+
 ---
 
 ## 13. Testing Strategy
@@ -537,7 +600,7 @@ Each role has its own layout:
 ### Unit Tests (Vitest)
 
 - Located alongside source files as `*.test.ts`
-- Coverage for business logic, API handlers, utilities
+- Coverage for business logic, API handlers, utilities, ops modules, rate limiting
 
 ### E2E Tests (Playwright)
 
@@ -582,48 +645,72 @@ Required variables (see [`.env.example`](.env.example:1)):
 
 ## 15. Key Files Reference
 
-| File                                                             | Purpose                     |
-| ---------------------------------------------------------------- | --------------------------- |
-| [`proxy.ts`](proxy.ts:1)                                         | Route protection middleware |
-| [`lib/mongodb.ts`](lib/mongodb.ts:1)                             | Database connection         |
-| [`lib/env.ts`](lib/env.ts:1)                                     | Environment validation      |
-| [`lib/constants.ts`](lib/constants.ts:1)                         | Business constants          |
-| [`lib/payouts.ts`](lib/payouts.ts:1)                             | Payout orchestration        |
-| [`lib/razorpay.ts`](lib/razorpay.ts:1)                           | Payment integration         |
-| [`lib/orders/status-machine.ts`](lib/orders/status-machine.ts:1) | Order state machine         |
-| [`lib/complaints/access.ts`](lib/complaints/access.ts:1)         | Complaint access control    |
-| [`lib/db-indexes.ts`](lib/db-indexes.ts:1)                       | Database indexes            |
+| File                                                             | Purpose                                       |
+| ---------------------------------------------------------------- | --------------------------------------------- |
+| [`proxy.ts`](proxy.ts:1)                                         | Route protection middleware                   |
+| [`lib/mongodb.ts`](lib/mongodb.ts:1)                             | Database connection                           |
+| [`lib/env.ts`](lib/env.ts:1)                                     | Environment validation (Zod)                  |
+| [`lib/constants.ts`](lib/constants.ts:1)                         | Centralized business constants                |
+| [`lib/logger.ts`](lib/logger.ts:1)                               | Structured Pino logging with secret redaction |
+| [`lib/payouts.ts`](lib/payouts.ts:1)                             | Payout orchestration engine                   |
+| [`lib/razorpay.ts`](lib/razorpay.ts:1)                           | Payment gateway integration                   |
+| [`lib/email-outbox.ts`](lib/email-outbox.ts:1)                   | Queued email delivery with retry/backoff      |
+| [`lib/cron-tracking.ts`](lib/cron-tracking.ts:1)                 | Cron job run observability                    |
+| [`lib/db-indexes.ts`](lib/db-indexes.ts:1)                       | Database index bootstrap                      |
+| [`lib/api/security.ts`](lib/api/security.ts:1)                   | Rate limiting and origin checks               |
+| [`lib/api/schemas.ts`](lib/api/schemas.ts:1)                     | Centralized Zod validation schemas            |
+| [`lib/orders/status-machine.ts`](lib/orders/status-machine.ts:1) | Order state machine                           |
+| [`lib/complaints/access.ts`](lib/complaints/access.ts:1)         | Complaint access control                      |
+| [`lib/ops/health.ts`](lib/ops/health.ts:1)                       | Operational signal evaluation                 |
+| [`lib/ops/alert-delivery.ts`](lib/ops/alert-delivery.ts:1)       | Alert delivery plan builder                   |
+| [`lib/ops/alert-channels.ts`](lib/ops/alert-channels.ts:1)       | Email/webhook alert delivery channels         |
+| [`lib/ops/ack-sla.ts`](lib/ops/ack-sla.ts:1)                     | Alert acknowledgement SLA tracking            |
+| [`lib/ops/owner-routing.ts`](lib/ops/owner-routing.ts:1)         | SLA-based alert owner assignment              |
+| [`lib/ops/alerts-analytics.ts`](lib/ops/alerts-analytics.ts:1)   | 7-day trend, burn-rate, MTTR analytics        |
 
 ---
 
 ## 16. Current Project Status
 
-From [`README.md`](README.md:319):
+**Quality Snapshot (2026-02-28):**
 
-**Quality Snapshot (2026-02-21):**
-
-- 99 test files, 468 tests passing (100% Core Route Coverage)
+- 99 test files, 468 tests passing (100% core route coverage)
 - 3 Playwright E2E specs, 7 critical journeys passing
 - All quality gates passing (typecheck, lint, test, build, e2e)
-- Strict Escrow Paise Precision Enforced
-- System Webhooks fully Mutex-Locked
+- Strict escrow paise precision enforced
+- System webhooks fully mutex-locked
+- Zero production type casts
 
 **Stable Features:**
 
 - Role-based flows (seeker/provider/admin)
-- Location-based provider discovery
+- Location-based provider discovery with geospatial indexes
 - Booking → invoicing → payment → delivery → escrow loop
-- Complaint system with admin workflow
-- Split-settlement support
-- Operational health monitoring
-- Alert delivery with escalation
+- Canonical payment APIs with backward-compatible legacy aliases
+- Complaint system with admin workflow (accept → add provider → resolve)
+- Split-settlement support with commission-aware slider
+- Operational health monitoring with configurable thresholds
+- Alert delivery with escalation, dedup, and multi-channel fan-out
+- Alert acknowledgement with SLA tracking and owner routing
+- Alert analytics dashboard (7-day trend, burn-rate, MTTR)
+- Email outbox with retry/backoff for transactional emails
+- MongoDB-backed rate limiting on sensitive endpoints
+- Structured Pino logging with secret redaction
+- Financial precision with decimal.js
+- SWR data fetching for responsive dashboards
+- Abuse monitoring (excessive cancellation detection)
+- Data integrity auditing (order/payment/booking consistency)
+- Cron run tracking for operational observability
+- GitHub CI: Quality Gates, Real Gateway Smoke, Governance Audit
 
 **Remaining Opportunities:**
 
-- CSP enforcement mode
-- Password-recovery anti-abuse
-- Team calendar/on-call integration
+- CSP enforcement mode (currently report-only)
+- Password-recovery anti-abuse hardening (captcha strategy)
+- Team calendar/on-call integration for dynamic owner pools
 - Complaint window extension requests
+- Split-settlement reconciliation tooling for rare one-leg failures
+- Webhook payload archival policy
 
 ---
 
@@ -635,7 +722,7 @@ LaundryEase is a well-architected laundry marketplace with:
 2. **Clear Role Separation** - Seeker, Provider, Admin with distinct workflows
 3. **Robust State Machines** - Booking and Order lifecycles with explicit transitions
 4. **Comprehensive Dispute Resolution** - 3-way chat, split settlements, deadline tracking
-5. **Production-Ready Infrastructure** - Cron jobs, alerting, audit logging, security headers
-6. **Quality Assurance** - Unit tests, E2E tests, type safety, linting
+5. **Production-Ready Infrastructure** - 10 cron jobs, operational alerting with SLA/escalation, email outbox, rate limiting, structured logging
+6. **Quality Assurance** - 99 test files (468 tests), E2E browser tests, type safety, CI quality gates
 
 The codebase follows modern Next.js patterns with App Router, Server Actions, and a clear separation of concerns between frontend components and backend business logic.
