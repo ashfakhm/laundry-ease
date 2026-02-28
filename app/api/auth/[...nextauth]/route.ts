@@ -107,7 +107,8 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    error: "/choose-role", // Redirect to choose role page on error
+    signIn: "/auth",
+    error: "/auth", // Redirect to custom auth page on error
   },
 };
 

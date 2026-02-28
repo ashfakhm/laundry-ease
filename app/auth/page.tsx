@@ -1,16 +1,20 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, Suspense, useEffect } from "react";
 // removed unused useRouter
 import React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PasswordInput } from "@/components/ui/password-input";
 import { AppHeader } from "@/components/ui/app-header";
 import { motion } from "framer-motion";
 import { ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
 
-export default function AuthPage() {
+function AuthPageContent() {
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get("error");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,6 +24,20 @@ export default function AuthPage() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
   // removed const router = useRouter();
+
+  useEffect(() => {
+    if (urlError) {
+      if (
+        urlError === "AccessDenied" ||
+        urlError === "OAuthSignin" ||
+        urlError === "OAuthCallback"
+      ) {
+        setError("Google sign-in failed or was cancelled.");
+      } else {
+        setError(`Authentication error: ${urlError}. Please try again.`);
+      }
+    }
+  }, [urlError]);
 
   async function onCredentials(e: React.FormEvent) {
     e.preventDefault();
@@ -325,6 +343,21 @@ export default function AuthPage() {
         </div>
       </main>
     </>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        </div>
+      }
+    >
+      <AuthPageContent />
+    </Suspense>
   );
 }
 
