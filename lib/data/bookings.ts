@@ -1,8 +1,8 @@
 import { getDb } from "@/lib/mongodb";
-import { Booking, PopulatedBooking } from "@/types/bookings";
+import { PopulatedBooking, PopulatedSeekerBooking } from "@/types/bookings";
 import { ObjectId } from "mongodb";
 import { requireProvider, requireSeeker } from "@/lib/api/auth";
-type BookingDocument = Booking & { order_id?: ObjectId | string };
+import { logger } from "@/lib/logger";
 
 export async function getProviderBookings(): Promise<{
   success: boolean;
@@ -30,71 +30,73 @@ export async function getProviderBookings(): Promise<{
     // Fetch all bookings for this provider where fee is paid
     // Providers only see bookings after seeker has paid the booking fee
     const bookings = await db
-      .collection<BookingDocument>("bookings")
-      .find({
-        provider_id: providerId,
-        bookingFeeStatus: { $in: ["paid", "applied"] },
-      })
-      .sort({ createdAt: -1 })
+      .collection("bookings")
+      .aggregate([
+        {
+          $match: {
+            provider_id: providerId,
+            bookingFeeStatus: { $in: ["paid", "applied"] },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: "seekers",
+            localField: "seeker_id",
+            foreignField: "_id",
+            as: "seekerDetails",
+          },
+        },
+        {
+          $unwind: {
+            path: "$seekerDetails",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+      ])
       .toArray();
 
-    // Fetch seeker details for each booking
-    // Note: In a larger scale, we would use $lookup aggregation, but manual population is fine for now
-    const populatedBookings: PopulatedBooking[] = await Promise.all(
-      bookings.map(async (booking) => {
-        const { seeker_id: _seekerId, ...bookingWithoutSeeker } = booking;
-        const seeker = await db.collection("seekers").findOne(
-          { _id: new ObjectId(booking.seeker_id) },
-          {
-            projection: {
-              _id: 1,
-              name: 1,
-              email: 1,
-              phone: 1,
-              address: 1,
-              image: 1,
-            },
-          },
-        );
-
-        return {
-          ...bookingWithoutSeeker,
-          _id: booking._id.toString(),
-          provider_id: booking.provider_id.toString(),
-          createdAt: new Date(booking.createdAt).toISOString(),
-          order_id: booking.order_id ? booking.order_id.toString() : undefined,
-          deadline: booking.deadline
-            ? new Date(booking.deadline).toISOString()
-            : undefined,
-          pickupSlot: booking.pickupSlot
-            ? {
-                ...booking.pickupSlot,
-                dateTime: new Date(booking.pickupSlot.dateTime).toISOString(),
-                confirmedAt: booking.pickupSlot.confirmedAt
-                  ? new Date(booking.pickupSlot.confirmedAt).toISOString()
-                  : undefined,
-              }
-            : undefined,
-          seeker: {
-            _id: seeker?._id.toString() || "unknown",
-            name: seeker?.name || "Unknown Seeker",
-            email: seeker?.email || "No email",
-            phone: seeker?.phone || "No phone",
-            address: seeker?.address,
-            image: seeker?.image,
-          },
-        } as PopulatedBooking;
-      }),
-    );
+    const populatedBookings: PopulatedBooking[] = bookings.map((booking) => {
+      const seeker = booking.seekerDetails;
+      return {
+        _id: booking._id.toString(),
+        provider_id: booking.provider_id.toString(),
+        seeker_id: booking.seeker_id.toString(),
+        status: booking.status,
+        bookingFee: booking.bookingFee,
+        bookingFeeStatus: booking.bookingFeeStatus,
+        createdAt: new Date(booking.createdAt).toISOString(),
+        order_id: booking.order_id ? booking.order_id.toString() : undefined,
+        deadline: booking.deadline
+          ? new Date(booking.deadline).toISOString()
+          : undefined,
+        seeker_coordinates: booking.seeker_coordinates,
+        pickupSlot: booking.pickupSlot
+          ? {
+              ...booking.pickupSlot,
+              dateTime: new Date(booking.pickupSlot.dateTime).toISOString(),
+              confirmedAt: booking.pickupSlot.confirmedAt
+                ? new Date(booking.pickupSlot.confirmedAt).toISOString()
+                : undefined,
+            }
+          : undefined,
+        seeker: {
+          _id: seeker?._id?.toString() || "unknown",
+          name: seeker?.name || "Unknown Seeker",
+          email: seeker?.email || "No email",
+          phone: seeker?.phone || "No phone",
+          address: seeker?.address,
+          image: seeker?.image,
+        },
+      } as PopulatedBooking;
+    });
 
     return { success: true, data: populatedBookings };
   } catch (error) {
-    console.error("Error fetching provider bookings:", error);
+    logger.error("DATA", "Error fetching provider bookings:", error);
     return { success: false, error: "Failed to fetch bookings" };
   }
 }
-
-import { PopulatedSeekerBooking } from "@/types/bookings";
 
 export async function getSeekerBookings(): Promise<{
   success: boolean;
@@ -118,43 +120,48 @@ export async function getSeekerBookings(): Promise<{
 
     // Fetch all bookings for this seeker (exclude cancelled/rejected)
     const bookings = await db
-      .collection<BookingDocument>("bookings")
-      .find({
-        seeker_id: seekerId,
-        status: { $nin: ["cancelled", "rejected"] },
-      })
-      .sort({ createdAt: -1 })
+      .collection("bookings")
+      .aggregate([
+        {
+          $match: {
+            seeker_id: seekerId,
+            status: { $nin: ["cancelled", "rejected"] },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: "providers",
+            localField: "provider_id",
+            foreignField: "_id",
+            as: "providerDetails",
+          },
+        },
+        {
+          $unwind: {
+            path: "$providerDetails",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+      ])
       .toArray();
 
-    // Fetch provider details for each booking
-    const populatedBookings: PopulatedSeekerBooking[] = await Promise.all(
-      bookings.map(async (booking) => {
-        const { provider_id: _providerId, ...bookingWithoutProvider } = booking;
-        const provider = await db.collection("providers").findOne(
-          { _id: new ObjectId(booking.provider_id) },
-          {
-            projection: {
-              _id: 1,
-              name: 1,
-              businessName: 1,
-              email: 1,
-              phone: 1,
-              address: 1,
-              profilePicture: 1,
-              bannerImage: 1,
-            },
-          },
-        );
-
+    const populatedBookings: PopulatedSeekerBooking[] = bookings.map(
+      (booking) => {
+        const provider = booking.providerDetails;
         return {
-          ...bookingWithoutProvider,
           _id: booking._id.toString(),
+          provider_id: booking.provider_id.toString(),
           seeker_id: booking.seeker_id.toString(),
+          status: booking.status,
+          bookingFee: booking.bookingFee,
+          bookingFeeStatus: booking.bookingFeeStatus,
           createdAt: new Date(booking.createdAt).toISOString(),
           order_id: booking.order_id ? booking.order_id.toString() : undefined,
           deadline: booking.deadline
             ? new Date(booking.deadline).toISOString()
             : undefined,
+          seeker_coordinates: booking.seeker_coordinates,
           pickupSlot: booking.pickupSlot
             ? {
                 ...booking.pickupSlot,
@@ -165,7 +172,7 @@ export async function getSeekerBookings(): Promise<{
               }
             : undefined,
           provider: {
-            _id: provider?._id.toString() || "unknown",
+            _id: provider?._id?.toString() || "unknown",
             name: provider?.name || "Unknown Provider",
             email: provider?.email || "No email",
             phone: provider?.phone || "No phone",
@@ -175,12 +182,12 @@ export async function getSeekerBookings(): Promise<{
             bannerImage: provider?.bannerImage,
           },
         } as PopulatedSeekerBooking;
-      }),
+      },
     );
 
     return { success: true, data: populatedBookings };
   } catch (error) {
-    console.error("Error fetching seeker bookings:", error);
+    logger.error("DATA", "Error fetching seeker bookings:", error);
     return { success: false, error: "Failed to fetch bookings" };
   }
 }

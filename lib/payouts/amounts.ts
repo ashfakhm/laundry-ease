@@ -1,4 +1,4 @@
-import { DEFAULT_PLATFORM_COMMISSION_RATE } from "@/lib/constants";
+import { PLATFORM_COMMISSION_RATE } from "@/lib/constants";
 import Decimal from "decimal.js";
 
 type PayoutAmountInput = {
@@ -67,7 +67,7 @@ export function derivePayoutAmounts(
     };
   }
 
-  const defaultCommissionRate = new Decimal(DEFAULT_PLATFORM_COMMISSION_RATE);
+  const defaultCommissionRate = new Decimal(PLATFORM_COMMISSION_RATE);
   const defaultCommission = Decimal.max(
     0,
     normalizedTotal.times(defaultCommissionRate),
