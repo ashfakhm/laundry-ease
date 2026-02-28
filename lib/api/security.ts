@@ -38,6 +38,10 @@ export type RateLimitResult = {
 };
 
 export function extractClientIp(req: Request): string {
+  if (process.env.TRUST_PROXY !== "true") {
+    return "127.0.0.1";
+  }
+
   // Trust strict proxy headers first
   const vercelForwarded = req.headers.get("x-vercel-forwarded-for");
   if (vercelForwarded) {

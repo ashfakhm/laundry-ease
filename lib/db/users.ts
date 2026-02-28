@@ -3,10 +3,6 @@ import { Role } from "@/types/enums";
 import { getDb } from "../mongodb";
 import bcrypt from "bcrypt";
 
-function escapeRegex(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /**
  * Find user by email across all collections (seekers → providers → admins)
  * Returns user with their role
@@ -17,43 +13,27 @@ export async function getUserByEmail(
   if (!email) return null;
   const { db } = await getDb();
   const normalizedEmail = email.trim().toLowerCase();
-  const caseInsensitiveQuery = {
-    $regex: `^${escapeRegex(normalizedEmail)}$`,
-    $options: "i",
-  };
 
   // Check seekers collection first
-  const seeker =
-    (await db
-      .collection<Seeker>("seekers")
-      .findOne({ email: normalizedEmail })) ||
-    (await db.collection<Seeker>("seekers").findOne({
-      email: caseInsensitiveQuery,
-    }));
+  const seeker = await db
+    .collection<Seeker>("seekers")
+    .findOne({ email: normalizedEmail });
   if (seeker) {
     return { ...seeker, role: Role.SEEKER };
   }
 
   // Check providers collection
-  const provider =
-    (await db
-      .collection<Provider>("providers")
-      .findOne({ email: normalizedEmail })) ||
-    (await db.collection<Provider>("providers").findOne({
-      email: caseInsensitiveQuery,
-    }));
+  const provider = await db
+    .collection<Provider>("providers")
+    .findOne({ email: normalizedEmail });
   if (provider) {
     return { ...provider, role: Role.PROVIDER };
   }
 
   // Check admins collection
-  const admin =
-    (await db
-      .collection<Admin>("admins")
-      .findOne({ email: normalizedEmail })) ||
-    (await db.collection<Admin>("admins").findOne({
-      email: caseInsensitiveQuery,
-    }));
+  const admin = await db
+    .collection<Admin>("admins")
+    .findOne({ email: normalizedEmail });
   if (admin) {
     return { ...admin, role: Role.ADMIN };
   }
