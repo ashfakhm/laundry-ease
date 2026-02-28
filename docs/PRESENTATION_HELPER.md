@@ -79,22 +79,26 @@
 
 **Answer**:
 
-| Layer              | Technology                | Why                                        |
-| ------------------ | ------------------------- | ------------------------------------------ |
-| **Framework**      | Next.js 16 (App Router)   | Full-stack, SSR, API routes                |
-| **Frontend**       | React 19, TypeScript      | Type safety, modern features               |
-| **Styling**        | Tailwind CSS 4, shadcn/ui | Fast development, same look everywhere     |
-| **Animations**     | Framer Motion             | Smooth, fast animations                    |
-| **Database**       | MongoDB (native driver)   | Flexible data structure, location queries  |
-| **Authentication** | NextAuth v4               | Google OAuth + Credentials support         |
-| **Payments**       | Razorpay + RazorpayX      | Indian payment system, escrow payouts      |
-| **Maps**           | Google Maps APIs          | Location, address to coordinates, places   |
-| **SMS OTP**        | Twilio                    | Dependable SMS sending                     |
-| **Email**          | Nodemailer                | Email OTP backup option                    |
-| **Image Upload**   | Cloudinary                | Fast image storage with CDN                |
-| **Validation**     | Zod                       | Check data types while app runs            |
-| **Forms**          | React Hook Form           | Fast form handling                         |
-| **Deployment**     | Vercel                    | Serverless, edge functions, scheduled jobs |
+| Layer              | Technology                   | Why                                           |
+| ------------------ | ---------------------------- | --------------------------------------------- |
+| **Framework**      | Next.js 16.1.6 (App Router)  | Full-stack, SSR, API routes                   |
+| **Frontend**       | React 19.2.4, TypeScript 5   | Type safety, modern features                  |
+| **Styling**        | Tailwind CSS 4, shadcn/ui    | Fast development, same look everywhere        |
+| **Animations**     | Framer Motion                | Smooth, fast animations                       |
+| **Database**       | MongoDB 6.21 (native driver) | Flexible data structure, location queries     |
+| **Authentication** | NextAuth v4                  | Google OAuth + Credentials support            |
+| **Payments**       | Razorpay + RazorpayX         | Indian payment system, escrow payouts         |
+| **Maps**           | Google Maps APIs             | Location, address to coordinates, places      |
+| **SMS OTP**        | Twilio                       | Dependable SMS sending                        |
+| **Email**          | Nodemailer + Email Outbox    | Queued email delivery with retry/backoff      |
+| **Image Upload**   | Cloudinary                   | Fast image storage with CDN                   |
+| **Validation**     | Zod 4                        | Check data types while app runs               |
+| **Forms**          | React Hook Form              | Fast form handling                            |
+| **Data Fetching**  | SWR                          | Client-side data fetching with revalidation   |
+| **Logging**        | Pino + pino-pretty           | Structured JSON logging with secret redaction |
+| **Financial Math** | decimal.js                   | Precise monetary calculations (no float bugs) |
+| **Rate Limiting**  | MongoDB-backed counters      | Per-IP/actor rate limiting with TTL cleanup   |
+| **Deployment**     | Vercel                       | Serverless, edge functions, scheduled jobs    |
 
 ### Q: Why MongoDB instead of SQL databases like MySQL/PostgreSQL?
 
@@ -369,12 +373,15 @@ export interface PopulatedBooking {
 
 **Answer**: Cron jobs are in **two places**:
 
-| Location         | Purpose                                                        |
-| ---------------- | -------------------------------------------------------------- |
-| `app/api/cron/`  | API endpoints that cron calls                                  |
-| `lib/payouts.ts` | Unified escrow release + payout orchestration logic            |
-| `cron/`          | Script-style background helpers (no-show, auto-reject, legacy) |
-| `vercel.json`    | Cron schedule configuration                                    |
+| Location               | Purpose                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| `app/api/cron/`        | API endpoints that cron calls (10 endpoints)                   |
+| `lib/payouts.ts`       | Unified escrow release + payout orchestration logic            |
+| `lib/cron-tracking.ts` | Cron run observability (tracks every run in `cron_runs`)       |
+| `lib/ops/`             | Operational health, alert delivery, owner routing, analytics   |
+| `lib/email-outbox.ts`  | Email queueing with retry/backoff (outbox pattern)             |
+| `cron/`                | Script-style background helpers (no-show, auto-reject, legacy) |
+| `vercel.json`          | Cron schedule configuration                                    |
 
 **Example flow**:
 
@@ -437,30 +444,45 @@ throw Errors.validation("Bad input"); // 400
 
 ### Q: Quick Reference - "Where is X?"
 
-| Feature                | File Location                          |
-| ---------------------- | -------------------------------------- |
-| MongoDB connection     | `lib/mongodb.ts`                       |
-| Database operations    | `lib/db.ts`                            |
-| API routes             | `app/api/**/*.ts`                      |
-| Frontend pages         | `app/(dashboard)/**/*.tsx`             |
-| UI components          | `components/**/*.tsx`                  |
-| Authentication config  | `app/api/auth/[...nextauth]/route.ts`  |
-| Auth helpers           | `lib/api/auth.ts`                      |
-| Payment integration    | `lib/razorpay.ts`                      |
-| Payment API            | `app/api/orders/[id]/payment/route.ts` |
-| DB index bootstrap     | `lib/db-indexes.ts`                    |
-| Webhooks               | `app/api/webhooks/razorpay/route.ts`   |
-| OTP logic              | `lib/otp.ts`                           |
-| Location/Maps          | `lib/google-maps.ts`                   |
-| Distance calculation   | `lib/distance.ts`                      |
-| Type definitions       | `types/*.ts`                           |
-| Environment validation | `lib/env.ts`                           |
-| Error handling         | `lib/api/errors.ts`                    |
-| Escrow payout engine   | `lib/payouts.ts`                       |
-| Cron job logic         | `cron/*.ts`                            |
-| Cron API endpoints     | `app/api/cron/*.ts`                    |
-| Audit logging          | `lib/audit.ts`                         |
-| Cloudinary upload      | `lib/cloudinary.ts`                    |
+| Feature                   | File Location                             |
+| ------------------------- | ----------------------------------------- |
+| MongoDB connection        | `lib/mongodb.ts`                          |
+| Database operations       | `lib/db/` (bookings, orders, users, etc.) |
+| API routes                | `app/api/**/*.ts`                         |
+| Frontend pages            | `app/(dashboard)/**/*.tsx`                |
+| UI components             | `components/**/*.tsx`                     |
+| Authentication config     | `app/api/auth/[...nextauth]/route.ts`     |
+| Auth helpers              | `lib/api/auth.ts`                         |
+| Payment integration       | `lib/razorpay.ts`                         |
+| Payment API               | `app/api/orders/[id]/payment/route.ts`    |
+| DB index bootstrap        | `lib/db-indexes.ts`                       |
+| Webhooks                  | `app/api/webhooks/razorpay/route.ts`      |
+| OTP logic                 | `lib/otp.ts`                              |
+| Location/Maps             | `lib/google-maps.ts`                      |
+| Distance calculation      | `lib/distance.ts`                         |
+| Type definitions          | `types/*.ts`                              |
+| Environment validation    | `lib/env.ts`                              |
+| Business constants        | `lib/constants.ts`                        |
+| Error handling            | `lib/api/errors.ts`                       |
+| Request validation        | `lib/api/schemas.ts`                      |
+| Rate limiting             | `lib/api/security.ts`                     |
+| Same-origin protection    | `lib/security/origin.ts`                  |
+| CSP headers               | `lib/security/csp.ts`                     |
+| Escrow payout engine      | `lib/payouts.ts`                          |
+| Cron job logic            | `cron/*.ts`                               |
+| Cron API endpoints        | `app/api/cron/*.ts`                       |
+| Cron run tracking         | `lib/cron-tracking.ts`                    |
+| Audit logging             | `lib/audit.ts`                            |
+| Structured logging (Pino) | `lib/logger.ts`                           |
+| Email outbox              | `lib/email-outbox.ts`                     |
+| Health monitoring         | `lib/ops/health.ts`                       |
+| Alert delivery            | `lib/ops/alert-delivery.ts`               |
+| Alert channels            | `lib/ops/alert-channels.ts`               |
+| Alert SLA tracking        | `lib/ops/ack-sla.ts`                      |
+| Alert owner routing       | `lib/ops/owner-routing.ts`                |
+| Alert analytics           | `lib/ops/alerts-analytics.ts`             |
+| Cloudinary upload         | `lib/cloudinary.ts`                       |
+| Payout calculations       | `lib/payouts/` (commission, split math)   |
 
 ---
 
@@ -470,19 +492,25 @@ throw Errors.validation("Bad input"); // 400
 
 **Answer**: Key MongoDB collections:
 
-| Collection       | Purpose                                             |
-| ---------------- | --------------------------------------------------- |
-| `seekers`        | User profiles for service seekers                   |
-| `providers`      | Provider profiles with location, services, capacity |
-| `admins`         | Admin user accounts                                 |
-| `bookings`       | Request and negotiation records                     |
-| `orders`         | Final orders with payment info                      |
-| `complaints`     | Problem records with chat messages                  |
-| `reviews`        | Provider ratings and feedback                       |
-| `payments`       | Payment records                                     |
-| `refunds`        | Refund records from Razorpay                        |
-| `audit_logs`     | Full history of all changes                         |
-| `webhook_events` | Incoming webhook records                            |
+| Collection              | Purpose                                             |
+| ----------------------- | --------------------------------------------------- |
+| `seekers`               | User profiles for service seekers                   |
+| `providers`             | Provider profiles with location, services, capacity |
+| `admins`                | Admin user accounts                                 |
+| `bookings`              | Request and negotiation records                     |
+| `orders`                | Final orders with payment info                      |
+| `complaints`            | Problem records with chat messages                  |
+| `reviews`               | Provider ratings and feedback                       |
+| `payments`              | Payment records                                     |
+| `refunds`               | Refund records from Razorpay                        |
+| `audit_logs`            | Full history of all changes                         |
+| `webhook_events`        | Incoming webhook records (idempotent by event_id)   |
+| `email_outbox`          | Queued emails with retry/backoff tracking           |
+| `system_alerts`         | Operational alerts (health, payout, complaint)      |
+| `cron_runs`             | Cron job execution history                          |
+| `otp_codes`             | OTP verification codes (TTL auto-expired)           |
+| `password_reset_tokens` | Password reset tokens (TTL auto-expired)            |
+| `api_rate_limits`       | Rate limit counters (TTL auto-expired)              |
 
 ### Q: How do you handle database connections?
 
@@ -1217,6 +1245,9 @@ if (!result.success) {
     { "path": "/api/cron/auto-reject-bookings", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/process-payouts", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/audit-integrity", "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/monitor-operational-health", "schedule": "0 * * * *" },
+    { "path": "/api/cron/notify-system-alerts", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/monitor-abuse", "schedule": "0 2 * * *" }
   ]
 }
@@ -1224,13 +1255,20 @@ if (!result.success) {
 
 **Security**: Each cron endpoint needs `Authorization: Bearer ${CRON_SECRET}` header.
 
-**Jobs**:
+**Cron Run Tracking**: Every cron execution is recorded in a `cron_runs` collection via `lib/cron-tracking.ts` with job name, start time, duration, status (running/success/error), and result details.
 
-- `auto-reject-bookings`: Cancel pending requests after timeout
-- `process-payouts`: Run unified escrow release + payout orchestration
-- `no-show`: Handle when provider doesn't show up
-- `monitor-abuse`: Find suspicious activity (runs at 2 AM)
-- `release-payouts`: Protected compatibility endpoint (manual/legacy trigger path; same payout engine)
+**Jobs** (10 registered):
+
+- `auto-reject-bookings`: Cancel pending requests after timeout (every 5 min)
+- `no-show`: Handle when provider doesn't show up (every 5 min)
+- `process-payouts`: Run unified escrow release + payout orchestration (every 15 min)
+- `release-payouts`: Protected compatibility endpoint (manual/legacy trigger)
+- `audit-integrity`: Verify data consistency between orders/payments/bookings (every 30 min)
+- `monitor-operational-health`: Detect overdue payouts, failure spikes, overdue complaints (hourly)
+- `notify-system-alerts`: Send alert digests via email/webhook with dedup and escalation (every 15 min)
+- `monitor-abuse`: Find suspicious cancellation patterns (daily at 2 AM)
+- `process-email-outbox`: Process queued emails with retry/backoff
+- `reconciliation`: Reconcile Razorpay records against internal state
 
 ---
 
@@ -1363,7 +1401,7 @@ App stops right away if any needed variable is missing.
 
 ### Q: How do you handle logs?
 
-**Answer**: Organized logging with custom logger:
+**Answer**: Structured logging with **Pino** (production-grade JSON logger):
 
 ```typescript
 // lib/logger.ts
@@ -1371,7 +1409,12 @@ logger.info("ORDERS", "Order created", { orderId, amount });
 logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 ```
 
-Logs include: time, category, message, extra data.
+**Key features**:
+
+- **Secret redaction**: Pino natively strips `password`, `token`, `otp`, `apiKey`, `secret`, etc. from all log output before serialization
+- **Pretty-printing in dev**: Uses `pino-pretty` for colored, human-readable dev logs
+- **JSON in production**: Structured JSON output for log aggregation services
+- **Prefixed messages**: Every log line includes a category prefix (e.g., `ORDERS`, `WEBHOOK`, `RATE_LIMIT`, `CRON_TRACKING`) for easy filtering
 
 ---
 
@@ -1385,18 +1428,28 @@ Logs include: time, category, message, extra data.
 2. **ESLint**: Makes sure code style is consistent
 3. **Zod checking**: Checks data while app runs
 4. **Error boundaries**: Handles errors nicely without crashing
-5. **Automated tests**: Vitest suite now covers critical payment, complaint, escrow, webhook-adjacent, and security paths
+5. **Automated tests**: Vitest suite covers critical payment, complaint, escrow, webhook, security, ops, and rate-limiting paths
+6. **Financial precision**: All monetary calculations use `decimal.js` to prevent floating-point bugs
+7. **CI pipeline**: GitHub Actions `Quality Gates` workflow runs typecheck → lint → test → build → smoke E2E on every push
 
-Current quality snapshot (2026-02-15):
+Current quality snapshot (2026-02-28):
 
-- `25` test files
-- `118` tests passing
+- `99` test files
+- `468` tests passing
 - `3` Playwright E2E specs with `7` critical journeys passing
-- `npm test`, `npm run lint`, `npm run build`, and `npm run test:e2e` all passing
+- `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
+- Zero production type casts
+- One-shot local verification: `npm run verify:gates`
 
 E2E execution note:
 
 - E2E npm scripts now run through `scripts/run-playwright.mjs` to sanitize conflicting color env vars and keep CI logs readable.
+
+GitHub CI workflows:
+
+- `Quality Gates`: lint/test/build/smoke E2E on every push
+- `Real Gateway Smoke`: scheduled/manual live Razorpay connectivity checks
+- `Governance Audit`: branch-protection required-check drift detection
 
 ### Q: How do you handle errors in production?
 
@@ -1497,16 +1550,155 @@ await session.withTransaction(async () => {
 
 ---
 
+## 15. Operational Monitoring & Reliability Questions
+
+### Q: How does operational health monitoring work?
+
+**Answer**: An hourly cron job (`/api/cron/monitor-operational-health`) evaluates three operational signals:
+
+| Signal                  | Severity | Threshold | What It Detects                                             |
+| ----------------------- | -------- | --------- | ----------------------------------------------------------- |
+| `overdue_held_orders`   | critical | ≥3        | Orders past escrow release window without active complaints |
+| `payout_failures_spike` | high     | ≥3        | Payout failures in the last 24 hours exceeding threshold    |
+| `overdue_complaints`    | high     | ≥2        | Accepted/in-review complaints past response deadlines       |
+
+When a signal breaches its threshold, a `system_alerts` document is created/updated in MongoDB. Alerts stay open until the underlying issue is resolved.
+
+### Q: How does the alert delivery and escalation system work?
+
+**Answer**: The `/api/cron/notify-system-alerts` runs every 15 minutes and builds a **delivery plan**:
+
+```text
+1. EVALUATE OPEN ALERTS
+   → Filter: status = "open", severity = "critical" or "high", not acknowledged
+   ↓
+2. BUILD DELIVERY PLAN
+   → Notify: alerts not notified in last 1 hour (dedup)
+   → Escalate: critical alerts > 30 min old, high alerts > 2 hours old
+   ↓
+3. DELIVER DIGESTS
+   → Email: HTML digest to OPS_ALERT_EMAIL_TO recipients
+   → Webhook: JSON payload to OPS_ALERT_WEBHOOK_URL (Slack, PagerDuty, etc.)
+   ↓
+4. OWNER ROUTING (SLA breach)
+   → Critical SLA-breached → auto-assign to backend_oncall
+   → High SLA-breached → load-balance between platform_admin_oncall and backend_oncall
+   → Persistent breach (60 min critical, 4h high) → escalate to tech_lead
+```
+
+**SLA windows**: Critical alerts must be acknowledged within **15 minutes**; high alerts within **60 minutes**.
+
+### Q: How do you track alert analytics?
+
+**Answer**: The admin dashboard includes alert analytics powered by `lib/ops/alerts-analytics.ts`:
+
+- **7-day trend**: Daily opened vs. resolved alert counts
+- **Burn rate**: Ratio of alerts opened in last 24h vs. 7-day daily baseline
+- **Burn rate tiers**: `stable` (<1x), `watch` (1-2x), `high` (2-4x), `critical` (>4x)
+- **MTTR**: Mean time to resolve (in hours) for alerts resolved in last 7 days
+
+### Q: How does the email outbox system work?
+
+**Answer**: Instead of sending emails synchronously in API routes, we use an **outbox pattern**:
+
+```text
+1. API route enqueues email job → email_outbox collection (status: "pending")
+   ↓
+2. Cron job processes batch → claims jobs with $findOneAndUpdate lock
+   ↓
+3. Send email via Nodemailer
+   ↓
+4. Success → status: "sent"
+   Failure → increment attempts, exponential backoff (30s base, 30 min cap)
+   ↓
+5. Max attempts exceeded (default 5) → status: "failed" (dead letter)
+```
+
+**Email types supported**: delivery OTP, password reset, magic link, general OTP code.
+
+**Why outbox pattern instead of direct send?**
+
+- API routes respond instantly (no email timeout blocking the user)
+- Failed emails retry automatically without user intervention
+- Dead letters are trackable for support debugging
+
+### Q: How does rate limiting work?
+
+**Answer**: MongoDB-backed rate limiting prevents abuse on sensitive endpoints:
+
+```typescript
+// lib/api/security.ts
+await enforceRateLimit(req, {
+  bucket: "admin-action",
+  max: 30, // 30 requests max
+  windowMs: 60_000, // per 1-minute window
+});
+```
+
+**Architecture**:
+
+- Counters stored in `api_rate_limits` collection with TTL auto-expiry
+- Key format: `{bucket}:{actor}` (actor = IP address or user identifier)
+- Upsert-based increment with retry for burst traffic races
+- Returns `429 Too Many Requests` with `retryAfterSeconds` when exceeded
+
+**Protected endpoints**: admin actions, signup, password reset, cron endpoints.
+
+### Q: How do you ensure financial precision?
+
+**Answer**: All monetary calculations use `decimal.js` to prevent floating-point bugs:
+
+```typescript
+// Example from payout calculations
+import Decimal from "decimal.js";
+
+const invoiceTotal = new Decimal(order.total_amount);
+const commission = invoiceTotal.mul(COMMISSION_RATE);
+const distributable = invoiceTotal.minus(commission);
+const seekerRefund = distributable.mul(sliderPercent).toFixed(2);
+```
+
+**Why not regular JavaScript numbers?**
+
+- `0.1 + 0.2 = 0.30000000000000004` in JavaScript
+- With `decimal.js`: `0.1 + 0.2 = 0.3` (exact)
+- Critical for split settlements where every paise matters
+
+Razorpay amounts are always in **paise** (integer) to avoid further precision loss.
+
+### Q: What is SWR and how do you use it?
+
+**Answer**: **SWR** (stale-while-revalidate) is used for client-side data fetching:
+
+```typescript
+import useSWR from "swr";
+
+const { data, error, isLoading, mutate } = useSWR(
+  `/api/bookings/${id}`,
+  fetcher,
+);
+```
+
+**Benefits**:
+
+- Shows cached data instantly, then revalidates in background
+- Automatic revalidation on focus/reconnect
+- Deduplication of identical requests
+- `mutate()` for instant UI updates after user actions
+
+Used in dashboard views, complaint lists, and order status polling.
+
+---
+
 ## Known Gaps vs PRD (Be Honest)
 
 Use these points if you are asked about differences between the PRD and what is built now:
 
 - **Historical data cleanup**: New unique indexes enforce integrity, but old duplicate data can still block index creation until cleaned.
-- **Automated integration testing**: Webhook replay and payment idempotency races need stronger integration test coverage.
-- **Observability depth**: We need dedicated dashboards/alerts for webhook failures and index-init issues.
 - **Webhook payload retention**: Archive policy for old `webhook_events` payloads is still a backlog item.
 - **CSP rollout**: CSP is currently in Report-Only mode; enforcement requires violation cleanup.
-- **Password-recovery abuse hardening**: Forgot-password flow needs dedicated anti-abuse strategy (rate-limit/captcha policy).
+- **Password-recovery abuse hardening**: Forgot-password flow needs dedicated anti-abuse strategy (captcha policy).
+- **Team calendar integration**: Alert owner routing uses static pools; real on-call scheduling requires calendar integration.
 - **PRD future scope**: Complaint window extension requests and split-settlement reconciliation tooling remain future work.
 
 ## Key Features Implemented Recently
@@ -1514,13 +1706,29 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Canonical payment routing**: Unified around `/api/orders/:id/payment` and `/api/bookings/:id/pay` with backward-compatible aliases.
 - **Order creation guardrails**: Direct `/api/orders` creation path is disabled; order creation is tied to invoice approval/payment flow.
 - **Webhook resilience**: Razorpay webhook handling now has replay-safe idempotency, retry handling, and domain reconciliation.
-- **Payment verification coverage**: Added deep route tests for canonical and legacy payment verification paths (including idempotency and signature validation).
-- **Security policy telemetry**: Added Report-Only CSP header pipeline with violation capture endpoint (`/api/security/csp-report`).
-- **DB index bootstrap**: Startup index initialization now enforces critical uniqueness and TTL cleanup invariants.
-- **Complaint-window enforcement**: 24-hour complaint timing is now validated in API logic.
-- **Complaint split settlement**: Admin complaint resolution now supports commission-aware partial splits (`refund_partial`) with slider-based seeker/provider allocation.
-- **Settlement branch E2E depth**: Browser tests now cover split settlement, reject/provider-favor, and full seeker-refund outcomes.
-- **E2E diagnostics hardening**: Playwright runner now sanitizes conflicting color env vars to remove warning noise in test output.
+- **Payment verification coverage**: Deep route tests for canonical and legacy payment verification paths (including idempotency and signature validation).
+- **Security policy telemetry**: Report-Only CSP header pipeline with violation capture endpoint (`/api/security/csp-report`).
+- **DB index bootstrap**: Startup index initialization enforces critical uniqueness and TTL cleanup invariants.
+- **Complaint-window enforcement**: 24-hour complaint timing validated in API logic.
+- **Complaint split settlement**: Admin complaint resolution supports commission-aware partial splits (`refund_partial`) with slider-based seeker/provider allocation.
+- **Settlement branch E2E depth**: Browser tests cover split settlement, reject/provider-favor, and full seeker-refund outcomes.
+- **E2E diagnostics hardening**: Playwright runner sanitizes conflicting color env vars to remove warning noise in test output.
+- **Structured logging**: Pino logger with native secret redaction (passwords, tokens, OTPs, API keys) and pretty-printing in dev.
+- **Email outbox system**: All transactional emails (OTP, password reset, delivery OTP, magic link) queued through outbox pattern with exponential backoff retry and dead-letter tracking.
+- **Cron run tracking**: Every cron execution recorded in `cron_runs` collection with duration, status, and result for operational auditing.
+- **Rate limiting**: MongoDB-backed per-IP rate limiting on admin actions, signup, password reset, and cron endpoints with TTL auto-cleanup.
+- **Financial precision**: `decimal.js` for payout calculations, paise-based Razorpay amounts to prevent floating-point drift.
+- **SWR data fetching**: Client-side data fetching with revalidation for responsive dashboards.
+- **Operational health monitoring**: Hourly cron detects overdue held orders, payout failure spikes, and overdue complaints → `system_alerts`.
+- **Alert delivery & escalation**: 15-minute cron sends email digests and/or webhook payloads with dedup (1h spacing) and escalation routing.
+- **Alert acknowledgement & SLA**: Admins acknowledge alerts with ownership assignment; critical 15 min / high 60 min SLA enforcement.
+- **Owner routing with load-balancing**: SLA-breached alerts auto-route to appropriate oncall with persistent escalation to `tech_lead`.
+- **Alert analytics dashboard**: 7-day opened-vs-resolved trend, burn-rate tier (stable/watch/high/critical), and MTTR for recent alerts.
+- **Abuse monitoring**: Daily cron scans for excessive cancellation patterns (30-day lookback, configurable thresholds).
+- **Data integrity auditing**: 30-minute cron verifies order/payment/booking consistency.
+- **Concurrent batch payout processing**: Escrow payout cron processes eligible orders in parallel for faster settlement.
+- **Manual refund fallback**: Graceful fallback with seeker payment details shown when Razorpay auto-refund fails.
+- **Proxy trust model**: Secure IP extraction respecting Vercel/CF headers with configurable `TRUST_PROXY` flag.
 
 ## Quick Presentation Tips
 
