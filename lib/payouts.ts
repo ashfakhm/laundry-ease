@@ -349,7 +349,7 @@ export async function processEligibleEscrowPayouts(options?: {
   const { db } = await getDb();
   const now = new Date();
   const source = options?.source || "payout_batch";
-  const limit = options?.limit || 50; // Protective limit for serverless timeouts
+  const limit = options?.limit || 20; // Protective limit for serverless timeouts (reduced from 50 to 20)
 
   const candidateOrders = await db
     .collection<Order>("orders")
@@ -367,7 +367,7 @@ export async function processEligibleEscrowPayouts(options?: {
     .toArray();
 
   const results: PayoutResult[] = [];
-  const CONCURRENCY_LIMIT = 5;
+  const CONCURRENCY_LIMIT = 10; // Increased from 5 to 10 to speed up batch array processing
 
   for (let i = 0; i < candidateOrders.length; i += CONCURRENCY_LIMIT) {
     const chunk = candidateOrders.slice(i, i + CONCURRENCY_LIMIT);

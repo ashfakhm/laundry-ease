@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -44,7 +45,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(provider, { status: 200 });
+    return successResponse(provider, 200);
   } catch (error) {
     logger.error("PROVIDER", "Error fetching provider", error, {
       providerId: id,

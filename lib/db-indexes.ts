@@ -143,6 +143,23 @@ const INDEX_SPECS: IndexSpec[] = [
     critical: true,
   },
 
+  // Admin Dashboard performance indexes
+  {
+    collection: "orders",
+    keys: { payment_status: 1 },
+    options: { name: "orders_payment_status" },
+  },
+  {
+    collection: "system_alerts",
+    keys: { status: 1, severity: 1 },
+    options: { name: "system_alerts_status_severity" },
+  },
+  {
+    collection: "complaints",
+    keys: { status: 1 },
+    options: { name: "complaints_status" },
+  },
+
   // Query/performance indexes
   {
     collection: "orders",

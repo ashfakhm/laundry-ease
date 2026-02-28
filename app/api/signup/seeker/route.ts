@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { emailExists, createSeeker } from "@/lib/db/index";
 import { isOtpVerifiedRecently } from "@/lib/otp";
@@ -51,9 +52,7 @@ export async function POST(req: NextRequest) {
     coordinates,
   });
 
-  return NextResponse.json({
+  return successResponse({
     success: true
-  }, {
-    status: 200
-  });
+  }, 200);
 }

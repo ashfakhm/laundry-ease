@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { emailExists, createProvider } from "@/lib/db/index";
 import { isOtpVerifiedRecently } from "@/lib/otp";
@@ -151,9 +152,7 @@ export async function POST(req: NextRequest) {
     // They can retry syncing by updating their profile later.
   }
 
-  return NextResponse.json({
+  return successResponse({
     success: true
-  }, {
-    status: 200
-  });
+  }, 200);
 }

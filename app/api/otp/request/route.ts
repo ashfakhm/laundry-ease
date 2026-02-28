@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { otpRequestSchema } from "@/lib/api/schemas";
@@ -58,11 +59,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    return successResponse({
       success: true
-    }, {
-      status: 200
-    });
+    }, 200);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

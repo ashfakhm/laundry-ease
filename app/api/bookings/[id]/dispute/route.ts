@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -93,11 +94,9 @@ export async function POST(
     };
     await db.collection("disputes").insertOne(dispute);
 
-    return NextResponse.json({
+    return successResponse({
       success: true
-    }, {
-      status: 200
-    });
+    }, 200);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

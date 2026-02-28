@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { Booking } from "@/types/bookings";
@@ -43,7 +44,7 @@ export async function GET() {
     // but aggregate is better for joins.
     // Ideally we import ObjectId.
     
-    return NextResponse.json(bookings);
+    return successResponse(bookings);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

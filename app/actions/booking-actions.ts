@@ -28,6 +28,7 @@ import {
 import { calculateDistance } from "@/lib/distance";
 import { requireProvider } from "@/lib/api/auth";
 import { AppError } from "@/lib/api/errors";
+import { telemetry } from "@/lib/telemetry";
 
 export type ActionResponse = {
   success: boolean;
@@ -164,7 +165,7 @@ export async function updateBookingStatus(
       const provider_payout_amount = bookingFee - platform_commission; // 95%
       const maxCapacity = provider.capacity ?? 100;
 
-      await acceptBookingWithCapacityCheck({
+      const transactionResult = await acceptBookingWithCapacityCheck({
         booking_id: queryId,
         provider_id: provider._id!,
         maxCapacity,
@@ -172,8 +173,16 @@ export async function updateBookingStatus(
         provider_payout_amount,
       });
 
-      revalidatePath("/provider/manage-booking");
-      return { success: true, message: "Booking accepted" };
+      if (transactionResult) {
+        telemetry.increment("bookings.created", 1, [
+          `fee_status:${booking.bookingFeeStatus}`,
+          `capacity_managed:true`,
+        ]);
+        revalidatePath(`/provider/${providerId.toString()}`);
+        revalidatePath("/provider/manage-booking");
+        return { success: true, message: "Booking accepted" };
+      }
+      return { success: false, error: "Failed to accept booking" };
     }
 
     // --- REJECT LOGIC ---

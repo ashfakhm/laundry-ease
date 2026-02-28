@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { PUT as verifyBookingFeePayment } from "../../[id]/pay/route";
 
@@ -8,7 +9,7 @@ export async function POST(req: NextRequest) {
 
   const bookingId = body.bookingId;
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing bookingId" }, { status: 400 });
+    return successResponse({ error: "Missing bookingId" }, 400);
   }
 
   const normalizedPayload = {

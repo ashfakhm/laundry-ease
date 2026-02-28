@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -22,7 +23,7 @@ export async function PATCH(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ error: "Invalid complaint id" }, { status: 400 });
+      return successResponse({ error: "Invalid complaint id" }, 400);
     }
 
     const session = await requireAdminWithDbCheck();
@@ -48,7 +49,7 @@ export async function PATCH(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint)
-      return NextResponse.json({ error: "Not Found" }, { status: 404 });
+      return successResponse({ error: "Not Found" }, 404);
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
       return NextResponse.json(
@@ -119,6 +120,6 @@ export async function PATCH(
     logger.error("ADMIN_COMPLAINTS", "Error updating access", error, {
       complaintId: id,
     });
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return successResponse({ error: "Internal Error" }, 500);
   }
 }

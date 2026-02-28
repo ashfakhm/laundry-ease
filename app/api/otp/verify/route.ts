@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { otpVerifySchema } from "@/lib/api/schemas";
 import { verifyOtp } from "@/lib/otp";
@@ -34,11 +35,9 @@ export async function POST(req: NextRequest) {
     }, {
       status: 400
     });
-    return NextResponse.json({
+    return successResponse({
       success: true
-    }, {
-      status: 200
-    });
+    }, 200);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

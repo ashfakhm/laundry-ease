@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -152,7 +153,7 @@ export async function GET(
       .limit(limit)
       .toArray();
 
-    return NextResponse.json(messages);
+    return successResponse(messages);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json(
@@ -301,7 +302,7 @@ export async function POST(
 
     await db.collection("complaint_messages").insertOne(message);
 
-    return NextResponse.json(message, { status: 201 });
+    return successResponse(message, 201);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json(

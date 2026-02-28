@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
@@ -57,7 +58,7 @@ export async function GET(req: Request) {
         new Date(a.createdAt || 0).getTime(),
     );
 
-    return NextResponse.json(users);
+    return successResponse(users);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -44,11 +45,9 @@ export async function PATCH(
       );
 
     if (result.modifiedCount === 1) {
-      return NextResponse.json({
+      return successResponse({
         success: true
-      }, {
-        status: 200
-      });
+      }, 200);
     }
 
     return NextResponse.json({

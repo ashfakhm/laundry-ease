@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
@@ -86,7 +87,7 @@ export async function GET(req: Request) {
       order_id: complaint.order_id?.toString() || null,
     }));
 
-    return NextResponse.json(normalizedComplaints, { status: 200 });
+    return successResponse(normalizedComplaints, 200);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

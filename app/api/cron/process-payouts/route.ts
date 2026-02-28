@@ -5,6 +5,7 @@ import { processEligibleEscrowPayouts } from "@/lib/payouts";
 import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
+import { telemetry } from "@/lib/telemetry";
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,6 +41,18 @@ export async function GET(req: NextRequest) {
         processed: result.processed,
         results: result.results,
       });
+
+      const successCount = result.results.filter(
+        (r) => r.status === "payout_initiated",
+      ).length;
+      const failedCount = result.results.filter((r) =>
+        r.status.startsWith("failed_"),
+      ).length;
+
+      telemetry.increment("payouts.processed", result.processed);
+      if (successCount > 0)
+        telemetry.increment("payouts.success", successCount);
+      if (failedCount > 0) telemetry.increment("payouts.failure", failedCount);
 
       return successResponse({
         processed: result.processed,

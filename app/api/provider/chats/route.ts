@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -133,7 +134,7 @@ export async function GET() {
         messageCount: chat.messageCount
     }));
 
-    return NextResponse.json(formattedChats);
+    return successResponse(formattedChats);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

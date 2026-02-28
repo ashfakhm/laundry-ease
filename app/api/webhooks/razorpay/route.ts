@@ -6,6 +6,7 @@ import { env } from "@/lib/env";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { withTransaction } from "@/lib/db/transaction";
+import { telemetry } from "@/lib/telemetry";
 
 const MONEY_EPSILON = 0.01;
 
@@ -176,6 +177,12 @@ export async function POST(req: NextRequest) {
             },
             { upsert: true, session },
           );
+
+          telemetry.increment("payment.captured", 1, [
+            `amount:${payment.amount / 100}`,
+            `currency:${payment.currency}`,
+          ]);
+
           logger.info("WEBHOOK", "Payment status updated", {
             paymentId: payment.id,
             status: payment.status,

@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -71,7 +72,7 @@ export async function GET(
       .find({ booking_id: bookingId })
       .sort({ createdAt: 1 })
       .toArray();
-    return NextResponse.json(messages);
+    return successResponse(messages);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({
@@ -181,11 +182,9 @@ export async function POST(
       createdAt: new Date(),
     };
     await db.collection("chats").insertOne(chatMsg);
-    return NextResponse.json({
+    return successResponse({
       success: true
-    }, {
-      status: 200
-    });
+    }, 200);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

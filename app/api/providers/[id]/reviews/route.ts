@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -31,7 +32,7 @@ export async function GET(
       .limit(50)
       .toArray();
 
-    return NextResponse.json(reviews);
+    return successResponse(reviews);
   } catch (error) {
     logger.error("REVIEWS", "Error fetching provider reviews", error);
     return NextResponse.json({

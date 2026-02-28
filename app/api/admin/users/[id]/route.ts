@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -37,11 +38,9 @@ export async function DELETE(
       .collection(collection)
       .deleteOne({ _id: new ObjectId(id) });
     if (result.deletedCount === 1) {
-      return NextResponse.json({
+      return successResponse({
         success: true
-      }, {
-        status: 200
-      });
+      }, 200);
     }
     return NextResponse.json({
       success: false,

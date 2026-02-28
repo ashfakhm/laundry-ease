@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -62,7 +63,7 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json(enrichedBookings, { status: 200 });
+    return successResponse(enrichedBookings, 200);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({

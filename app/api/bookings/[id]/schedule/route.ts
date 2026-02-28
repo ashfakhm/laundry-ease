@@ -1,3 +1,4 @@
+import { successResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -103,11 +104,9 @@ export async function POST(
         },
       });
       // NOTE: Provider notification on slot confirmation could be added here using existing Twilio/email infrastructure
-      return NextResponse.json({
+      return successResponse({
         success: true
-      }, {
-        status: 200
-      });
+      }, 200);
     }
 
     // Otherwise, provider proposes a slot
@@ -183,11 +182,9 @@ export async function POST(
 
     // NOTE: Seeker notification on new pickup proposal could be added here using existing Twilio/email infrastructure
 
-    return NextResponse.json({
+    return successResponse({
       success: true
-    }, {
-      status: 200
-    });
+    }, 200);
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({
