@@ -1,7 +1,4 @@
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import { logger } from "@/lib/logger";
@@ -19,7 +16,12 @@ export async function POST(req: Request) {
     const { token } = await req.json();
 
     if (!token) {
-      return legacyErrorResponse("Token is required", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Token is required"
+      }, {
+        status: 400
+      });
     }
 
     // Verify JWT token
@@ -27,15 +29,30 @@ export async function POST(req: Request) {
     try {
       decoded = jwt.verify(token, JWT_SECRET);
     } catch {
-      return legacyErrorResponse("Invalid or expired token", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid or expired token"
+      }, {
+        status: 400
+      });
     }
 
     if (typeof decoded === "string") {
-      return legacyErrorResponse("Invalid token payload", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid token payload"
+      }, {
+        status: 400
+      });
     }
 
     if (typeof decoded.email !== "string" || typeof decoded.type !== "string") {
-      return legacyErrorResponse("Invalid token payload", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid token payload"
+      }, {
+        status: 400
+      });
     }
 
     const payload = decoded as EmailVerificationTokenPayload;
@@ -43,7 +60,12 @@ export async function POST(req: Request) {
     const { email, type } = payload;
 
     if (type !== "email_verification") {
-      return legacyErrorResponse("Invalid token type", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid token type"
+      }, {
+        status: 400
+      });
     }
 
     const { db } = await getDb();
@@ -53,7 +75,12 @@ export async function POST(req: Request) {
     const provider = await db.collection("providers").findOne({ email });
 
     if (!seeker && !provider) {
-      return legacyErrorResponse("User not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "User not found"
+      }, {
+        status: 404
+      });
     }
 
     // Update emailVerified flag
@@ -69,9 +96,18 @@ export async function POST(req: Request) {
         .updateOne({ email }, { $set: { emailVerified: true } });
     }
 
-    return legacySuccessResponse();
+    return NextResponse.json({
+      success: true
+    }, {
+      status: 200
+    });
   } catch (error) {
     logger.error("AUTH", "Email verification error", error);
-    return legacyErrorResponse("Internal server error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
   }
 }

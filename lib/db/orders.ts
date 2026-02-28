@@ -72,6 +72,30 @@ export async function updateOrderPaymentStatus(
   return res.modifiedCount > 0;
 }
 
+export function buildConfirmDeliveryUpdateFields(
+  order: Partial<Order>,
+  now: Date,
+) {
+  const escrowReleaseAt = new Date(now.getTime() + ESCROW_RELEASE_WINDOW_MS);
+  const shouldStartEscrow = order.payment_status === "paid";
+
+  const setFields: Partial<Order> & Record<string, unknown> = {
+    process_status: "delivered",
+    otp_confirmed_at: now,
+  };
+
+  if (shouldStartEscrow) {
+    setFields.payment_status = "held";
+    setFields.escrow_started_at = now;
+    setFields.escrow_release_at = escrowReleaseAt;
+  } else if (order.payment_status === "held") {
+    setFields.escrow_started_at = order.escrow_started_at || now;
+    setFields.escrow_release_at = order.escrow_release_at || escrowReleaseAt;
+  }
+
+  return setFields;
+}
+
 /**
  * Confirm delivery and start escrow
  */
@@ -89,27 +113,7 @@ export async function confirmDelivery(order_id: ObjectId) {
       }
 
       const now = new Date();
-      const escrowReleaseAt = new Date(
-        now.getTime() + ESCROW_RELEASE_WINDOW_MS,
-      );
-
-      const shouldStartEscrow = order.payment_status === "paid";
-      const setFields: Partial<Order> & Record<string, unknown> = {
-        process_status: "delivered",
-        otp_confirmed_at: now,
-      };
-
-      // Only transition to held when confirming delivery from a paid state.
-      // Never regress already-settled states such as released/refunded.
-      if (shouldStartEscrow) {
-        setFields.payment_status = "held";
-        setFields.escrow_started_at = now;
-        setFields.escrow_release_at = escrowReleaseAt;
-      } else if (order.payment_status === "held") {
-        setFields.escrow_started_at = order.escrow_started_at || now;
-        setFields.escrow_release_at =
-          order.escrow_release_at || escrowReleaseAt;
-      }
+      const setFields = buildConfirmDeliveryUpdateFields(order, now);
 
       const res = await db.collection<Order>("orders").updateOne(
         { _id: order_id },

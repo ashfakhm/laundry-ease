@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -6,11 +7,6 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
 import { Role } from "@/types/enums";
-import {
-  appErrorLegacyResponse,
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
 
 export async function POST(
   req: Request,
@@ -27,22 +23,36 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return legacyErrorResponse("Unauthorized", 401);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 401
+      });
     }
 
     const body = await req.json();
     const parsed = bookingScheduleSchema.safeParse(body);
 
     if (!parsed.success) {
-      return legacyErrorResponse("Invalid schedule data", 400, {
-        details: parsed.error.flatten().fieldErrors,
+      return NextResponse.json({
+        success: false,
+        error: "Invalid schedule data",
+        details: parsed.error.flatten().fieldErrors
+      }, {
+        status: 400
       });
     }
 
     const { dateTime, action } = parsed.data;
 
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid booking id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid booking id"
+      }, {
+        status: 400
+      });
     }
     const bookingId = new ObjectId(id);
 
@@ -51,22 +61,39 @@ export async function POST(
 
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
-      return legacyErrorResponse("Booking not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Booking not found"
+      }, {
+        status: 404
+      });
     }
 
     // If seeker is confirming the slot
     if (action === "confirm") {
       if (user.role !== Role.SEEKER) {
-        return legacyErrorResponse("Only seekers can confirm pickup slots", 403);
+        return NextResponse.json({
+          success: false,
+          error: "Only seekers can confirm pickup slots"
+        }, {
+          status: 403
+        });
       }
       if (booking.seeker_id.toString() !== user.id) {
-        return legacyErrorResponse("Unauthorized", 403);
+        return NextResponse.json({
+          success: false,
+          error: "Unauthorized"
+        }, {
+          status: 403
+        });
       }
       if (booking.status !== "pickup_proposed") {
-        return legacyErrorResponse(
-          "Slot can only be confirmed when pickup is proposed",
-          400,
-        );
+        return NextResponse.json({
+          success: false,
+          error: "Slot can only be confirmed when pickup is proposed"
+        }, {
+          status: 400
+        });
       }
       // Confirm the slot
       await db.collection("bookings").updateOne(bookingQuery, {
@@ -76,29 +103,50 @@ export async function POST(
         },
       });
       // NOTE: Provider notification on slot confirmation could be added here using existing Twilio/email infrastructure
-      return legacySuccessResponse();
+      return NextResponse.json({
+        success: true
+      }, {
+        status: 200
+      });
     }
 
     // Otherwise, provider proposes a slot
     if (user.role !== Role.PROVIDER) {
-      return legacyErrorResponse("Only providers can propose pickup slots", 403);
+      return NextResponse.json({
+        success: false,
+        error: "Only providers can propose pickup slots"
+      }, {
+        status: 403
+      });
     }
     if (!dateTime) {
-      return legacyErrorResponse("Date and time required", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Date and time required"
+      }, {
+        status: 400
+      });
     }
 
     // Verify booking belongs to this provider
     if (booking.provider_id.toString() !== user.id) {
-      return legacyErrorResponse("Unauthorized", 403);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 403
+      });
     }
     if (
       booking.status !== "accepted" &&
       booking.status !== "reschedule_requested"
     ) {
-      return legacyErrorResponse(
-        "Slot can only be proposed for accepted bookings or reschedules",
-        400,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Slot can only be proposed for accepted bookings or reschedules"
+      }, {
+        status: 400
+      });
     }
     // Validate slot time
     const now = new Date();
@@ -106,10 +154,20 @@ export async function POST(
     const minTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
     const deadline = booking.deadline ? new Date(booking.deadline) : null;
     if (slotTime < minTime) {
-      return legacyErrorResponse("Pickup must be at least 2 hours from now", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Pickup must be at least 2 hours from now"
+      }, {
+        status: 400
+      });
     }
     if (deadline && slotTime > deadline) {
-      return legacyErrorResponse("Pickup cannot be after seeker's deadline", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Pickup cannot be after seeker's deadline"
+      }, {
+        status: 400
+      });
     }
     // Update booking with proposed pickup time
     await db.collection("bookings").updateOne(bookingQuery, {
@@ -125,13 +183,31 @@ export async function POST(
 
     // NOTE: Seeker notification on new pickup proposal could be added here using existing Twilio/email infrastructure
 
-    return legacySuccessResponse();
+    return NextResponse.json({
+      success: true
+    }, {
+      status: 200
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("BOOKINGS", "Schedule pickup error", error, { bookingId: id });
-    return legacyErrorResponse("Internal server error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
   }
 }

@@ -1,9 +1,4 @@
-import { NextRequest } from "next/server";
-import {
-  legacyErrorResponse,
-  legacyMessageResponse,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { getUserByEmail } from "@/lib/db/index";
 import { createHash, randomBytes } from "crypto";
@@ -30,7 +25,12 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = forgotPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return legacyErrorResponse("Valid email is required", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Valid email is required"
+      }, {
+        status: 400
+      });
     }
 
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
@@ -50,7 +50,12 @@ export async function POST(req: NextRequest) {
 
     // Keep response generic to avoid account enumeration.
     if (!user?._id || !user.passwordHash) {
-      return legacyMessageResponse(GENERIC_RESPONSE.message, 200);
+      return NextResponse.json({
+        success: true,
+        message: GENERIC_RESPONSE.message
+      }, {
+        status: 200
+      });
     }
 
     const resetToken = randomBytes(32).toString("hex");
@@ -82,16 +87,32 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return legacyMessageResponse(GENERIC_RESPONSE.message, 200);
+    return NextResponse.json({
+      success: true,
+      message: GENERIC_RESPONSE.message
+    }, {
+      status: 200
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("AUTH", "Forgot password error", error);
-    return legacyErrorResponse(
-      "An error occurred. Please try again later.",
-      500,
-    );
+    return NextResponse.json({
+      success: false,
+      error: "An error occurred. Please try again later."
+    }, {
+      status: 500
+    });
   }
 }

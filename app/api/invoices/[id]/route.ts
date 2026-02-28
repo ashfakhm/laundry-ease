@@ -1,7 +1,3 @@
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -24,20 +20,32 @@ export async function POST(
 
     const { id } = await params;
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid booking ID", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid booking ID"
+      }, {
+        status: 400
+      });
     }
     if (!ObjectId.isValid(user.id)) {
-      return legacyErrorResponse("Unauthorized", 401);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 401
+      });
     }
 
     const body = await req.json();
     const parsed = invoiceCreateSchema.safeParse(body);
     if (!parsed.success) {
-      return legacyErrorResponse(
-        "Invalid invoice data",
-        400,
-        parsed.error.flatten().fieldErrors,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Invalid invoice data",
+        details: parsed.error.flatten().fieldErrors
+      }, {
+        status: 400
+      });
     }
 
     const { db } = await getDb();
@@ -48,21 +56,33 @@ export async function POST(
       _id: bookingId,
     });
     if (!booking) {
-      return legacyErrorResponse("Booking not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Booking not found"
+      }, {
+        status: 404
+      });
     }
 
     if (String(booking.provider_id) !== user.id) {
-      return legacyErrorResponse("Unauthorized", 403);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 403
+      });
     }
 
     if (
       booking.status !== "confirmed" &&
       booking.status !== "invoice_created"
     ) {
-      return legacyErrorResponse(
-        "Invoice can only be created for confirmed bookings",
-        409,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Invoice can only be created for confirmed bookings"
+      }, {
+        status: 409
+      });
     }
 
     const calculatedSubtotal = parsed.data.items.reduce(
@@ -116,7 +136,11 @@ export async function POST(
       },
     );
 
-    return legacySuccessResponse();
+    return NextResponse.json({
+      success: true
+    }, {
+      status: 200
+    });
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json(
@@ -129,6 +153,11 @@ export async function POST(
     }
 
     logger.error("INVOICES", "Error creating invoice", error);
-    return legacyErrorResponse("Failed to create invoice", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Failed to create invoice"
+    }, {
+      status: 500
+    });
   }
 }

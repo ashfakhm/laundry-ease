@@ -1,8 +1,4 @@
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { Provider } from "@/types/users";
 import {
@@ -34,17 +30,24 @@ export async function POST(req: NextRequest) {
     // Authentication check - only providers can update bank details
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return legacyErrorResponse("Unauthorized", 401);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 401
+      });
     }
 
     const payload = await req.json().catch(() => null);
     const parsed = bankDetailsPayloadSchema.safeParse(payload);
     if (!parsed.success) {
-      return legacyErrorResponse(
-        "Missing or invalid bank details",
-        400,
-        parsed.error.flatten().fieldErrors,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Missing or invalid bank details",
+        details: parsed.error.flatten().fieldErrors
+      }, {
+        status: 400
+      });
     }
     const { bankDetails } = parsed.data;
 
@@ -55,7 +58,12 @@ export async function POST(req: NextRequest) {
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return legacyErrorResponse("Provider not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Provider not found"
+      }, {
+        status: 404
+      });
     }
 
     // 1. Create Contact in RazorpayX
@@ -98,11 +106,19 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    return legacySuccessResponse({
-      message: "Bank details saved and linked to Razorpay",
+    return NextResponse.json({
+      success: true,
+      message: "Bank details saved and linked to Razorpay"
+    }, {
+      status: 200
     });
   } catch (error: unknown) {
     logger.error("PROVIDER", "Error saving bank details", error);
-    return legacyErrorResponse("Failed to save bank details", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Failed to save bank details"
+    }, {
+      status: 500
+    });
   }
 }

@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -5,11 +6,6 @@ import { bookingDisputeSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
-import {
-  appErrorLegacyResponse,
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
 
 /**
  * POST /api/bookings/[id]/dispute
@@ -30,19 +26,33 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid booking id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid booking id"
+      }, {
+        status: 400
+      });
     }
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return legacyErrorResponse("Unauthorized", 401);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 401
+      });
     }
 
     const body = await req.json();
     const parsed = bookingDisputeSchema.safeParse(body);
     if (!parsed.success) {
-      return legacyErrorResponse("Invalid dispute data", 400, {
-        details: parsed.error.flatten().fieldErrors,
+      return NextResponse.json({
+        success: false,
+        error: "Invalid dispute data",
+        details: parsed.error.flatten().fieldErrors
+      }, {
+        status: 400
       });
     }
 
@@ -52,14 +62,24 @@ export async function POST(
 
     const booking = await db.collection("bookings").findOne({ _id: bookingId });
     if (!booking)
-      return legacyErrorResponse("Booking not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Booking not found"
+      }, {
+        status: 404
+      });
 
     // Only allow seeker or provider
     let role: "seeker" | "provider" | null = null;
     if (user.id === booking.seeker_id.toString()) role = "seeker";
     if (user.id === booking.provider_id.toString()) role = "provider";
     if (!role) {
-      return legacyErrorResponse("Forbidden", 403);
+      return NextResponse.json({
+        success: false,
+        error: "Forbidden"
+      }, {
+        status: 403
+      });
     }
 
     const dispute = {
@@ -73,13 +93,31 @@ export async function POST(
     };
     await db.collection("disputes").insertOne(dispute);
 
-    return legacySuccessResponse();
+    return NextResponse.json({
+      success: true
+    }, {
+      status: 200
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("BOOKINGS", "Create dispute error", error, { bookingId: id });
-    return legacyErrorResponse("Internal error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal error"
+    }, {
+      status: 500
+    });
   }
 }

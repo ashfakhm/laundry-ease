@@ -1,8 +1,4 @@
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { ObjectId } from "mongodb";
@@ -392,18 +388,23 @@ export async function GET(req: Request) {
         };
       });
 
-    return legacySuccessResponse({
+    return NextResponse.json({
+      success: true,
       criticalSystemAlerts,
       highSystemAlerts,
       systemAlertCount: criticalSystemAlerts + highSystemAlerts,
       unacknowledgedCriticalSystemAlerts,
       unacknowledgedHighSystemAlerts,
+
       unacknowledgedSystemAlertCount:
         unacknowledgedCriticalSystemAlerts + unacknowledgedHighSystemAlerts,
+
       ackSlaBreachedCriticalSystemAlerts,
       ackSlaBreachedHighSystemAlerts,
+
       ackSlaBreachedSystemAlertCount:
         ackSlaBreachedCriticalSystemAlerts + ackSlaBreachedHighSystemAlerts,
+
       operationalHealth,
       recentSystemAlerts,
       openComplaints,
@@ -414,11 +415,22 @@ export async function GET(req: Request) {
       providerUtilizationPct,
       totalOrders,
       totalRevenue,
-      recentActiveComplaints,
+      recentActiveComplaints
+    }, {
+      status: 200
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error(
@@ -426,6 +438,11 @@ export async function GET(req: Request) {
       "Error fetching admin dashboard stats",
       error,
     );
-    return legacyErrorResponse("Internal server error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
   }
 }

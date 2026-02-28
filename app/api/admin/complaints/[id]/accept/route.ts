@@ -1,8 +1,4 @@
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
@@ -58,7 +54,12 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid complaint id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid complaint id"
+      }, {
+        status: 400
+      });
     }
 
     const session = await requireAdminWithDbCheck();
@@ -83,17 +84,24 @@ export async function POST(
       .findOne({ _id: complaintId });
 
     if (!complaint) {
-      return legacyErrorResponse("Complaint not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Complaint not found"
+      }, {
+        status: 404
+      });
     }
 
     // Only open or legacy status complaints can be accepted
     // Known completed statuses that should not be re-accepted
     const completedStatuses = ["accepted", "in_review", "resolved", "rejected"];
     if (completedStatuses.includes(complaint.status)) {
-      return legacyErrorResponse(
-        `Cannot accept complaint with status: ${complaint.status}`,
-        400,
-      );
+      return NextResponse.json({
+        success: false,
+        error: `Cannot accept complaint with status: ${complaint.status}`
+      }, {
+        status: 400
+      });
     }
 
     // Calculate response deadline
@@ -167,18 +175,35 @@ export async function POST(
       notificationsCreated: notifications.length,
     });
 
-    return legacySuccessResponse({
+    return NextResponse.json({
+      success: true,
       status: "accepted",
-      response_deadline: responseDeadline,
+      response_deadline: responseDeadline
+    }, {
+      status: 200
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error accepting complaint", error, {
       complaintId: id,
     });
-    return legacyErrorResponse("Internal Error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal Error"
+    }, {
+      status: 500
+    });
   }
 }

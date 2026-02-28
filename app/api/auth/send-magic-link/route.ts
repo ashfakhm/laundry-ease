@@ -1,8 +1,4 @@
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
@@ -32,7 +28,12 @@ export async function POST(req: Request) {
     const payload = await req.json();
     const parsed = sendMagicLinkSchema.safeParse(payload);
     if (!parsed.success) {
-      return legacyErrorResponse("Valid email is required", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Valid email is required"
+      }, {
+        status: 400
+      });
     }
     const email = parsed.data.email;
 
@@ -43,7 +44,12 @@ export async function POST(req: Request) {
     const provider = await db.collection("providers").findOne({ email });
 
     if (!seeker && !provider) {
-      return legacyErrorResponse("User not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "User not found"
+      }, {
+        status: 404
+      });
     }
 
     // Generate JWT token (valid for 24 hours)
@@ -61,13 +67,31 @@ export async function POST(req: Request) {
       },
     });
 
-    return legacySuccessResponse();
+    return NextResponse.json({
+      success: true
+    }, {
+      status: 200
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("AUTH", "Send magic link error", error);
-    return legacyErrorResponse("Failed to send verification email", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Failed to send verification email"
+    }, {
+      status: 500
+    });
   }
 }

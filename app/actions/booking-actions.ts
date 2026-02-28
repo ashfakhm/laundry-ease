@@ -1,6 +1,5 @@
 "use server";
 
-import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { revalidatePath } from "next/cache";
 import {
@@ -9,7 +8,17 @@ import {
   createRazorpayPayout,
   refundRazorpayPayment,
 } from "@/lib/razorpay";
-import { acceptBookingWithCapacityCheck } from "@/lib/db/index";
+import { getProviderById, updateProviderRazorpayIds } from "@/lib/db/users";
+import {
+  acceptBookingWithCapacityCheck,
+  getBookingById,
+  lockBookingForRefund,
+  unlockBookingRefund,
+  markBookingAsRejectedAndRefunded,
+  updateBookingToRefundedOnly,
+  updateBookingPickupSlot,
+  markBookingProviderArrived,
+} from "@/lib/db/bookings";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { calculateDistance } from "@/lib/distance";
@@ -48,11 +57,10 @@ export async function updateBookingStatus(
       return { success: false, error: "Unauthorized" };
     }
 
-    const { db } = await getDb();
     const providerId = new ObjectId(user.id);
 
     // Get provider by stable identity
-    const provider = await db.collection("providers").findOne({ _id: providerId });
+    const provider = await getProviderById(providerId);
     if (!provider) {
       return { success: false, error: "Provider not found" };
     }
@@ -64,16 +72,13 @@ export async function updateBookingStatus(
     } catch {
       queryId = bookingId;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bookingQuery: any = { _id: queryId };
-
-    const booking = await db.collection("bookings").findOne(bookingQuery);
+    const booking = await getBookingById(queryId);
     if (!booking) {
       return { success: false, error: "Booking not found" };
     }
 
     // Verify provider ownership
-    if (booking.provider_id.toString() !== provider._id.toString()) {
+    if (booking.provider_id.toString() !== provider._id?.toString()) {
       return {
         success: false,
         error: "Unauthorized: Booking does not belong to you",
@@ -123,14 +128,10 @@ export async function updateBookingStatus(
             });
 
             // Update Provider
-            await db.collection("providers").updateOne(
-              { _id: provider._id },
-              {
-                $set: {
-                  razorpay_contact_id: contact.id,
-                  razorpay_fund_account_id: fundAccount.id,
-                },
-              },
+            await updateProviderRazorpayIds(
+              provider._id!.toString(),
+              contact.id,
+              fundAccount.id,
             );
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (err: any) {
@@ -159,49 +160,13 @@ export async function updateBookingStatus(
       const provider_payout_amount = bookingFee - platform_commission; // 95%
       const maxCapacity = provider.capacity ?? 100;
 
-      try {
-        await acceptBookingWithCapacityCheck({
-          booking_id: bookingQuery._id,
-          provider_id: provider._id,
-          maxCapacity,
-          platform_commission,
-          provider_payout_amount,
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          if (error.message.startsWith("BOOKING_NOT_FOUND:")) {
-            return { success: false, error: "Booking not found" };
-          }
-          if (error.message.startsWith("UNAUTHORIZED:")) {
-            return { success: false, error: "Unauthorized" };
-          }
-          if (error.message.startsWith("ALREADY_PROCESSED:")) {
-            return {
-              success: false,
-              error: "Booking has already been acted upon",
-            };
-          }
-          if (error.message.startsWith("CAPACITY_EXCEEDED:")) {
-            return {
-              success: false,
-              error: error.message.replace("CAPACITY_EXCEEDED:", ""),
-            };
-          }
-          if (error.message.startsWith("PAYMENT_NOT_SETTLED:")) {
-            return {
-              success: false,
-              error: error.message.replace("PAYMENT_NOT_SETTLED:", ""),
-            };
-          }
-          if (error.message.startsWith("REFUND_IN_PROGRESS:")) {
-            return {
-              success: false,
-              error: error.message.replace("REFUND_IN_PROGRESS:", ""),
-            };
-          }
-        }
-        throw error;
-      }
+      await acceptBookingWithCapacityCheck({
+        booking_id: queryId,
+        provider_id: provider._id!,
+        maxCapacity,
+        platform_commission,
+        provider_payout_amount,
+      });
 
       revalidatePath("/provider/manage-booking");
       return { success: true, message: "Booking accepted" };
@@ -224,29 +189,13 @@ export async function updateBookingStatus(
         };
       }
 
-      const lockCutoff = new Date(Date.now() - REFUND_LOCK_TIMEOUT_MS);
-      const lockResult = await db.collection("bookings").updateOne(
-        {
-          ...bookingQuery,
-          status: "requested",
-          bookingFeeStatus: "paid",
-          $or: [
-            { refund_in_progress_at: { $exists: false } },
-            { refund_in_progress_at: { $lt: lockCutoff } },
-          ],
-        },
-        {
-          $set: {
-            refund_in_progress_at: new Date(),
-            updatedAt: new Date(),
-          },
-        },
+      const lockResult = await lockBookingForRefund(
+        queryId,
+        REFUND_LOCK_TIMEOUT_MS,
       );
 
-      if (lockResult.modifiedCount === 0) {
-        const latest = await db.collection("bookings").findOne({
-          _id: bookingQuery._id,
-        });
+      if (!lockResult) {
+        const latest = await getBookingById(queryId as ObjectId);
         if (latest?.status === "rejected") {
           return { success: true, message: "Booking already rejected" };
         }
@@ -280,13 +229,7 @@ export async function updateBookingStatus(
         );
         refundId = refund.id || null;
       } catch (error) {
-        await db.collection("bookings").updateOne(
-          { _id: bookingQuery._id },
-          {
-            $unset: { refund_in_progress_at: "" },
-            $set: { updatedAt: new Date() },
-          },
-        );
+        await unlockBookingRefund(queryId);
 
         logger.error(
           "BOOKING_ACTIONS",
@@ -301,56 +244,21 @@ export async function updateBookingStatus(
         };
       }
 
-      const rejectResult = await db.collection("bookings").updateOne(
-        {
-          ...bookingQuery,
-          status: "requested",
-          bookingFeeStatus: "paid",
-          refund_in_progress_at: { $exists: true },
-        },
-        {
-          $set: {
-            status: "rejected",
-            bookingFeeStatus: "refunded",
-            refundProcessedAt: new Date(),
-            ...(refundId ? { booking_fee_refund_id: refundId } : {}),
-            updatedAt: new Date(),
-          },
-          $unset: { refund_in_progress_at: "" },
-        },
+      const rejectResult = await markBookingAsRejectedAndRefunded(
+        queryId,
+        refundId,
       );
 
-      if (rejectResult.modifiedCount === 0) {
-        const latest = await db.collection("bookings").findOne({
-          _id: bookingQuery._id,
-        });
+      if (!rejectResult) {
+        const latest = await getBookingById(queryId as ObjectId);
 
         if (latest?.bookingFeeStatus === "paid") {
-          await db.collection("bookings").updateOne(
-            { _id: bookingQuery._id, bookingFeeStatus: "paid" },
-            {
-              $set: {
-                bookingFeeStatus: "refunded",
-                refundProcessedAt: new Date(),
-                ...(refundId ? { booking_fee_refund_id: refundId } : {}),
-                updatedAt: new Date(),
-              },
-              $unset: { refund_in_progress_at: "" },
-            },
-          );
+          await updateBookingToRefundedOnly(queryId, refundId);
         } else {
-          await db.collection("bookings").updateOne(
-            { _id: bookingQuery._id },
-            {
-              $unset: { refund_in_progress_at: "" },
-              $set: { updatedAt: new Date() },
-            },
-          );
+          await unlockBookingRefund(queryId);
         }
 
-        const latestAfter = await db.collection("bookings").findOne({
-          _id: bookingQuery._id,
-        });
+        const latestAfter = await getBookingById(queryId as ObjectId);
         if (latestAfter?.status === "rejected") {
           revalidatePath("/provider/manage-booking");
           return { success: true, message: "Booking already rejected" };
@@ -372,7 +280,10 @@ export async function updateBookingStatus(
     logger.error("BOOKING_ACTIONS", "Error updating booking status", error, {
       bookingId,
     });
-    return { success: false, error: actionErrorMessage(error, "Internal server error") };
+    return {
+      success: false,
+      error: actionErrorMessage(error, "Internal server error"),
+    };
   }
 }
 
@@ -393,28 +304,21 @@ export async function proposePickupSlot(
       return { success: false, error: "Date and time required" };
     }
 
-    const { db } = await getDb();
-
     let queryId;
     try {
       queryId = new ObjectId(bookingId);
     } catch {
       queryId = bookingId;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bookingQuery: any = { _id: queryId };
-
-    const booking = await db.collection("bookings").findOne(bookingQuery);
+    const booking = await getBookingById(queryId);
     if (!booking) {
       return { success: false, error: "Booking not found" };
     }
 
-    const provider = await db
-      .collection("providers")
-      .findOne({ _id: new ObjectId(user.id) });
+    const provider = await getProviderById(user.id);
     if (
       !provider ||
-      booking.provider_id.toString() !== provider._id.toString()
+      booking.provider_id.toString() !== provider._id?.toString()
     ) {
       return { success: false, error: "Unauthorized" };
     }
@@ -448,17 +352,7 @@ export async function proposePickupSlot(
       };
     }
 
-    await db.collection("bookings").updateOne(bookingQuery, {
-      $set: {
-        status: "pickup_proposed",
-        pickupSlot: {
-          proposedBy: "provider",
-          dateTime: slotTime,
-          confirmedAt: undefined,
-        },
-        updatedAt: new Date(),
-      },
-    });
+    await updateBookingPickupSlot(queryId, slotTime);
 
     revalidatePath("/provider/manage-booking");
     return { success: true, message: "Pickup slot proposed" };
@@ -486,28 +380,21 @@ export async function markProviderArrived(
       return { success: false, error: "Unauthorized" };
     }
 
-    const { db } = await getDb();
-
     let queryId;
     try {
       queryId = new ObjectId(bookingId);
     } catch {
       queryId = bookingId;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bookingQuery: any = { _id: queryId };
-
-    const booking = await db.collection("bookings").findOne(bookingQuery);
+    const booking = await getBookingById(queryId);
     if (!booking) {
       return { success: false, error: "Booking not found" };
     }
 
-    const provider = await db
-      .collection("providers")
-      .findOne({ _id: new ObjectId(user.id) });
+    const provider = await getProviderById(user.id);
     if (
       !provider ||
-      booking.provider_id.toString() !== provider._id.toString()
+      booking.provider_id.toString() !== provider._id?.toString()
     ) {
       return { success: false, error: "Unauthorized" };
     }
@@ -618,29 +505,13 @@ export async function markProviderArrived(
       }
     }
 
-    const updateResult = await db.collection("bookings").updateOne(
-      {
-        ...bookingQuery,
-        status: "confirmed",
-        arrivedAt: { $exists: false },
-      },
-      {
-        $set: {
-          arrivedAt: now,
-          updatedAt: now,
-          ...(payoutId
-            ? {
-                payout_status: "processing",
-                payout_id: payoutId,
-                payout_initiated_at: now,
-                booking_fee_released_at: now,
-              }
-            : {}),
-        },
-      },
+    const updateResult = await markBookingProviderArrived(
+      queryId,
+      now,
+      payoutId,
     );
 
-    if (updateResult.modifiedCount === 0) {
+    if (!updateResult) {
       return {
         success: false,
         error: "Booking state changed while marking arrival. Please refresh.",

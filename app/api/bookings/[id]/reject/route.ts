@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -6,11 +7,6 @@ import { refundRazorpayPayment } from "@/lib/razorpay";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
-import {
-  appErrorLegacyResponse,
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -29,7 +25,12 @@ export async function PATCH(
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return legacyErrorResponse("Unauthorized", 401);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 401
+      });
     }
 
     const { db } = await getDb();
@@ -38,49 +39,78 @@ export async function PATCH(
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return legacyErrorResponse("Provider not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Provider not found"
+      }, {
+        status: 404
+      });
     }
 
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid booking id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid booking id"
+      }, {
+        status: 400
+      });
     }
     const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return legacyErrorResponse("Booking not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Booking not found"
+      }, {
+        status: 404
+      });
     }
 
     if (booking.provider_id.toString() !== provider._id.toString()) {
-      return legacyErrorResponse(
-        "You are not authorized to reject this booking",
-        403,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "You are not authorized to reject this booking"
+      }, {
+        status: 403
+      });
     }
 
     if (booking.status !== "requested") {
       if (booking.status === "rejected") {
-        return legacySuccessResponse({
+        return NextResponse.json({
+          success: true,
           message: "Booking already rejected",
-          idempotent: true,
+          idempotent: true
+        }, {
+          status: 200
         });
       }
 
-      return legacyErrorResponse("Booking has already been acted upon", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Booking has already been acted upon"
+      }, {
+        status: 400
+      });
     }
 
     if (booking.bookingFeeStatus !== "paid") {
-      return legacyErrorResponse(
-        "Booking fee must be paid before provider can reject",
-        400,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Booking fee must be paid before provider can reject"
+      }, {
+        status: 400
+      });
     }
 
     if (!booking.razorpay_payment_id) {
-      return legacyErrorResponse(
-        "Cannot reject booking: payment reference missing for booking-fee refund.",
-        409,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Cannot reject booking: payment reference missing for booking-fee refund."
+      }, {
+        status: 409
+      });
     }
 
     const lockCutoff = new Date(Date.now() - REFUND_LOCK_TIMEOUT_MS);
@@ -105,9 +135,12 @@ export async function PATCH(
     if (lockResult.modifiedCount === 0) {
       const latest = await db.collection("bookings").findOne({ _id: booking_id });
       if (latest?.status === "rejected") {
-        return legacySuccessResponse({
+        return NextResponse.json({
+          success: true,
           message: "Booking already rejected",
-          idempotent: true,
+          idempotent: true
+        }, {
+          status: 200
         });
       }
       if (latest?.refund_in_progress_at) {
@@ -116,16 +149,20 @@ export async function PATCH(
           !Number.isNaN(lockAt.getTime()) &&
           Date.now() - lockAt.getTime() < REFUND_LOCK_TIMEOUT_MS;
         if (lockIsFresh) {
-          return legacyErrorResponse(
-            "Refund is already in progress for this booking.",
-            409,
-          );
+          return NextResponse.json({
+            success: false,
+            error: "Refund is already in progress for this booking."
+          }, {
+            status: 409
+          });
         }
       }
-      return legacyErrorResponse(
-        "Booking status changed during rejection. Please refresh.",
-        409,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Booking status changed during rejection. Please refresh."
+      }, {
+        status: 409
+      });
     }
 
     let refundId: string | null = null;
@@ -154,10 +191,12 @@ export async function PATCH(
         error,
         { bookingId: id }
       );
-      return legacyErrorResponse(
-        "Failed to refund booking fee. Booking was not rejected. Please retry.",
-        502,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Failed to refund booking fee. Booking was not rejected. Please retry."
+      }, {
+        status: 502
+      });
     }
 
     const now = new Date();
@@ -207,27 +246,51 @@ export async function PATCH(
 
       const latestAfter = await db.collection("bookings").findOne({ _id: booking_id });
       if (latestAfter?.status === "rejected") {
-        return legacySuccessResponse({
+        return NextResponse.json({
+          success: true,
           message: "Booking already rejected",
-          idempotent: true,
+          idempotent: true
+        }, {
+          status: 200
         });
       }
 
-      return legacyErrorResponse(
-        "Booking status changed during rejection. Refund has been processed; please refresh.",
-        409,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Booking status changed during rejection. Refund has been processed; please refresh."
+      }, {
+        status: 409
+      });
     }
 
-    return legacySuccessResponse({ message: "Booking rejected and fee refunded" });
+    return NextResponse.json({
+      success: true,
+      message: "Booking rejected and fee refunded"
+    }, {
+      status: 200
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("BOOKINGS", "Error rejecting booking", error, {
       bookingId: id,
     });
-    return legacyErrorResponse("Internal server error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
   }
 }

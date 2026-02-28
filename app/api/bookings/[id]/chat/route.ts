@@ -6,11 +6,6 @@ import { bookingChatMessageSchema } from "@/lib/api/schemas";
 import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
-import {
-  appErrorLegacyResponse,
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
 
 /**
  * GET /api/bookings/[id]/chat
@@ -23,7 +18,12 @@ export async function GET(
   const { id } = await params;
   try {
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid booking id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid booking id"
+      }, {
+        status: 400
+      });
     }
 
     await enforceRateLimit(req, {
@@ -34,21 +34,36 @@ export async function GET(
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return legacyErrorResponse("Unauthorized", 401);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 401
+      });
     }
 
     const bookingId = new ObjectId(id);
     const { db } = await getDb();
     const booking = await db.collection("bookings").findOne({ _id: bookingId });
     if (!booking)
-      return legacyErrorResponse("Booking not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Booking not found"
+      }, {
+        status: 404
+      });
 
     // Only allow seeker or provider
     if (
       user.id !== booking.seeker_id.toString() &&
       user.id !== booking.provider_id.toString()
     ) {
-      return legacyErrorResponse("Forbidden", 403);
+      return NextResponse.json({
+        success: false,
+        error: "Forbidden"
+      }, {
+        status: 403
+      });
     }
 
     const messages = await db
@@ -59,13 +74,27 @@ export async function GET(
     return NextResponse.json(messages);
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("BOOKINGS", "Fetch booking chat failed", error, {
       bookingId: id,
     });
-    return legacyErrorResponse("Internal error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal error"
+    }, {
+      status: 500
+    });
   }
 }
 
@@ -88,19 +117,33 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid booking id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid booking id"
+      }, {
+        status: 400
+      });
     }
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return legacyErrorResponse("Unauthorized", 401);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 401
+      });
     }
 
     const body = await req.json();
     const parsed = bookingChatMessageSchema.safeParse(body);
     if (!parsed.success) {
-      return legacyErrorResponse("Invalid chat message", 400, {
-        details: parsed.error.flatten().fieldErrors,
+      return NextResponse.json({
+        success: false,
+        error: "Invalid chat message",
+        details: parsed.error.flatten().fieldErrors
+      }, {
+        status: 400
       });
     }
 
@@ -109,7 +152,12 @@ export async function POST(
 
     const booking = await db.collection("bookings").findOne({ _id: bookingId });
     if (!booking)
-      return legacyErrorResponse("Booking not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Booking not found"
+      }, {
+        status: 404
+      });
 
     // Only allow seeker or provider
     let senderRole: "seeker" | "provider" | null = null;
@@ -117,7 +165,12 @@ export async function POST(
     if (user.id === booking.provider_id.toString())
       senderRole = "provider";
     if (!senderRole) {
-      return legacyErrorResponse("Forbidden", 403);
+      return NextResponse.json({
+        success: false,
+        error: "Forbidden"
+      }, {
+        status: 403
+      });
     }
 
     const chatMsg = {
@@ -128,15 +181,33 @@ export async function POST(
       createdAt: new Date(),
     };
     await db.collection("chats").insertOne(chatMsg);
-    return legacySuccessResponse();
+    return NextResponse.json({
+      success: true
+    }, {
+      status: 200
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("BOOKINGS", "Send booking chat failed", error, {
       bookingId: id,
     });
-    return legacyErrorResponse("Internal error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal error"
+    }, {
+      status: 500
+    });
   }
 }

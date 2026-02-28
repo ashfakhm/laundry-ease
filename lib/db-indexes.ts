@@ -204,6 +204,22 @@ const INDEX_SPECS: IndexSpec[] = [
       expireAfterSeconds: 0,
     },
   },
+  {
+    collection: "audit_logs",
+    keys: { timestamp: 1 },
+    options: {
+      name: "audit_logs_expire_ttl",
+      expireAfterSeconds: 30 * 24 * 60 * 60,
+    }, // 30 days
+  },
+  {
+    collection: "cron_runs",
+    keys: { startedAt: 1 },
+    options: {
+      name: "cron_runs_expire_ttl",
+      expireAfterSeconds: 7 * 24 * 60 * 60,
+    }, // 7 days
+  },
 ];
 
 type IndexCreateResult = {

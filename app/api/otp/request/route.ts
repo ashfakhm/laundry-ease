@@ -1,10 +1,5 @@
 import { createHash } from "crypto";
-import { NextRequest } from "next/server";
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { NextRequest, NextResponse } from "next/server";
 import { otpRequestSchema } from "@/lib/api/schemas";
 import { requestOtp } from "@/lib/otp";
 import { AppError } from "@/lib/api/errors";
@@ -33,11 +28,13 @@ export async function POST(req: NextRequest) {
     const json = await req.json();
     const parsed = otpRequestSchema.safeParse(json);
     if (!parsed.success) {
-      return legacyErrorResponse(
-        "Invalid params",
-        400,
-        parsed.error.flatten().fieldErrors,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Invalid params",
+        details: parsed.error.flatten().fieldErrors
+      }, {
+        status: 400
+      });
     }
 
     const { target, type } = parsed.data;
@@ -53,19 +50,39 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       const isRateLimit =
         result.error?.includes("Too many") || result.error?.includes("rate");
-      return legacyErrorResponse(
-        result.error || "Rate limit or processing error",
-        isRateLimit ? 429 : 502,
-      );
+      return NextResponse.json({
+        success: false,
+        error: result.error || "Rate limit or processing error"
+      }, {
+        status: isRateLimit ? 429 : 502
+      });
     }
 
-    return legacySuccessResponse();
+    return NextResponse.json({
+      success: true
+    }, {
+      status: 200
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("OTP", "Error requesting OTP", error);
-    return legacyErrorResponse("Failed to request OTP", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Failed to request OTP"
+    }, {
+      status: 500
+    });
   }
 }

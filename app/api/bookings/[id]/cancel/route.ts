@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -8,11 +9,6 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateCancellationPolicy } from "@/lib/bookings/cancellation-policy";
 import { requireAuth } from "@/lib/api/auth";
-import {
-  appErrorLegacyResponse,
-  legacyErrorResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -37,24 +33,42 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return legacyErrorResponse("Unauthorized", 401);
+      return NextResponse.json({
+        success: false,
+        error: "Unauthorized"
+      }, {
+        status: 401
+      });
     }
 
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid booking id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid booking id"
+      }, {
+        status: 400
+      });
     }
     const booking_id = new ObjectId(id);
 
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return legacyErrorResponse("Booking not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Booking not found"
+      }, {
+        status: 404
+      });
     }
 
     if (booking.status === "cancelled") {
-      return legacySuccessResponse({
+      return NextResponse.json({
+        success: true,
         message: "Booking already cancelled",
-        idempotent: true,
+        idempotent: true
+      }, {
+        status: 200
       });
     }
 
@@ -74,14 +88,21 @@ export async function POST(
 
     if (isProvider) {
       if (booking.provider_id.toString() !== user.id) {
-        return legacyErrorResponse("Unauthorized", 403);
+        return NextResponse.json({
+          success: false,
+          error: "Unauthorized"
+        }, {
+          status: 403
+        });
       }
 
       if (booking.arrivedAt) {
-        return legacyErrorResponse(
-          "Provider cannot cancel after marking arrival",
-          409,
-        );
+        return NextResponse.json({
+          success: false,
+          error: "Provider cannot cancel after marking arrival"
+        }, {
+          status: 409
+        });
       }
 
       cancelledBy = "provider";
@@ -94,7 +115,12 @@ export async function POST(
       ];
     } else {
       if (booking.seeker_id.toString() !== user.id) {
-        return legacyErrorResponse("Unauthorized", 403);
+        return NextResponse.json({
+          success: false,
+          error: "Unauthorized"
+        }, {
+          status: 403
+        });
       }
       cancelledBy = "seeker";
       allowedStatuses = [
@@ -106,18 +132,22 @@ export async function POST(
       ];
 
       if (pickupSlotTime && now >= pickupSlotTime) {
-        return legacyErrorResponse(
-          "Seeker can cancel only before the booked slot time.",
-          409,
-        );
+        return NextResponse.json({
+          success: false,
+          error: "Seeker can cancel only before the booked slot time."
+        }, {
+          status: 409
+        });
       }
     }
 
     if (!allowedStatuses.includes(booking.status)) {
-      return legacyErrorResponse(
-        `Cannot cancel booking with status: ${booking.status}. Contact support.`,
-        400,
-      );
+      return NextResponse.json({
+        success: false,
+        error: `Cannot cancel booking with status: ${booking.status}. Contact support.`
+      }, {
+        status: 400
+      });
     }
 
     const policy = evaluateCancellationPolicy({
@@ -128,10 +158,12 @@ export async function POST(
     });
 
     if (!policy.allowed) {
-      return legacyErrorResponse(
-        policy.message || "Cancellation is not allowed.",
-        409,
-      );
+      return NextResponse.json({
+        success: false,
+        error: policy.message || "Cancellation is not allowed."
+      }, {
+        status: 409
+      });
     }
 
     const shouldAttemptRefund = policy.refundAction === "refund";
@@ -141,10 +173,12 @@ export async function POST(
     let shouldMarkRefunded = false;
     if (shouldAttemptRefund) {
       if (!booking.razorpay_payment_id) {
-        return legacyErrorResponse(
-          "Cannot cancel with refund: payment reference missing. Please contact support.",
-          409,
-        );
+        return NextResponse.json({
+          success: false,
+          error: "Cannot cancel with refund: payment reference missing. Please contact support."
+        }, {
+          status: 409
+        });
       }
 
       const lockCutoff = new Date(Date.now() - REFUND_LOCK_TIMEOUT_MS);
@@ -171,9 +205,12 @@ export async function POST(
           .collection("bookings")
           .findOne({ _id: booking_id });
         if (latest?.status === "cancelled") {
-          return legacySuccessResponse({
+          return NextResponse.json({
+            success: true,
             message: "Booking already cancelled",
-            idempotent: true,
+            idempotent: true
+          }, {
+            status: 200
           });
         }
         if (latest?.refund_in_progress_at) {
@@ -182,16 +219,20 @@ export async function POST(
             !Number.isNaN(lockAt.getTime()) &&
             Date.now() - lockAt.getTime() < REFUND_LOCK_TIMEOUT_MS;
           if (lockIsFresh) {
-            return legacyErrorResponse(
-              "Refund is already in progress for this booking.",
-              409,
-            );
+            return NextResponse.json({
+              success: false,
+              error: "Refund is already in progress for this booking."
+            }, {
+              status: 409
+            });
           }
         }
-        return legacyErrorResponse(
-          "Booking status changed. Please refresh and retry.",
-          409,
-        );
+        return NextResponse.json({
+          success: false,
+          error: "Booking status changed. Please refresh and retry."
+        }, {
+          status: 409
+        });
       }
 
       try {
@@ -223,10 +264,12 @@ export async function POST(
             cancelledBy,
           },
         );
-        return legacyErrorResponse(
-          "Refund could not be processed right now, so booking was not cancelled. Please retry.",
-          502,
-        );
+        return NextResponse.json({
+          success: false,
+          error: "Refund could not be processed right now, so booking was not cancelled. Please retry."
+        }, {
+          status: 502
+        });
       }
     }
 
@@ -261,12 +304,16 @@ export async function POST(
     );
 
     if (result.modifiedCount === 1) {
-      return legacySuccessResponse({
+      return NextResponse.json({
+        success: true,
+
         message: shouldMarkRefunded
           ? "Booking cancelled and booking fee refunded"
           : shouldForfeitFee
             ? "Booking cancelled. Same-day cancellation is non-refundable."
-            : "Booking cancelled successfully",
+            : "Booking cancelled successfully"
+      }, {
+        status: 200
       });
     }
 
@@ -308,28 +355,48 @@ export async function POST(
       .collection("bookings")
       .findOne({ _id: booking_id });
     if (latestAfter?.status === "cancelled") {
-      return legacySuccessResponse({
+      return NextResponse.json({
+        success: true,
         message: "Booking already cancelled",
-        idempotent: true,
+        idempotent: true
+      }, {
+        status: 200
       });
     }
 
-    return legacyErrorResponse(
-      shouldMarkRefunded
+    return NextResponse.json({
+      success: false,
+
+      error: shouldMarkRefunded
         ? "Booking status changed. Refund has been processed; please refresh and retry."
         : shouldForfeitFee
           ? "Booking status changed. Same-day cancellation is non-refundable; please refresh and retry."
-          : "Booking status changed. Please refresh and retry.",
-      409,
-    );
+          : "Booking status changed. Please refresh and retry."
+    }, {
+      status: 409
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("BOOKINGS", "Error cancelling booking", error, {
       bookingId: id,
     });
-    return legacyErrorResponse("Internal server error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
   }
 }

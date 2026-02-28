@@ -1,8 +1,4 @@
 import { NextResponse } from "next/server";
-import {
-  legacyErrorResponse,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
 import { AppError } from "@/lib/api/errors";
@@ -64,11 +60,25 @@ export async function GET(req: Request) {
     return NextResponse.json(users);
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     const { logger } = await import("@/lib/logger");
     logger.error("ADMIN_USERS", "Error fetching users", error);
-    return legacyErrorResponse("Internal server error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
   }
 }

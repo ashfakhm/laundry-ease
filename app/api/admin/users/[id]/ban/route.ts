@@ -1,9 +1,4 @@
-import { NextRequest } from "next/server";
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { AppError } from "@/lib/api/errors";
@@ -28,7 +23,12 @@ export async function PATCH(
     const parsed = banUserSchema.safeParse(body);
 
     if (!ObjectId.isValid(id) || !parsed.success) {
-      return legacyErrorResponse("Missing or invalid parameters", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Missing or invalid parameters"
+      }, {
+        status: 400
+      });
     }
 
     const blockedUntil = new Date(parsed.data.blocked_until);
@@ -44,17 +44,40 @@ export async function PATCH(
       );
 
     if (result.modifiedCount === 1) {
-      return legacySuccessResponse();
+      return NextResponse.json({
+        success: true
+      }, {
+        status: 200
+      });
     }
 
-    return legacyErrorResponse("User not found or not updated", 404);
+    return NextResponse.json({
+      success: false,
+      error: "User not found or not updated"
+    }, {
+      status: 404
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     const { logger } = await import("@/lib/logger");
     logger.error("ADMIN_USERS", "Failed to ban user", error);
-    return legacyErrorResponse("Internal server error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
   }
 }

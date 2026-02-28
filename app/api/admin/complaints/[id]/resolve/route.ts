@@ -1,8 +1,4 @@
-import {
-  legacyErrorResponse,
-  legacySuccessResponse,
-  appErrorLegacyResponse,
-} from "@/lib/api/legacy-response";
+import { NextResponse } from "next/server";
 import { getOrderById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -181,15 +177,22 @@ export async function POST(
     const parsed = adminComplaintResolveSchema.safeParse(body);
 
     if (!parsed.success) {
-      return legacyErrorResponse(
-        "Invalid resolution data",
-        400,
-        parsed.error.flatten().fieldErrors,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Invalid resolution data",
+        details: parsed.error.flatten().fieldErrors
+      }, {
+        status: 400
+      });
     }
 
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid complaint id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid complaint id"
+      }, {
+        status: 400
+      });
     }
 
     const { outcome, seeker_refund_amount } = parsed.data;
@@ -200,17 +203,32 @@ export async function POST(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return legacyErrorResponse("Not Found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Not Found"
+      }, {
+        status: 404
+      });
     }
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return legacyErrorResponse("Complaint has already been finalized", 409);
+      return NextResponse.json({
+        success: false,
+        error: "Complaint has already been finalized"
+      }, {
+        status: 409
+      });
     }
 
     const orderId = complaint.order_id;
     const order = await getOrderById(orderId);
     if (!order) {
-      return legacyErrorResponse("Order Not Found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Order Not Found"
+      }, {
+        status: 404
+      });
     }
 
     const { providerPayoutAmountPaise, platformCommissionPaise } =
@@ -225,10 +243,12 @@ export async function POST(
       outcome !== "release_payout" &&
       outcome !== "reject"
     ) {
-      return legacyErrorResponse(
-        "Order has no distributable amount remaining for complaint settlement.",
-        409,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Order has no distributable amount remaining for complaint settlement."
+      }, {
+        status: 409
+      });
     }
 
     let settlement;
@@ -241,7 +261,12 @@ export async function POST(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Invalid settlement amount";
-      return legacyErrorResponse(message, 400);
+      return NextResponse.json({
+        success: false,
+        error: message
+      }, {
+        status: 400
+      });
     }
 
     const seekerRefundAmount = settlement.seekerRefundAmount;
@@ -421,13 +446,19 @@ export async function POST(
         createdAt: new Date(),
       });
 
-      return legacyErrorResponse(
-        !payoutApplied && !refundApplied
+      return NextResponse.json({
+        success: false,
+
+        error: !payoutApplied && !refundApplied
           ? "Financial Action Failed"
           : "Financial Action Partially Applied",
-        500,
-        { details: safeDetails, payoutApplied, refundApplied },
-      );
+
+        details: safeDetails,
+        payoutApplied,
+        refundApplied
+      }, {
+        status: 500
+      });
     }
 
     const orderSetFields: Record<string, unknown> = {
@@ -550,27 +581,45 @@ export async function POST(
       }
     }
 
-    return legacySuccessResponse({
+    return NextResponse.json({
+      success: true,
       outcome: resolved.dbOutcome,
       status: resolved.dbStatus,
       payoutPendingManual,
       refundPendingManual,
       manualTransferDetails,
+
       settlement: {
         seeker_refund_amount: seekerRefundAmount,
         provider_payout_amount: providerPayoutAmount,
         platform_commission: round2(platformCommission),
         distributable_amount: normalizedDistributableAmount,
-      },
+      }
+    }, {
+      status: 200
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error resolving dispute", error, {
       complaintId: id,
     });
-    return legacyErrorResponse("Internal Error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal Error"
+    }, {
+      status: 500
+    });
   }
 }

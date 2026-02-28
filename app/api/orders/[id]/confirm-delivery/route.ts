@@ -1,4 +1,8 @@
-import { getOrderById } from "@/lib/db/index";
+import { NextResponse } from "next/server";
+import {
+  getOrderById,
+  buildConfirmDeliveryUpdateFields,
+} from "@/lib/db/orders";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { confirmDeliverySchema } from "@/lib/api/schemas";
@@ -9,13 +13,7 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 import { requireSeeker } from "@/lib/api/auth";
-import { DELIVERY_OTP_TTL_MS, ESCROW_RELEASE_WINDOW_MS } from "@/lib/constants";
-import {
-  appErrorLegacyResponse,
-  legacyErrorResponse,
-  legacyMessageResponse,
-  legacySuccessResponse,
-} from "@/lib/api/legacy-response";
+import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
 
 export async function POST(
   req: Request,
@@ -33,15 +31,24 @@ export async function POST(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return legacyErrorResponse("Invalid order id", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid order id"
+      }, {
+        status: 400
+      });
     }
 
     const body = await req.json();
     const parsed = confirmDeliverySchema.safeParse(body);
 
     if (!parsed.success) {
-      return legacyErrorResponse("Invalid OTP data", 400, {
-        fields: parsed.error.flatten().fieldErrors,
+      return NextResponse.json({
+        success: false,
+        error: "Invalid OTP data",
+        fields: parsed.error.flatten().fieldErrors
+      }, {
+        status: 400
       });
     }
 
@@ -51,34 +58,45 @@ export async function POST(
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return legacyErrorResponse("Order not found", 404);
+      return NextResponse.json({
+        success: false,
+        error: "Order not found"
+      }, {
+        status: 404
+      });
     }
 
     if (order.seeker_id.toString() !== user.id) {
-      return legacyErrorResponse(
-        "You are not authorized to confirm delivery for this order",
-        403,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "You are not authorized to confirm delivery for this order"
+      }, {
+        status: 403
+      });
     }
 
     if ((order.process_status || "invoiced") === "delivered") {
-      return legacySuccessResponse({
+      return NextResponse.json({
+        success: true,
         message: "Delivery already confirmed",
         idempotent: true,
+
         deadlineCompensationApplied:
           order.payment_status === "refunded" ||
-          Boolean(order.deadline_compensated_at),
+          Boolean(order.deadline_compensated_at)
+      }, {
+        status: 200
       });
     }
 
     if ((order.process_status || "invoiced") !== "out_for_delivery") {
-      return legacyMessageResponse(
-        "Delivery can only be confirmed when order is out for delivery",
-        409,
-        {
-          currentStatus: order.process_status || "invoiced",
-        },
-      );
+      return NextResponse.json({
+        success: true,
+        message: "Delivery can only be confirmed when order is out for delivery",
+        currentStatus: order.process_status || "invoiced"
+      }, {
+        status: 409
+      });
     }
 
     // If escrow has already started, payment_status will be "held" (or later "released").
@@ -88,10 +106,12 @@ export async function POST(
         order.payment_status,
       )
     ) {
-      return legacyErrorResponse(
-        "Order must be paid before confirming delivery",
-        400,
-      );
+      return NextResponse.json({
+        success: false,
+        error: "Order must be paid before confirming delivery"
+      }, {
+        status: 400
+      });
     }
 
     const nowMs = Date.now();
@@ -104,7 +124,12 @@ export async function POST(
         !Number.isNaN(expiryDate.getTime()) &&
         expiryDate.getTime() <= nowMs
       ) {
-        return legacyErrorResponse("OTP expired. Please resend OTP.", 410);
+        return NextResponse.json({
+          success: false,
+          error: "OTP expired. Please resend OTP."
+        }, {
+          status: 410
+        });
       }
     } else if (otpSentAt) {
       const sentDate = new Date(otpSentAt);
@@ -112,18 +137,33 @@ export async function POST(
         !Number.isNaN(sentDate.getTime()) &&
         sentDate.getTime() + DELIVERY_OTP_TTL_MS <= nowMs
       ) {
-        return legacyErrorResponse("OTP expired. Please resend OTP.", 410);
+        return NextResponse.json({
+          success: false,
+          error: "OTP expired. Please resend OTP."
+        }, {
+          status: 410
+        });
       }
     }
 
     // Verify OTP using bcrypt (timing-safe and secure)
     if (!order.delivery_otp) {
-      return legacyErrorResponse("Invalid OTP", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid OTP"
+      }, {
+        status: 400
+      });
     }
     const bcrypt = await import("bcrypt");
     const isOtpValid = await bcrypt.compare(otp, order.delivery_otp);
     if (!isOtpValid) {
-      return legacyErrorResponse("Invalid OTP", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid OTP"
+      }, {
+        status: 400
+      });
     }
 
     const now = new Date();
@@ -146,11 +186,14 @@ export async function POST(
     const { deadlineBreached, shouldRefund } = compensationDecision;
 
     if (compensationDecision.blocked) {
-      return legacyErrorResponse(
-        compensationDecision.blockedMessage ||
-          "Deadline compensation cannot be applied automatically.",
-        409,
-      );
+      return NextResponse.json({
+        success: false,
+
+        error: compensationDecision.blockedMessage ||
+          "Deadline compensation cannot be applied automatically."
+      }, {
+        status: 409
+      });
     }
 
     const { db, client } = await getDb();
@@ -160,10 +203,12 @@ export async function POST(
       return await session.withTransaction(async () => {
         if (shouldRefund) {
           if (!order.razorpay_payment_id) {
-            return legacyErrorResponse(
-              "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support.",
-              409,
-            );
+            return NextResponse.json({
+              success: false,
+              error: "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support."
+            }, {
+              status: 409
+            });
           }
 
           try {
@@ -183,10 +228,12 @@ export async function POST(
               error,
               { orderId: id },
             );
-            return legacyErrorResponse(
-              "Deadline was missed, but refund could not be processed right now. Please retry.",
-              502,
-            );
+            return NextResponse.json({
+              success: false,
+              error: "Deadline was missed, but refund could not be processed right now. Please retry."
+            }, {
+              status: 502
+            });
           }
         }
 
@@ -197,27 +244,15 @@ export async function POST(
           .collection("orders")
           .findOne({ _id: order_id }, { session });
         if (!orderCheck) {
-          return legacyErrorResponse("Failed to confirm delivery", 500);
+          return NextResponse.json({
+            success: false,
+            error: "Failed to confirm delivery"
+          }, {
+            status: 500
+          });
         }
 
-        const escrowReleaseAt = new Date(
-          now.getTime() + ESCROW_RELEASE_WINDOW_MS,
-        );
-        const shouldStartEscrow = orderCheck.payment_status === "paid";
-        const setFields: Record<string, unknown> = {
-          process_status: "delivered",
-          otp_confirmed_at: now,
-        };
-
-        if (shouldStartEscrow) {
-          setFields.payment_status = "held";
-          setFields.escrow_started_at = now;
-          setFields.escrow_release_at = escrowReleaseAt;
-        } else if (orderCheck.payment_status === "held") {
-          setFields.escrow_started_at = orderCheck.escrow_started_at || now;
-          setFields.escrow_release_at =
-            orderCheck.escrow_release_at || escrowReleaseAt;
-        }
+        const setFields = buildConfirmDeliveryUpdateFields(orderCheck, now);
 
         if (deadlineBreached && !alreadyCompensated) {
           Object.assign(setFields, {
@@ -247,20 +282,33 @@ export async function POST(
         if (success) {
           revalidatePath(`/seeker/orders/${id}`);
           if (deadlineBreached && !alreadyCompensated) {
-            return legacySuccessResponse({
+            return NextResponse.json({
+              success: true,
+
               message: shouldRefund
                 ? "Delivery confirmed. Deadline was missed and a full refund has been issued."
                 : "Delivery confirmed. Deadline was missed and marked for no-charge completion.",
+
               deadlineCompensationApplied: shouldRefund,
-              deadlineBreached: true,
+              deadlineBreached: true
+            }, {
+              status: 200
             });
           }
 
-          return legacySuccessResponse({
-            message: "Delivery confirmed, escrow started",
+          return NextResponse.json({
+            success: true,
+            message: "Delivery confirmed, escrow started"
+          }, {
+            status: 200
           });
         } else {
-          return legacyErrorResponse("Failed to confirm delivery", 500);
+          return NextResponse.json({
+            success: false,
+            error: "Failed to confirm delivery"
+          }, {
+            status: 500
+          });
         }
       });
     } finally {
@@ -268,10 +316,24 @@ export async function POST(
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+
+        ...(error.details ? {
+          details: error.details
+        } : {})
+      }, {
+        status: error.statusCode || 400
+      });
     }
 
     logger.error("ORDERS", "Error confirming delivery", error, { orderId: id });
-    return legacyErrorResponse("Internal server error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal server error"
+    }, {
+      status: 500
+    });
   }
 }

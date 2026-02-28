@@ -9,11 +9,6 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
 import { paymentVerifySchema } from "@/lib/api/schemas";
-import {
-  appErrorLegacyResponse,
-  legacyErrorBody,
-  legacyErrorResponse,
-} from "@/lib/api/legacy-response";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -32,7 +27,16 @@ function fail(
   status: number,
   details?: Record<string, unknown>,
 ) {
-  return legacyErrorResponse(message, status, details);
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+      details: details,
+    },
+    {
+      status: status,
+    },
+  );
 }
 
 type FinalizeInvoiceOrderInput = {
@@ -66,14 +70,19 @@ async function finalizeInvoiceOrderWithCompensation({
   razorpayPaymentId,
   orderData,
   now,
-}: Omit<FinalizeInvoiceOrderInput, "client">): Promise<FinalizeInvoiceOrderResult> {
+}: Omit<
+  FinalizeInvoiceOrderInput,
+  "client"
+>): Promise<FinalizeInvoiceOrderResult> {
   let insertedOrderId: ObjectId | null = null;
   try {
     const insertResult = await db.collection("orders").insertOne(orderData);
     insertedOrderId = insertResult.insertedId;
   } catch (error) {
     if (error instanceof MongoServerError && error.code === 11000) {
-      const concurrentOrder = await db.collection("orders").findOne({ booking_id: bookingId });
+      const concurrentOrder = await db
+        .collection("orders")
+        .findOne({ booking_id: bookingId });
       if (concurrentOrder?.razorpay_payment_id === razorpayPaymentId) {
         return { orderId: concurrentOrder._id as ObjectId, idempotent: true };
       }
@@ -135,7 +144,10 @@ async function finalizeInvoiceOrderWithTransaction({
         .findOne({ booking_id: bookingId }, { session });
       if (existingOrder) {
         if (existingOrder.razorpay_payment_id === razorpayPaymentId) {
-          outcome = { orderId: existingOrder._id as ObjectId, idempotent: true };
+          outcome = {
+            orderId: existingOrder._id as ObjectId,
+            idempotent: true,
+          };
           return;
         }
         throw new AppError(
@@ -169,7 +181,10 @@ async function finalizeInvoiceOrderWithTransaction({
         const latestBooking = await db
           .collection("bookings")
           .findOne({ _id: bookingId }, { session });
-        if (latestBooking?.order_id && ObjectId.isValid(latestBooking.order_id)) {
+        if (
+          latestBooking?.order_id &&
+          ObjectId.isValid(latestBooking.order_id)
+        ) {
           outcome = {
             orderId: new ObjectId(latestBooking.order_id),
             idempotent: true,
@@ -197,7 +212,9 @@ async function finalizeInvoiceOrderWithTransaction({
     return outcome;
   } catch (error) {
     if (error instanceof MongoServerError && error.code === 11000) {
-      const concurrentOrder = await db.collection("orders").findOne({ booking_id: bookingId });
+      const concurrentOrder = await db
+        .collection("orders")
+        .findOne({ booking_id: bookingId });
       if (concurrentOrder?.razorpay_payment_id === razorpayPaymentId) {
         return { orderId: concurrentOrder._id as ObjectId, idempotent: true };
       }
@@ -245,7 +262,7 @@ async function finalizeInvoiceOrder(
 // POST: Create Razorpay Order for Invoice Amount
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -285,7 +302,7 @@ export async function POST(
           error: "Order already exists for this booking",
           orderId: existingOrder._id,
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -299,7 +316,7 @@ export async function POST(
       const { calculateDistance } = await import("@/lib/distance");
       const dist = calculateDistance(
         booking.seeker_coordinates,
-        provider.coordinates
+        provider.coordinates,
       );
       const freeRadius = provider.free_radius_km || 5;
       const perKmRate = provider.per_km_rate || 10;
@@ -308,8 +325,9 @@ export async function POST(
     }
 
     const itemsTotal = booking.invoice.items.reduce(
-      (sum: number, item: InvoiceLineItem) => sum + item.quantity * item.unitPrice,
-      0
+      (sum: number, item: InvoiceLineItem) =>
+        sum + item.quantity * item.unitPrice,
+      0,
     );
     const totalAmount = itemsTotal + delivery_charge;
     const amountInPaise = Math.round(totalAmount * 100);
@@ -326,7 +344,7 @@ export async function POST(
           razorpay_order_id: razorpayOrder.id,
           updatedAt: new Date(),
         },
-      }
+      },
     );
 
     return NextResponse.json({
@@ -336,7 +354,21 @@ export async function POST(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+
+          ...(error.details
+            ? {
+                details: error.details,
+              }
+            : {}),
+        },
+        {
+          status: error.statusCode || 400,
+        },
+      );
     }
 
     logger.error("BOOKINGS", "Payment init error", error, { bookingId: id });
@@ -347,7 +379,7 @@ export async function POST(
 // PUT: Verify Payment and Create Order
 export async function PUT(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -395,14 +427,17 @@ export async function PUT(
       return fail("Booking is not in invoice payment state", 400);
     }
 
-    if (!booking.razorpay_order_id || booking.razorpay_order_id !== razorpay_order_id) {
+    if (
+      !booking.razorpay_order_id ||
+      booking.razorpay_order_id !== razorpay_order_id
+    ) {
       return fail("Razorpay order mismatch", 400);
     }
 
     const isValid = verifyRazorpaySignature(
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature
+      razorpay_signature,
     );
 
     if (!isValid) {
@@ -415,8 +450,8 @@ export async function PUT(
         return NextResponse.json({ success: true, orderId: existingOrder._id });
       }
       return NextResponse.json(
-        legacyErrorBody("Order already exists for this booking"),
-        { status: 409 }
+        { success: false, error: "Order already exists for this booking" },
+        { status: 409 },
       );
     }
 
@@ -431,7 +466,7 @@ export async function PUT(
       const { calculateDistance } = await import("@/lib/distance");
       delivery_distance_km = calculateDistance(
         booking_coords,
-        provider.coordinates
+        provider.coordinates,
       );
       const freeRadius = provider.free_radius_km || 5;
       const perKmRate = provider.per_km_rate || 10;
@@ -445,7 +480,7 @@ export async function PUT(
         quantity: item.quantity,
         unit_price: item.unitPrice,
         line_total: item.quantity * item.unitPrice,
-      })
+      }),
     );
 
     const total_price =
@@ -493,7 +528,21 @@ export async function PUT(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return appErrorLegacyResponse(error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+
+          ...(error.details
+            ? {
+                details: error.details,
+              }
+            : {}),
+        },
+        {
+          status: error.statusCode || 400,
+        },
+      );
     }
 
     logger.error("BOOKINGS", "Payment verification error", error, {

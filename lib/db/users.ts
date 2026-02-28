@@ -2,6 +2,7 @@ import { Seeker, Provider, Admin, UserWithRole } from "@/types/users";
 import { Role } from "@/types/enums";
 import { getDb } from "../mongodb";
 import bcrypt from "bcrypt";
+import { ObjectId } from "mongodb";
 
 /**
  * Find user by email across all collections (seekers → providers → admins)
@@ -165,4 +166,37 @@ export async function createProvider(data: {
 
   const res = await db.collection<Provider>("providers").insertOne(provider);
   return { ...provider, _id: res.insertedId };
+}
+
+/**
+ * Get provider by their MongoDB ID
+ */
+export async function getProviderById(
+  id: ObjectId | string,
+): Promise<Provider | null> {
+  const { db } = await getDb();
+  const queryId = typeof id === "string" ? new ObjectId(id) : id;
+  return db.collection<Provider>("providers").findOne({ _id: queryId });
+}
+
+/**
+ * Update the Razorpay contact and fund account details for a provider
+ */
+export async function updateProviderRazorpayIds(
+  id: ObjectId | string,
+  contactId: string,
+  fundAccountId: string,
+): Promise<boolean> {
+  const { db } = await getDb();
+  const queryId = typeof id === "string" ? new ObjectId(id) : id;
+  const res = await db.collection<Provider>("providers").updateOne(
+    { _id: queryId },
+    {
+      $set: {
+        razorpay_contact_id: contactId,
+        razorpay_fund_account_id: fundAccountId,
+      },
+    },
+  );
+  return res.modifiedCount > 0;
 }

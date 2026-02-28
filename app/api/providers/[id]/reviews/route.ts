@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { legacyErrorResponse } from "@/lib/api/legacy-response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -16,7 +15,12 @@ export async function GET(
     try {
       providerId = new ObjectId(id);
     } catch {
-      return legacyErrorResponse("Invalid provider ID", 400);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid provider ID"
+      }, {
+        status: 400
+      });
     }
 
     const { db } = await getDb();
@@ -30,6 +34,11 @@ export async function GET(
     return NextResponse.json(reviews);
   } catch (error) {
     logger.error("REVIEWS", "Error fetching provider reviews", error);
-    return legacyErrorResponse("Internal Server Error", 500);
+    return NextResponse.json({
+      success: false,
+      error: "Internal Server Error"
+    }, {
+      status: 500
+    });
   }
 }
