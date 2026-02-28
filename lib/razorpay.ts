@@ -126,7 +126,15 @@ export function verifyRazorpaySignature(
     .update(orderId + "|" + paymentId)
     .digest("hex");
 
-  return generatedSignature === signature;
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(generatedSignature),
+      Buffer.from(signature),
+    );
+  } catch {
+    // timingSafeEqual throws if lengths do not match
+    return false;
+  }
 }
 
 /**

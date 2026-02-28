@@ -1,4 +1,5 @@
 import { getDb } from "./mongodb";
+import crypto from "crypto";
 import bcrypt from "bcrypt";
 import twilio from "twilio";
 import { env } from "./env";
@@ -12,8 +13,8 @@ function normalizeTarget(target: string, type: OtpType): string {
 }
 
 function generateCode() {
-  // 6 digit numeric code
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // secure 6 digit numeric code
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 let smsClientInstance: ReturnType<typeof twilio> | null = null;
@@ -31,7 +32,7 @@ const MAX_VERIFICATION_ATTEMPTS = 5;
 export async function requestOtp(
   target: string,
   type: OtpType,
-  ttlMinutes = 10
+  ttlMinutes = 10,
 ) {
   const normalizedTarget = normalizeTarget(target, type);
   logger.info("OTP", `Request initiated for ${type}`, {
@@ -39,7 +40,7 @@ export async function requestOtp(
   });
   const { db } = await getDb();
   const col = db.collection<OtpRecord>("otp_codes");
-  
+
   // Rate limiting: Check requests in last hour
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
   const recentRequests = await col.countDocuments({
@@ -139,7 +140,7 @@ export async function verifyOtp(target: string, type: OtpType, code: string) {
   const col = db.collection<OtpRecord>("otp_codes");
   const doc = await col.findOne(
     { target: normalizedTarget, type, verified: false },
-    { sort: { createdAt: -1 } }
+    { sort: { createdAt: -1 } },
   );
   if (!doc) return { ok: false, error: "No OTP found" };
   if (new Date(doc.expiresAt).getTime() < Date.now())
@@ -151,7 +152,11 @@ export async function verifyOtp(target: string, type: OtpType, code: string) {
       target: normalizedTarget.substring(0, 4) + "***",
       attempts: doc.attempts,
     });
-    return { ok: false, error: "Maximum verification attempts exceeded. Please request a new OTP." };
+    return {
+      ok: false,
+      error:
+        "Maximum verification attempts exceeded. Please request a new OTP.",
+    };
   }
 
   const match = await bcrypt.compare(code, doc.codeHash);
@@ -175,7 +180,7 @@ export async function verifyOtp(target: string, type: OtpType, code: string) {
 export async function isOtpVerifiedRecently(
   target: string,
   type: OtpType,
-  minutes = 30
+  minutes = 30,
 ) {
   const normalizedTarget = normalizeTarget(target, type);
   logger.debug("OTP", `Checking if ${type} was verified recently`, {

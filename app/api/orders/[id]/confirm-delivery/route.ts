@@ -1,4 +1,4 @@
-import { getOrderById, confirmDelivery } from "@/lib/db/index";
+import { getOrderById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { confirmDeliverySchema } from "@/lib/api/schemas";
@@ -19,7 +19,7 @@ import {
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -85,10 +85,13 @@ export async function POST(
     // Confirming delivery should still be allowed in these post-payment states so the UI can reach "Delivered".
     if (
       !(["paid", "held", "released", "refunded"] as readonly string[]).includes(
-        order.payment_status
+        order.payment_status,
       )
     ) {
-      return legacyErrorResponse("Order must be paid before confirming delivery", 400);
+      return legacyErrorResponse(
+        "Order must be paid before confirming delivery",
+        400,
+      );
     }
 
     const nowMs = Date.now();
@@ -97,7 +100,10 @@ export async function POST(
 
     if (otpExpiresAt) {
       const expiryDate = new Date(otpExpiresAt);
-      if (!Number.isNaN(expiryDate.getTime()) && expiryDate.getTime() <= nowMs) {
+      if (
+        !Number.isNaN(expiryDate.getTime()) &&
+        expiryDate.getTime() <= nowMs
+      ) {
         return legacyErrorResponse("OTP expired. Please resend OTP.", 410);
       }
     } else if (otpSentAt) {
@@ -142,84 +148,116 @@ export async function POST(
       );
     }
 
-    if (shouldRefund) {
-      if (!order.razorpay_payment_id) {
-        return legacyErrorResponse(
-          "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support.",
-          409,
-        );
-      }
+    const { db, client } = await getDb();
+    const session = client.startSession();
 
-      try {
-        const refund = await refundRazorpayPayment(
-          order.razorpay_payment_id,
-          Math.round(paidAmount * 100),
-          {
-            reason: "deadline_breach_full_refund",
-            order_id: id,
-          },
-        );
-        refundId = refund.id || null;
-      } catch (error) {
-        logger.error(
-          "ORDERS",
-          "Failed to refund late-delivery order before confirmation",
-          error,
-          { orderId: id },
-        );
-        return legacyErrorResponse(
-          "Deadline was missed, but refund could not be processed right now. Please retry.",
-          502,
-        );
-      }
-    }
+    try {
+      return await session.withTransaction(async () => {
+        if (shouldRefund) {
+          if (!order.razorpay_payment_id) {
+            return legacyErrorResponse(
+              "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support.",
+              409,
+            );
+          }
 
-    const success = await confirmDelivery(order_id);
+          try {
+            const refund = await refundRazorpayPayment(
+              order.razorpay_payment_id,
+              Math.round(paidAmount * 100),
+              {
+                reason: "deadline_breach_full_refund",
+                order_id: id,
+              },
+            );
+            refundId = refund.id || null;
+          } catch (error) {
+            logger.error(
+              "ORDERS",
+              "Failed to refund late-delivery order before confirmation",
+              error,
+              { orderId: id },
+            );
+            return legacyErrorResponse(
+              "Deadline was missed, but refund could not be processed right now. Please retry.",
+              502,
+            );
+          }
+        }
 
-    if (success) {
-      if (deadlineBreached && !alreadyCompensated) {
-        const { db } = await getDb();
-        await db.collection("orders").updateOne(
-          { _id: order_id },
-          {
-            $set: {
-              deadline_breached_at: now,
-              deadline_compensated_at: new Date(),
-              deadline_compensation_mode: shouldRefund
-                ? "full_refund"
-                : "no_charge",
-              refund_amount: shouldRefund ? paidAmount : 0,
-              refund_reason: shouldRefund
-                ? "Delivery confirmed after seeker deadline"
-                : "Delivery confirmed after seeker deadline (no captured amount)",
-              ...(refundId ? { razorpay_refund_id: refundId } : {}),
-              ...(shouldRefund
-                ? {
-                    payment_status: "refunded",
-                    latePenalty: paidAmount,
-                  }
-                : {}),
-              updatedAt: new Date(),
-            },
-          },
-        );
+        // We shouldn't use `confirmDelivery` here directly since it opens its own transaction
+        // However, nested transactions are not supported.
+        // We will inline the `confirmDelivery` functionality here.
+        const orderCheck = await db
+          .collection("orders")
+          .findOne({ _id: order_id }, { session });
+        if (!orderCheck) {
+          return legacyErrorResponse("Failed to confirm delivery", 500);
+        }
 
-        revalidatePath(`/seeker/orders/${id}`);
-        return legacySuccessResponse({
-          message: shouldRefund
-            ? "Delivery confirmed. Deadline was missed and a full refund has been issued."
-            : "Delivery confirmed. Deadline was missed and marked for no-charge completion.",
-          deadlineCompensationApplied: shouldRefund,
-          deadlineBreached: true,
-        });
-      }
+        const escrowReleaseAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24h
+        const shouldStartEscrow = orderCheck.payment_status === "paid";
+        const setFields: Record<string, unknown> = {
+          process_status: "delivered",
+          otp_confirmed_at: now,
+        };
 
-      revalidatePath(`/seeker/orders/${id}`);
-      return legacySuccessResponse({
-        message: "Delivery confirmed, escrow started",
+        if (shouldStartEscrow) {
+          setFields.payment_status = "held";
+          setFields.escrow_started_at = now;
+          setFields.escrow_release_at = escrowReleaseAt;
+        } else if (orderCheck.payment_status === "held") {
+          setFields.escrow_started_at = orderCheck.escrow_started_at || now;
+          setFields.escrow_release_at =
+            orderCheck.escrow_release_at || escrowReleaseAt;
+        }
+
+        if (deadlineBreached && !alreadyCompensated) {
+          Object.assign(setFields, {
+            deadline_breached_at: now,
+            deadline_compensated_at: new Date(),
+            deadline_compensation_mode: shouldRefund
+              ? "full_refund"
+              : "no_charge",
+            refund_amount: shouldRefund ? paidAmount : 0,
+            refund_reason: shouldRefund
+              ? "Delivery confirmed after seeker deadline"
+              : "Delivery confirmed after seeker deadline (no captured amount)",
+            ...(refundId ? { razorpay_refund_id: refundId } : {}),
+            ...(shouldRefund
+              ? { payment_status: "refunded", latePenalty: paidAmount }
+              : {}),
+            updatedAt: new Date(),
+          });
+        }
+
+        const res = await db
+          .collection("orders")
+          .updateOne({ _id: order_id }, { $set: setFields }, { session });
+
+        const success = res.modifiedCount > 0;
+
+        if (success) {
+          revalidatePath(`/seeker/orders/${id}`);
+          if (deadlineBreached && !alreadyCompensated) {
+            return legacySuccessResponse({
+              message: shouldRefund
+                ? "Delivery confirmed. Deadline was missed and a full refund has been issued."
+                : "Delivery confirmed. Deadline was missed and marked for no-charge completion.",
+              deadlineCompensationApplied: shouldRefund,
+              deadlineBreached: true,
+            });
+          }
+
+          return legacySuccessResponse({
+            message: "Delivery confirmed, escrow started",
+          });
+        } else {
+          return legacyErrorResponse("Failed to confirm delivery", 500);
+        }
       });
-    } else {
-      return legacyErrorResponse("Failed to confirm delivery", 500);
+    } finally {
+      await session.endSession();
     }
   } catch (error) {
     if (error instanceof AppError) {

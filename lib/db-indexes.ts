@@ -146,13 +146,13 @@ const INDEX_SPECS: IndexSpec[] = [
   // Query/performance indexes
   {
     collection: "orders",
-    keys: { payment_status: 1 },
-    options: { name: "orders_payment_status" },
+    keys: { payment_status: 1, escrow_release_at: 1 },
+    options: { name: "orders_payment_status_escrow_release" },
   },
   {
     collection: "system_alerts",
-    keys: { status: 1, severity: 1 },
-    options: { name: "system_alerts_status_severity" },
+    keys: { status: 1, severity: 1, firstSeenAt: -1 },
+    options: { name: "system_alerts_status_severity_firstSeenAt" },
   },
   {
     collection: "bookings",

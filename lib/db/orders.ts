@@ -76,39 +76,53 @@ export async function updateOrderPaymentStatus(
  * Confirm delivery and start escrow
  */
 export async function confirmDelivery(order_id: ObjectId) {
-  const { db } = await getDb();
-  const order = await db.collection<Order>("orders").findOne({ _id: order_id });
-  if (!order) {
-    return false;
+  const { db, client } = await getDb();
+  const session = client.startSession();
+
+  try {
+    return await session.withTransaction(async () => {
+      const order = await db
+        .collection<Order>("orders")
+        .findOne({ _id: order_id }, { session });
+      if (!order) {
+        return false;
+      }
+
+      const now = new Date();
+      const escrowReleaseAt = new Date(
+        now.getTime() + ESCROW_RELEASE_WINDOW_MS,
+      );
+
+      const shouldStartEscrow = order.payment_status === "paid";
+      const setFields: Partial<Order> & Record<string, unknown> = {
+        process_status: "delivered",
+        otp_confirmed_at: now,
+      };
+
+      // Only transition to held when confirming delivery from a paid state.
+      // Never regress already-settled states such as released/refunded.
+      if (shouldStartEscrow) {
+        setFields.payment_status = "held";
+        setFields.escrow_started_at = now;
+        setFields.escrow_release_at = escrowReleaseAt;
+      } else if (order.payment_status === "held") {
+        setFields.escrow_started_at = order.escrow_started_at || now;
+        setFields.escrow_release_at =
+          order.escrow_release_at || escrowReleaseAt;
+      }
+
+      const res = await db.collection<Order>("orders").updateOne(
+        { _id: order_id },
+        {
+          $set: setFields,
+        },
+        { session },
+      );
+      return res.modifiedCount > 0;
+    });
+  } finally {
+    await session.endSession();
   }
-
-  const now = new Date();
-  const escrowReleaseAt = new Date(now.getTime() + ESCROW_RELEASE_WINDOW_MS);
-
-  const shouldStartEscrow = order.payment_status === "paid";
-  const setFields: Partial<Order> & Record<string, unknown> = {
-    process_status: "delivered",
-    otp_confirmed_at: now,
-  };
-
-  // Only transition to held when confirming delivery from a paid state.
-  // Never regress already-settled states such as released/refunded.
-  if (shouldStartEscrow) {
-    setFields.payment_status = "held";
-    setFields.escrow_started_at = now;
-    setFields.escrow_release_at = escrowReleaseAt;
-  } else if (order.payment_status === "held") {
-    setFields.escrow_started_at = order.escrow_started_at || now;
-    setFields.escrow_release_at = order.escrow_release_at || escrowReleaseAt;
-  }
-
-  const res = await db.collection<Order>("orders").updateOne(
-    { _id: order_id },
-    {
-      $set: setFields,
-    },
-  );
-  return res.modifiedCount > 0;
 }
 
 /**
@@ -135,26 +149,37 @@ export async function cancelOrder(
   seeker_id: ObjectId,
   cancellation_fee: number,
 ) {
-  const { db } = await getDb();
+  const { db, client } = await getDb();
+  const session = client.startSession();
 
-  const orderCancelRes = await db
-    .collection<Order>("orders")
-    .updateOne(
-      { _id: order_id, payment_status: "unpaid" },
-      { $set: { cancellation_status: "cancelled_by_seeker" } },
-    );
+  try {
+    return await session.withTransaction(async () => {
+      const orderCancelRes = await db
+        .collection<Order>("orders")
+        .updateOne(
+          { _id: order_id, payment_status: "unpaid" },
+          { $set: { cancellation_status: "cancelled_by_seeker" } },
+          { session },
+        );
 
-  if (orderCancelRes.modifiedCount === 0) {
-    return false;
+      if (orderCancelRes.modifiedCount === 0) {
+        return false;
+      }
+
+      const seekerUpdateRes = await db.collection<Seeker>("seekers").updateOne(
+        { _id: seeker_id },
+        {
+          $inc: { outstanding_fees: cancellation_fee },
+          $set: {
+            blocked_until: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+          }, // Block for 30 days or until fee is paid
+        },
+        { session },
+      );
+
+      return seekerUpdateRes.modifiedCount > 0;
+    });
+  } finally {
+    await session.endSession();
   }
-
-  const seekerUpdateRes = await db.collection<Seeker>("seekers").updateOne(
-    { _id: seeker_id },
-    {
-      $inc: { outstanding_fees: cancellation_fee },
-      $set: { blocked_until: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30) }, // Block for 30 days or until fee is paid
-    },
-  );
-
-  return seekerUpdateRes.modifiedCount > 0;
 }
