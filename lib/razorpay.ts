@@ -1,15 +1,13 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { logger } from "./logger";
-
-// Note: env validation happens via env.ts schema
-// This check is for runtime safety
+import { env } from "./env";
 
 // Initialize Razorpay
 // Note: These env vars must be set in .env.local
 export const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+  key_id: env.RAZORPAY_KEY_ID,
+  key_secret: env.RAZORPAY_KEY_SECRET,
 });
 
 function isE2EFakePaymentsEnabled(): boolean {
@@ -118,12 +116,12 @@ export function verifyRazorpaySignature(
   paymentId: string,
   signature: string,
 ): boolean {
-  if (!process.env.RAZORPAY_KEY_SECRET) {
+  if (!env.RAZORPAY_KEY_SECRET) {
     throw new Error("RAZORPAY_KEY_SECRET is not configured");
   }
 
   const generatedSignature = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
     .update(orderId + "|" + paymentId)
     .digest("hex");
 
@@ -209,24 +207,28 @@ export async function fetchRazorpayPaymentDetails(paymentId: string) {
 
 // --- RazorpayX Payouts (Direct Fetch Implementation for Robustness) ---
 
-const KEY_ID = process.env.RAZORPAY_KEY_ID;
-const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-const AUTH = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
+let _bAuthStr: string | null = null;
+function getRazorpayAuth() {
+  if (_bAuthStr) return _bAuthStr;
+  const keyId = env.RAZORPAY_KEY_ID;
+  const keySecret = env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error("Razorpay API Keys are missing in environment variables.");
+  }
+  _bAuthStr = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+  return _bAuthStr;
+}
 
 async function razorpayFetch<T>(
   endpoint: string,
   method: string,
   body?: unknown,
 ): Promise<T> {
-  if (!KEY_ID || !KEY_SECRET) {
-    throw new Error("Razorpay API Keys are missing in environment variables.");
-  }
-
   const res = await fetch(`https://api.razorpay.com/v1${endpoint}`, {
     method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Basic ${AUTH}`,
+      Authorization: `Basic ${getRazorpayAuth()}`,
     },
     body: body ? JSON.stringify(body) : undefined,
   });

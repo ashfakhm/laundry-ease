@@ -1,5 +1,4 @@
 import pino from "pino";
-import { AsyncLocalStorage } from "async_hooks";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const isDebugEnabled = process.env.DEBUG_LOGGING === "true";
@@ -47,22 +46,17 @@ interface LogContext {
   [key: string]: unknown;
 }
 
-export const traceStorage = new AsyncLocalStorage<{ traceId: string }>();
-
 export const logger = {
   debug(prefix: string, message: string, context?: LogContext) {
-    const traceId = traceStorage.getStore()?.traceId;
-    pinoLogger.debug({ prefix, traceId, ...context }, message);
+    pinoLogger.debug({ prefix, ...context }, message);
   },
 
   info(prefix: string, message: string, context?: LogContext) {
-    const traceId = traceStorage.getStore()?.traceId;
-    pinoLogger.info({ prefix, traceId, ...context }, message);
+    pinoLogger.info({ prefix, ...context }, message);
   },
 
   warn(prefix: string, message: string, context?: LogContext) {
-    const traceId = traceStorage.getStore()?.traceId;
-    pinoLogger.warn({ prefix, traceId, ...context }, message);
+    pinoLogger.warn({ prefix, ...context }, message);
   },
 
   error(
@@ -71,16 +65,13 @@ export const logger = {
     error?: unknown,
     context?: LogContext,
   ) {
-    const traceId = traceStorage.getStore()?.traceId;
-
     if (error instanceof Error) {
       pinoLogger.error(
         {
           prefix,
-          traceId,
           err: {
             message: error.message,
-            stack: isDevelopment ? error.stack : undefined,
+            stack: error.stack,
             name: error.name,
           },
           ...context,
@@ -91,14 +82,13 @@ export const logger = {
       pinoLogger.error(
         {
           prefix,
-          traceId,
           error_string: String(error),
           ...context,
         },
         message,
       );
     } else {
-      pinoLogger.error({ prefix, traceId, ...context }, message);
+      pinoLogger.error({ prefix, ...context }, message);
     }
   },
 };

@@ -22,7 +22,7 @@ import {
 // POST: Update Order Process Status
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -86,7 +86,7 @@ export async function POST(
       });
       return legacyErrorResponse(
         `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(
-          ", "
+          ", ",
         )}`,
         422,
         {
@@ -119,9 +119,14 @@ export async function POST(
     if (status === "out_for_delivery") {
       // Generate OTP for delivery confirmation
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Hash the OTP securely for database storage
+      const bcrypt = await import("bcrypt");
+      const hashedOtp = await bcrypt.hash(otp, 10);
+
       const otpSentAt = new Date();
       const otpExpiresAt = new Date(otpSentAt.getTime() + DELIVERY_OTP_TTL_MS);
-      updateData.delivery_otp = otp;
+      updateData.delivery_otp = hashedOtp;
       updateData.delivery_otp_sent_at = otpSentAt;
       updateData.delivery_otp_expires_at = otpExpiresAt;
       updateData.delivery_otp_resend_count = 0;

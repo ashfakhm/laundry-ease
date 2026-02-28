@@ -23,7 +23,7 @@ const schema = z.object({
 // POST: Provider verifies delivery OTP and marks delivery confirmed
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -88,7 +88,10 @@ export async function POST(
       order.payment_status !== "held" &&
       order.payment_status !== "released"
     ) {
-      return legacyErrorResponse("Order must be paid before confirming delivery", 400);
+      return legacyErrorResponse(
+        "Order must be paid before confirming delivery",
+        400,
+      );
     }
 
     const { otp } = parsed.data;
@@ -99,7 +102,10 @@ export async function POST(
 
     if (otpExpiresAt) {
       const expiryDate = new Date(otpExpiresAt);
-      if (!Number.isNaN(expiryDate.getTime()) && expiryDate.getTime() <= nowMs) {
+      if (
+        !Number.isNaN(expiryDate.getTime()) &&
+        expiryDate.getTime() <= nowMs
+      ) {
         return legacyErrorResponse("OTP expired. Please resend OTP.", 410);
       }
     } else if (otpSentAt) {
@@ -112,8 +118,13 @@ export async function POST(
       }
     }
 
-    // Verify OTP exactly as stored on the order
-    if (!order.delivery_otp || order.delivery_otp !== otp) {
+    // Verify OTP exactly as stored on the order using bcrypt
+    if (!order.delivery_otp) {
+      return legacyErrorResponse("Invalid OTP", 400);
+    }
+    const bcrypt = await import("bcrypt");
+    const isOtpValid = await bcrypt.compare(otp, order.delivery_otp);
+    if (!isOtpValid) {
       return legacyErrorResponse("Invalid OTP", 400);
     }
 
@@ -158,7 +169,7 @@ export async function POST(
           {
             reason: "deadline_breach_full_refund",
             order_id: id,
-          }
+          },
         );
         refundId = refund.id || null;
       } catch (error) {
@@ -166,7 +177,7 @@ export async function POST(
           "ORDERS",
           "Failed to refund late-delivery order before OTP verification completion",
           error,
-          { orderId: id }
+          { orderId: id },
         );
         return legacyErrorResponse(
           "Deadline was missed, but refund could not be processed right now. Please retry.",
@@ -204,7 +215,7 @@ export async function POST(
               : {}),
             updatedAt: new Date(),
           },
-        }
+        },
       );
 
       logger.info("ORDERS", "Deadline compensation applied on delivery OTP", {

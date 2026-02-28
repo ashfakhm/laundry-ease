@@ -37,7 +37,7 @@ type OrderWithDeliveryOtpMeta = Awaited<ReturnType<typeof getOrderById>> & {
 // POST: Resend delivery OTP without changing order status
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -57,7 +57,7 @@ export async function POST(
 
     const order_id = new ObjectId(id);
     const order = (await getOrderById(
-      order_id
+      order_id,
     )) as OrderWithDeliveryOtpMeta | null;
 
     if (!order) {
@@ -94,7 +94,7 @@ export async function POST(
       const last = new Date(order.delivery_otp_sent_at);
       if (now.getTime() - last.getTime() < MIN_RESEND_INTERVAL_MS) {
         const retryAfterSeconds = Math.ceil(
-          (MIN_RESEND_INTERVAL_MS - (now.getTime() - last.getTime())) / 1000
+          (MIN_RESEND_INTERVAL_MS - (now.getTime() - last.getTime())) / 1000,
         );
         return legacyMessageResponse(
           "OTP resent too recently. Please wait before trying again.",
@@ -116,6 +116,8 @@ export async function POST(
 
     // Generate a new OTP and send it.
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const bcrypt = await import("bcrypt");
+    const hashedOtp = await bcrypt.hash(otp, 10);
 
     try {
       await enqueueEmailOutboxJob({
@@ -145,7 +147,7 @@ export async function POST(
       { _id: order_id },
       {
         $set: {
-          delivery_otp: otp,
+          delivery_otp: hashedOtp,
           delivery_otp_sent_at: now,
           delivery_otp_expires_at: otpExpiresAt,
           updatedAt: now,
@@ -153,7 +155,7 @@ export async function POST(
         $inc: {
           delivery_otp_resend_count: 1,
         },
-      }
+      },
     );
 
     return legacySuccessResponse({

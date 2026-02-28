@@ -9,7 +9,7 @@ import { AppError } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 import { requireSeeker } from "@/lib/api/auth";
-import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
+import { DELIVERY_OTP_TTL_MS, ESCROW_RELEASE_WINDOW_MS } from "@/lib/constants";
 import {
   appErrorLegacyResponse,
   legacyErrorResponse,
@@ -116,8 +116,13 @@ export async function POST(
       }
     }
 
-    // Verify OTP
-    if (!order.delivery_otp || order.delivery_otp !== otp) {
+    // Verify OTP using bcrypt (timing-safe and secure)
+    if (!order.delivery_otp) {
+      return legacyErrorResponse("Invalid OTP", 400);
+    }
+    const bcrypt = await import("bcrypt");
+    const isOtpValid = await bcrypt.compare(otp, order.delivery_otp);
+    if (!isOtpValid) {
       return legacyErrorResponse("Invalid OTP", 400);
     }
 
@@ -195,7 +200,9 @@ export async function POST(
           return legacyErrorResponse("Failed to confirm delivery", 500);
         }
 
-        const escrowReleaseAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24h
+        const escrowReleaseAt = new Date(
+          now.getTime() + ESCROW_RELEASE_WINDOW_MS,
+        );
         const shouldStartEscrow = orderCheck.payment_status === "paid";
         const setFields: Record<string, unknown> = {
           process_status: "delivered",
