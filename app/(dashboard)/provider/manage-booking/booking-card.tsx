@@ -124,6 +124,29 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
         </div>
       )}
 
+      {/* Requested Deadline Info */}
+      {booking.deadline && (
+        <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+          <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+            <Clock className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xs text-amber-700/80 font-bold uppercase tracking-wider">
+              Requested Deadline
+            </p>
+            <p className="text-sm font-bold text-amber-900 mt-0.5">
+              {new Date(booking.deadline).toLocaleString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Action Area */}
       <div className="relative mt-5 pt-4 border-t border-border/50">
         {booking.status === "requested" && (
