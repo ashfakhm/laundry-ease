@@ -54,7 +54,7 @@ export default function VerifyEmailPage() {
   }, [searchParams, verifyEmail]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-linear-to-br from-primary/5 via-background to-secondary/5">
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 text-center">
           {status === "loading" && (
