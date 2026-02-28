@@ -527,6 +527,7 @@ Note: TypeScript type definitions for the Razorpay SDK are maintained in `types/
 - `CSP_ENFORCE` - Set to `true` to switch CSP from report-only to enforced header mode
 - `TRUST_PROXY` - Set to `true` to trust `x-forwarded-for` headers behind a reverse proxy
 - `DEBUG_LOGGING` - Set to `true` to enable debug-level Pino logging in production
+- `ADMIN_ALLOWLIST_IPS` - Comma-separated IP allowlist for admin API access restriction
 - `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name (for image uploads)
 - `CLOUDINARY_API_KEY` - Cloudinary API key
 - `CLOUDINARY_API_SECRET` - Cloudinary API secret
