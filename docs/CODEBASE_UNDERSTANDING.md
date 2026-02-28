@@ -74,11 +74,17 @@ laundry-ease/
 │   ├── provider/                 # Provider-specific
 │   ├── seeker/                   # Seeker-specific
 │   └── providers/                # Context providers
+├── hooks/                        # Custom React hooks
+│   └── use-booking-actions.ts    # Booking action handlers
 ├── lib/                          # Core business logic
 │   ├── api/                      # API utilities (errors, auth, schemas, security/rate-limiting)
 │   ├── auth/                     # Auth helpers
+│   ├── audit/                    # Data integrity auditing
+│   │   └── integrity.ts          # Order/payment/booking consistency checks
 │   ├── bookings/                 # Booking logic (cancellation)
 │   ├── complaints/               # Complaint access control
+│   ├── data/                     # Data access helpers
+│   │   └── bookings.ts           # Booking data queries
 │   ├── db/                       # Database operations (bookings, orders, users)
 │   ├── ops/                      # Operations/alerting
 │   │   ├── ack-sla.ts            # Alert acknowledgement SLA tracking
@@ -395,6 +401,10 @@ app/api/
 6. **Proxy Trust Model**
    - Secure IP extraction via `x-vercel-forwarded-for`, `x-real-ip`, `cf-connecting-ip`
    - Configurable via `TRUST_PROXY` env var
+
+7. **Admin IP Allowlist**
+   - `ADMIN_ALLOWLIST_IPS` env var restricts admin API access to specific IPs
+   - Validated in `lib/env.ts` via Zod schema
 
 ---
 

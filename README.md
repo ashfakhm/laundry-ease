@@ -202,6 +202,7 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 | `CSP_ENFORCE`              | Set `true` to switch CSP from report-only to enforce |
 | `TRUST_PROXY`              | Set `true` to trust `x-forwarded-for` headers        |
 | `DEBUG_LOGGING`            | Set `true` for debug-level Pino logging              |
+| `ADMIN_ALLOWLIST_IPS`      | Comma-separated IP allowlist for admin routes        |
 | `OPS_ALERT_EMAIL_TO`       | Comma-separated email recipients for alert digests   |
 | `OPS_ALERT_WEBHOOK_URL`    | Webhook URL for alert delivery (Slack, PagerDuty)    |
 | `OPS_ALERT_WEBHOOK_BEARER` | Bearer token for webhook authentication              |
@@ -505,6 +506,9 @@ laundry-ease/
 │   ├── provider-card.tsx         # Provider search result card
 │   └── theme-toggle.tsx          # Dark/light mode toggle
 │
+├── hooks/                        # Custom React hooks
+│   └── use-booking-actions.ts    # Booking action handlers
+│
 ├── cron/                         # Cron job logic
 │   ├── auto-reject-bookings.ts   # Auto-reject expired bookings
 │   ├── escrow-auto-release.ts    # Unified escrow payout trigger
@@ -512,6 +516,8 @@ laundry-ease/
 │
 ├── docs/                         # Documentation
 │   ├── CODEBASE_UNDERSTANDING.md # Architecture reference
+│   ├── HONEST_ASSESSMENT.md      # Codebase quality audit
+│   ├── ML_AI_INTEGRATION.md      # Future ML capabilities
 │   ├── OPERATIONS_RUNBOOK.md     # Incident response playbook
 │   ├── PRD.md                    # Product Requirements Document
 │   └── PRESENTATION_HELPER.md    # Q&A and demo guide
@@ -521,8 +527,12 @@ laundry-ease/
 ├── lib/                          # Core business logic & utilities
 │   ├── api/                      # API helpers (errors, auth, security, schemas)
 │   ├── auth/                     # Auth policies
+│   ├── audit/                    # Data integrity auditing
+│   │   └── integrity.ts          # Order/payment/booking consistency checks
 │   ├── bookings/                 # Booking logic (cancellation)
 │   ├── complaints/               # Complaint access control
+│   ├── data/                     # Data access helpers
+│   │   └── bookings.ts           # Booking data queries
 │   ├── db/                       # Database operations (bookings, orders, users)
 │   ├── ops/                      # Operational monitoring
 │   │   ├── ack-sla.ts            # Alert acknowledgement SLA tracking
@@ -546,7 +556,9 @@ laundry-ease/
 │
 ├── scripts/
 │   ├── audit-branch-protection.mjs # Branch-protection auditor
-│   └── run-playwright.mjs        # E2E env sanitization wrapper
+│   ├── check-doc-sync.mjs        # Documentation sync checker
+│   ├── run-playwright.mjs        # E2E env sanitization wrapper
+│   └── verify-gates.mjs          # One-shot quality gate runner
 │
 ├── types/                        # TypeScript definitions
 │
@@ -554,6 +566,7 @@ laundry-ease/
 │   ├── quality-gates.yml         # Lint/test/build/E2E on every push
 │   ├── real-gateway-smoke.yml    # Live Razorpay connectivity checks
 │   └── governance-audit.yml      # Branch-protection drift detection
+├── .github/PULL_REQUEST_TEMPLATE.md # PR checklist template
 │
 ├── proxy.ts                      # Route protection middleware
 ├── next.config.ts                # Next.js configuration
