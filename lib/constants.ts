@@ -6,7 +6,17 @@
  * handlers and utility files.
  */
 
-// ─── Financial ──────────────────────────────────────────────────────────────
+// ─── Financials ─────────────────────────────────────────────────────────────
+
+export const PLATFORM_COMMISSION_RATE = 0.05; // 5%
+
+// ─── Telemetry & Geography ──────────────────────────────────────────────────
+
+export const MAX_ARRIVAL_DISTANCE_METERS = 200;
+
+// ─── Security ───────────────────────────────────────────────────────────────
+
+export const BCRYPT_SALT_ROUNDS = 10;
 
 /** Default platform commission rate applied when no explicit value is stored. */
 export const DEFAULT_PLATFORM_COMMISSION_RATE = 0.05; // 5%
@@ -55,7 +65,7 @@ export const HIGH_ALERT_PERSISTENT_ROUTE_MS = 4 * 60 * 60 * 1000; // 4 hours
 // ─── Booking & Scheduling ───────────────────────────────────────────────────
 
 /** Minimum advance notice for pickup scheduling (ms). */
-export const MIN_PICKUP_ADVANCE_MS = 48 * 60 * 60 * 1000; // 48 hours
+export const MIN_PICKUP_ADVANCE_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 /** Delivery OTP validity window (ms). */
 export const DELIVERY_OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes

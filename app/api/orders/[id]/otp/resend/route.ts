@@ -45,12 +45,15 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid order id"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid order id",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const { user } = await requireProvider();
@@ -61,31 +64,40 @@ export async function POST(
     )) as OrderWithDeliveryOtpMeta | null;
 
     if (!order) {
-      return NextResponse.json({
-        success: false,
-        error: "Order not found"
-      }, {
-        status: 404
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order not found",
+        },
+        {
+          status: 404,
+        },
+      );
     }
 
     if (order.provider_id.toString() !== user.id) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 403
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        {
+          status: 403,
+        },
+      );
     }
 
     if ((order.process_status || "invoiced") !== "out_for_delivery") {
-      return NextResponse.json({
-        success: true,
-        message: "OTP can only be resent when order is out for delivery",
-        currentStatus: order.process_status || "invoiced"
-      }, {
-        status: 409
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          message: "OTP can only be resent when order is out for delivery",
+          currentStatus: order.process_status || "invoiced",
+        },
+        {
+          status: 409,
+        },
+      );
     }
 
     const { db } = await getDb();
@@ -94,12 +106,15 @@ export async function POST(
       .findOne({ _id: order.seeker_id });
 
     if (!seeker?.email) {
-      return NextResponse.json({
-        success: false,
-        error: "Seeker email not found"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Seeker email not found",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const now = new Date();
@@ -111,30 +126,39 @@ export async function POST(
         const retryAfterSeconds = Math.ceil(
           (MIN_RESEND_INTERVAL_MS - (now.getTime() - last.getTime())) / 1000,
         );
-        return NextResponse.json({
-          success: true,
-          message: "OTP resent too recently. Please wait before trying again.",
-          retryAfterSeconds
-        }, {
-          status: 429
-        });
+        return NextResponse.json(
+          {
+            success: true,
+            message:
+              "OTP resent too recently. Please wait before trying again.",
+            retryAfterSeconds,
+          },
+          {
+            status: 429,
+          },
+        );
       }
     }
 
     const resendCount = Number(order.delivery_otp_resend_count ?? 0);
     if (resendCount >= MAX_RESENDS) {
-      return NextResponse.json({
-        success: false,
-        error: "OTP resend limit reached. Please contact support."
-      }, {
-        status: 429
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "OTP resend limit reached. Please contact support.",
+        },
+        {
+          status: 429,
+        },
+      );
     }
 
     // Generate a new OTP and send it.
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const crypto = await import("crypto");
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const bcrypt = await import("bcrypt");
-    const hashedOtp = await bcrypt.hash(otp, 10);
+    const { BCRYPT_SALT_ROUNDS } = await import("@/lib/constants");
+    const hashedOtp = await bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
 
     try {
       await enqueueEmailOutboxJob({
@@ -155,12 +179,15 @@ export async function POST(
         orderId: id,
         to: maskEmail(String(seeker.email)),
       });
-      return NextResponse.json({
-        success: false,
-        error: "Failed to send OTP email"
-      }, {
-        status: 502
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to send OTP email",
+        },
+        {
+          status: 502,
+        },
+      );
     }
 
     const otpExpiresAt = new Date(now.getTime() + DELIVERY_OTP_TTL_MS);
@@ -180,36 +207,47 @@ export async function POST(
       },
     );
 
-    return NextResponse.json({
-      success: true,
-      message: "OTP resent",
-      otpExpiresAt: otpExpiresAt.toISOString(),
-      resendCount: resendCount + 1
-    }, {
-      status: 200
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "OTP resent",
+        otpExpiresAt: otpExpiresAt.toISOString(),
+        resendCount: resendCount + 1,
+      },
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
 
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+          ...(error.details
+            ? {
+                details: error.details,
+              }
+            : {}),
+        },
+        {
+          status: error.statusCode || 400,
+        },
+      );
     }
 
     logger.error("ORDERS", "Error resending delivery OTP", error, {
       orderId: id,
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+      },
+      {
+        status: 500,
+      },
+    );
   }
 }

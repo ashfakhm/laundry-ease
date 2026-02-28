@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import jwt from "jsonwebtoken";
+import { jwtVerify, JWTPayload } from "jose";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 
-const JWT_SECRET = env.NEXTAUTH_SECRET;
+const JWT_SECRET = new TextEncoder().encode(env.NEXTAUTH_SECRET);
 
-type EmailVerificationTokenPayload = jwt.JwtPayload & {
-  email: string;
-  type: string;
+type EmailVerificationTokenPayload = JWTPayload & {
+  email?: string;
+  type?: string;
 };
 
 export async function POST(req: Request) {
@@ -16,56 +16,62 @@ export async function POST(req: Request) {
     const { token } = await req.json();
 
     if (!token) {
-      return NextResponse.json({
-        success: false,
-        error: "Token is required"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Token is required",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
-    // Verify JWT token
-    let decoded: jwt.JwtPayload | string;
+    // Verify JWT token using jose
+    let decoded: EmailVerificationTokenPayload;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      const { payload } = await jwtVerify(token, JWT_SECRET);
+      decoded = payload as EmailVerificationTokenPayload;
     } catch {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid or expired token"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid or expired token",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
-    if (typeof decoded === "string") {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid token payload"
-      }, {
-        status: 400
-      });
+    if (
+      !decoded ||
+      typeof decoded.email !== "string" ||
+      typeof decoded.type !== "string"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid token payload",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
-    if (typeof decoded.email !== "string" || typeof decoded.type !== "string") {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid token payload"
-      }, {
-        status: 400
-      });
-    }
-
-    const payload = decoded as EmailVerificationTokenPayload;
-
-    const { email, type } = payload;
+    const { email, type } = decoded;
 
     if (type !== "email_verification") {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid token type"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid token type",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const { db } = await getDb();
@@ -75,12 +81,15 @@ export async function POST(req: Request) {
     const provider = await db.collection("providers").findOne({ email });
 
     if (!seeker && !provider) {
-      return NextResponse.json({
-        success: false,
-        error: "User not found"
-      }, {
-        status: 404
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User not found",
+        },
+        {
+          status: 404,
+        },
+      );
     }
 
     // Update emailVerified flag
@@ -96,18 +105,24 @@ export async function POST(req: Request) {
         .updateOne({ email }, { $set: { emailVerified: true } });
     }
 
-    return NextResponse.json({
-      success: true
-    }, {
-      status: 200
-    });
+    return NextResponse.json(
+      {
+        success: true,
+      },
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     logger.error("AUTH", "Email verification error", error);
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+      },
+      {
+        status: 500,
+      },
+    );
   }
 }

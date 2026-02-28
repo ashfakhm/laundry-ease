@@ -71,7 +71,10 @@ export async function createSeeker(data: {
   const { db } = await getDb();
   const now = new Date();
   const passwordHash = data.password
-    ? await bcrypt.hash(data.password, 10)
+    ? await bcrypt.hash(
+        data.password,
+        (await import("../constants")).BCRYPT_SALT_ROUNDS,
+      )
     : null;
 
   const seeker: Seeker = {
@@ -123,7 +126,10 @@ export async function createProvider(data: {
   const { db } = await getDb();
   const now = new Date();
   const passwordHash = data.password
-    ? await bcrypt.hash(data.password, 10)
+    ? await bcrypt.hash(
+        data.password,
+        (await import("../constants")).BCRYPT_SALT_ROUNDS,
+      )
     : null;
 
   const provider: Provider = {

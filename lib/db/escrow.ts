@@ -2,6 +2,7 @@ import { Order } from "@/types/orders";
 import { getDb } from "../mongodb";
 import { ObjectId } from "mongodb";
 import { auditEscrowStateChange } from "../audit";
+import { logger } from "@/lib/logger";
 
 /**
  * Release escrow payment for an order
@@ -72,8 +73,9 @@ export async function releaseEscrowPayment(order_id: ObjectId) {
       return success;
     });
   } catch (error) {
-    console.error(
-      `[Escrow] Failed to release escrow for order ${order_id}:`,
+    logger.error(
+      "ESCROW",
+      `Failed to release escrow for order ${order_id.toString()}:`,
       error,
     );
     return false;
@@ -100,8 +102,9 @@ export async function freezeEscrow(order_id: ObjectId) {
         { $set: { escrow_frozen: true, escrow_frozen_at: new Date() } },
       );
   } catch (error) {
-    console.error(
-      `[Escrow] Failed to explicitly freeze escrow for order ${order_id}:`,
+    logger.error(
+      "ESCROW",
+      `Failed to explicitly freeze escrow for order ${order_id.toString()}:`,
       error,
     );
     // Error persisting escrow_frozen flag - continue silently as complaint still blocks release

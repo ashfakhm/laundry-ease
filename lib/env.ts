@@ -43,6 +43,10 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
 
+  // APM / Telemetry (optional)
+  DATADOG_API_KEY: z.string().optional(),
+  DD_API_KEY: z.string().optional(),
+
   // Operational alert notifications (optional)
   OPS_ALERT_EMAIL_TO: z.string().optional().or(z.literal("")),
   OPS_ALERT_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
@@ -51,6 +55,8 @@ const envSchema = z.object({
   // Security Hardening
   CSP_ENFORCE: z.enum(["true", "false"]).optional().default("false"),
   ADMIN_ALLOWLIST_IPS: z.string().optional().or(z.literal("")),
+  TRUST_PROXY: z.enum(["true", "false"]).optional().default("false"),
+  DEBUG_LOGGING: z.enum(["true", "false"]).optional().default("false"),
 });
 
 export const env = envSchema.parse(process.env);

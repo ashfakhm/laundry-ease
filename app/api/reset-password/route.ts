@@ -40,12 +40,15 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = resetPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Token and password are required"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Token and password are required",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const { token, password } = parsed.data;
@@ -59,12 +62,15 @@ export async function POST(req: NextRequest) {
     });
 
     if (!isStrongPassword(password)) {
-      return NextResponse.json({
-        success: false,
-        error: PASSWORD_POLICY_MESSAGE
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: PASSWORD_POLICY_MESSAGE,
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const { db } = await getDb();
@@ -78,16 +84,20 @@ export async function POST(req: NextRequest) {
       });
 
     if (!resetDoc) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid or expired reset link"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid or expired reset link",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const collection = roleToCollection(resetDoc.role);
-    const passwordHash = await bcrypt.hash(password, 10);
+    const { BCRYPT_SALT_ROUNDS } = await import("@/lib/constants");
+    const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
     const now = new Date();
 
     const userUpdate = await db.collection(collection).updateOne(
@@ -97,16 +107,19 @@ export async function POST(req: NextRequest) {
           passwordHash,
           updatedAt: now,
         },
-      }
+      },
     );
 
     if (userUpdate.modifiedCount === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "Could not update password"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Could not update password",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     await db.collection("password_reset_tokens").updateOne(
@@ -115,7 +128,7 @@ export async function POST(req: NextRequest) {
         $set: {
           usedAt: now,
         },
-      }
+      },
     );
 
     // Invalidate all other active reset tokens for this user.
@@ -126,35 +139,46 @@ export async function POST(req: NextRequest) {
       },
       {
         $set: { usedAt: now },
-      }
+      },
     );
 
-    return NextResponse.json({
-      success: true,
-      message: "Password reset successful"
-    }, {
-      status: 200
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Password reset successful",
+      },
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
 
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+          ...(error.details
+            ? {
+                details: error.details,
+              }
+            : {}),
+        },
+        {
+          status: error.statusCode || 400,
+        },
+      );
     }
 
     logger.error("AUTH", "Reset password error", error);
-    return NextResponse.json({
-      success: false,
-      error: "An error occurred. Please try again later."
-    }, {
-      status: 500
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "An error occurred. Please try again later.",
+      },
+      {
+        status: 500,
+      },
+    );
   }
 }

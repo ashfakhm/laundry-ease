@@ -12,15 +12,20 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // Initialize server-side APM here
-    // Example:
-    // if (process.env.DATADOG_API_KEY) {
-    //   require('dd-trace').init();
-    // }
+    if (process.env.DATADOG_API_KEY || process.env.DD_API_KEY) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const tracer = require("dd-trace");
+      tracer.init({
+        service: "laundryease-web",
+        env: process.env.NODE_ENV,
+        version: process.env.npm_package_version || "0.1.0",
+        logInjection: true,
+      });
 
-    // For now, just log that the APM hook is ready
-    if (process.env.NODE_ENV === "production") {
+      console.log("[APM] Datadog tracer initialized successfully.");
+    } else if (process.env.NODE_ENV === "production") {
       console.log(
-        "[APM] Instrumentation hook registered and ready for Datadog/NewRelic integration.",
+        "[APM] Instrumentation hook ready, but no DATADOG_API_KEY found. APM disabled.",
       );
     }
   }

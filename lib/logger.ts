@@ -1,7 +1,8 @@
 import pino from "pino";
+import { env } from "@/lib/env";
 
 const isDevelopment = process.env.NODE_ENV === "development";
-const isDebugEnabled = process.env.DEBUG_LOGGING === "true";
+const isDebugEnabled = env.DEBUG_LOGGING === "true";
 
 // Configure strict redaction paths for Pino to natively strip secrets from logs before serialization
 const redactionPaths = [

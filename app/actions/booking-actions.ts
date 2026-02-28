@@ -21,6 +21,10 @@ import {
 } from "@/lib/db/bookings";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import {
+  PLATFORM_COMMISSION_RATE,
+  MAX_ARRIVAL_DISTANCE_METERS,
+} from "@/lib/constants";
 import { calculateDistance } from "@/lib/distance";
 import { requireProvider } from "@/lib/api/auth";
 import { AppError } from "@/lib/api/errors";
@@ -133,8 +137,8 @@ export async function updateBookingStatus(
               contact.id,
               fundAccount.id,
             );
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } catch (err: any) {
+          } catch (e: unknown) {
+            const err = e as Error;
             logger.error("BOOKING_ACTIONS", "Auto-sync Razorpay failed", err, {
               bookingId,
             });
@@ -156,7 +160,7 @@ export async function updateBookingStatus(
 
       // Commission calculation and atomic acceptance
       const bookingFee = booking.bookingFee || 0;
-      const platform_commission = bookingFee * 0.05; // 5%
+      const platform_commission = bookingFee * PLATFORM_COMMISSION_RATE;
       const provider_payout_amount = bookingFee - platform_commission; // 95%
       const maxCapacity = provider.capacity ?? 100;
 
@@ -335,12 +339,13 @@ export async function proposePickupSlot(
 
     const now = new Date();
     const slotTime = new Date(dateTime);
-    const minTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const { MIN_PICKUP_ADVANCE_MS } = await import("@/lib/constants");
+    const minTime = new Date(now.getTime() + MIN_PICKUP_ADVANCE_MS);
 
     if (slotTime < minTime) {
       return {
         success: false,
-        error: "Pickup must be at least 2 hours from now",
+        error: `Pickup must be at least ${MIN_PICKUP_ADVANCE_MS / (60 * 60 * 1000)} hours from now`,
       };
     }
 
@@ -437,10 +442,10 @@ export async function markProviderArrived(
         booking.seeker_coordinates,
       );
       const distanceMeters = distanceKm * 1000;
-      if (distanceMeters > 200) {
+      if (distanceMeters > MAX_ARRIVAL_DISTANCE_METERS) {
         return {
           success: false,
-          error: `Too far from location (${Math.round(distanceMeters)}m > 200m)`,
+          error: `Too far from location (${Math.round(distanceMeters)}m > ${MAX_ARRIVAL_DISTANCE_METERS}m)`,
         };
       }
     }

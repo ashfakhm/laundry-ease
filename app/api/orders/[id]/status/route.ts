@@ -32,33 +32,42 @@ export async function POST(
     const { user } = await requireProvider();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid order id"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid order id",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json({
-        success: false,
-        error: "Order not found"
-      }, {
-        status: 404
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order not found",
+        },
+        {
+          status: 404,
+        },
+      );
     }
 
     if (order.provider_id.toString() !== user.id) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 403
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        {
+          status: 403,
+        },
+      );
     }
 
     // Work progression is blocked until payment is completed.
@@ -67,25 +76,31 @@ export async function POST(
       order.payment_status !== "held" &&
       order.payment_status !== "released"
     ) {
-      return NextResponse.json({
-        success: false,
-        error: "Order must be paid before updating workflow status"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order must be paid before updating workflow status",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const body = await req.json();
     const parsed = orderStatusUpdateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid status data",
-        fields: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid status data",
+          fields: parsed.error.flatten().fieldErrors,
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     const { status } = parsed.data;
@@ -101,18 +116,21 @@ export async function POST(
         attemptedStatus: status,
         allowedNextStates,
       });
-      return NextResponse.json({
-        success: false,
+      return NextResponse.json(
+        {
+          success: false,
 
-        error: `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(
-          ", ",
-        )}`,
+          error: `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(
+            ", ",
+          )}`,
 
-        currentStatus,
-        allowedNextStates
-      }, {
-        status: 422
-      });
+          currentStatus,
+          allowedNextStates,
+        },
+        {
+          status: 422,
+        },
+      );
     }
 
     const { db } = await getDb();
@@ -137,11 +155,13 @@ export async function POST(
 
     if (status === "out_for_delivery") {
       // Generate OTP for delivery confirmation
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const crypto = await import("crypto");
+      const otp = crypto.randomInt(100000, 1000000).toString();
 
       // Hash the OTP securely for database storage
       const bcrypt = await import("bcrypt");
-      const hashedOtp = await bcrypt.hash(otp, 10);
+      const { BCRYPT_SALT_ROUNDS } = await import("@/lib/constants");
+      const hashedOtp = await bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
 
       const otpSentAt = new Date();
       const otpExpiresAt = new Date(otpSentAt.getTime() + DELIVERY_OTP_TTL_MS);
@@ -193,36 +213,47 @@ export async function POST(
 
     revalidatePath(`/seeker/orders/${id}`);
 
-    return NextResponse.json({
-      success: true,
-      message: "Status updated successfully",
-      currentStatus: status,
-      allowedNextStates: getAllowedNextStates(status as OrderProcessStatus)
-    }, {
-      status: 200
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Status updated successfully",
+        currentStatus: status,
+        allowedNextStates: getAllowedNextStates(status as OrderProcessStatus),
+      },
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
 
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+          ...(error.details
+            ? {
+                details: error.details,
+              }
+            : {}),
+        },
+        {
+          status: error.statusCode || 400,
+        },
+      );
     }
 
     logger.error("ORDERS", "Error updating order status", error, {
       orderId: id,
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+      },
+      {
+        status: 500,
+      },
+    );
   }
 }

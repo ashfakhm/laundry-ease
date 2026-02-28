@@ -218,6 +218,13 @@ export async function PATCH(req: Request) {
               },
             });
             updateFields.razorpay_fund_account_id = fundAccount.id;
+
+            // Truncate the bank account number locally since we've secured it in Razorpay
+            if (updateFields["bankDetails.accountNumber"]) {
+              const str = String(updateFields["bankDetails.accountNumber"]);
+              updateFields["bankDetails.accountNumber"] =
+                "X".repeat(Math.max(0, str.length - 4)) + str.slice(-4);
+            }
           }
         }
       } catch (e: unknown) {
@@ -281,7 +288,11 @@ export async function PATCH(req: Request) {
         );
       }
 
-      updateFields.passwordHash = await bcrypt.hash(newPassword, 10);
+      const { BCRYPT_SALT_ROUNDS } = await import("@/lib/constants");
+      updateFields.passwordHash = await bcrypt.hash(
+        newPassword,
+        BCRYPT_SALT_ROUNDS,
+      );
     }
 
     if (Object.keys(updateFields).length === 0) {

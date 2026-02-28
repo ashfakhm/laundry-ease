@@ -1,5 +1,6 @@
 import { getToken } from "next-auth/jwt";
 import type { JWT } from "next-auth/jwt";
+import { env } from "@/lib/env";
 import { NextResponse } from "next/server";
 import type { NextRequest, NextFetchEvent } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
@@ -84,7 +85,7 @@ export async function proxy(req: NextRequest, ev?: NextFetchEvent) {
       pathname.startsWith("/api/reset-password"))
   ) {
     let ip = "127.0.0.1";
-    if (process.env.TRUST_PROXY === "true") {
+    if (env.TRUST_PROXY === "true") {
       ip =
         req.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
         req.headers.get("x-real-ip")?.trim() ||
@@ -112,7 +113,7 @@ export async function proxy(req: NextRequest, ev?: NextFetchEvent) {
 
     if (allowedIps && allowedIps.length > 0) {
       let clientIp = "127.0.0.1";
-      if (process.env.TRUST_PROXY === "true") {
+      if (env.TRUST_PROXY === "true") {
         clientIp =
           req.headers.get("x-vercel-forwarded-for")?.split(",")[0] ||
           req.headers.get("x-real-ip") ||

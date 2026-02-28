@@ -125,7 +125,8 @@ export async function PUT(req: Request) {
         );
       }
 
-      updates.passwordHash = await bcrypt.hash(newPassword, 10);
+      const { BCRYPT_SALT_ROUNDS } = await import("@/lib/constants");
+      updates.passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
     }
 
     if (Object.keys(updates).length === 0) {
