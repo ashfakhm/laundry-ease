@@ -1,9 +1,35 @@
-# HONEST_ASSESSMENT.md — Deep Adversarial Production-Grade Audit
+# HONEST_ASSESSMENT.md — Deep Adversarial Production-Grade Audit (v2)
 
-> **Audit Date:** 2026-02-28
+> **Audit Date:** 2026-03-01
+> **Previous Audit:** 2026-02-28
 > **Methodology:** 6-Phase adversarial audit (Full Understanding → Logic Verification → Architecture → Production Readiness → Cleanliness → Risk Score)
 > **Target:** 100,000+ users at launch
-> **Files Read:** 45+ source files across all layers
+> **Files Read:** 55+ source files across all layers (exhaustive re-audit)
+> **Scope:** Post-remediation re-assessment — verifying previous fixes and identifying all remaining gaps
+
+---
+
+## CHANGELOG FROM PREVIOUS AUDIT
+
+The following issues from the 2026-02-28 audit have been **verified as fixed**:
+
+| #   | Issue                                                 | Status   | Verification                                                                               |
+| --- | ----------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| 1   | `verifyRazorpaySignature` timing attack (`===`)       | ✅ FIXED | Now uses `crypto.timingSafeEqual()` at `lib/razorpay.ts:131`                               |
+| 2   | `Math.random()` for OTP generation                    | ✅ FIXED | Now uses `crypto.randomInt(100000, 1000000)` at `lib/otp.ts:17`                            |
+| 3   | `confirmDelivery()` non-transactional                 | ✅ FIXED | Wrapped in `session.withTransaction()` at `lib/db/orders.ts:83`                            |
+| 4   | `cancelOrder()` non-transactional                     | ✅ FIXED | Wrapped in `session.withTransaction()` at `lib/db/orders.ts:156`                           |
+| 5   | Confirm-delivery refund + DB update non-transactional | ✅ FIXED | Entire block wrapped in `session.withTransaction()` at `confirm-delivery/route.ts:155`     |
+| 6   | Missing compound index on `system_alerts`             | ✅ FIXED | Now `{ status: 1, severity: 1, firstSeenAt: -1 }` at `lib/db-indexes.ts:154`               |
+| 7   | Missing compound index on `orders` for escrow         | ✅ FIXED | Now `{ payment_status: 1, escrow_release_at: 1 }` at `lib/db-indexes.ts:148`               |
+| 8   | `getUserByEmail()` 6-query sequential lookup          | ✅ FIXED | Regex fallback removed; single exact-match query per collection at `lib/db/users.ts:10-41` |
+| 9   | N+1 in `getBookingsForProvider()`                     | ✅ FIXED | Replaced with `$lookup` aggregation at `lib/db/bookings.ts:300-332`                        |
+| 10  | IP extraction trusts headers without `TRUST_PROXY`    | ✅ FIXED | Both `proxy.ts:87` and `lib/api/security.ts:41` now require `TRUST_PROXY=true`             |
+| 11  | `E2E_FAKE_PAYMENTS` no production guard               | ✅ FIXED | `NODE_ENV === "production"` check at `lib/razorpay.ts:16`                                  |
+| 12  | Unused `@auth/mongodb-adapter` dependency             | ✅ FIXED | Removed from `package.json`                                                                |
+| 13  | Duplicate `react-hot-toast` toast library             | ✅ FIXED | Removed from `package.json`                                                                |
+
+**Summary:** 13 of the original 16 highest-priority items have been remediated. The remaining findings below are the **current state of the codebase**.
 
 ---
 
@@ -17,6 +43,7 @@
 - **Payments:** Razorpay (Orders, Refunds) + RazorpayX (Payouts via direct fetch)
 - **OTP:** Twilio (SMS) + Nodemailer (Email via outbox queue)
 - **Rate Limiting:** Upstash Redis (middleware) + MongoDB (API-level)
+- **Logging:** Pino with secret redaction + AsyncLocalStorage trace IDs (not yet wired)
 - **Hosting Target:** Vercel (serverless)
 
 ### Architecture Layers
@@ -47,66 +74,126 @@
 
 ---
 
-## PHASE 2 — LOGIC VERIFICATION
+## PHASE 2 — LOGIC VERIFICATION (CURRENT STATE)
 
-### 🔴 CRITICAL: Timing-Unsafe Signature Verification
+### 🔴 CRITICAL: Delivery OTP Stored & Compared in Plaintext
 
-**File:** `lib/razorpay.ts:129`
+**Files:** `app/api/orders/[id]/confirm-delivery/route.ts:120`, `app/api/orders/[id]/otp/verify/route.ts:116`, `app/api/orders/[id]/otp/resend/route.ts:148`, `app/api/orders/[id]/status/route.ts:124`
 
 ```typescript
-return generatedSignature === signature; // ← TIMING ATTACK VECTOR
+// confirm-delivery/route.ts:120
+if (!order.delivery_otp || order.delivery_otp !== otp) {
 ```
 
-The `verifyRazorpaySignature` function uses `===` string comparison instead of `crypto.timingSafeEqual()`. This leaks timing information that allows attackers to reconstruct the signature byte-by-byte.
+The delivery OTP is stored as **plaintext** in the `orders` collection and compared with `===`. This means:
 
-**Impact:** Attackers can forge payment verification signatures, marking orders as "paid" without actual payment.
+1. **Anyone with read access to MongoDB sees every active delivery OTP** — compromising delivery verification for theft/fraud.
+2. The comparison uses `===` which is **timing-unsafe** — the same class of vulnerability that was just fixed in `verifyRazorpaySignature`.
+3. This is inconsistent with the signup/login OTP flow in `lib/otp.ts` which properly uses `bcrypt.hash()` for storage and `bcrypt.compare()` for verification.
 
-**Note:** The _webhook_ handler at `app/api/webhooks/razorpay/route.ts:57-59` correctly uses `crypto.timingSafeEqual()`. But `verifyRazorpaySignature` is used in 3 separate payment verification routes (`orders/[id]/payment`, `bookings/[id]/pay`, `bookings/[id]/pay-invoice`) — all vulnerable.
-
----
-
-### 🔴 CRITICAL: Non-Transactional Financial Mutations
-
-#### `lib/db/orders.ts:78-112` — `confirmDelivery()`
-
-This function reads an order, decides whether to transition `payment_status` from `paid` → `held`, and writes back — all **without a transaction**. Under concurrent requests:
-
-- Two simultaneous delivery confirmations can both read `payment_status: "paid"`
-- Both write `payment_status: "held"`
-- The second write succeeds silently, masking the race
-
-#### `lib/db/orders.ts:133-160` — `cancelOrder()`
-
-Updates `orders` collection AND `seekers` collection (charging cancellation fee + blocking user) as **two separate, non-atomic operations**. If the seeker update fails after the order is cancelled, the seeker escapes the penalty.
-
-#### `app/api/orders/[id]/confirm-delivery/route.ts:145-205`
-
-Refunds razorpay payment, then updates the order with deadline compensation fields — **without a transaction**. If the refund succeeds but the DB update fails, money leaves the platform with no record.
+**Impact:** A database breach exposes all active delivery OTPs. An attacker with DB read access can confirm deliveries on behalf of seekers, triggering escrow release and provider payouts for undelivered orders.
 
 ---
 
-### 🟡 HIGH: `getUserByEmail()` — Sequential 6-Query Lookup
+### 🔴 CRITICAL: `releaseEscrowPayment()` — TOCTOU Race Condition
 
-**File:** `lib/db/users.ts:14-62`
+**File:** `lib/db/escrow.ts:10-61`
 
-Each login attempt performs **up to 6 sequential MongoDB queries**:
+```typescript
+// Line 14: READ
+const order = await db.collection<Order>("orders").findOne({ _id: order_id });
+// ... checks ...
+// Line 37: WRITE (separate operation, no transaction)
+const res = await db
+  .collection<Order>("orders")
+  .updateOne(
+    { _id: order_id, payment_status: "held" },
+    { $set: { payment_status: "released", escrow_released_at: new Date() } },
+  );
+```
 
-1. `seekers.findOne({ email: normalized })` — exact match
-2. `seekers.findOne({ email: { $regex } })` — case-insensitive fallback
-3. `providers.findOne({ email: normalized })` — exact match
-4. `providers.findOne({ email: { $regex } })` — case-insensitive fallback
-5. `admins.findOne({ email: normalized })` — exact match
-6. `admins.findOne({ email: { $regex } })` — case-insensitive fallback
+While the atomic condition `payment_status: "held"` in the write prevents double-release at the DB level, the **complaint check** between the read and write is vulnerable:
 
-At 100k users, with the regex fallback triggering collection scans, this will degrade login performance significantly. The regex fallback should be unnecessary if email normalization is enforced at write time.
+1. Thread A reads order (status: `held`), checks complaints (none found)
+2. Thread B files a complaint (status becomes `open`)
+3. Thread A writes `payment_status: "released"` — **complaint check was stale**
+
+The complaint check and the status update are not within a transaction. This means escrow can be released **while a complaint is being filed simultaneously**.
+
+**Impact:** Provider receives payout for an order with an active complaint. Seeker loses recourse.
 
 ---
 
-### 🟡 HIGH: N+1 Query in `getBookingsForProvider()`
+### 🔴 CRITICAL: Razorpay SDK Initialized with Raw `process.env`
 
-**File:** `lib/db/bookings.ts:310-347`
+**File:** `lib/razorpay.ts:10-13`
 
-Fetches all bookings, then enriches each with a **separate `seekers.findOne()` call** inside `Promise.all()`. With a provider having 50 active bookings, this fires 50 individual DB queries instead of using `$lookup` aggregation or a batch `$in` query.
+```typescript
+export const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || "",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+});
+```
+
+Despite having a comprehensive Zod-validated `env.ts`, the Razorpay SDK is initialized with raw `process.env`. If `RAZORPAY_KEY_ID` or `RAZORPAY_KEY_SECRET` are missing, the SDK silently receives empty strings and will fail with opaque errors at runtime rather than at startup validation.
+
+Additionally, at `lib/razorpay.ts:212-214`:
+
+```typescript
+const KEY_ID = process.env.RAZORPAY_KEY_ID;
+const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const AUTH = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
+```
+
+These module-scope constants are computed once at cold-start. If either env var is undefined, `AUTH` silently becomes `Buffer.from("undefined:undefined").toString("base64")`, and all RazorpayX API calls (contacts, fund accounts, payouts) will fail with 401 Unauthorized — but the error message will say "Razorpay API Error", not "credentials misconfigured".
+
+---
+
+### 🟡 HIGH: `traceStorage` (AsyncLocalStorage) — Dead Code
+
+**File:** `lib/logger.ts:50`
+
+```typescript
+export const traceStorage = new AsyncLocalStorage<{ traceId: string }>();
+```
+
+`traceStorage` is exported and referenced in every log method, but **no caller anywhere in the codebase ever calls `traceStorage.run()`**. This means:
+
+- `traceStorage.getStore()` always returns `undefined`
+- Every log entry includes `traceId: undefined`
+- The "distributed tracing" feature is **completely non-functional**
+
+To work, middleware/API route wrappers need to call `traceStorage.run({ traceId: crypto.randomUUID() }, callback)` for each request.
+
+---
+
+### 🟡 HIGH: `freezeEscrow()` Silently Swallows All Errors
+
+**File:** `lib/db/escrow.ts:67-83`
+
+```typescript
+export async function freezeEscrow(order_id: ObjectId) {
+  try {
+    // ... update ...
+  } catch {
+    // Error persisting escrow_frozen flag - continue silently
+  }
+}
+```
+
+If the DB write fails (network timeout, connection pool exhaustion), the escrow freeze is silently lost. The complaint still blocks release via the check in `releaseEscrowPayment`, but if `releaseEscrowPayment` has the TOCTOU race described above, this silent failure compounds the risk.
+
+---
+
+### 🟡 HIGH: Hardcoded Escrow Window in `confirm-delivery`
+
+**File:** `app/api/orders/[id]/confirm-delivery/route.ts:198`
+
+```typescript
+const escrowReleaseAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24h
+```
+
+When the `confirmDelivery()` logic was inlined into the route handler for transaction safety, the escrow window was hardcoded as `24 * 60 * 60 * 1000` instead of using the centralized constant `ESCROW_RELEASE_WINDOW_MS` from `lib/constants.ts`. The original `confirmDelivery()` in `lib/db/orders.ts:93` correctly imports and uses `ESCROW_RELEASE_WINDOW_MS`. This creates a drift risk — if the escrow window is changed in `constants.ts`, the inline copy in the route handler won't update.
 
 ---
 
@@ -118,15 +205,44 @@ Errors from `acceptBookingWithCapacityCheck` are communicated via string error m
 
 ---
 
+### 🟡 MEDIUM: Bank Account Numbers Stored in Plaintext
+
+**File:** `types/users.ts:49-54`
+
+```typescript
+bankDetails?: {
+  accountNumber: string;    // ← plaintext
+  ifsc: string;
+  accountHolderName: string;
+  upiId?: string;
+};
+```
+
+Bank account numbers are stored as plaintext strings in the `providers` collection. While IFSC and account holder name are low-sensitivity, the full account number should ideally be encrypted at rest or only the last 4 digits stored after Razorpay fund account creation.
+
+---
+
 ### 🟢 POSITIVE: Proper Transaction Usage in Critical Paths
 
 - `createBooking()` — uses `session.withTransaction()` with atomic capacity check ✓
 - `acceptBookingWithCapacityCheck()` — uses `session.withTransaction()` ✓
+- `confirmDelivery()` — uses `session.withTransaction()` ✓ (FIXED)
+- `cancelOrder()` — uses `session.withTransaction()` ✓ (FIXED)
+- Delivery confirmation refund — uses `session.withTransaction()` ✓ (FIXED)
 - Webhook handler — uses `withTransaction()` for all event types ✓
 
 ### 🟢 POSITIVE: Order Status Machine
 
 `lib/orders/status-machine.ts` provides a centralized state machine with `isValidTransition()`. This is good practice.
+
+### 🟢 POSITIVE: Security Improvements Applied
+
+- `verifyRazorpaySignature` now uses `crypto.timingSafeEqual()` ✓
+- OTP generation uses `crypto.randomInt()` ✓
+- `E2E_FAKE_PAYMENTS` has `NODE_ENV === "production"` guard ✓
+- IP extraction requires explicit `TRUST_PROXY=true` ✓
+- Compound indexes added for admin dashboard and escrow queries ✓
+- Unused dependencies removed ✓
 
 ---
 
@@ -149,8 +265,16 @@ Two parallel response systems exist:
 
 Both are actively used across different routes. Frontend code must handle both shapes, creating fragile integration. The migration is clearly incomplete.
 
+| System                                          | Usage Count | Files Using            |
+| ----------------------------------------------- | ----------- | ---------------------- |
+| `successResponse` / `errorResponse` (modern)    | ~5 routes   | webhooks, cron, escrow |
+| `legacySuccessResponse` / `legacyErrorResponse` | ~15 routes  | most API routes        |
+
+**Anti-Pattern: Inlined Business Logic in Route Handlers**
+The `confirm-delivery/route.ts` now has the escrow logic inlined (to avoid nested transactions) instead of calling `confirmDelivery()`. This creates code duplication — the logic exists in both `lib/db/orders.ts:78-125` and `confirm-delivery/route.ts:191-236`. If the escrow logic changes, both copies must be updated independently.
+
 **Good: Centralized Constants**
-`lib/constants.ts` centralizes all magic numbers (escrow windows, SLA thresholds, commission rates). This is excellent practice.
+`lib/constants.ts` centralizes all magic numbers (escrow windows, SLA thresholds, commission rates). Excellent practice.
 
 **Good: Zod Schema Centralization**
 `lib/api/schemas.ts` provides a single source of truth for all input validation. Comprehensive and well-typed.
@@ -159,23 +283,21 @@ Both are actively used across different routes. Frontend code must handle both s
 
 ## PHASE 4 — PRODUCTION READINESS
 
-### Security: 5/10
+### Security: 6.5/10 (was 5/10)
 
-| Finding                                              | Severity    | Location                                      |
-| ---------------------------------------------------- | ----------- | --------------------------------------------- |
-| `verifyRazorpaySignature` uses `===` (timing attack) | 🔴 Critical | `lib/razorpay.ts:129`                         |
-| IP extraction trusts `x-forwarded-for`               | 🟡 High     | `proxy.ts:86-91`, `lib/api/security.ts:40-67` |
-| Admin IP allowlist spoofable via proxy headers       | 🟡 High     | `proxy.ts:112-118`                            |
-| CSRF origin check fallback on `sec-fetch-site`       | 🟡 Medium   | `lib/api/security.ts:101-103`                 |
-| OTP codes generated with `Math.random()`             | 🟡 Medium   | `lib/otp.ts:16`                               |
-| `escrow.freezeEscrow()` silently swallows all errors | 🟡 Medium   | `lib/db/escrow.ts:80-82`                      |
-| Bank account numbers stored in plaintext             | 🟡 Medium   | `types/users.ts:50`                           |
-
-**Detail on IP Extraction:**
-The middleware `proxy.ts` checks `x-vercel-forwarded-for` first, which is set by Vercel's edge and cannot be spoofed on Vercel. However, the `lib/api/security.ts:extractClientIp()` also trusts `x-real-ip` and `cf-connecting-ip`, which are spoofable unless you're specifically behind Nginx/Cloudflare. The `TRUST_PROXY` env flag in `proxy.ts` admin guard is a good mitigation, but it defaults to trusting headers when `TRUST_PROXY !== "true"`, which is backwards — it should default to **not** trusting headers.
-
-**Detail on OTP Generation:**
-`Math.random()` is not cryptographically secure. Use `crypto.randomInt(100000, 999999)` instead for OTP codes. An attacker with knowledge of the PRNG state could predict future OTPs.
+| Finding                                                      | Severity        | Location                                                   | Status                                        |
+| ------------------------------------------------------------ | --------------- | ---------------------------------------------------------- | --------------------------------------------- |
+| Delivery OTP: plaintext storage + `===` comparison           | 🔴 Critical     | `confirm-delivery/route.ts:120`, `otp/verify/route.ts:116` | NEW                                           |
+| `releaseEscrowPayment()` TOCTOU race                         | 🔴 Critical     | `lib/db/escrow.ts:14-40`                                   | UNCHANGED                                     |
+| Razorpay SDK init bypasses Zod validation                    | 🟡 High         | `lib/razorpay.ts:10-13`                                    | UNCHANGED                                     |
+| `AUTH` constant computed from potentially undefined env vars | 🟡 High         | `lib/razorpay.ts:212-214`                                  | UNCHANGED                                     |
+| `traceStorage` never wired — dead code                       | 🟡 High         | `lib/logger.ts:50`                                         | NEW (introduced as "fix" but never completed) |
+| `freezeEscrow()` silently swallows all errors                | 🟡 Medium       | `lib/db/escrow.ts:80-82`                                   | UNCHANGED                                     |
+| Bank account numbers stored in plaintext                     | 🟡 Medium       | `types/users.ts:50`                                        | UNCHANGED                                     |
+| CSRF origin check fallback on `sec-fetch-site`               | 🟡 Medium       | `lib/api/security.ts:101-103`                              | UNCHANGED                                     |
+| ~~`verifyRazorpaySignature` timing attack~~                  | ~~🔴 Critical~~ | ~~`lib/razorpay.ts:129`~~                                  | ✅ FIXED                                      |
+| ~~OTP generated with `Math.random()`~~                       | ~~🟡 Medium~~   | ~~`lib/otp.ts:16`~~                                        | ✅ FIXED                                      |
+| ~~IP extraction trusts headers by default~~                  | ~~🟡 High~~     | ~~`proxy.ts`, `security.ts`~~                              | ✅ FIXED                                      |
 
 ### Error Handling: 7/10
 
@@ -183,83 +305,85 @@ The middleware `proxy.ts` checks `x-vercel-forwarded-for` first, which is set by
 - ✅ Global `errorResponse()` handler that catches `AppError`, `ZodError`, and generic errors
 - ✅ `global-error.tsx` catches unhandled frontend errors
 - ❌ Server Actions return `{ success: false, error: string }` — no error codes, no stack traces logged consistently
-- ❌ `escrow.freezeEscrow()` catches all errors silently
+- ❌ `freezeEscrow()` catches all errors silently
+- ❌ String-prefix error codes in `booking-actions.ts` instead of typed errors
 
-### Logging & Observability: 6/10
+### Logging & Observability: 5/10 (was 6/10, downgraded)
 
 - ✅ Structured logger (`lib/logger.ts`) with levels and context
+- ✅ Pino redaction of sensitive fields
 - ✅ Audit trail for all state transitions (`lib/audit.ts`)
 - ✅ Cron job tracking (`lib/cron-tracking.ts`)
+- ✅ `AsyncLocalStorage` infrastructure exists for trace IDs
+- ❌ **`traceStorage.run()` is never called** — trace IDs are always `undefined` (dead feature)
 - ❌ No APM integration (Datadog, Sentry, etc.)
-- ❌ No request tracing (correlation IDs)
 - ❌ No metrics/counters for business events (booking rate, payment volume)
+- ❌ Error stack traces suppressed in production (`isDevelopment ? error.stack : undefined`) — this makes production debugging harder
 
 ### Rate Limiting: 7/10
 
 - ✅ Dual-layer: Upstash Redis in middleware + MongoDB-based per-endpoint
 - ✅ OTP has its own rate limit (5/hour per target)
-- ❌ Rate limiter in middleware only covers auth/OTP routes — API routes use MongoDB-based enforcement
+- ✅ Rate limiter in middleware now correctly handles IP when `TRUST_PROXY` is not set
+- ❌ Middleware rate limiter only covers auth/OTP routes — other API routes use MongoDB-based enforcement
 - ❌ Admin dashboard stats endpoint allows 30 req/min — extremely heavy queries at that rate
 
-### Scalability: 4/10
+### Scalability: 6/10 (was 4/10, improved)
 
-| Bottleneck                                                       | Impact at 100k Users                                                         |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `getUserByEmail()` — 6 sequential queries per login              | Auth latency scales linearly with user count                                 |
-| N+1 in `getBookingsForProvider()`                                | Provider dashboard timeouts with >20 active bookings                         |
-| Admin dashboard aggregation scans (`/api/admin/dashboard-stats`) | Full collection scans on `system_alerts`, `complaints`, `orders`             |
-| No connection pooling configuration for MongoDB                  | Default connection pool (100) may be insufficient for serverless cold starts |
-| Payout batch processes sequentially with concurrency of 5        | Large payout backlogs will timeout in serverless (30s limit)                 |
+| Bottleneck                                                       | Impact at 100k Users                                                                                                                | Status    |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| ~~`getUserByEmail()` — 6 sequential queries per login~~          | ~~Auth latency scales linearly~~                                                                                                    | ✅ FIXED  |
+| ~~N+1 in `getBookingsForProvider()`~~                            | ~~Provider dashboard timeouts~~                                                                                                     | ✅ FIXED  |
+| Admin dashboard aggregation scans (`/api/admin/dashboard-stats`) | Full collection scans on `system_alerts`, `complaints`, `orders`                                                                    | UNCHANGED |
+| MongoDB connection reuse in production                           | `createClientPromise()` creates new `MongoClient` on each cold start — no module-scope caching in production at `lib/mongodb.ts:19` | UNCHANGED |
+| Payout batch processes sequentially with concurrency of 5        | Large payout backlogs will timeout in serverless (30s limit)                                                                        | UNCHANGED |
 
-### Database Indexing: 6/10
+### Database Indexing: 7/10 (was 6/10, improved)
 
 - ✅ Unique indexes on all critical payment/booking identifiers
 - ✅ Compound indexes for booking/order queries by provider/seeker
 - ✅ TTL indexes for OTP codes and password reset tokens
-- ❌ Missing compound index on `system_alerts` for `{ status, severity, firstSeenAt }`
-- ❌ Missing compound index on `orders` for `{ payment_status, escrow_release_at }` (cron query)
+- ✅ Compound index on `system_alerts` for `{ status, severity, firstSeenAt }` (FIXED)
+- ✅ Compound index on `orders` for `{ payment_status, escrow_release_at }` (FIXED)
 - ❌ Missing index on `audit_logs` (unbounded growth, no TTL)
 - ❌ No capped collection or TTL for `cron_runs` tracking
+- ❌ No index on `complaints.status + complaints.response_deadline` compound (partially present but not covering all admin queries)
 
-### Environment & Secrets: 8/10
+### Environment & Secrets: 7/10
 
 - ✅ Zod-validated `env.ts` with strict schema enforcement
 - ✅ Optional fields properly marked (Cloudinary, ops alerts)
-- ❌ Razorpay SDK initialized with `process.env` directly (`lib/razorpay.ts:11`) instead of validated `env` object — bypasses the schema
-- ❌ `AUTH` constant computed at module load time (`lib/razorpay.ts:205`) — if env vars aren't set, it silently becomes `Buffer.from("undefined:undefined")`
+- ✅ `E2E_FAKE_PAYMENTS` has production guard
+- ❌ Razorpay SDK initialized with `process.env` directly (`lib/razorpay.ts:10-13`) — bypasses the Zod schema
+- ❌ `AUTH` constant computed at module load time (`lib/razorpay.ts:212-214`) — silently becomes `Buffer.from("undefined:undefined")` if env vars aren't set
+- ❌ `TRUST_PROXY` and `DEBUG_LOGGING` accessed via `process.env` directly — not in Zod schema
+- ❌ `@types/jsonwebtoken` in devDependencies but no direct `jsonwebtoken` usage found
+- ❌ `@types/pino` in devDependencies but Pino v10 ships its own types
 
 ---
 
 ## PHASE 5 — CLEANLINESS AUDIT
 
-### Unused/Redundant Dependencies
+### Remaining Unused/Redundant Dependencies
 
-- `@auth/mongodb-adapter` — imported in `package.json` but NextAuth uses JWT strategy, not database adapter. This dependency appears unused.
-- `react-hot-toast` AND `sonner` — two toast libraries included. One should be removed.
-- `@types/jsonwebtoken` — no direct `jsonwebtoken` usage found; NextAuth handles JWT internally.
-- `@types/pino` — Pino v10 includes its own types; this is redundant.
+| Dependency            | Issue                                                                       |
+| --------------------- | --------------------------------------------------------------------------- |
+| `@types/jsonwebtoken` | No direct `jsonwebtoken` import found; NextAuth handles JWT internally      |
+| `@types/pino`         | Pino v10 includes its own TypeScript definitions; this package is redundant |
 
 ### Dual Response Systems (Incomplete Migration)
 
-| System                                          | Usage Count | Files Using            |
-| ----------------------------------------------- | ----------- | ---------------------- |
-| `successResponse` / `errorResponse` (modern)    | ~5 routes   | webhooks, cron, escrow |
-| `legacySuccessResponse` / `legacyErrorResponse` | ~15 routes  | most API routes        |
+The migration from legacy → modern response format remains ~25% complete. Both systems are actively used.
 
-The migration from legacy → modern response format is ~25% complete.
+### Hardcoded Values (Remaining)
 
-### Code Smell: `eslint-disable` Comments
-
-`booking-actions.ts` contains 4 `eslint-disable-next-line @typescript-eslint/no-explicit-any` comments for `bookingQuery` variables. This is caused by the `_id` type being `ObjectId | string`, which should be resolved at the type level, not suppressed.
-
-### Hardcoded Values
-
-| Value                                     | Location                              | Should Be                                                                     |
-| ----------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------- |
-| `200` (meters for arrival distance)       | `booking-actions.ts:553`              | Constant in `constants.ts`                                                    |
-| `0.05` (5% commission on booking fee)     | `booking-actions.ts:158`              | `DEFAULT_PLATFORM_COMMISSION_RATE` from constants                             |
-| `2 * 60 * 60 * 1000` (2hr pickup advance) | `booking-actions.ts:434`              | `MIN_PICKUP_ADVANCE_MS` from constants (which is 48h, not 2h — inconsistent!) |
-| `10` (bcrypt salt rounds)                 | `lib/db/users.ts:93`, `lib/otp.ts:63` | Constant                                                                      |
+| Value                                     | Location                                   | Should Be                                                             |
+| ----------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------- |
+| `24 * 60 * 60 * 1000` (24h escrow)        | `confirm-delivery/route.ts:198`            | `ESCROW_RELEASE_WINDOW_MS` from constants                             |
+| `200` (meters for arrival distance)       | `booking-actions.ts:553`                   | Constant in `constants.ts`                                            |
+| `0.05` (5% commission on booking fee)     | `booking-actions.ts:158`                   | `DEFAULT_PLATFORM_COMMISSION_RATE` from constants                     |
+| `2 * 60 * 60 * 1000` (2hr pickup advance) | `booking-actions.ts:434`                   | `MIN_PICKUP_ADVANCE_MS` from constants (which is 48h — inconsistent!) |
+| `10` (bcrypt salt rounds)                 | `lib/db/users.ts:73, 125`, `lib/otp.ts:64` | Constant                                                              |
 
 ### Naming Inconsistencies
 
@@ -268,81 +392,92 @@ The migration from legacy → modern response format is ~25% complete.
 - `updatedAt` vs `updated_at` mixed across webhook handler and DB layer
 - `process_status` (snake) vs `processStatus` (never used but type implies it)
 
+### Code Smell: `eslint-disable` Comments
+
+`booking-actions.ts` contains 4 `eslint-disable-next-line @typescript-eslint/no-explicit-any` comments for `bookingQuery` variables. This is caused by the `_id` type being `ObjectId | string`, which should be resolved at the type level, not suppressed.
+
+### Code Duplication: Inlined `confirmDelivery` Logic
+
+The escrow logic from `lib/db/orders.ts:confirmDelivery()` has been duplicated inline in `confirm-delivery/route.ts:191-236` to avoid nested transactions. Both copies must be kept in sync manually. A better pattern would be to extract a shared helper that accepts a session parameter.
+
 ---
 
 ## PHASE 6 — RISK SCORES
 
-| Category                 | Score    | Justification                                                                                                                                                                                          |
-| ------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Code Quality**         | **6/10** | Well-structured Zod schemas, centralized constants, typed errors. Undermined by string-prefix error codes, eslint suppression, naming drift.                                                           |
-| **Architecture**         | **5/10** | Good middleware layering and state machine. Severely weakened by lack of DAL/repository pattern, dual response systems, and raw DB queries in server actions.                                          |
-| **Production Readiness** | **4/10** | Non-transactional financial mutations, missing indexes for heavy queries, no APM/tracing, serverless timeout risks with batch processing.                                                              |
-| **Security**             | **5/10** | Webhook signature verification is correct, Zod validation is comprehensive, rate limiting exists. Undermined by timing-unsafe `verifyRazorpaySignature`, `Math.random()` OTP, spoofable IP extraction. |
+| Category                 | Previous | Current    | Justification                                                                                                                                                            |
+| ------------------------ | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Code Quality**         | **6/10** | **6.5/10** | Regex fallbacks removed, N+1 fixed, but string-prefix errors, eslint suppressions, and code duplication remain.                                                          |
+| **Architecture**         | **5/10** | **5/10**   | No change — dual response systems, raw DB in server actions, and now inlined business logic in route handlers add to the debt.                                           |
+| **Production Readiness** | **4/10** | **6/10**   | Major financial safety improvements (transactions, timing-safe crypto). Undermined by plaintext delivery OTP, TOCTOU in escrow release, and dead tracing infrastructure. |
+| **Security**             | **5/10** | **6.5/10** | Signature verification, OTP generation, and IP trust all fixed. Still has plaintext delivery OTP storage, plaintext bank accounts, and Razorpay SDK init bypass.         |
 
-### **Overall Score: 5/10 — NOT PRODUCTION READY**
+### **Overall Score: 6/10 — CONDITIONALLY PRODUCTION READY**
 
----
-
-## TOP 5 HIGHEST RISK ISSUES
-
-### 1. 🔴 Timing Attack on Payment Signature Verification
-
-**File:** `lib/razorpay.ts:129`
-**Risk:** Attackers forge payment confirmations, marking orders as paid without payment.
-**Fix:** Replace `===` with `crypto.timingSafeEqual(Buffer.from(generatedSignature), Buffer.from(signature))`
-
-### 2. 🔴 Non-Transactional Financial State Mutations
-
-**Files:** `lib/db/orders.ts:78-112`, `lib/db/orders.ts:133-160`, `app/api/orders/[id]/confirm-delivery/route.ts:145-205`
-**Risk:** Race conditions cause double escrow transitions, lost refunds, or unpunished cancellations.
-**Fix:** Wrap all multi-collection financial mutations in `withTransaction()`. Model: follow the pattern already established in `createBooking()`.
-
-### 3. 🔴 `Math.random()` for OTP Generation
-
-**File:** `lib/otp.ts:16`
-**Risk:** Predictable OTPs enable account takeover.
-**Fix:** `crypto.randomInt(100000, 999999).toString()`
-
-### 4. 🟡 N+1 and 6-Query Sequential Performance Bombs
-
-**Files:** `lib/db/users.ts:14-62`, `lib/db/bookings.ts:310-347`
-**Risk:** Login and provider dashboard degrade to unacceptable latency at scale.
-**Fix:** (a) Enforce lowercase email at write time, remove regex fallback. (b) Replace N+1 seeker enrichment with `$lookup` aggregation or batch `$in` query.
-
-### 5. 🟡 Missing Compound Indexes for Heavy Aggregations
-
-**File:** `lib/db-indexes.ts` — missing entries for admin dashboard queries
-**Risk:** Admin dashboard queries cause full collection scans, exhausting DB CPU.
-**Fix:** Add `{ status: 1, severity: 1, firstSeenAt: -1 }` on `system_alerts`, `{ payment_status: 1, escrow_release_at: 1 }` on `orders`.
+The system is deployable for a soft launch (< 10k users) if delivery OTP plaintext storage is fixed. Not recommended for 100k+ users without addressing the TOCTOU race in escrow release and wiring up the tracing infrastructure.
 
 ---
 
-## EXACT STEPS TO PRODUCTION-GRADE
+## TOP 5 HIGHEST RISK ISSUES (CURRENT)
+
+### 1. 🔴 Delivery OTP — Plaintext Storage & Timing-Unsafe Comparison
+
+**Files:** `confirm-delivery/route.ts:120`, `otp/verify/route.ts:116`, `otp/resend/route.ts:148`, `status/route.ts:124`
+**Risk:** DB breach exposes all active delivery OTPs. Attacker confirms deliveries, triggering fraudulent escrow releases.
+**Fix:** Hash with `bcrypt` on storage (in `status/route.ts` and `resend/route.ts`), verify with `bcrypt.compare()` on confirmation. Use `crypto.timingSafeEqual()` if staying with plaintext, but hashing is strongly preferred.
+
+### 2. 🔴 `releaseEscrowPayment()` — TOCTOU Race on Complaint Check
+
+**File:** `lib/db/escrow.ts:14-40`
+**Risk:** Escrow released while complaint is being simultaneously filed. Provider receives payout for disputed order.
+**Fix:** Wrap the complaint check and the `updateOne` in a `session.withTransaction()`.
+
+### 3. 🟡 Razorpay SDK Init Bypasses Zod + AUTH Constant from Undefined Vars
+
+**File:** `lib/razorpay.ts:10-13, 212-214`
+**Risk:** Missing env vars cause silent failures — payments accepted but payouts fail with opaque errors. Difficult to diagnose in production.
+**Fix:** Use `env.RAZORPAY_KEY_ID` and `env.RAZORPAY_KEY_SECRET` from validated Zod schema. Compute `AUTH` lazily inside `razorpayFetch()` instead of at module scope.
+
+### 4. 🟡 `traceStorage` — Dead Tracing Infrastructure
+
+**File:** `lib/logger.ts:50`
+**Risk:** No correlation IDs in production logs. Impossible to trace a request across log entries when debugging payment failures or race conditions.
+**Fix:** Either wire `traceStorage.run()` into middleware/API route wrappers, or remove the dead code to avoid false confidence in observability.
+
+### 5. 🟡 Escrow Window Hardcoded in `confirm-delivery`
+
+**File:** `app/api/orders/[id]/confirm-delivery/route.ts:198`
+**Risk:** Escrow window drift between the constant and the inlined value. If `ESCROW_RELEASE_WINDOW_MS` changes, this copy doesn't update.
+**Fix:** Import and use `ESCROW_RELEASE_WINDOW_MS` from `lib/constants.ts`.
+
+---
+
+## EXACT STEPS TO PRODUCTION-GRADE (UPDATED)
 
 ### P0 — Before Launch (Must Fix)
 
-1. **Fix `verifyRazorpaySignature`** — use `crypto.timingSafeEqual()` (1 line change)
-2. **Fix OTP generation** — use `crypto.randomInt()` (1 line change)
-3. **Wrap `confirmDelivery()` in transaction** — follow `createBooking` pattern
-4. **Wrap `cancelOrder()` in transaction**
-5. **Wrap delivery confirmation refund + DB update in transaction**
-6. **Add missing compound indexes** for admin dashboard and escrow queries
+1. **Hash delivery OTP** — store with `bcrypt.hash()` in `status/route.ts` and `resend/route.ts`, verify with `bcrypt.compare()` in `confirm-delivery/route.ts` and `otp/verify/route.ts`
+2. **Wrap `releaseEscrowPayment()` in a transaction** — complaint check and status update must be atomic
+3. **Use validated `env` for Razorpay SDK init** — replace `process.env.RAZORPAY_KEY_ID || ""` with `env.RAZORPAY_KEY_ID`
+4. **Compute `AUTH` lazily** — move into `razorpayFetch()` or compute on first call
+5. **Use `ESCROW_RELEASE_WINDOW_MS` constant** in `confirm-delivery/route.ts:198`
 
 ### P1 — Before 10k Users
 
-7. **Eliminate `getUserByEmail()` regex fallback** — enforce lowercase at write, single query per collection
-8. **Replace N+1 in `getBookingsForProvider()`** with `$lookup` aggregation
-9. **Complete response format migration** — remove `legacy-response.ts` entirely
-10. **Replace string-prefix error codes** in `booking-actions.ts` with typed `AppError` subclasses
-11. **Add APM/tracing** — Sentry or Datadog integration
+6. **Wire up `traceStorage.run()`** in middleware or API route wrappers — or remove the dead code
+7. **Complete response format migration** — remove `legacy-response.ts` entirely
+8. **Replace string-prefix error codes** in `booking-actions.ts` with typed `AppError` subclasses
+9. **Log error stacks in production** — remove `isDevelopment ? error.stack : undefined` guard
+10. **Fix `freezeEscrow()` error handling** — at minimum log the error
 
 ### P2 — Before 100k Users
 
+11. **Extract shared escrow logic** — create a helper that accepts a session parameter, eliminating the code duplication between `lib/db/orders.ts:confirmDelivery()` and `confirm-delivery/route.ts`
 12. **Introduce DAL/Repository layer** — extract raw queries from server actions
 13. **Add TTL/capped collection for `audit_logs` and `cron_runs`**
-14. **Remove unused dependencies** (`@auth/mongodb-adapter`, duplicate toast lib)
-15. **Normalize naming conventions** — choose snake_case or camelCase, apply consistently
-16. **Add request correlation IDs** to logger for distributed tracing
+14. **Normalize naming conventions** — choose snake_case or camelCase, apply consistently
+15. **Remove unused devDependencies** (`@types/jsonwebtoken`, `@types/pino`)
+16. **Add APM/Sentry integration** for production error tracking and performance monitoring
+17. **MongoDB connection caching in production** — reuse client across invocations in `lib/mongodb.ts`
 
 ---
 
@@ -352,10 +487,10 @@ The migration from legacy → modern response format is ~25% complete.
 
 2. **Vercel Serverless Timeouts:** The payout batch processor processes 50 orders with concurrency of 5. Each Razorpay API call takes 1-3 seconds. Worst case: 50 orders × 3s / 5 concurrency = 30s — exactly at Vercel's default timeout. **This will fail intermittently.**
 
-3. **`E2E_FAKE_PAYMENTS` Flag:** When `E2E_FAKE_PAYMENTS=1`, all Razorpay operations return fake data. If this flag is accidentally set in production, real payments will be skipped silently. **There is no guard preventing this env var in production.**
+3. **Razorpay SDK Payout API:** The codebase at `lib/razorpay.ts:345-348` checks if `razorpay.payouts.create` exists. If the installed SDK version doesn't have this method, it throws immediately. The error handling is correct (it catches and re-throws), but this should be verified against the actual SDK version `2.9.6` to confirm method availability.
 
-4. **Razorpay SDK vs Direct Fetch:** The codebase uses the official Razorpay SDK for orders/payments/refunds but switches to a custom `razorpayFetch()` (direct HTTP) for contacts/fund accounts/payouts. The payout creation at `razorpay.ts:336` attempts to use `razorpay.payouts.create()` which may not exist in the SDK version installed. If it doesn't, it falls through to the error path, and payouts silently fail. **This needs verification.**
+4. **Rate Limiting When `TRUST_PROXY` is Unset:** With the recent fix, when `TRUST_PROXY` is not `"true"`, all rate limiting in the middleware uses `127.0.0.1` as the IP. On Vercel, `TRUST_PROXY` should be set to `"true"` since `x-vercel-forwarded-for` is trustworthy there. If `TRUST_PROXY` is not set, **all users share a single rate limit bucket**, effectively disabling per-user rate limiting.
 
 ---
 
-_This audit was conducted with adversarial intent. The findings are evidence-based, with exact file locations and line numbers. The system shows engineering effort and thoughtfulness in many areas (audit trails, state machines, centralized schemas), but the critical financial safety gaps make it unsafe for production deployment at the target scale without remediation._
+_This is the second adversarial audit of this codebase. The previous remediation cycle resolved 13 of the 16 highest-priority issues, significantly improving the system's production readiness from 5/10 to 6/10. The remaining critical gaps are the plaintext delivery OTP (which is the single highest-risk item remaining) and the escrow release TOCTOU race. Both are fixable with targeted, well-scoped changes. The system shows strong engineering fundamentals — centralized schemas, comprehensive state machines, proper transaction usage in most critical paths, and thoughtful security measures. The path to production-ready is short from here._
