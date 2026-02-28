@@ -13,6 +13,7 @@ export const razorpay = new Razorpay({
 });
 
 function isE2EFakePaymentsEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   return process.env.E2E_FAKE_PAYMENTS === "1";
 }
 

@@ -1,4 +1,5 @@
 import pino from "pino";
+import { AsyncLocalStorage } from "async_hooks";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const isDebugEnabled = process.env.DEBUG_LOGGING === "true";
@@ -46,17 +47,22 @@ interface LogContext {
   [key: string]: unknown;
 }
 
+export const traceStorage = new AsyncLocalStorage<{ traceId: string }>();
+
 export const logger = {
   debug(prefix: string, message: string, context?: LogContext) {
-    pinoLogger.debug({ prefix, ...context }, message);
+    const traceId = traceStorage.getStore()?.traceId;
+    pinoLogger.debug({ prefix, traceId, ...context }, message);
   },
 
   info(prefix: string, message: string, context?: LogContext) {
-    pinoLogger.info({ prefix, ...context }, message);
+    const traceId = traceStorage.getStore()?.traceId;
+    pinoLogger.info({ prefix, traceId, ...context }, message);
   },
 
   warn(prefix: string, message: string, context?: LogContext) {
-    pinoLogger.warn({ prefix, ...context }, message);
+    const traceId = traceStorage.getStore()?.traceId;
+    pinoLogger.warn({ prefix, traceId, ...context }, message);
   },
 
   error(
@@ -65,20 +71,35 @@ export const logger = {
     error?: unknown,
     context?: LogContext,
   ) {
-    const errorContext: LogContext = { ...context };
+    const traceId = traceStorage.getStore()?.traceId;
 
-    // Normalize errors for Pino traversal
     if (error instanceof Error) {
-      errorContext.err = {
-        name: error.name,
-        message: error.message,
-        stack: isDevelopment ? error.stack : undefined,
-      };
+      pinoLogger.error(
+        {
+          prefix,
+          traceId,
+          err: {
+            message: error.message,
+            stack: isDevelopment ? error.stack : undefined,
+            name: error.name,
+          },
+          ...context,
+        },
+        message,
+      );
     } else if (error) {
-      errorContext.error_string = String(error);
+      pinoLogger.error(
+        {
+          prefix,
+          traceId,
+          error_string: String(error),
+          ...context,
+        },
+        message,
+      );
+    } else {
+      pinoLogger.error({ prefix, traceId, ...context }, message);
     }
-
-    pinoLogger.error({ prefix, ...errorContext }, message);
   },
 };
 
