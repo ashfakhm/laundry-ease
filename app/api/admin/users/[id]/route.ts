@@ -1,9 +1,9 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { z } from "zod";
 
@@ -23,12 +23,7 @@ export async function DELETE(
     const parsed = deleteUserSchema.safeParse(body);
 
     if (!ObjectId.isValid(id) || !parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Missing or invalid parameters"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Missing or invalid parameters"));
     }
 
     const { role } = parsed.data;
@@ -42,12 +37,7 @@ export async function DELETE(
         success: true
       }, 200);
     }
-    return NextResponse.json({
-      success: false,
-      error: "User not found or not deleted"
-    }, {
-      status: 404
-    });
+    return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "User not found or not deleted"));
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({
@@ -64,11 +54,6 @@ export async function DELETE(
 
     const { logger } = await import("@/lib/logger");
     logger.error("ADMIN_USERS", "Failed to delete user", error);
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

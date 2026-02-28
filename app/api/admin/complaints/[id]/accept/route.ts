@@ -4,9 +4,10 @@ import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
 import { logger } from "@/lib/logger";
 import { adminComplaintAcceptSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import { errorResponse } from "@/lib/api/response";
 
 function getProviderDisplayName(
   provider?: {
@@ -54,12 +55,7 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid complaint id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint id"));
     }
 
     const session = await requireAdminWithDbCheck();
@@ -84,12 +80,7 @@ export async function POST(
       .findOne({ _id: complaintId });
 
     if (!complaint) {
-      return NextResponse.json({
-        success: false,
-        error: "Complaint not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
     }
 
     // Only open or legacy status complaints can be accepted
@@ -199,11 +190,6 @@ export async function POST(
     logger.error("ADMIN_COMPLAINTS", "Error accepting complaint", error, {
       complaintId: id,
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal Error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
   }
 }

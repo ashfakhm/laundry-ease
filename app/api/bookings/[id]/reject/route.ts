@@ -4,9 +4,10 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { refundRazorpayPayment } from "@/lib/razorpay";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -25,12 +26,7 @@ export async function PATCH(
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const { db } = await getDb();
@@ -39,41 +35,21 @@ export async function PATCH(
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return NextResponse.json({
-        success: false,
-        error: "Provider not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"));
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid booking id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"));
     }
     const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json({
-        success: false,
-        error: "Booking not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     if (booking.provider_id.toString() !== provider._id.toString()) {
-      return NextResponse.json({
-        success: false,
-        error: "You are not authorized to reject this booking"
-      }, {
-        status: 403
-      });
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "You are not authorized to reject this booking"));
     }
 
     if (booking.status !== "requested") {
@@ -87,30 +63,15 @@ export async function PATCH(
         });
       }
 
-      return NextResponse.json({
-        success: false,
-        error: "Booking has already been acted upon"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Booking has already been acted upon"));
     }
 
     if (booking.bookingFeeStatus !== "paid") {
-      return NextResponse.json({
-        success: false,
-        error: "Booking fee must be paid before provider can reject"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Booking fee must be paid before provider can reject"));
     }
 
     if (!booking.razorpay_payment_id) {
-      return NextResponse.json({
-        success: false,
-        error: "Cannot reject booking: payment reference missing for booking-fee refund."
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot reject booking: payment reference missing for booking-fee refund."));
     }
 
     const lockCutoff = new Date(Date.now() - REFUND_LOCK_TIMEOUT_MS);
@@ -149,20 +110,10 @@ export async function PATCH(
           !Number.isNaN(lockAt.getTime()) &&
           Date.now() - lockAt.getTime() < REFUND_LOCK_TIMEOUT_MS;
         if (lockIsFresh) {
-          return NextResponse.json({
-            success: false,
-            error: "Refund is already in progress for this booking."
-          }, {
-            status: 409
-          });
+          return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Refund is already in progress for this booking."));
         }
       }
-      return NextResponse.json({
-        success: false,
-        error: "Booking status changed during rejection. Please refresh."
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking status changed during rejection. Please refresh."));
     }
 
     let refundId: string | null = null;
@@ -191,12 +142,7 @@ export async function PATCH(
         error,
         { bookingId: id }
       );
-      return NextResponse.json({
-        success: false,
-        error: "Failed to refund booking fee. Booking was not rejected. Please retry."
-      }, {
-        status: 502
-      });
+      return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 502, "Failed to refund booking fee. Booking was not rejected. Please retry."));
     }
 
     const now = new Date();
@@ -255,20 +201,10 @@ export async function PATCH(
         });
       }
 
-      return NextResponse.json({
-        success: false,
-        error: "Booking status changed during rejection. Refund has been processed; please refresh."
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking status changed during rejection. Refund has been processed; please refresh."));
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Booking rejected and fee refunded"
-    }, {
-      status: 200
-    });
+    return successResponse({ message: "Booking rejected and fee refunded" });
   } catch (error) {
     if (error instanceof AppError) {
       return NextResponse.json({
@@ -286,11 +222,6 @@ export async function PATCH(
     logger.error("BOOKINGS", "Error rejecting booking", error, {
       bookingId: id,
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

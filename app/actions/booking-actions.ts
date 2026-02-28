@@ -481,7 +481,8 @@ export async function markProviderArrived(
 
       const bookingFee = Number(booking.bookingFee || 0);
       const providerAmount = Number(
-        booking.provider_payout_amount ?? bookingFee * 0.95,
+        booking.provider_payout_amount ??
+          bookingFee * (1 - PLATFORM_COMMISSION_RATE),
       );
       const payoutAmountPaise = Math.round(providerAmount * 100);
 

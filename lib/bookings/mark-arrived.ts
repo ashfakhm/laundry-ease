@@ -4,9 +4,12 @@ import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
+import {
+  MAX_ARRIVAL_DISTANCE_METERS,
+  PLATFORM_COMMISSION_RATE,
+} from "@/lib/constants";
 import type { Booking } from "@/types/bookings";
 
-const MAX_ARRIVAL_DISTANCE_METERS = 200;
 const PAYOUT_LOCK_TTL_MS = 5 * 60 * 1000;
 
 type Coordinates = { lat: number; lng: number };
@@ -105,7 +108,10 @@ async function tryInitiateBookingPayout(
   }
 
   const bookingFee = Number(booking.bookingFee || 0);
-  const providerAmount = Number(booking.provider_payout_amount ?? bookingFee * 0.95);
+  const providerAmount = Number(
+    booking.provider_payout_amount ??
+      bookingFee * (1 - PLATFORM_COMMISSION_RATE),
+  );
   const payoutAmountPaise = Math.round(providerAmount * 100);
 
   if (!Number.isFinite(payoutAmountPaise) || payoutAmountPaise <= 0) {
@@ -239,12 +245,16 @@ export async function markProviderArrival(
   const { bookingId, providerId, coordinates } = input;
   const { db } = await getDb();
 
-  const booking = await db.collection<Booking>("bookings").findOne({ _id: bookingId });
+  const booking = await db
+    .collection<Booking>("bookings")
+    .findOne({ _id: bookingId });
   if (!booking) {
     return { status: 404, body: { error: "Booking not found" } };
   }
 
-  const provider = await db.collection("providers").findOne({ _id: providerId });
+  const provider = await db
+    .collection("providers")
+    .findOne({ _id: providerId });
   if (!provider || booking.provider_id.toString() !== providerId.toString()) {
     return { status: 403, body: { error: "Unauthorized" } };
   }
@@ -278,7 +288,10 @@ export async function markProviderArrival(
       };
     }
 
-    const distanceKm = calculateDistance(coordinates, booking.seeker_coordinates);
+    const distanceKm = calculateDistance(
+      coordinates,
+      booking.seeker_coordinates,
+    );
     const distanceMeters = distanceKm * 1000;
     if (distanceMeters > MAX_ARRIVAL_DISTANCE_METERS) {
       return {
@@ -313,7 +326,9 @@ export async function markProviderArrival(
     );
 
     if (arrivalResult.modifiedCount === 0) {
-      const latest = await db.collection<Booking>("bookings").findOne({ _id: bookingId });
+      const latest = await db
+        .collection<Booking>("bookings")
+        .findOne({ _id: bookingId });
       if (!latest) {
         return { status: 404, body: { error: "Booking not found" } };
       }
@@ -321,7 +336,8 @@ export async function markProviderArrival(
         return {
           status: 409,
           body: {
-            error: "Booking state changed while marking arrival. Please refresh.",
+            error:
+              "Booking state changed while marking arrival. Please refresh.",
           },
         };
       }

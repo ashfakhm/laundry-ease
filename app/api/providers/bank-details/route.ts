@@ -9,6 +9,8 @@ import { ObjectId } from "mongodb";
 import { requireProvider } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 const bankDetailsPayloadSchema = z.object({
   bankDetails: z.object({
@@ -30,12 +32,7 @@ export async function POST(req: NextRequest) {
     // Authentication check - only providers can update bank details
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const payload = await req.json().catch(() => null);
@@ -58,12 +55,7 @@ export async function POST(req: NextRequest) {
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return NextResponse.json({
-        success: false,
-        error: "Provider not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"));
     }
 
     // 1. Create Contact in RazorpayX
@@ -106,19 +98,9 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    return NextResponse.json({
-      success: true,
-      message: "Bank details saved and linked to Razorpay"
-    }, {
-      status: 200
-    });
+    return successResponse({ message: "Bank details saved and linked to Razorpay" });
   } catch (error: unknown) {
     logger.error("PROVIDER", "Error saving bank details", error);
-    return NextResponse.json({
-      success: false,
-      error: "Failed to save bank details"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to save bank details"));
   }
 }

@@ -1,10 +1,10 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { bookingDisputeSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
 
@@ -27,22 +27,12 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid booking id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"));
     }
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const body = await req.json();
@@ -63,24 +53,14 @@ export async function POST(
 
     const booking = await db.collection("bookings").findOne({ _id: bookingId });
     if (!booking)
-      return NextResponse.json({
-        success: false,
-        error: "Booking not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
 
     // Only allow seeker or provider
     let role: "seeker" | "provider" | null = null;
     if (user.id === booking.seeker_id.toString()) role = "seeker";
     if (user.id === booking.provider_id.toString()) role = "provider";
     if (!role) {
-      return NextResponse.json({
-        success: false,
-        error: "Forbidden"
-      }, {
-        status: 403
-      });
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"));
     }
 
     const dispute = {
@@ -112,11 +92,6 @@ export async function POST(
     }
 
     logger.error("BOOKINGS", "Create dispute error", error, { bookingId: id });
-    return NextResponse.json({
-      success: false,
-      error: "Internal error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal error"));
   }
 }

@@ -5,23 +5,24 @@ import { AppError } from "@/lib/api/errors";
 import { requireAuth } from "@/lib/api/auth";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { ObjectId } from "mongodb";
+import { env } from "@/lib/env";
 
 // Check if Cloudinary is configured
 const isCloudinaryConfigured = !!(
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_API_KEY &&
-  process.env.CLOUDINARY_API_SECRET
+  env.CLOUDINARY_CLOUD_NAME &&
+  env.CLOUDINARY_API_KEY &&
+  env.CLOUDINARY_API_SECRET
 );
 const allowBase64Fallback =
   process.env.NODE_ENV !== "production" ||
-  process.env.ALLOW_BASE64_UPLOAD_FALLBACK === "1";
+  env.ALLOW_BASE64_UPLOAD_FALLBACK === "1";
 
 // Configure Cloudinary only if credentials exist
 if (isCloudinaryConfigured) {
   cloudinary.v2.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: env.CLOUDINARY_CLOUD_NAME,
+    api_key: env.CLOUDINARY_API_KEY,
+    api_secret: env.CLOUDINARY_API_SECRET,
   });
 }
 
@@ -36,12 +37,15 @@ export async function POST(req: NextRequest) {
 
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        },
+      );
     }
 
     const formData = await req.formData();
@@ -49,42 +53,54 @@ export async function POST(req: NextRequest) {
     const folder = (formData.get("folder") as string) || "provider-images";
 
     if (!file) {
-      return NextResponse.json({
-        success: false,
-        error: "No file provided"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No file provided",
+        },
+        {
+          status: 400,
+        },
+      );
     }
     if (!/^[a-zA-Z0-9/_-]{1,80}$/.test(folder)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid folder name"
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid folder name",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     // Validate file type
     const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid file type. Only JPG, PNG, and WebP are allowed."
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid file type. Only JPG, PNG, and WebP are allowed.",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     // Validate file size (5MB max)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json({
-        success: false,
-        error: "File too large. Maximum size is 5MB."
-      }, {
-        status: 400
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "File too large. Maximum size is 5MB.",
+        },
+        {
+          status: 400,
+        },
+      );
     }
 
     // Convert file to buffer
@@ -125,40 +141,54 @@ export async function POST(req: NextRequest) {
       const base64 = buffer.toString("base64");
       imageUrl = `data:${file.type};base64,${base64}`;
     } else {
-      return NextResponse.json({
-        success: false,
-        error: "Image upload service is unavailable. Please try again later."
-      }, {
-        status: 503
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Image upload service is unavailable. Please try again later.",
+        },
+        {
+          status: 503,
+        },
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      url: imageUrl
-    }, {
-      status: 200
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        url: imageUrl,
+      },
+      {
+        status: 200,
+      },
+    );
   } catch (error: unknown) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
 
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+          ...(error.details
+            ? {
+                details: error.details,
+              }
+            : {}),
+        },
+        {
+          status: error.statusCode || 400,
+        },
+      );
     }
 
     logger.error("UPLOAD", "Image upload error", error);
-    return NextResponse.json({
-      success: false,
-      error: "Failed to upload image"
-    }, {
-      status: 500
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to upload image",
+      },
+      {
+        status: 500,
+      },
+    );
   }
 }

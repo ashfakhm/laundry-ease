@@ -1,10 +1,10 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
@@ -24,12 +24,7 @@ export async function POST(
     const session = await requireAdminWithDbCheck();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid complaint ID"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"));
     }
 
     const { db } = await getDb();
@@ -39,30 +34,15 @@ export async function POST(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return NextResponse.json({
-        success: false,
-        error: "Not Found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Not Found"));
     }
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return NextResponse.json({
-        success: false,
-        error: "Cannot add provider after complaint is finalized"
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot add provider after complaint is finalized"));
     }
 
     if (complaint.status !== "accepted" && complaint.status !== "in_review") {
-      return NextResponse.json({
-        success: false,
-        error: "Complaint must be accepted before adding provider"
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Complaint must be accepted before adding provider"));
     }
 
     // Check if provider already has access
@@ -77,12 +57,7 @@ export async function POST(
     }
 
     if (!ObjectId.isValid(String(complaint.provider_id))) {
-      return NextResponse.json({
-        success: false,
-        error: "Complaint provider reference is invalid"
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Complaint provider reference is invalid"));
     }
     const providerObjectId = new ObjectId(String(complaint.provider_id));
 
@@ -139,11 +114,6 @@ export async function POST(
       error,
       { complaintId: id },
     );
-    return NextResponse.json({
-      success: false,
-      error: "Internal Error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
   }
 }

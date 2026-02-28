@@ -1,8 +1,8 @@
-import { successResponse } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 // GET /api/providers/[id]/reviews — public endpoint
 export async function GET(
@@ -16,12 +16,9 @@ export async function GET(
     try {
       providerId = new ObjectId(id);
     } catch {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid provider ID"
-      }, {
-        status: 400
-      });
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid provider ID"),
+      );
     }
 
     const { db } = await getDb();
@@ -35,11 +32,8 @@ export async function GET(
     return successResponse(reviews);
   } catch (error) {
     logger.error("REVIEWS", "Error fetching provider reviews", error);
-    return NextResponse.json({
-      success: false,
-      error: "Internal Server Error"
-    }, {
-      status: 500
-    });
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Server Error"),
+    );
   }
 }

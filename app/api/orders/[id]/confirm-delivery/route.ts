@@ -9,11 +9,12 @@ import { confirmDeliverySchema } from "@/lib/api/schemas";
 import { revalidatePath } from "next/cache";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 import { requireSeeker } from "@/lib/api/auth";
 import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 export async function POST(
   req: Request,
@@ -31,12 +32,7 @@ export async function POST(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid order id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id"));
     }
 
     const body = await req.json();
@@ -58,21 +54,11 @@ export async function POST(
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json({
-        success: false,
-        error: "Order not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     if (order.seeker_id.toString() !== user.id) {
-      return NextResponse.json({
-        success: false,
-        error: "You are not authorized to confirm delivery for this order"
-      }, {
-        status: 403
-      });
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "You are not authorized to confirm delivery for this order"));
     }
 
     if ((order.process_status || "invoiced") === "delivered") {
@@ -106,12 +92,7 @@ export async function POST(
         order.payment_status,
       )
     ) {
-      return NextResponse.json({
-        success: false,
-        error: "Order must be paid before confirming delivery"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Order must be paid before confirming delivery"));
     }
 
     const nowMs = Date.now();
@@ -124,12 +105,7 @@ export async function POST(
         !Number.isNaN(expiryDate.getTime()) &&
         expiryDate.getTime() <= nowMs
       ) {
-        return NextResponse.json({
-          success: false,
-          error: "OTP expired. Please resend OTP."
-        }, {
-          status: 410
-        });
+        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 410, "OTP expired. Please resend OTP."));
       }
     } else if (otpSentAt) {
       const sentDate = new Date(otpSentAt);
@@ -137,33 +113,18 @@ export async function POST(
         !Number.isNaN(sentDate.getTime()) &&
         sentDate.getTime() + DELIVERY_OTP_TTL_MS <= nowMs
       ) {
-        return NextResponse.json({
-          success: false,
-          error: "OTP expired. Please resend OTP."
-        }, {
-          status: 410
-        });
+        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 410, "OTP expired. Please resend OTP."));
       }
     }
 
     // Verify OTP using bcrypt (timing-safe and secure)
     if (!order.delivery_otp) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid OTP"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid OTP"));
     }
     const bcrypt = await import("bcrypt");
     const isOtpValid = await bcrypt.compare(otp, order.delivery_otp);
     if (!isOtpValid) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid OTP"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid OTP"));
     }
 
     const now = new Date();
@@ -203,12 +164,7 @@ export async function POST(
       return await session.withTransaction(async () => {
         if (shouldRefund) {
           if (!order.razorpay_payment_id) {
-            return NextResponse.json({
-              success: false,
-              error: "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support."
-            }, {
-              status: 409
-            });
+            return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support."));
           }
 
           try {
@@ -228,12 +184,7 @@ export async function POST(
               error,
               { orderId: id },
             );
-            return NextResponse.json({
-              success: false,
-              error: "Deadline was missed, but refund could not be processed right now. Please retry."
-            }, {
-              status: 502
-            });
+            return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 502, "Deadline was missed, but refund could not be processed right now. Please retry."));
           }
         }
 
@@ -244,12 +195,7 @@ export async function POST(
           .collection("orders")
           .findOne({ _id: order_id }, { session });
         if (!orderCheck) {
-          return NextResponse.json({
-            success: false,
-            error: "Failed to confirm delivery"
-          }, {
-            status: 500
-          });
+          return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to confirm delivery"));
         }
 
         const setFields = buildConfirmDeliveryUpdateFields(orderCheck, now);
@@ -296,19 +242,9 @@ export async function POST(
             });
           }
 
-          return NextResponse.json({
-            success: true,
-            message: "Delivery confirmed, escrow started"
-          }, {
-            status: 200
-          });
+          return successResponse({ message: "Delivery confirmed, escrow started" });
         } else {
-          return NextResponse.json({
-            success: false,
-            error: "Failed to confirm delivery"
-          }, {
-            status: 500
-          });
+          return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to confirm delivery"));
         }
       });
     } finally {
@@ -329,11 +265,6 @@ export async function POST(
     }
 
     logger.error("ORDERS", "Error confirming delivery", error, { orderId: id });
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

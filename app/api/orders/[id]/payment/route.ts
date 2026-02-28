@@ -7,6 +7,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -75,7 +76,7 @@ export async function POST(
       id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
-      key: process.env.RAZORPAY_KEY_ID,
+      key: env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
     logger.error("ORDERS", "Payment init error", error, { orderId: id });

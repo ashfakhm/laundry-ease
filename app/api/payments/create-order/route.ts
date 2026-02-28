@@ -6,8 +6,9 @@ import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { getDb } from "@/lib/mongodb";
 import { bookingPaymentInitSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
+import { errorResponse } from "@/lib/api/response";
 
 export async function POST(req: Request) {
   try {
@@ -21,12 +22,7 @@ export async function POST(req: Request) {
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const payload = await req.json();
@@ -50,33 +46,18 @@ export async function POST(req: Request) {
     });
 
     if (!booking) {
-      return NextResponse.json({
-        success: false,
-        error: "Booking not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     if (booking.status !== "requested") {
-      return NextResponse.json({
-        success: false,
-        error: "Booking fee can only be paid while booking is waiting for provider response."
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking fee can only be paid while booking is waiting for provider response."));
     }
 
     if (
       booking.bookingFeeStatus === "paid" ||
       booking.bookingFeeStatus === "applied"
     ) {
-      return NextResponse.json({
-        success: false,
-        error: "Booking fee already paid"
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking fee already paid"));
     }
 
     if (
@@ -155,11 +136,6 @@ export async function POST(req: Request) {
     }
 
     logger.error("PAYMENTS", "Razorpay order creation error", error);
-    return NextResponse.json({
-      success: false,
-      error: "Payment temporarily unavailable. Please try again later."
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Payment temporarily unavailable. Please try again later."));
   }
 }

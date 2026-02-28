@@ -96,6 +96,22 @@ export const PAYOUT_FAILURE_ALERT_THRESHOLD = 3;
 /** Alert when accepted/in-review complaints past deadline reach this count. */
 export const OVERDUE_COMPLAINTS_ALERT_THRESHOLD = 2;
 
+// ─── Rate Limiting ──────────────────────────────────────────────────────────
+
+/** Default rate limit window — standard API endpoints (ms). */
+export const RATE_LIMIT_DEFAULT_WINDOW_MS = 60 * 1000; // 1 minute
+
+/** Strict rate limit window — sensitive operations like accept/reject/cancel (ms). */
+export const RATE_LIMIT_STRICT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+// ─── Lock Timeouts ──────────────────────────────────────────────────────────
+
+/** Refund lock timeout — max duration a refund lock is held before considered stale (ms). */
+export const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Payout lock TTL — max duration a payout processing lock is held (ms). */
+export const PAYOUT_LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 // ─── Cron Job Tracking ──────────────────────────────────────────────────────
 
 /** Names of all registered cron jobs — used for health checks. */

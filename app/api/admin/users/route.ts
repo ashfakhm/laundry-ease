@@ -1,8 +1,8 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { enforceRateLimit } from "@/lib/api/security";
 import { WithId } from "mongodb";
@@ -75,11 +75,6 @@ export async function GET(req: Request) {
 
     const { logger } = await import("@/lib/logger");
     logger.error("ADMIN_USERS", "Error fetching users", error);
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

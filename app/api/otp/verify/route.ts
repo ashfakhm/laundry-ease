@@ -1,8 +1,8 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { otpVerifySchema } from "@/lib/api/schemas";
 import { verifyOtp } from "@/lib/otp";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { logger } from "@/lib/logger";
 
@@ -53,11 +53,6 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error("OTP", "Error verifying OTP", error);
-    return NextResponse.json({
-      success: false,
-      error: "Failed to verify OTP"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to verify OTP"));
   }
 }

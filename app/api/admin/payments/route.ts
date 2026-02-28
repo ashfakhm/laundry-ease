@@ -6,9 +6,10 @@ import { logger } from "@/lib/logger";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { initiateOrderPayout } from "@/lib/payouts";
 import type { Order } from "@/types/orders";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import { errorResponse } from "@/lib/api/response";
 
 function toObjectId(value: unknown): ObjectId | null {
   if (value instanceof ObjectId) return value;
@@ -115,12 +116,7 @@ export async function GET(req: Request) {
     }
 
     logger.error("ADMIN_PAYMENTS", "Error fetching payments", error);
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }
 
@@ -149,12 +145,7 @@ export async function POST(req: Request) {
 
     const { orderId, action, amount, reason } = parsed.data;
     if (!ObjectId.isValid(orderId)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid order ID"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order ID"));
     }
 
     const { db } = await getDb();
@@ -163,12 +154,7 @@ export async function POST(req: Request) {
       _id: orderObjectId,
     });
     if (!order) {
-      return NextResponse.json({
-        success: false,
-        error: "Order not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     if (action === "release_payout") {
@@ -225,41 +211,21 @@ export async function POST(req: Request) {
       }
 
       if (!["paid", "held", "released"].includes(order.payment_status)) {
-        return NextResponse.json({
-          success: false,
-          error: "Order payment is not in a refundable state"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order payment is not in a refundable state"));
       }
 
       if (order.payout_id && order.payout_status !== "failed") {
-        return NextResponse.json({
-          success: false,
-          error: "Cannot auto-refund after payout has been initiated. Resolve manually with provider recovery."
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot auto-refund after payout has been initiated. Resolve manually with provider recovery."));
       }
 
       if (!order.razorpay_payment_id) {
-        return NextResponse.json({
-          success: false,
-          error: "Payment reference missing on order"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Payment reference missing on order"));
       }
 
       const refundAmount =
         typeof amount === "number" ? amount : Number(order.total_price || 0);
       if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
-        return NextResponse.json({
-          success: false,
-          error: "Invalid refund amount"
-        }, {
-          status: 400
-        });
+        return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid refund amount"));
       }
 
       const refund = await refundRazorpayPayment(
@@ -306,12 +272,7 @@ export async function POST(req: Request) {
     }
 
     if (typeof amount !== "number" || !reason) {
-      return NextResponse.json({
-        success: false,
-        error: "Penalty amount and reason are required"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Penalty amount and reason are required"));
     }
 
     await db.collection<Order>("orders").updateOne(
@@ -356,11 +317,6 @@ export async function POST(req: Request) {
     }
 
     logger.error("ADMIN_PAYMENTS", "Error in admin payment action", error);
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

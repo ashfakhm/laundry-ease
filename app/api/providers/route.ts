@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 import { calculateDistance } from "@/lib/distance";
 import { geocodeLocationText } from "@/lib/geocoding";
 
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
       ? Math.max(1, Math.min(Math.floor(rawLimit), 100))
       : 50;
 
-    const debug = process.env.PROVIDER_SEARCH_DEBUG === "true";
+    const debug = env.PROVIDER_SEARCH_DEBUG === "true";
     if (debug) {
       logger.debug("PROVIDER_SEARCH", "Search params", {
         location,
@@ -43,8 +44,7 @@ export async function GET(req: NextRequest) {
 
     // Build query filter
     const baseFilter: Record<string, unknown> = {};
-    const hasPartialCoords =
-      (latParam && !lngParam) || (!latParam && lngParam);
+    const hasPartialCoords = (latParam && !lngParam) || (!latParam && lngParam);
     if (hasPartialCoords) {
       return NextResponse.json(
         {
@@ -56,7 +56,9 @@ export async function GET(req: NextRequest) {
 
     // Optional seeker-side search radius (provider-side radius is always enforced below)
     const radiusParam = searchParams.get("radius");
-    let maxRadiusKm: number | null = radiusParam ? parseFloat(radiusParam) : null;
+    let maxRadiusKm: number | null = radiusParam
+      ? parseFloat(radiusParam)
+      : null;
     if (maxRadiusKm !== null && (isNaN(maxRadiusKm) || maxRadiusKm <= 0)) {
       return NextResponse.json(
         { error: "Invalid radius. Must be a positive number." },

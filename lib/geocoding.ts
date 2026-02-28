@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 
 type Coordinates = { lat: number; lng: number };
 
@@ -28,17 +29,17 @@ function isValidCoordinatePair(value: unknown): value is Coordinates {
 }
 
 export async function geocodeLocationText(
-  locationText: string
+  locationText: string,
 ): Promise<Coordinates | null> {
   const query = locationText.trim();
   if (!query) return null;
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     logger.warn(
       "GEOCODING",
       "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing. Skipping geocode.",
-      { locationText: query }
+      { locationText: query },
     );
     return null;
   }

@@ -1,10 +1,10 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireProvider } from "@/lib/api/auth";
 import { invoiceCreateSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { logger } from "@/lib/logger";
 
 /**
@@ -21,20 +21,10 @@ export async function POST(
 
     const { id } = await params;
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid booking ID"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking ID"));
     }
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const body = await req.json();
@@ -57,33 +47,18 @@ export async function POST(
       _id: bookingId,
     });
     if (!booking) {
-      return NextResponse.json({
-        success: false,
-        error: "Booking not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     if (String(booking.provider_id) !== user.id) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 403
-      });
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
     }
 
     if (
       booking.status !== "confirmed" &&
       booking.status !== "invoice_created"
     ) {
-      return NextResponse.json({
-        success: false,
-        error: "Invoice can only be created for confirmed bookings"
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Invoice can only be created for confirmed bookings"));
     }
 
     const calculatedSubtotal = parsed.data.items.reduce(
@@ -152,11 +127,6 @@ export async function POST(
     }
 
     logger.error("INVOICES", "Error creating invoice", error);
-    return NextResponse.json({
-      success: false,
-      error: "Failed to create invoice"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to create invoice"));
   }
 }

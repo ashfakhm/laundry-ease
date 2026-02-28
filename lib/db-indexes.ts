@@ -1,5 +1,6 @@
 import { Db } from "mongodb";
 import { logger } from "./logger";
+import { env } from "./env";
 
 type IndexSpec = {
   collection: string;
@@ -251,7 +252,7 @@ type IndexCreateResult = {
 function isIndexFailFastEnabled(): boolean {
   return (
     process.env.NODE_ENV === "production" &&
-    process.env.ALLOW_START_WITH_INDEX_ERRORS !== "1"
+    env.ALLOW_START_WITH_INDEX_ERRORS !== "1"
   );
 }
 

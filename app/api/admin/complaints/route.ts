@@ -1,8 +1,8 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
@@ -103,11 +103,6 @@ export async function GET(req: Request) {
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error fetching complaints", error);
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

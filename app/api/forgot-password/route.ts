@@ -5,9 +5,10 @@ import { createHash, randomBytes } from "crypto";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { forgotPasswordSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
+import { errorResponse } from "@/lib/api/response";
 
 const GENERIC_RESPONSE = {
   message: "If an account exists, a reset link has been sent.",
@@ -25,12 +26,7 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = forgotPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Valid email is required"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Valid email is required"));
     }
 
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
@@ -108,11 +104,6 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error("AUTH", "Forgot password error", error);
-    return NextResponse.json({
-      success: false,
-      error: "An error occurred. Please try again later."
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "An error occurred. Please try again later."));
   }
 }

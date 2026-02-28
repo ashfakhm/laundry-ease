@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { ObjectId } from "mongodb";
@@ -6,7 +7,7 @@ import { buildAlertAnalytics } from "@/lib/ops/alerts-analytics";
 import { alertAgeMinutes, isAckSlaBreached } from "@/lib/ops/ack-sla";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { enforceRateLimit } from "@/lib/api/security";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import {
   CRITICAL_ALERT_ACK_SLA_MS,
   HIGH_ALERT_ACK_SLA_MS,
@@ -388,49 +389,57 @@ export async function GET(req: Request) {
         };
       });
 
-    return NextResponse.json({
-      success: true,
-      criticalSystemAlerts,
-      highSystemAlerts,
-      systemAlertCount: criticalSystemAlerts + highSystemAlerts,
-      unacknowledgedCriticalSystemAlerts,
-      unacknowledgedHighSystemAlerts,
+    return NextResponse.json(
+      {
+        success: true,
+        criticalSystemAlerts,
+        highSystemAlerts,
+        systemAlertCount: criticalSystemAlerts + highSystemAlerts,
+        unacknowledgedCriticalSystemAlerts,
+        unacknowledgedHighSystemAlerts,
 
-      unacknowledgedSystemAlertCount:
-        unacknowledgedCriticalSystemAlerts + unacknowledgedHighSystemAlerts,
+        unacknowledgedSystemAlertCount:
+          unacknowledgedCriticalSystemAlerts + unacknowledgedHighSystemAlerts,
 
-      ackSlaBreachedCriticalSystemAlerts,
-      ackSlaBreachedHighSystemAlerts,
+        ackSlaBreachedCriticalSystemAlerts,
+        ackSlaBreachedHighSystemAlerts,
 
-      ackSlaBreachedSystemAlertCount:
-        ackSlaBreachedCriticalSystemAlerts + ackSlaBreachedHighSystemAlerts,
+        ackSlaBreachedSystemAlertCount:
+          ackSlaBreachedCriticalSystemAlerts + ackSlaBreachedHighSystemAlerts,
 
-      operationalHealth,
-      recentSystemAlerts,
-      openComplaints,
-      activeComplaints,
-      escrowBalance,
-      activeProviders,
-      totalProviders,
-      providerUtilizationPct,
-      totalOrders,
-      totalRevenue,
-      recentActiveComplaints
-    }, {
-      status: 200
-    });
+        operationalHealth,
+        recentSystemAlerts,
+        openComplaints,
+        activeComplaints,
+        escrowBalance,
+        activeProviders,
+        totalProviders,
+        providerUtilizationPct,
+        totalOrders,
+        totalRevenue,
+        recentActiveComplaints,
+      },
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
 
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+          ...(error.details
+            ? {
+                details: error.details,
+              }
+            : {}),
+        },
+        {
+          status: error.statusCode || 400,
+        },
+      );
     }
 
     logger.error(
@@ -438,11 +447,8 @@ export async function GET(req: Request) {
       "Error fetching admin dashboard stats",
       error,
     );
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
+    );
   }
 }

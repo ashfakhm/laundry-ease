@@ -9,6 +9,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
 import { paymentVerifySchema } from "@/lib/api/schemas";
+import { PLATFORM_COMMISSION_RATE } from "@/lib/constants";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -486,7 +487,7 @@ export async function PUT(
     const total_price =
       processedItems.reduce((acc, item) => acc + item.line_total, 0) +
       delivery_charge;
-    const platform_commission = total_price * 0.05;
+    const platform_commission = total_price * PLATFORM_COMMISSION_RATE;
     const provider_payout_amount = total_price - platform_commission;
 
     const now = new Date();

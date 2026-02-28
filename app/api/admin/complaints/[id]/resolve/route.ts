@@ -11,9 +11,10 @@ import { logger } from "@/lib/logger";
 import { adminComplaintResolveSchema } from "@/lib/api/schemas";
 import { initiateOrderPayout } from "@/lib/payouts";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import { errorResponse } from "@/lib/api/response";
 
 const EPSILON = 0.01;
 const PAISE_MULTIPLIER = 100;
@@ -187,12 +188,7 @@ export async function POST(
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid complaint id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint id"));
     }
 
     const { outcome, seeker_refund_amount } = parsed.data;
@@ -203,32 +199,17 @@ export async function POST(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return NextResponse.json({
-        success: false,
-        error: "Not Found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Not Found"));
     }
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return NextResponse.json({
-        success: false,
-        error: "Complaint has already been finalized"
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Complaint has already been finalized"));
     }
 
     const orderId = complaint.order_id;
     const order = await getOrderById(orderId);
     if (!order) {
-      return NextResponse.json({
-        success: false,
-        error: "Order Not Found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order Not Found"));
     }
 
     const { providerPayoutAmountPaise, platformCommissionPaise } =
@@ -243,12 +224,7 @@ export async function POST(
       outcome !== "release_payout" &&
       outcome !== "reject"
     ) {
-      return NextResponse.json({
-        success: false,
-        error: "Order has no distributable amount remaining for complaint settlement."
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order has no distributable amount remaining for complaint settlement."));
     }
 
     let settlement;
@@ -615,11 +591,6 @@ export async function POST(
     logger.error("ADMIN_COMPLAINTS", "Error resolving dispute", error, {
       complaintId: id,
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal Error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
   }
 }

@@ -5,10 +5,11 @@ import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { Role } from "@/types/enums";
 import { refundRazorpayPayment } from "@/lib/razorpay";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateCancellationPolicy } from "@/lib/bookings/cancellation-policy";
 import { requireAuth } from "@/lib/api/auth";
+import { errorResponse } from "@/lib/api/response";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -33,33 +34,18 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid booking id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"));
     }
     const booking_id = new ObjectId(id);
 
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json({
-        success: false,
-        error: "Booking not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     if (booking.status === "cancelled") {
@@ -88,21 +74,11 @@ export async function POST(
 
     if (isProvider) {
       if (booking.provider_id.toString() !== user.id) {
-        return NextResponse.json({
-          success: false,
-          error: "Unauthorized"
-        }, {
-          status: 403
-        });
+        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
       }
 
       if (booking.arrivedAt) {
-        return NextResponse.json({
-          success: false,
-          error: "Provider cannot cancel after marking arrival"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Provider cannot cancel after marking arrival"));
       }
 
       cancelledBy = "provider";
@@ -115,12 +91,7 @@ export async function POST(
       ];
     } else {
       if (booking.seeker_id.toString() !== user.id) {
-        return NextResponse.json({
-          success: false,
-          error: "Unauthorized"
-        }, {
-          status: 403
-        });
+        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
       }
       cancelledBy = "seeker";
       allowedStatuses = [
@@ -132,12 +103,7 @@ export async function POST(
       ];
 
       if (pickupSlotTime && now >= pickupSlotTime) {
-        return NextResponse.json({
-          success: false,
-          error: "Seeker can cancel only before the booked slot time."
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Seeker can cancel only before the booked slot time."));
       }
     }
 
@@ -173,12 +139,7 @@ export async function POST(
     let shouldMarkRefunded = false;
     if (shouldAttemptRefund) {
       if (!booking.razorpay_payment_id) {
-        return NextResponse.json({
-          success: false,
-          error: "Cannot cancel with refund: payment reference missing. Please contact support."
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot cancel with refund: payment reference missing. Please contact support."));
       }
 
       const lockCutoff = new Date(Date.now() - REFUND_LOCK_TIMEOUT_MS);
@@ -219,20 +180,10 @@ export async function POST(
             !Number.isNaN(lockAt.getTime()) &&
             Date.now() - lockAt.getTime() < REFUND_LOCK_TIMEOUT_MS;
           if (lockIsFresh) {
-            return NextResponse.json({
-              success: false,
-              error: "Refund is already in progress for this booking."
-            }, {
-              status: 409
-            });
+            return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Refund is already in progress for this booking."));
           }
         }
-        return NextResponse.json({
-          success: false,
-          error: "Booking status changed. Please refresh and retry."
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking status changed. Please refresh and retry."));
       }
 
       try {
@@ -264,12 +215,7 @@ export async function POST(
             cancelledBy,
           },
         );
-        return NextResponse.json({
-          success: false,
-          error: "Refund could not be processed right now, so booking was not cancelled. Please retry."
-        }, {
-          status: 502
-        });
+        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 502, "Refund could not be processed right now, so booking was not cancelled. Please retry."));
       }
     }
 
@@ -392,11 +338,6 @@ export async function POST(
     logger.error("BOOKINGS", "Error cancelling booking", error, {
       bookingId: id,
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

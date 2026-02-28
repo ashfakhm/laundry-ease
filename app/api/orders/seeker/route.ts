@@ -1,9 +1,9 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireSeeker } from "@/lib/api/auth";
 
 /**
@@ -14,12 +14,7 @@ export async function GET() {
   try {
     const { user } = await requireSeeker();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const { db } = await getDb();
@@ -27,12 +22,7 @@ export async function GET() {
     const seeker = await db.collection("seekers").findOne({ _id: seekerId });
 
     if (!seeker) {
-      return NextResponse.json({
-        success: false,
-        error: "Seeker not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Seeker not found"));
     }
 
     // Fetch all orders for this seeker
@@ -82,11 +72,6 @@ export async function GET() {
     }
 
     logger.error("ORDERS", "Error fetching seeker orders", error);
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

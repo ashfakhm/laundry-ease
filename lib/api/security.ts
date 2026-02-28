@@ -1,6 +1,7 @@
 import type { Collection } from "mongodb";
 import { AppError, ErrorCode, Errors } from "./errors";
 import { logger } from "../logger";
+import { env } from "../env";
 import {
   collectAllowedOriginsFromRequest,
   extractRequestOrigin,
@@ -38,7 +39,7 @@ export type RateLimitResult = {
 };
 
 export function extractClientIp(req: Request): string {
-  if (process.env.TRUST_PROXY !== "true") {
+  if (env.TRUST_PROXY !== "true") {
     return "127.0.0.1";
   }
 
@@ -76,9 +77,9 @@ export function collectAllowedOrigins(req: Request): string[] {
     requestUrl: req.url,
     headers: req.headers,
     envOrigins: [
-      process.env.NEXT_PUBLIC_APP_URL,
-      process.env.NEXT_PUBLIC_BASE_URL,
-      process.env.NEXTAUTH_URL,
+      env.NEXT_PUBLIC_APP_URL,
+      env.NEXT_PUBLIC_BASE_URL,
+      env.NEXTAUTH_URL,
     ],
   });
 }

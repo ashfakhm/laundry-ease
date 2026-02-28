@@ -3,9 +3,10 @@ import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 export async function DELETE(
   req: Request,
@@ -21,45 +22,25 @@ export async function DELETE(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid booking id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"));
     }
 
     const session = await requireSeeker();
 
     if (!session || !session.user) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const booking_id = new ObjectId(id);
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json({
-        success: false,
-        error: "Booking not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     // Only seeker can delete their own booking
     if (booking.seeker_id.toString() !== session.user.id) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 403
-      });
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
     }
 
     // Validation: Can only delete if Cancelled or Rejected
@@ -91,12 +72,7 @@ export async function DELETE(
           orderId: associatedOrder._id.toString(),
         }
       );
-      return NextResponse.json({
-        success: false,
-        error: "Cannot delete booking: An order exists for this booking. Please cancel the order first."
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Cannot delete booking: An order exists for this booking. Please cancel the order first."));
     }
 
     // Safe to delete - no associated order
@@ -105,19 +81,9 @@ export async function DELETE(
       .deleteOne({ _id: booking_id });
 
     if (deleteResult.deletedCount === 1) {
-      return NextResponse.json({
-        success: true,
-        message: "Booking deleted successfully"
-      }, {
-        status: 200
-      });
+      return successResponse({ message: "Booking deleted successfully" });
     } else {
-      return NextResponse.json({
-        success: false,
-        error: "Failed to delete booking"
-      }, {
-        status: 500
-      });
+      return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to delete booking"));
     }
   } catch (error) {
     if (error instanceof AppError) {
@@ -136,11 +102,6 @@ export async function DELETE(
     logger.error("BOOKINGS", "Error deleting booking", error, {
       bookingId: id,
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

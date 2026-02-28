@@ -54,9 +54,16 @@ const envSchema = z.object({
 
   // Security Hardening
   CSP_ENFORCE: z.enum(["true", "false"]).optional().default("false"),
+  CSP_ALLOW_UNSAFE_EVAL: z.enum(["true", "false"]).optional().default("false"),
   ADMIN_ALLOWLIST_IPS: z.string().optional().or(z.literal("")),
   TRUST_PROXY: z.enum(["true", "false"]).optional().default("false"),
   DEBUG_LOGGING: z.enum(["true", "false"]).optional().default("false"),
+
+  // Feature Flags / Development
+  E2E_FAKE_PAYMENTS: z.enum(["0", "1"]).optional().default("0"),
+  PROVIDER_SEARCH_DEBUG: z.enum(["true", "false"]).optional().default("false"),
+  ALLOW_BASE64_UPLOAD_FALLBACK: z.enum(["0", "1"]).optional().default("0"),
+  ALLOW_START_WITH_INDEX_ERRORS: z.enum(["0", "1"]).optional().default("0"),
 });
 
 export const env = envSchema.parse(process.env);

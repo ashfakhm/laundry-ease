@@ -1,10 +1,10 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { bookingScheduleSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
 import { Role } from "@/types/enums";
@@ -24,12 +24,7 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const body = await req.json();
@@ -48,12 +43,7 @@ export async function POST(
     const { dateTime, action } = parsed.data;
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid booking id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"));
     }
     const bookingId = new ObjectId(id);
 
@@ -62,39 +52,19 @@ export async function POST(
 
     const booking = await db.collection("bookings").findOne(bookingQuery);
     if (!booking) {
-      return NextResponse.json({
-        success: false,
-        error: "Booking not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     // If seeker is confirming the slot
     if (action === "confirm") {
       if (user.role !== Role.SEEKER) {
-        return NextResponse.json({
-          success: false,
-          error: "Only seekers can confirm pickup slots"
-        }, {
-          status: 403
-        });
+        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Only seekers can confirm pickup slots"));
       }
       if (booking.seeker_id.toString() !== user.id) {
-        return NextResponse.json({
-          success: false,
-          error: "Unauthorized"
-        }, {
-          status: 403
-        });
+        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
       }
       if (booking.status !== "pickup_proposed") {
-        return NextResponse.json({
-          success: false,
-          error: "Slot can only be confirmed when pickup is proposed"
-        }, {
-          status: 400
-        });
+        return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Slot can only be confirmed when pickup is proposed"));
       }
       // Confirm the slot
       await db.collection("bookings").updateOne(bookingQuery, {
@@ -111,41 +81,21 @@ export async function POST(
 
     // Otherwise, provider proposes a slot
     if (user.role !== Role.PROVIDER) {
-      return NextResponse.json({
-        success: false,
-        error: "Only providers can propose pickup slots"
-      }, {
-        status: 403
-      });
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Only providers can propose pickup slots"));
     }
     if (!dateTime) {
-      return NextResponse.json({
-        success: false,
-        error: "Date and time required"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Date and time required"));
     }
 
     // Verify booking belongs to this provider
     if (booking.provider_id.toString() !== user.id) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 403
-      });
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
     }
     if (
       booking.status !== "accepted" &&
       booking.status !== "reschedule_requested"
     ) {
-      return NextResponse.json({
-        success: false,
-        error: "Slot can only be proposed for accepted bookings or reschedules"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Slot can only be proposed for accepted bookings or reschedules"));
     }
     // Validate slot time
     const now = new Date();
@@ -153,20 +103,10 @@ export async function POST(
     const minTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
     const deadline = booking.deadline ? new Date(booking.deadline) : null;
     if (slotTime < minTime) {
-      return NextResponse.json({
-        success: false,
-        error: "Pickup must be at least 2 hours from now"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Pickup must be at least 2 hours from now"));
     }
     if (deadline && slotTime > deadline) {
-      return NextResponse.json({
-        success: false,
-        error: "Pickup cannot be after seeker's deadline"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Pickup cannot be after seeker's deadline"));
     }
     // Update booking with proposed pickup time
     await db.collection("bookings").updateOne(bookingQuery, {
@@ -200,11 +140,6 @@ export async function POST(
     }
 
     logger.error("BOOKINGS", "Schedule pickup error", error, { bookingId: id });
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

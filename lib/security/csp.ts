@@ -1,3 +1,5 @@
+import { env } from "@/lib/env";
+
 const DEFAULT_REPORT_URI = "/api/security/csp-report";
 
 export type CspBuildOptions = {
@@ -12,7 +14,7 @@ function directive(name: string, values: string[]): string {
 export function buildCspPolicy(options: CspBuildOptions = {}): string {
   const reportUri = options.reportUri ?? DEFAULT_REPORT_URI;
   const enforce = options.enforce ?? false;
-  const allowUnsafeEval = process.env.CSP_ALLOW_UNSAFE_EVAL === "true";
+  const allowUnsafeEval = env.CSP_ALLOW_UNSAFE_EVAL === "true";
 
   const scriptSrc = [
     "'self'",
@@ -67,7 +69,7 @@ export function buildCspPolicy(options: CspBuildOptions = {}): string {
 }
 
 export function getCspHeader() {
-  const enforceFlag = process.env.CSP_ENFORCE;
+  const enforceFlag = env.CSP_ENFORCE;
   const enforce =
     enforceFlag === "true" ||
     (enforceFlag !== "false" && process.env.NODE_ENV === "production");

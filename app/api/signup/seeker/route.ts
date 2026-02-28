@@ -1,8 +1,9 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextRequest, NextResponse } from "next/server";
 import { emailExists, createSeeker } from "@/lib/db/index";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 import { signupSeekerSchema } from "@/lib/api/schemas";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 export async function POST(req: NextRequest) {
   const payload = await req.json();
@@ -23,23 +24,13 @@ export async function POST(req: NextRequest) {
   const emailOk = await isOtpVerifiedRecently(normalizedEmail, "email");
   const phoneOk = await isOtpVerifiedRecently(phone, "phone");
   if (!emailOk || !phoneOk) {
-    return NextResponse.json({
-      success: false,
-      error: "Email and phone must be verified via OTP"
-    }, {
-      status: 400
-    });
+    return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Email and phone must be verified via OTP"));
   }
 
   // Check if email already exists in any collection
   const exists = await emailExists(normalizedEmail);
   if (exists) {
-    return NextResponse.json({
-      success: false,
-      error: "Email already in use"
-    }, {
-      status: 409
-    });
+    return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Email already in use"));
   }
 
   // Create seeker in seekers collection

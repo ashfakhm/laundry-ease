@@ -5,9 +5,10 @@ import { Order } from "@/types/orders";
 import { logger } from "@/lib/logger";
 import { orderScheduleDeliverySchema } from "@/lib/api/schemas";
 import { Role } from "@/types/enums";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 // POST /api/orders/[id]/schedule-delivery
 export async function POST(
@@ -26,21 +27,11 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Unauthorized"
-      }, {
-        status: 401
-      });
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid order id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id"));
     }
     const orderId = new ObjectId(id);
 
@@ -67,39 +58,19 @@ export async function POST(
       .findOne({ _id: orderId });
 
     if (!order) {
-      return NextResponse.json({
-        success: false,
-        error: "Order not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     if (action === "propose") {
       if (user.role !== Role.PROVIDER) {
-        return NextResponse.json({
-          success: false,
-          error: "Only providers can propose delivery"
-        }, {
-          status: 403
-        });
+        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Only providers can propose delivery"));
       }
       if (order.provider_id.toString() !== user.id) {
-        return NextResponse.json({
-          success: false,
-          error: "Unauthorized"
-        }, {
-          status: 403
-        });
+        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
       }
 
       if (!dateTime)
-        return NextResponse.json({
-          success: false,
-          error: "Date required"
-        }, {
-          status: 400
-        });
+        return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Date required"));
       if ((order.process_status || "invoiced") !== "ready") {
         return NextResponse.json({
           success: true,
@@ -110,22 +81,12 @@ export async function POST(
         });
       }
       if (order.deliverySlot?.confirmedAt) {
-        return NextResponse.json({
-          success: false,
-          error: "Delivery slot is already confirmed"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Delivery slot is already confirmed"));
       }
 
       const proposedDate = new Date(dateTime);
       if (Number.isNaN(proposedDate.getTime())) {
-        return NextResponse.json({
-          success: false,
-          error: "Invalid date"
-        }, {
-          status: 400
-        });
+        return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid date"));
       }
 
       const updateResult = await db.collection<Order>("orders").updateOne(
@@ -142,35 +103,15 @@ export async function POST(
         }
       );
       if (updateResult.modifiedCount === 0) {
-        return NextResponse.json({
-          success: false,
-          error: "Order state changed while proposing delivery slot"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order state changed while proposing delivery slot"));
       }
-      return NextResponse.json({
-        success: true,
-        message: "Delivery proposed"
-      }, {
-        status: 200
-      });
+      return successResponse({ message: "Delivery proposed" });
     } else if (action === "confirm") {
       if (user.role !== Role.SEEKER) {
-        return NextResponse.json({
-          success: false,
-          error: "Only seekers can confirm delivery slots"
-        }, {
-          status: 403
-        });
+        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Only seekers can confirm delivery slots"));
       }
       if (order.seeker_id.toString() !== user.id) {
-        return NextResponse.json({
-          success: false,
-          error: "Unauthorized"
-        }, {
-          status: 403
-        });
+        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
       }
       if ((order.process_status || "invoiced") !== "ready") {
         return NextResponse.json({
@@ -183,27 +124,12 @@ export async function POST(
       }
 
       if (!order.deliverySlot)
-        return NextResponse.json({
-          success: false,
-          error: "No slot proposed"
-        }, {
-          status: 400
-        });
+        return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "No slot proposed"));
       if (order.deliverySlot.proposedBy !== "provider") {
-        return NextResponse.json({
-          success: false,
-          error: "Invalid delivery slot proposal"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Invalid delivery slot proposal"));
       }
       if (order.deliverySlot.confirmedAt) {
-        return NextResponse.json({
-          success: true,
-          message: "Delivery slot already confirmed"
-        }, {
-          status: 200
-        });
+        return successResponse({ message: "Delivery slot already confirmed" });
       }
 
       const updateResult = await db.collection<Order>("orders").updateOne(
@@ -221,29 +147,12 @@ export async function POST(
         }
       );
       if (updateResult.modifiedCount === 0) {
-        return NextResponse.json({
-          success: false,
-          error: "Order state changed while confirming delivery slot"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order state changed while confirming delivery slot"));
       }
-      return NextResponse.json({
-        success: true,
-
-        message:
-          "Delivery slot confirmed. Provider can now move order to out_for_delivery."
-      }, {
-        status: 200
-      });
+      return successResponse({ message: "Delivery slot confirmed. Provider can now move order to out_for_delivery." });
     }
 
-    return NextResponse.json({
-      success: false,
-      error: "Invalid action"
-    }, {
-      status: 400
-    });
+    return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid action"));
   } catch (error: unknown) {
     if (error instanceof AppError) {
       return NextResponse.json({
@@ -259,11 +168,6 @@ export async function POST(
     }
 
     logger.error("ORDERS", "Scheduling error", error, { orderId: id, action });
-    return NextResponse.json({
-      success: false,
-      error: "Internal Server Error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Server Error"));
   }
 }

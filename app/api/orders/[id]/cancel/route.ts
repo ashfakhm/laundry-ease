@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getOrderById, cancelOrder } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
+import { successResponse, errorResponse } from "@/lib/api/response";
 
 const CANCELLATION_FEE = 1000; // 10 currency units
 
@@ -24,51 +25,26 @@ export async function POST(
     const { user } = await requireSeeker();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid order id"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id"));
     }
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json({
-        success: false,
-        error: "Order not found"
-      }, {
-        status: 404
-      });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     if (order.seeker_id.toString() !== user.id) {
-      return NextResponse.json({
-        success: false,
-        error: "You are not authorized to cancel this order"
-      }, {
-        status: 403
-      });
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "You are not authorized to cancel this order"));
     }
 
     if (order.payment_status !== "unpaid") {
-      return NextResponse.json({
-        success: false,
-        error: "Cannot cancel an order that has been paid"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Cannot cancel an order that has been paid"));
     }
 
     if (order.cancellation_status) {
-      return NextResponse.json({
-        success: false,
-        error: "Order has already been cancelled"
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Order has already been cancelled"));
     }
 
     const success = await cancelOrder(
@@ -78,19 +54,9 @@ export async function POST(
     );
 
     if (success) {
-      return NextResponse.json({
-        success: true,
-        message: "Order cancelled successfully"
-      }, {
-        status: 200
-      });
+      return successResponse({ message: "Order cancelled successfully" });
     } else {
-      return NextResponse.json({
-        success: false,
-        error: "Failed to cancel order"
-      }, {
-        status: 500
-      });
+      return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to cancel order"));
     }
   } catch (error) {
     if (error instanceof AppError) {
@@ -107,11 +73,6 @@ export async function POST(
     }
 
     logger.error("ORDERS", "Error cancelling order", error, { orderId: id });
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, {
-      status: 500
-    });
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }
