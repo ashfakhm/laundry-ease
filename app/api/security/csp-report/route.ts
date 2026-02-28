@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { errorResponse } from "@/lib/api/response";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit } from "@/lib/api/security";
 
 const MAX_STRING_LENGTH = 500;
@@ -69,20 +69,15 @@ export async function POST(req: Request) {
       report: sanitizePayload(report),
     });
 
-    return new NextResponse(null, { status: 204 });
+    return new Response(null, { status: 204 });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("SECURITY", "Failed to process CSP report", error);
-    return NextResponse.json({ success: false, ok: false, message: "Internal server error" , error: { code: "ERROR", message: "Internal server error"  } }, { status: 500 });
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
+    );
   }
 }
-

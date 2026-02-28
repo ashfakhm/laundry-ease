@@ -1,5 +1,4 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
@@ -47,13 +46,8 @@ export async function POST(
 
     // Check if provider already has access
     if (complaint.provider_access_granted) {
-      return NextResponse.json({
-        success: true,
-        idempotent: true,
-        message: "Provider already added"
-      }, {
-        status: 200
-      });
+      return successResponse({ idempotent: true,
+        message: "Provider already added" });
     }
 
     if (!ObjectId.isValid(String(complaint.provider_id))) {
@@ -96,16 +90,7 @@ export async function POST(
     }, 200);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error(

@@ -1,5 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { otpVerifySchema } from "@/lib/api/schemas";
 import { verifyOtp } from "@/lib/otp";
 import { AppError, ErrorCode } from "@/lib/api/errors";
@@ -18,38 +18,18 @@ export async function POST(req: NextRequest) {
     const json = await req.json();
     const parsed = otpVerifySchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid params",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid params", parsed));
     }
 
     const { target, type, code } = parsed.data;
     const res = await verifyOtp(target, type, code);
-    if (!res.ok) return NextResponse.json({
-      success: false,
-      error: res.error || "Invalid OTP"
-    }, {
-      status: 400
-    });
+    if (!res.ok) return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, res.error || "Invalid OTP"));
     return successResponse({
       success: true
     }, 200);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("OTP", "Error verifying OTP", error);

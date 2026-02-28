@@ -14,7 +14,7 @@ import { derivePayoutAmounts } from "@/lib/payouts/amounts";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 
 const EPSILON = 0.01;
 const PAISE_MULTIPLIER = 100;
@@ -178,13 +178,7 @@ export async function POST(
     const parsed = adminComplaintResolveSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid resolution data",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid resolution data", parsed));
     }
 
     if (!ObjectId.isValid(id)) {
@@ -237,12 +231,7 @@ export async function POST(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Invalid settlement amount";
-      return NextResponse.json({
-        success: false,
-        error: message
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, message));
     }
 
     const seekerRefundAmount = settlement.seekerRefundAmount;
@@ -557,9 +546,7 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      outcome: resolved.dbOutcome,
+    return successResponse({ outcome: resolved.dbOutcome,
       status: resolved.dbStatus,
       payoutPendingManual,
       refundPendingManual,
@@ -570,22 +557,10 @@ export async function POST(
         provider_payout_amount: providerPayoutAmount,
         platform_commission: round2(platformCommission),
         distributable_amount: normalizedDistributableAmount,
-      }
-    }, {
-      status: 200
-    });
+      } });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error resolving dispute", error, {

@@ -1,5 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { emailExists, createSeeker } from "@/lib/db/index";
 import { isOtpVerifiedRecently } from "@/lib/otp";
 import { signupSeekerSchema } from "@/lib/api/schemas";
@@ -9,13 +9,7 @@ export async function POST(req: NextRequest) {
   const payload = await req.json();
   const parsed = signupSeekerSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({
-      success: false,
-      error: "Invalid data",
-      details: parsed.error.flatten()
-    }, {
-      status: 400
-    });
+    return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid data", parsed));
   }
   const { name, email, password, phone, address, coordinates } = parsed.data;
   const normalizedEmail = email.trim().toLowerCase();

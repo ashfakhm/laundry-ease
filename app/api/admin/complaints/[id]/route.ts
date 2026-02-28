@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { adminComplaintStatusSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
@@ -25,15 +26,7 @@ export async function PATCH(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid complaint id",
-          error: { code: "ERROR", message: "Invalid complaint id" },
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint id"));
     }
 
     await requireAdminWithDbCheck();
@@ -65,40 +58,18 @@ export async function PATCH(
       .updateOne({ _id: new ObjectId(id) }, { $set: { status } });
 
     if (result.matchedCount === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Complaint not found",
-          error: { code: "ERROR", message: "Complaint not found" },
-        },
-        { status: 404 },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
     }
 
-    return NextResponse.json({ ok: true, success: true }, { status: 200 });
+    return successResponse({ ok: true });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error updating complaint", error, {
       complaintId: id,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        ok: false,
-        message: "Internal server error",
-        error: { code: "ERROR", message: "Internal server error" },
-      },
-      { status: 500 },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

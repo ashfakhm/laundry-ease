@@ -1,5 +1,4 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
 import { AppError, ErrorCode } from "@/lib/api/errors";
@@ -61,16 +60,7 @@ export async function GET(req: Request) {
     return successResponse(users);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     const { logger } = await import("@/lib/logger");

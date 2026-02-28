@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
@@ -46,11 +48,12 @@ export async function GET(req: NextRequest) {
     const baseFilter: Record<string, unknown> = {};
     const hasPartialCoords = (latParam && !lngParam) || (!latParam && lngParam);
     if (hasPartialCoords) {
-      return NextResponse.json(
-        {
-          error: "Both lat and lng must be provided together.",
-        },
-        { status: 400 },
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Both lat and lng must be provided together.",
+        ),
       );
     }
 
@@ -60,9 +63,12 @@ export async function GET(req: NextRequest) {
       ? parseFloat(radiusParam)
       : null;
     if (maxRadiusKm !== null && (isNaN(maxRadiusKm) || maxRadiusKm <= 0)) {
-      return NextResponse.json(
-        { error: "Invalid radius. Must be a positive number." },
-        { status: 400 },
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid radius. Must be a positive number.",
+        ),
       );
     }
 
@@ -82,12 +88,12 @@ export async function GET(req: NextRequest) {
         lng < -180 ||
         lng > 180
       ) {
-        return NextResponse.json(
-          {
-            error:
-              "Invalid coordinates. Latitude must be -90 to 90, Longitude must be -180 to 180.",
-          },
-          { status: 400 },
+        return errorResponse(
+          new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            400,
+            "Invalid coordinates. Latitude must be -90 to 90, Longitude must be -180 to 180.",
+          ),
         );
       }
 
@@ -107,15 +113,12 @@ export async function GET(req: NextRequest) {
           );
         }
 
-        return NextResponse.json(
-          {
-            providers: [],
-            total: 0,
-            warning:
-              "Unable to resolve location into coordinates. Please select a precise location.",
-          },
-          { status: 200 },
-        );
+        return successResponse({
+          providers: [],
+          total: 0,
+          warning:
+            "Unable to resolve location into coordinates. Please select a precise location.",
+        });
       }
 
       if (debug) {
@@ -333,18 +336,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(
-      {
-        providers,
-        total: providers.length,
-      },
-      { status: 200 },
-    );
+    return successResponse({
+      providers,
+      total: providers.length,
+    });
   } catch (error) {
     logger.error("PROVIDER_SEARCH", "Error fetching providers", error);
-    return NextResponse.json(
-      { error: "Failed to fetch providers" },
-      { status: 500 },
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to fetch providers"),
     );
   }
 }

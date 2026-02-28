@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getOrderById } from "@/lib/db/index";
 import { buildConfirmDeliveryUpdateFields } from "@/lib/db/orders";
 import { ObjectId } from "mongodb";
@@ -6,7 +7,7 @@ import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 import { requireProvider } from "@/lib/api/auth";
@@ -34,15 +35,7 @@ export async function POST(
     const { user } = await requireProvider();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid order id",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id"));
     }
 
     const json = await req.json().catch(() => null);
@@ -64,44 +57,20 @@ export async function POST(
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order not found",
-        },
-        {
-          status: 404,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     if (order.provider_id.toString() !== user.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        {
-          status: 403,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
     }
 
     if ((order.process_status || "invoiced") === "delivered") {
-      return NextResponse.json(
-        {
-          success: true,
-          message: "Delivery already confirmed",
+      return successResponse({ message: "Delivery already confirmed",
           idempotent: true,
 
           deadlineCompensationApplied:
             order.payment_status === "refunded" ||
-            Boolean(order.deadline_compensated_at),
-        },
-        {
-          status: 200,
-        },
-      );
+            Boolean(order.deadline_compensated_at) });
     }
 
     if ((order.process_status || "invoiced") !== "out_for_delivery") {
@@ -125,15 +94,7 @@ export async function POST(
       order.payment_status !== "held" &&
       order.payment_status !== "released"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order must be paid before confirming delivery",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Order must be paid before confirming delivery"));
     }
 
     const { otp } = parsed.data;
@@ -148,15 +109,7 @@ export async function POST(
         !Number.isNaN(expiryDate.getTime()) &&
         expiryDate.getTime() <= nowMs
       ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "OTP expired. Please resend OTP.",
-          },
-          {
-            status: 410,
-          },
-        );
+        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 410, "OTP expired. Please resend OTP."));
       }
     } else if (otpSentAt) {
       const sentDate = new Date(otpSentAt);
@@ -164,42 +117,18 @@ export async function POST(
         !Number.isNaN(sentDate.getTime()) &&
         sentDate.getTime() + DELIVERY_OTP_TTL_MS <= nowMs
       ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "OTP expired. Please resend OTP.",
-          },
-          {
-            status: 410,
-          },
-        );
+        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 410, "OTP expired. Please resend OTP."));
       }
     }
 
     // Verify OTP exactly as stored on the order using bcrypt
     if (!order.delivery_otp) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid OTP",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid OTP"));
     }
     const bcrypt = await import("bcrypt");
     const isOtpValid = await bcrypt.compare(otp, order.delivery_otp);
     if (!isOtpValid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid OTP",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid OTP"));
     }
 
     const now = new Date();
@@ -221,18 +150,8 @@ export async function POST(
     const { deadlineBreached, shouldRefund } = compensationDecision;
 
     if (compensationDecision.blocked) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error:
-            compensationDecision.blockedMessage ||
-            "Deadline compensation cannot be applied automatically.",
-        },
-        {
-          status: 409,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, compensationDecision.blockedMessage ||
+            "Deadline compensation cannot be applied automatically."));
     }
 
     const { db, client } = await getDb();
@@ -242,16 +161,7 @@ export async function POST(
       return await session.withTransaction(async () => {
         if (shouldRefund) {
           if (!order.razorpay_payment_id) {
-            return NextResponse.json(
-              {
-                success: false,
-                error:
-                  "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support.",
-              },
-              {
-                status: 409,
-              },
-            );
+            return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support."));
           }
 
           try {
@@ -271,16 +181,7 @@ export async function POST(
               error,
               { orderId: id },
             );
-            return NextResponse.json(
-              {
-                success: false,
-                error:
-                  "Deadline was missed, but refund could not be processed right now. Please retry.",
-              },
-              {
-                status: 502,
-              },
-            );
+            return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 502, "Deadline was missed, but refund could not be processed right now. Please retry."));
           }
         }
 
@@ -288,15 +189,7 @@ export async function POST(
           .collection("orders")
           .findOne({ _id: order_id }, { session });
         if (!orderCheck) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Failed to confirm delivery",
-            },
-            {
-              status: 500,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to confirm delivery"));
         }
 
         const setFields = buildConfirmDeliveryUpdateFields(orderCheck, now);
@@ -329,15 +222,7 @@ export async function POST(
         const success = res.modifiedCount > 0;
 
         if (!success) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Failed to confirm delivery",
-            },
-            {
-              status: 500,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to confirm delivery"));
         }
 
         if (deadlineBreached && !alreadyCompensated) {
@@ -351,21 +236,12 @@ export async function POST(
             },
           );
 
-          return NextResponse.json(
-            {
-              success: true,
-
-              message: shouldRefund
+          return successResponse({ message: shouldRefund
                 ? "Delivery confirmed. Deadline was missed and a full refund has been issued."
                 : "Delivery confirmed. Deadline was missed and marked for no-charge completion.",
 
               deadlineCompensationApplied: shouldRefund,
-              deadlineBreached: true,
-            },
-            {
-              status: 200,
-            },
-          );
+              deadlineBreached: true });
         }
 
         logger.info("ORDERS", "Delivery OTP verified by provider", {
@@ -373,49 +249,19 @@ export async function POST(
           providerId: user.id,
         });
 
-        return NextResponse.json(
-          {
-            success: true,
-            message: "Delivery confirmed",
-          },
-          {
-            status: 200,
-          },
-        );
+        return successResponse({ message: "Delivery confirmed" });
       });
     } finally {
       await session.endSession();
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("ORDERS", "Error verifying delivery OTP", error, {
       orderId: id,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Internal server error",
-      },
-      {
-        status: 500,
-      },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

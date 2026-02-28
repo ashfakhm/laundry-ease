@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { SignJWT } from "jose";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const JWT_SECRET = new TextEncoder().encode(env.NEXTAUTH_SECRET);
@@ -28,15 +28,7 @@ export async function POST(req: Request) {
     const payload = await req.json();
     const parsed = sendMagicLinkSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Valid email is required",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Valid email is required"));
     }
     const email = parsed.data.email;
 
@@ -47,15 +39,7 @@ export async function POST(req: Request) {
     const provider = await db.collection("providers").findOne({ email });
 
     if (!seeker && !provider) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not found",
-        },
-        {
-          status: 404,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "User not found"));
     }
 
     // Generate JWT token (valid for 24 hours) using jose
@@ -75,42 +59,13 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-      },
-      {
-        status: 200,
-      },
-    );
+    return successResponse({});
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("AUTH", "Send magic link error", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to send verification email",
-      },
-      {
-        status: 500,
-      },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to send verification email"));
   }
 }

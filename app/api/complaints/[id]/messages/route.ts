@@ -1,11 +1,11 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
 import { logger } from "@/lib/logger";
 import { complaintMessageSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { canAccessComplaintConversation } from "@/lib/complaints/access";
 import { requireAuth } from "@/lib/api/auth";
@@ -49,42 +49,18 @@ export async function GET(
   try {
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id) || !user.role) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Unauthorized",
-          error: { code: "ERROR", message: "Unauthorized" },
-        },
-        { status: 401 },
-      );
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid complaint ID",
-          error: { code: "ERROR", message: "Invalid complaint ID" },
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"));
     }
 
     const requestUrl = new URL(req.url);
     const sinceRaw = requestUrl.searchParams.get("since");
     const since = parseSinceParam(sinceRaw);
     if (sinceRaw && !since) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid since timestamp",
-          error: { code: "ERROR", message: "Invalid since timestamp" },
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid since timestamp"));
     }
     const limit = parseMessagesLimit(requestUrl.searchParams.get("limit"));
 
@@ -97,15 +73,7 @@ export async function GET(
       .collection<ComplaintAccessDoc>("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Complaint not found",
-          error: { code: "ERROR", message: "Complaint not found" },
-        },
-        { status: 404 },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
     }
 
     const access = canAccessComplaintConversation({
@@ -119,15 +87,7 @@ export async function GET(
       },
     });
     if (!access.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: access.error,
-          error: { code: "ERROR", message: access.error },
-        },
-        { status: 403 },
-      );
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, access.error));
     }
 
     // Fetch Messages
@@ -156,27 +116,13 @@ export async function GET(
     return successResponse(messages);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("COMPLAINTS", "Error fetching messages", error, {
       complaintId: id,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        ok: false,
-        message: "Internal Error",
-        error: { code: "ERROR", message: "Internal Error" },
-      },
-      { status: 500 },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
   }
 }
 
@@ -199,27 +145,11 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id) || !user.role) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Unauthorized",
-          error: { code: "ERROR", message: "Unauthorized" },
-        },
-        { status: 401 },
-      );
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid complaint ID",
-          error: { code: "ERROR", message: "Invalid complaint ID" },
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"));
     }
 
     const body = await req.json();
@@ -252,15 +182,7 @@ export async function POST(
       .collection<ComplaintAccessDoc>("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Complaint not found",
-          error: { code: "ERROR", message: "Complaint not found" },
-        },
-        { status: 404 },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
     }
 
     const access = canAccessComplaintConversation({
@@ -274,15 +196,7 @@ export async function POST(
       },
     });
     if (!access.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: access.error,
-          error: { code: "ERROR", message: access.error },
-        },
-        { status: 403 },
-      );
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, access.error));
     }
 
     // Construct Message
@@ -305,26 +219,12 @@ export async function POST(
     return successResponse(message, 201);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("COMPLAINTS", "Error creating message", error, {
       complaintId: id,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        ok: false,
-        message: "Internal Error",
-        error: { code: "ERROR", message: "Internal Error" },
-      },
-      { status: 500 },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
   }
 }

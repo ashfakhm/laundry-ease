@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -54,13 +53,8 @@ export async function PATCH(
 
     if (booking.status !== "requested") {
       if (booking.status === "rejected") {
-        return NextResponse.json({
-          success: true,
-          message: "Booking already rejected",
-          idempotent: true
-        }, {
-          status: 200
-        });
+        return successResponse({ message: "Booking already rejected",
+          idempotent: true });
       }
 
       return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Booking has already been acted upon"));
@@ -96,13 +90,8 @@ export async function PATCH(
     if (lockResult.modifiedCount === 0) {
       const latest = await db.collection("bookings").findOne({ _id: booking_id });
       if (latest?.status === "rejected") {
-        return NextResponse.json({
-          success: true,
-          message: "Booking already rejected",
-          idempotent: true
-        }, {
-          status: 200
-        });
+        return successResponse({ message: "Booking already rejected",
+          idempotent: true });
       }
       if (latest?.refund_in_progress_at) {
         const lockAt = new Date(latest.refund_in_progress_at);
@@ -192,13 +181,8 @@ export async function PATCH(
 
       const latestAfter = await db.collection("bookings").findOne({ _id: booking_id });
       if (latestAfter?.status === "rejected") {
-        return NextResponse.json({
-          success: true,
-          message: "Booking already rejected",
-          idempotent: true
-        }, {
-          status: 200
-        });
+        return successResponse({ message: "Booking already rejected",
+          idempotent: true });
       }
 
       return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking status changed during rejection. Refund has been processed; please refresh."));
@@ -207,16 +191,7 @@ export async function PATCH(
     return successResponse({ message: "Booking rejected and fee refunded" });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("BOOKINGS", "Error rejecting booking", error, {

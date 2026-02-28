@@ -1,5 +1,4 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -56,16 +55,7 @@ export async function GET() {
     return successResponse(enrichedBookings, 200);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("BOOKINGS", "Error fetching provider bookings", error);

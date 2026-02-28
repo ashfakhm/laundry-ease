@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { Provider } from "@/types/users";
 import {
@@ -38,13 +38,7 @@ export async function POST(req: NextRequest) {
     const payload = await req.json().catch(() => null);
     const parsed = bankDetailsPayloadSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Missing or invalid bank details",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Missing or invalid bank details", parsed));
     }
     const { bankDetails } = parsed.data;
 

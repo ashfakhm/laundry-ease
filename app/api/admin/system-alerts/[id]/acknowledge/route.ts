@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { adminSystemAlertAcknowledgeSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
@@ -38,7 +39,7 @@ export async function PATCH(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, ok: false, message: "Invalid alert id" , error: { code: "ERROR", message: "Invalid alert id"  } }, { status: 400 });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid alert id"));
     }
 
     const session = await requireAdminWithDbCheck();
@@ -75,14 +76,11 @@ export async function PATCH(
     );
 
     if (!alert) {
-      return NextResponse.json({ success: false, ok: false, message: "Alert not found" , error: { code: "ERROR", message: "Alert not found"  } }, { status: 404 });
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Alert not found"));
     }
 
     if (alert.status !== "open") {
-      return NextResponse.json(
-        { error: "Only open alerts can be acknowledged" },
-        { status: 409 },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Only open alerts can be acknowledged"));
     }
 
     const now = new Date();
@@ -117,21 +115,12 @@ export async function PATCH(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("ADMIN_ALERTS", "Failed to acknowledge system alert", error, {
       alertId: id,
     });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

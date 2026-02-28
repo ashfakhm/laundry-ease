@@ -1,5 +1,4 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireProvider } from "@/lib/api/auth";
@@ -30,13 +29,7 @@ export async function POST(
     const body = await req.json();
     const parsed = invoiceCreateSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid invoice data",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid invoice data", parsed));
     }
 
     const { db } = await getDb();
@@ -117,13 +110,7 @@ export async function POST(
     }, 200);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("INVOICES", "Error creating invoice", error);

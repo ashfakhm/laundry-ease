@@ -8,7 +8,7 @@ import { getDb } from "@/lib/mongodb";
 import { bookingPaymentInitSchema } from "@/lib/api/schemas";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 
 export async function POST(req: Request) {
   try {
@@ -28,13 +28,7 @@ export async function POST(req: Request) {
     const payload = await req.json();
     const parsed = bookingPaymentInitSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid booking payment request",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking payment request", parsed));
     }
 
     const bookingId = new ObjectId(parsed.data.bookingId);
@@ -83,15 +77,7 @@ export async function POST(req: Request) {
     const bookingFee = Number(booking.bookingFee || 0);
     const amount = Math.round(bookingFee * 100);
     if (!Number.isFinite(amount) || amount <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid booking fee amount",
-          error: { code: "ERROR", message: "Invalid booking fee amount" },
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking fee amount"));
     }
 
     const razorpay = new Razorpay({
@@ -115,24 +101,13 @@ export async function POST(req: Request) {
       },
     );
 
-    return NextResponse.json({
-      success: true,
-      orderId: order.id,
+    return successResponse({ orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      key: env.NEXT_PUBLIC_RAZORPAY_KEY_ID
-    }, {
-      status: 200
-    });
+      key: env.NEXT_PUBLIC_RAZORPAY_KEY_ID });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("PAYMENTS", "Razorpay order creation error", error);

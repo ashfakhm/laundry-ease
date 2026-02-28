@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
@@ -355,21 +356,7 @@ export async function POST(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("BOOKINGS", "Payment init error", error, { bookingId: id });
@@ -450,10 +437,7 @@ export async function PUT(
       if (existingOrder.razorpay_payment_id === razorpay_payment_id) {
         return NextResponse.json({ success: true, orderId: existingOrder._id });
       }
-      return NextResponse.json(
-        { success: false, error: "Order already exists for this booking" },
-        { status: 409 },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order already exists for this booking"));
     }
 
     const booking_coords = booking.seeker_coordinates;
@@ -529,21 +513,7 @@ export async function PUT(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("BOOKINGS", "Payment verification error", error, {

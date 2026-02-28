@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
@@ -7,7 +6,7 @@ import { adminComplaintAcceptSchema } from "@/lib/api/schemas";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 
 function getProviderDisplayName(
   provider?: {
@@ -87,12 +86,7 @@ export async function POST(
     // Known completed statuses that should not be re-accepted
     const completedStatuses = ["accepted", "in_review", "resolved", "rejected"];
     if (completedStatuses.includes(complaint.status)) {
-      return NextResponse.json({
-        success: false,
-        error: `Cannot accept complaint with status: ${complaint.status}`
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, `Cannot accept complaint with status: ${complaint.status}`));
     }
 
     // Calculate response deadline
@@ -166,25 +160,11 @@ export async function POST(
       notificationsCreated: notifications.length,
     });
 
-    return NextResponse.json({
-      success: true,
-      status: "accepted",
-      response_deadline: responseDeadline
-    }, {
-      status: 200
-    });
+    return successResponse({ status: "accepted",
+      response_deadline: responseDeadline });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error accepting complaint", error, {

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -47,12 +46,7 @@ export async function DELETE(
     // "completed" might be history we want to keep, but "cancelled"/"rejected" is often clutter.
     const allowedStatuses = ["cancelled", "rejected"];
     if (!allowedStatuses.includes(booking.status)) {
-      return NextResponse.json({
-        success: false,
-        error: `Cannot delete booking with status: ${booking.status}. Only Cancelled or Rejected bookings can be deleted.`
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, `Cannot delete booking with status: ${booking.status}. Only Cancelled or Rejected bookings can be deleted.`));
     }
 
     const { db } = await getDb();
@@ -87,16 +81,7 @@ export async function DELETE(
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("BOOKINGS", "Error deleting booking", error, {

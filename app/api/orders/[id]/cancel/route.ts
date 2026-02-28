@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getOrderById, cancelOrder } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -60,16 +59,7 @@ export async function POST(
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("ORDERS", "Error cancelling order", error, { orderId: id });

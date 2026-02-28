@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { revalidatePath } from "next/cache";
 import { getOrderById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
@@ -10,7 +11,7 @@ import {
   getAllowedNextStates,
   type OrderProcessStatus,
 } from "@/lib/orders/status-machine";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
@@ -32,42 +33,18 @@ export async function POST(
     const { user } = await requireProvider();
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid order id",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id"));
     }
 
     const order_id = new ObjectId(id);
     const order = await getOrderById(order_id);
 
     if (!order) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order not found",
-        },
-        {
-          status: 404,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     if (order.provider_id.toString() !== user.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        {
-          status: 403,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
     }
 
     // Work progression is blocked until payment is completed.
@@ -76,15 +53,7 @@ export async function POST(
       order.payment_status !== "held" &&
       order.payment_status !== "released"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order must be paid before updating workflow status",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Order must be paid before updating workflow status"));
     }
 
     const body = await req.json();
@@ -213,47 +182,17 @@ export async function POST(
 
     revalidatePath(`/seeker/orders/${id}`);
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Status updated successfully",
+    return successResponse({ message: "Status updated successfully",
         currentStatus: status,
-        allowedNextStates: getAllowedNextStates(status as OrderProcessStatus),
-      },
-      {
-        status: 200,
-      },
-    );
+        allowedNextStates: getAllowedNextStates(status as OrderProcessStatus) });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("ORDERS", "Error updating order status", error, {
       orderId: id,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Internal server error",
-      },
-      {
-        status: 500,
-      },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

@@ -29,13 +29,7 @@ export async function POST(req: NextRequest) {
     const json = await req.json();
     const parsed = otpRequestSchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid params",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid params", parsed));
     }
 
     const { target, type } = parsed.data;
@@ -64,16 +58,7 @@ export async function POST(req: NextRequest) {
     }, 200);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("OTP", "Error requesting OTP", error);

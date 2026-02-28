@@ -1,11 +1,11 @@
-import { successResponse } from "@/lib/api/response";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
 import { logger } from "@/lib/logger";
 import { adminComplaintAccessSchema } from "@/lib/api/schemas";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 
@@ -52,24 +52,15 @@ export async function PATCH(
       return successResponse({ error: "Not Found" }, 404);
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return NextResponse.json(
-        { error: "Cannot update provider access after complaint is finalized" },
-        { status: 409 },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot update provider access after complaint is finalized"));
     }
 
     if (granted && complaint.status !== "accepted" && complaint.status !== "in_review") {
-      return NextResponse.json(
-        { error: "Complaint must be accepted before granting provider access" },
-        { status: 409 },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Complaint must be accepted before granting provider access"));
     }
 
     if (!ObjectId.isValid(String(complaint.provider_id))) {
-      return NextResponse.json(
-        { error: "Complaint provider reference is invalid" },
-        { status: 409 },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Complaint provider reference is invalid"));
     }
     const providerObjectId = new ObjectId(String(complaint.provider_id));
 
@@ -108,13 +99,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, granted });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("ADMIN_COMPLAINTS", "Error updating access", error, {

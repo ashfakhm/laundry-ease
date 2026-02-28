@@ -155,16 +155,7 @@ export async function POST(
     return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid action"));
   } catch (error: unknown) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("ORDERS", "Scheduling error", error, { orderId: id, action });

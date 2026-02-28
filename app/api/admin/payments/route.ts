@@ -9,7 +9,7 @@ import type { Order } from "@/types/orders";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 
 function toObjectId(value: unknown): ObjectId | null {
   if (value instanceof ObjectId) return value;
@@ -95,24 +95,10 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({
-      success: true,
-      data: enrichedOrders
-    }, {
-      status: 200
-    });
+    return successResponse({ data: enrichedOrders });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("ADMIN_PAYMENTS", "Error fetching payments", error);
@@ -134,13 +120,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsed = actionSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Validation error",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Validation error", parsed));
     }
 
     const { orderId, action, amount, reason } = parsed.data;
@@ -191,23 +171,13 @@ export async function POST(req: Request) {
         at: new Date(),
       });
 
-      return NextResponse.json({
-        success: true,
-        result: payoutResult
-      }, {
-        status: 200
-      });
+      return successResponse({ result: payoutResult });
     }
 
     if (action === "refund") {
       if (order.payment_status === "refunded") {
-        return NextResponse.json({
-          success: true,
-          result: "already_refunded",
-          idempotent: true
-        }, {
-          status: 200
-        });
+        return successResponse({ result: "already_refunded",
+          idempotent: true });
       }
 
       if (!["paid", "held", "released"].includes(order.payment_status)) {
@@ -263,12 +233,7 @@ export async function POST(req: Request) {
         at: new Date(),
       });
 
-      return NextResponse.json({
-        success: true,
-        result: refund
-      }, {
-        status: 200
-      });
+      return successResponse({ result: refund });
     }
 
     if (typeof amount !== "number" || !reason) {
@@ -296,24 +261,10 @@ export async function POST(req: Request) {
       at: new Date(),
     });
 
-    return NextResponse.json({
-      success: true,
-      result: { status: "penalty_recorded", amount }
-    }, {
-      status: 200
-    });
+    return successResponse({ result: { status: "penalty_recorded", amount } });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("ADMIN_PAYMENTS", "Error in admin payment action", error);

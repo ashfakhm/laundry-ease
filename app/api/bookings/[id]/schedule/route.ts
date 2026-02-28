@@ -1,5 +1,4 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -31,13 +30,7 @@ export async function POST(
     const parsed = bookingScheduleSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid schedule data",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid schedule data", parsed));
     }
 
     const { dateTime, action } = parsed.data;
@@ -127,16 +120,7 @@ export async function POST(
     }, 200);
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("BOOKINGS", "Schedule pickup error", error, { bookingId: id });

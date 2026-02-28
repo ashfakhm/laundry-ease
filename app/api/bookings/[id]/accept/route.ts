@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getBookingById, acceptBookingWithCapacityCheck } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -8,7 +8,7 @@ import {
   createRazorpayFundAccount,
 } from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { PLATFORM_COMMISSION_RATE } from "@/lib/constants";
 
@@ -27,15 +27,7 @@ export async function PATCH(
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const { db } = await getDb();
@@ -44,27 +36,11 @@ export async function PATCH(
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Provider not found",
-        },
-        {
-          status: 404,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"));
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid booking id",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"));
     }
     const booking_id = new ObjectId(id);
 
@@ -72,28 +48,12 @@ export async function PATCH(
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Booking not found",
-        },
-        {
-          status: 404,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     // Ensure booking fee is paid before accepting
     if (booking.bookingFeeStatus !== "paid") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Booking fee must be paid before provider can accept",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Booking fee must be paid before provider can accept"));
     }
 
     // Check for Provider Payment Details (Mandatory)
@@ -140,28 +100,10 @@ export async function PATCH(
             bookingId: id,
             providerId: provider._id,
           });
-          return NextResponse.json(
-            {
-              success: false,
-              error:
-                "Payment setup failed. Please verify your bank details and try again.",
-            },
-            {
-              status: 400,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Payment setup failed. Please verify your bank details and try again."));
         }
       } else {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "You must complete your Payment/Bank Details in Profile before accepting bookings.",
-          },
-          {
-            status: 400,
-          },
-        );
+        return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "You must complete your Payment/Bank Details in Profile before accepting bookings."));
       }
     }
 
@@ -183,128 +125,42 @@ export async function PATCH(
       });
 
       if (updatedBooking) {
-        return NextResponse.json(
-          {
-            success: true,
-            message: "Booking accepted",
-          },
-          {
-            status: 200,
-          },
-        );
+        return successResponse({ message: "Booking accepted" });
       } else {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Failed to accept booking",
-          },
-          {
-            status: 500,
-          },
-        );
+        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to accept booking"));
       }
     } catch (error) {
       // Handle specific error types from the atomic operation
       if (error instanceof Error) {
         if (error.message.startsWith("BOOKING_NOT_FOUND:")) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Booking not found",
-            },
-            {
-              status: 404,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
         }
         if (error.message.startsWith("UNAUTHORIZED:")) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "You are not authorized to accept this booking",
-            },
-            {
-              status: 403,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "You are not authorized to accept this booking"));
         }
         if (error.message.startsWith("ALREADY_PROCESSED:")) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Booking has already been acted upon",
-            },
-            {
-              status: 400,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Booking has already been acted upon"));
         }
         if (error.message.startsWith("CAPACITY_EXCEEDED:")) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Provider has reached maximum booking capacity",
-            },
-            {
-              status: 400,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Provider has reached maximum booking capacity"));
         }
         if (error.message.startsWith("PAYMENT_NOT_SETTLED:")) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Booking payment has not been settled yet",
-            },
-            {
-              status: 409,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking payment has not been settled yet"));
         }
         if (error.message.startsWith("REFUND_IN_PROGRESS:")) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "A refund is currently being processed for this booking",
-            },
-            {
-              status: 409,
-            },
-          );
+          return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "A refund is currently being processed for this booking"));
         }
       }
       throw error;
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("BOOKINGS", "Error accepting booking", error, {
       bookingId: id,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Internal server error",
-      },
-      {
-        status: 500,
-      },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import bcrypt from "bcrypt";
 import { createHash } from "crypto";
@@ -9,7 +10,7 @@ import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/auth/password-policy";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { resetPasswordSchema } from "@/lib/api/schemas";
 
@@ -40,15 +41,7 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = resetPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Token and password are required",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Token and password are required"));
     }
 
     const { token, password } = parsed.data;
@@ -62,15 +55,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!isStrongPassword(password)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: PASSWORD_POLICY_MESSAGE,
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, PASSWORD_POLICY_MESSAGE));
     }
 
     const { db } = await getDb();
@@ -84,15 +69,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (!resetDoc) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid or expired reset link",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid or expired reset link"));
     }
 
     const collection = roleToCollection(resetDoc.role);
@@ -111,15 +88,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (userUpdate.modifiedCount === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Could not update password",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Could not update password"));
     }
 
     await db.collection("password_reset_tokens").updateOne(
@@ -142,43 +111,13 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Password reset successful",
-      },
-      {
-        status: 200,
-      },
-    );
+    return successResponse({ message: "Password reset successful" });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("AUTH", "Reset password error", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "An error occurred. Please try again later.",
-      },
-      {
-        status: 500,
-      },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "An error occurred. Please try again later."));
   }
 }

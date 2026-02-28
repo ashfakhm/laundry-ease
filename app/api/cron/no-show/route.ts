@@ -1,9 +1,8 @@
-import { NextResponse } from "next/server";
 import { checkNoShows } from "@/cron/no-show-check";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
 export async function GET(req: Request) {
@@ -25,12 +24,7 @@ export async function GET(req: Request) {
 
     await completeCronRun(run.insertedId, "success", results);
 
-    return NextResponse.json({
-      success: true,
-      results
-    }, {
-      status: 200
-    });
+    return successResponse({ results });
   } catch (error) {
     await completeCronRun(run.insertedId, "error", undefined, error);
     logger.error("CRON", "No-show cron job failed", error);

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { getUserByEmail } from "@/lib/db/index";
 import { createHash, randomBytes } from "crypto";
@@ -8,7 +8,7 @@ import { forgotPasswordSchema } from "@/lib/api/schemas";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 
 const GENERIC_RESPONSE = {
   message: "If an account exists, a reset link has been sent.",
@@ -46,12 +46,7 @@ export async function POST(req: NextRequest) {
 
     // Keep response generic to avoid account enumeration.
     if (!user?._id || !user.passwordHash) {
-      return NextResponse.json({
-        success: true,
-        message: GENERIC_RESPONSE.message
-      }, {
-        status: 200
-      });
+      return successResponse({ message: GENERIC_RESPONSE.message });
     }
 
     const resetToken = randomBytes(32).toString("hex");
@@ -83,24 +78,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: GENERIC_RESPONSE.message
-    }, {
-      status: 200
-    });
+    return successResponse({ message: GENERIC_RESPONSE.message });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("AUTH", "Forgot password error", error);

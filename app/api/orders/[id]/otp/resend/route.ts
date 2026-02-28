@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getOrderById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
 import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
@@ -45,14 +46,8 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid order id",
-        },
-        {
-          status: 400,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id"),
       );
     }
 
@@ -64,26 +59,14 @@ export async function POST(
     )) as OrderWithDeliveryOtpMeta | null;
 
     if (!order) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order not found",
-        },
-        {
-          status: 404,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"),
       );
     }
 
     if (order.provider_id.toString() !== user.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        {
-          status: 403,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
       );
     }
 
@@ -106,14 +89,8 @@ export async function POST(
       .findOne({ _id: order.seeker_id });
 
     if (!seeker?.email) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Seeker email not found",
-        },
-        {
-          status: 400,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Seeker email not found"),
       );
     }
 
@@ -142,14 +119,12 @@ export async function POST(
 
     const resendCount = Number(order.delivery_otp_resend_count ?? 0);
     if (resendCount >= MAX_RESENDS) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "OTP resend limit reached. Please contact support.",
-        },
-        {
-          status: 429,
-        },
+      return errorResponse(
+        new AppError(
+          ErrorCode.RATE_LIMITED,
+          429,
+          "OTP resend limit reached. Please contact support.",
+        ),
       );
     }
 
@@ -179,14 +154,8 @@ export async function POST(
         orderId: id,
         to: maskEmail(String(seeker.email)),
       });
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to send OTP email",
-        },
-        {
-          status: 502,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.INTERNAL_ERROR, 502, "Failed to send OTP email"),
       );
     }
 
@@ -207,47 +176,21 @@ export async function POST(
       },
     );
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "OTP resent",
-        otpExpiresAt: otpExpiresAt.toISOString(),
-        resendCount: resendCount + 1,
-      },
-      {
-        status: 200,
-      },
-    );
+    return successResponse({
+      message: "OTP resent",
+      otpExpiresAt: otpExpiresAt.toISOString(),
+      resendCount: resendCount + 1,
+    });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("ORDERS", "Error resending delivery OTP", error, {
       orderId: id,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Internal server error",
-      },
-      {
-        status: 500,
-      },
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
     );
   }
 }

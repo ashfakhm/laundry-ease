@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import {
   Db,
@@ -71,7 +71,10 @@ async function finalizeInvoiceReviewWithCompensation({
   bookingId,
   orderData,
   now,
-}: Omit<FinalizeInvoiceReviewInput, "client">): Promise<FinalizeInvoiceReviewResult> {
+}: Omit<
+  FinalizeInvoiceReviewInput,
+  "client"
+>): Promise<FinalizeInvoiceReviewResult> {
   let insertedOrderId: ObjectId | null = null;
   try {
     const insertResult = await db.collection("orders").insertOne(orderData);
@@ -117,7 +120,10 @@ async function finalizeInvoiceReviewWithCompensation({
     const latestBooking = await db
       .collection("bookings")
       .findOne({ _id: bookingId });
-    if (latestBooking?.order_id && ObjectId.isValid(String(latestBooking.order_id))) {
+    if (
+      latestBooking?.order_id &&
+      ObjectId.isValid(String(latestBooking.order_id))
+    ) {
       return { orderId: new ObjectId(String(latestBooking.order_id)) };
     }
 
@@ -177,7 +183,10 @@ async function finalizeInvoiceReviewWithTransaction({
         const latestBooking = await db
           .collection("bookings")
           .findOne({ _id: bookingId }, { session });
-        if (latestBooking?.order_id && ObjectId.isValid(String(latestBooking.order_id))) {
+        if (
+          latestBooking?.order_id &&
+          ObjectId.isValid(String(latestBooking.order_id))
+        ) {
           outcome = { orderId: new ObjectId(String(latestBooking.order_id)) };
           return;
         }
@@ -261,23 +270,28 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json({ success: false, ok: false, message: "Invalid booking id" , error: { code: "ERROR", message: "Invalid booking id"  } }, { status: 400 });
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"),
+      );
     }
 
     const { user } = await requireSeeker();
     if (!ObjectId.isValid(user.id)) {
-      return NextResponse.json({ success: false, ok: false, message: "Unauthorized" , error: { code: "ERROR", message: "Unauthorized"  } }, { status: 401 });
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     const body = await req.json();
     const parsed = invoiceReviewSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid invoice review data",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 },
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid invoice review data",
+          parsed.error.flatten().fieldErrors,
+        ),
       );
     }
 
@@ -290,13 +304,18 @@ export async function POST(
     const booking = await db.collection("bookings").findOne({ _id: bookingId });
 
     if (!booking) {
-      return NextResponse.json({ success: false, ok: false, message: "Booking not found" , error: { code: "ERROR", message: "Booking not found"  } }, { status: 404 });
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
+      );
     }
 
     if (booking.seeker_id.toString() !== user.id) {
-      return NextResponse.json(
-        { error: "Unauthorized access to this booking" },
-        { status: 403 },
+      return errorResponse(
+        new AppError(
+          ErrorCode.FORBIDDEN,
+          403,
+          "Unauthorized access to this booking",
+        ),
       );
     }
 
@@ -306,12 +325,14 @@ export async function POST(
         const existing = await db
           .collection("orders")
           .findOne({ booking_id: bookingId });
-        if (existing)
-          return NextResponse.json({ success: true, orderId: existing._id });
+        if (existing) return successResponse({ orderId: existing._id });
       }
-      return NextResponse.json(
-        { error: "Booking is not in invoice review state" },
-        { status: 400 },
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Booking is not in invoice review state",
+        ),
       );
     }
 
@@ -330,7 +351,7 @@ export async function POST(
           },
         },
       );
-      return NextResponse.json({ success: true, status: "rejected" });
+      return successResponse({ status: "rejected" });
     }
 
     // HANDLE APPROVAL -> CREATE ORDER (transaction-first with fallback compensation)
@@ -343,10 +364,13 @@ export async function POST(
           total?: number;
         }
       | undefined;
-    if (!invoice || !Array.isArray(invoice.items) || invoice.items.length === 0) {
-      return NextResponse.json(
-        { error: "Invoice data missing" },
-        { status: 500 },
+    if (
+      !invoice ||
+      !Array.isArray(invoice.items) ||
+      invoice.items.length === 0
+    ) {
+      return errorResponse(
+        new AppError(ErrorCode.INTERNAL_ERROR, 500, "Invoice data missing"),
       );
     }
 
@@ -363,7 +387,10 @@ export async function POST(
     // Calculate totals
     const subtotal =
       invoice.subtotal ||
-      orderItems.reduce((sum: number, i: { line_total: number }) => sum + i.line_total, 0);
+      orderItems.reduce(
+        (sum: number, i: { line_total: number }) => sum + i.line_total,
+        0,
+      );
     const discount = invoice.discount || 0;
     const total = invoice.total || Math.max(0, subtotal - discount);
 
@@ -392,26 +419,18 @@ export async function POST(
       now: new Date(),
     });
 
-    return NextResponse.json({
-      success: true,
+    return successResponse({
       orderId,
       status: "approved",
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("INVOICES", "Invoice review error", error, { bookingId: id });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
     );
   }
 }

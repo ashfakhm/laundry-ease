@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { ObjectId } from "mongodb";
@@ -389,10 +388,7 @@ export async function GET(req: Request) {
         };
       });
 
-    return NextResponse.json(
-      {
-        success: true,
-        criticalSystemAlerts,
+    return successResponse({ criticalSystemAlerts,
         highSystemAlerts,
         systemAlertCount: criticalSystemAlerts + highSystemAlerts,
         unacknowledgedCriticalSystemAlerts,
@@ -417,29 +413,10 @@ export async function GET(req: Request) {
         providerUtilizationPct,
         totalOrders,
         totalRevenue,
-        recentActiveComplaints,
-      },
-      {
-        status: 200,
-      },
-    );
+        recentActiveComplaints });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error(

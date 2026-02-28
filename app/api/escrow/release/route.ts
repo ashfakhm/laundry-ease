@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { processEligibleEscrowPayouts } from "@/lib/payouts";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
 export async function POST(req: NextRequest) {
@@ -24,14 +24,9 @@ export async function POST(req: NextRequest) {
       source: "escrow_release_endpoint",
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Escrow payout processing completed",
+    return successResponse({ message: "Escrow payout processing completed",
       processed: result.processed,
-      results: result.results
-    }, {
-      status: 200
-    });
+      results: result.results });
   } catch (error: unknown) {
     logger.error("ESCROW", "Error processing escrow payouts", error);
     return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));

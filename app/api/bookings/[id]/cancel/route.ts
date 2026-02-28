@@ -9,7 +9,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateCancellationPolicy } from "@/lib/bookings/cancellation-policy";
 import { requireAuth } from "@/lib/api/auth";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 
 const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -49,13 +49,8 @@ export async function POST(
     }
 
     if (booking.status === "cancelled") {
-      return NextResponse.json({
-        success: true,
-        message: "Booking already cancelled",
-        idempotent: true
-      }, {
-        status: 200
-      });
+      return successResponse({ message: "Booking already cancelled",
+        idempotent: true });
     }
 
     const body = await req.json().catch(() => null);
@@ -108,12 +103,7 @@ export async function POST(
     }
 
     if (!allowedStatuses.includes(booking.status)) {
-      return NextResponse.json({
-        success: false,
-        error: `Cannot cancel booking with status: ${booking.status}. Contact support.`
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, `Cannot cancel booking with status: ${booking.status}. Contact support.`));
     }
 
     const policy = evaluateCancellationPolicy({
@@ -124,12 +114,7 @@ export async function POST(
     });
 
     if (!policy.allowed) {
-      return NextResponse.json({
-        success: false,
-        error: policy.message || "Cancellation is not allowed."
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, policy.message || "Cancellation is not allowed."));
     }
 
     const shouldAttemptRefund = policy.refundAction === "refund";
@@ -166,13 +151,8 @@ export async function POST(
           .collection("bookings")
           .findOne({ _id: booking_id });
         if (latest?.status === "cancelled") {
-          return NextResponse.json({
-            success: true,
-            message: "Booking already cancelled",
-            idempotent: true
-          }, {
-            status: 200
-          });
+          return successResponse({ message: "Booking already cancelled",
+            idempotent: true });
         }
         if (latest?.refund_in_progress_at) {
           const lockAt = new Date(latest.refund_in_progress_at);
@@ -250,17 +230,11 @@ export async function POST(
     );
 
     if (result.modifiedCount === 1) {
-      return NextResponse.json({
-        success: true,
-
-        message: shouldMarkRefunded
+      return successResponse({ message: shouldMarkRefunded
           ? "Booking cancelled and booking fee refunded"
           : shouldForfeitFee
             ? "Booking cancelled. Same-day cancellation is non-refundable."
-            : "Booking cancelled successfully"
-      }, {
-        status: 200
-      });
+            : "Booking cancelled successfully" });
     }
 
     const latest = await db.collection("bookings").findOne({ _id: booking_id });
@@ -301,13 +275,8 @@ export async function POST(
       .collection("bookings")
       .findOne({ _id: booking_id });
     if (latestAfter?.status === "cancelled") {
-      return NextResponse.json({
-        success: true,
-        message: "Booking already cancelled",
-        idempotent: true
-      }, {
-        status: 200
-      });
+      return successResponse({ message: "Booking already cancelled",
+        idempotent: true });
     }
 
     return NextResponse.json({
@@ -323,16 +292,7 @@ export async function POST(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("BOOKINGS", "Error cancelling booking", error, {

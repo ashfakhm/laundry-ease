@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
@@ -33,26 +35,18 @@ export async function GET(req: NextRequest) {
       "CRON",
       "CRON_SECRET not configured - integrity audit endpoint disabled",
     );
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Cron endpoint not configured",
-      },
-      {
-        status: 503,
-      },
+    return errorResponse(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        503,
+        "Cron endpoint not configured",
+      ),
     );
   }
 
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized",
-      },
-      {
-        status: 401,
-      },
+    return errorResponse(
+      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
     );
   }
 
@@ -306,25 +300,14 @@ export async function GET(req: NextRequest) {
       severitySummary,
     });
 
-    return NextResponse.json(
-      {
-        ...result,
-      },
-      {
-        status: 200,
-      },
-    );
+    return successResponse({
+      ...result,
+    });
   } catch (error) {
     await completeCronRun(run.insertedId, "error", undefined, error);
     logger.error("CRON", "Integrity audit failed", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Integrity audit failed",
-      },
-      {
-        status: 500,
-      },
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Integrity audit failed"),
     );
   }
 }

@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { getDb } from "@/lib/mongodb";
 import { jwtVerify, JWTPayload } from "jose";
 import { logger } from "@/lib/logger";
@@ -16,14 +17,8 @@ export async function POST(req: Request) {
     const { token } = await req.json();
 
     if (!token) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Token is required",
-        },
-        {
-          status: 400,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Token is required"),
       );
     }
 
@@ -33,14 +28,12 @@ export async function POST(req: Request) {
       const { payload } = await jwtVerify(token, JWT_SECRET);
       decoded = payload as EmailVerificationTokenPayload;
     } catch {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid or expired token",
-        },
-        {
-          status: 400,
-        },
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid or expired token",
+        ),
       );
     }
 
@@ -49,28 +42,16 @@ export async function POST(req: Request) {
       typeof decoded.email !== "string" ||
       typeof decoded.type !== "string"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid token payload",
-        },
-        {
-          status: 400,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid token payload"),
       );
     }
 
     const { email, type } = decoded;
 
     if (type !== "email_verification") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid token type",
-        },
-        {
-          status: 400,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid token type"),
       );
     }
 
@@ -81,14 +62,8 @@ export async function POST(req: Request) {
     const provider = await db.collection("providers").findOne({ email });
 
     if (!seeker && !provider) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not found",
-        },
-        {
-          status: 404,
-        },
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "User not found"),
       );
     }
 
@@ -105,24 +80,11 @@ export async function POST(req: Request) {
         .updateOne({ email }, { $set: { emailVerified: true } });
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-      },
-      {
-        status: 200,
-      },
-    );
+    return successResponse({});
   } catch (error) {
     logger.error("AUTH", "Email verification error", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Internal server error",
-      },
-      {
-        status: 500,
-      },
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
     );
   }
 }

@@ -62,17 +62,12 @@ export async function POST(
     }
 
     if ((order.process_status || "invoiced") === "delivered") {
-      return NextResponse.json({
-        success: true,
-        message: "Delivery already confirmed",
+      return successResponse({ message: "Delivery already confirmed",
         idempotent: true,
 
         deadlineCompensationApplied:
           order.payment_status === "refunded" ||
-          Boolean(order.deadline_compensated_at)
-      }, {
-        status: 200
-      });
+          Boolean(order.deadline_compensated_at) });
     }
 
     if ((order.process_status || "invoiced") !== "out_for_delivery") {
@@ -147,14 +142,8 @@ export async function POST(
     const { deadlineBreached, shouldRefund } = compensationDecision;
 
     if (compensationDecision.blocked) {
-      return NextResponse.json({
-        success: false,
-
-        error: compensationDecision.blockedMessage ||
-          "Deadline compensation cannot be applied automatically."
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, compensationDecision.blockedMessage ||
+          "Deadline compensation cannot be applied automatically."));
     }
 
     const { db, client } = await getDb();
@@ -228,18 +217,12 @@ export async function POST(
         if (success) {
           revalidatePath(`/seeker/orders/${id}`);
           if (deadlineBreached && !alreadyCompensated) {
-            return NextResponse.json({
-              success: true,
-
-              message: shouldRefund
+            return successResponse({ message: shouldRefund
                 ? "Delivery confirmed. Deadline was missed and a full refund has been issued."
                 : "Delivery confirmed. Deadline was missed and marked for no-charge completion.",
 
               deadlineCompensationApplied: shouldRefund,
-              deadlineBreached: true
-            }, {
-              status: 200
-            });
+              deadlineBreached: true });
           }
 
           return successResponse({ message: "Delivery confirmed, escrow started" });
@@ -252,16 +235,7 @@ export async function POST(
     }
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json({
-        success: false,
-        error: error.message,
-
-        ...(error.details ? {
-          details: error.details
-        } : {})
-      }, {
-        status: error.statusCode || 400
-      });
+      return errorResponse(error);
     }
 
     logger.error("ORDERS", "Error confirming delivery", error, { orderId: id });

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { canAccessComplaintConversation } from "@/lib/complaints/access";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { Role } from "@/types/enums";
 import { requireAuth } from "@/lib/api/auth";
 
@@ -16,27 +17,11 @@ export async function GET(
   try {
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id) || !user.role) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Unauthorized",
-          error: { code: "ERROR", message: "Unauthorized" },
-        },
-        { status: 401 },
-      );
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid complaint ID",
-          error: { code: "ERROR", message: "Invalid complaint ID" },
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"));
     }
 
     const { db } = await getDb();
@@ -46,15 +31,7 @@ export async function GET(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Complaint not found",
-          error: { code: "ERROR", message: "Complaint not found" },
-        },
-        { status: 404 },
-      );
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
     }
 
     const access = canAccessComplaintConversation({
@@ -69,15 +46,7 @@ export async function GET(
     });
 
     if (!access.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Access Denied",
-          error: { code: "ERROR", message: "Access Denied" },
-        },
-        { status: 403 },
-      );
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Access Denied"));
     }
 
     const [seeker, provider] = await Promise.all([
@@ -145,26 +114,12 @@ export async function GET(
     });
   } catch (error) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-        { status: error.statusCode },
-      );
+      return errorResponse(error);
     }
 
     logger.error("COMPLAINTS", "Error fetching complaint", error, {
       complaintId: id,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        ok: false,
-        message: "Internal Error",
-        error: { code: "ERROR", message: "Internal Error" },
-      },
-      { status: 500 },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
   }
 }

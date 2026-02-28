@@ -1,5 +1,6 @@
-import { successResponse } from "@/lib/api/response";
-import { NextRequest, NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { AppError, ErrorCode } from "@/lib/api/errors";
+import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -16,9 +17,8 @@ export async function GET(
   try {
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: "Invalid provider ID" },
-        { status: 400 },
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid provider ID"),
       );
     }
 
@@ -39,9 +39,8 @@ export async function GET(
     );
 
     if (!provider) {
-      return NextResponse.json(
-        { error: "Provider not found" },
-        { status: 404 },
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"),
       );
     }
 
@@ -50,9 +49,8 @@ export async function GET(
     logger.error("PROVIDER", "Error fetching provider", error, {
       providerId: id,
     });
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
     );
   }
 }

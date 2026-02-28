@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
 import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
-import { AppError } from "@/lib/api/errors";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireAuth } from "@/lib/api/auth";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { ObjectId } from "mongodb";
@@ -37,15 +38,7 @@ export async function POST(req: NextRequest) {
 
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
     }
 
     const formData = await req.formData();
@@ -53,54 +46,22 @@ export async function POST(req: NextRequest) {
     const folder = (formData.get("folder") as string) || "provider-images";
 
     if (!file) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No file provided",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "No file provided"));
     }
     if (!/^[a-zA-Z0-9/_-]{1,80}$/.test(folder)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid folder name",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid folder name"));
     }
 
     // Validate file type
     const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid file type. Only JPG, PNG, and WebP are allowed.",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid file type. Only JPG, PNG, and WebP are allowed."));
     }
 
     // Validate file size (5MB max)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "File too large. Maximum size is 5MB.",
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "File too large. Maximum size is 5MB."));
     }
 
     // Convert file to buffer
@@ -141,54 +102,16 @@ export async function POST(req: NextRequest) {
       const base64 = buffer.toString("base64");
       imageUrl = `data:${file.type};base64,${base64}`;
     } else {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Image upload service is unavailable. Please try again later.",
-        },
-        {
-          status: 503,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 503, "Image upload service is unavailable. Please try again later."));
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        url: imageUrl,
-      },
-      {
-        status: 200,
-      },
-    );
+    return successResponse({ url: imageUrl });
   } catch (error: unknown) {
     if (error instanceof AppError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-
-          ...(error.details
-            ? {
-                details: error.details,
-              }
-            : {}),
-        },
-        {
-          status: error.statusCode || 400,
-        },
-      );
+      return errorResponse(error);
     }
 
     logger.error("UPLOAD", "Image upload error", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to upload image",
-      },
-      {
-        status: 500,
-      },
-    );
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to upload image"));
   }
 }
