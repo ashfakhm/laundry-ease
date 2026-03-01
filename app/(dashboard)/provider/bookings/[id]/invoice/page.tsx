@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { InvoiceForm } from "@/components/providers/invoice-form";
-import BookingChat from "../Chat";
+import BookingChat from "@/components/chat-interface";
 import { requireProvider } from "@/lib/api/auth";
 
 export default async function CreateInvoicePage({
