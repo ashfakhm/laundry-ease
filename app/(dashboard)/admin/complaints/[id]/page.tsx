@@ -7,6 +7,7 @@ import Link from "next/link";
 import ComplaintChat from "@/components/complaint-chat";
 import { showToast } from "@/lib/toast";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 
 type Params = Promise<{ id: string }>;
 
@@ -85,7 +86,8 @@ export default function AdminComplaintDetailPage({
     try {
       const res = await fetch(`/api/complaints/${id}`);
       if (res.ok) {
-        const data = await res.json();
+        const payload = await res.json();
+        const data = unwrapApiData<ComplaintData>(payload);
         setComplaint(data);
         setSeekerRefundAmount(0);
       } else {
@@ -150,9 +152,42 @@ export default function AdminComplaintDetailPage({
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const responsePayload = await res.json();
 
       if (res.ok) {
+        const data = unwrapApiData<{
+          settlement?: {
+            seeker_refund_amount?: number;
+            provider_payout_amount?: number;
+          };
+          payoutPendingManual?: boolean;
+          refundPendingManual?: boolean;
+          manualTransferDetails?: {
+            provider?: {
+              name?: string;
+              upiId?: string;
+              accountNumber?: string;
+              ifsc?: string;
+              accountHolderName?: string;
+              email?: string;
+              phone?: string;
+            };
+            seeker?: {
+              name?: string;
+              paymentMethod?: string;
+              vpa?: string;
+              bank?: string;
+              wallet?: string;
+              card?: {
+                network?: string;
+                last4?: string;
+                issuer?: string;
+              } | null;
+              email?: string;
+              phone?: string;
+            };
+          };
+        }>(responsePayload);
         const settlement = data?.settlement;
         if (settlement) {
           showToast.success(
@@ -207,7 +242,7 @@ export default function AdminComplaintDetailPage({
         router.push("/admin/complaints");
       } else {
         showToast.error(
-          getApiErrorMessage(data, "Failed to resolve complaint"),
+          getApiErrorMessage(responsePayload, "Failed to resolve complaint"),
         );
       }
     } catch (error) {

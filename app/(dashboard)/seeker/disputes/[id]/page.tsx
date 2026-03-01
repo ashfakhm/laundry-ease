@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { Complaint } from "@/types/complaints";
 import ComplaintChat from "@/components/complaint-chat";
 import { cn } from "@/lib/utils";
+import { unwrapApiData } from "@/lib/client-api";
 
 export default function DisputeDetailPage({
   params,
@@ -24,7 +25,8 @@ export default function DisputeDetailPage({
           if (res.status === 403) throw new Error("Access Denied");
           throw new Error("Failed to load dispute");
         }
-        const data = await res.json();
+        const payload = await res.json();
+        const data = unwrapApiData<Complaint>(payload);
         setComplaint(data);
       } catch (err: unknown) {
         const message =

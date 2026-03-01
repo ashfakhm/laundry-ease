@@ -46,7 +46,7 @@ import { getProviderOrders } from "@/app/actions/order-actions";
 import { getProviderProfile } from "@/app/actions/profile-actions";
 
 export default function InvoiceGenerationPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
@@ -79,10 +79,14 @@ export default function InvoiceGenerationPage() {
       }
     }
 
-    if (session) {
-      fetchData();
+    if (status === "loading") return;
+    if (!session) {
+      setLoading(false);
+      return;
     }
-  }, [session]);
+
+    fetchData();
+  }, [session, status]);
 
   function generateInvoiceText(order: Order) {
     const invoiceDate = new Date(order.createdAt).toLocaleDateString();

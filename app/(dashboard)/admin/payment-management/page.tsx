@@ -11,6 +11,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiArray } from "@/lib/client-api";
 
 type ActionType = "refund" | "penalty";
 
@@ -54,8 +55,8 @@ export default function AdminPaymentManagementPage() {
       setLoading(true);
       const res = await fetch("/api/admin/payments", { cache: "no-store" });
       if (res.ok) {
-        const json = await res.json();
-        setPayments(Array.isArray(json) ? json : (json.data ?? []));
+        const payload = await res.json();
+        setPayments(unwrapApiArray<Payment>(payload));
       }
     } catch (error) {
       reportError("PaymentFetchError", error);
@@ -101,7 +102,15 @@ export default function AdminPaymentManagementPage() {
           reason,
         }),
       });
-      if (!res.ok) throw new Error("Failed to process action");
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(
+          (typeof payload?.error === "string" && payload.error) ||
+            payload?.error?.message ||
+            payload?.message ||
+            "Failed to process action",
+        );
+      }
       setActionSuccess(
         action.type === "refund"
           ? "Refund processed successfully."

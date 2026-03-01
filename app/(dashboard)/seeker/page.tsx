@@ -19,6 +19,7 @@ import { ProviderCardSkeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 
 type Provider = {
   _id: string;
@@ -89,8 +90,11 @@ export default function SeekerDashboardPage() {
             cache: "no-store",
           });
           if (response.ok) {
-            const json = await response.json();
-            const data = json.data ?? json;
+            const payload = await response.json();
+            const data = unwrapApiData<{
+              address?: { city?: string };
+              coordinates?: { lat?: number; lng?: number };
+            }>(payload);
             if (data.address?.city) {
               const location = data.address.city;
               setSeekerLocation(location);
@@ -133,8 +137,9 @@ export default function SeekerDashboardPage() {
           cache: "no-store",
         });
         if (response.ok) {
-          const data = await response.json();
-          setProviders(data.providers || []);
+          const payload = await response.json();
+          const data = unwrapApiData<{ providers?: Provider[] }>(payload);
+          setProviders(Array.isArray(data?.providers) ? data.providers : []);
         }
       } catch (error) {
         reportError("ProviderFetchError", error);

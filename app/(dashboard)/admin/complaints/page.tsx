@@ -11,6 +11,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiArray } from "@/lib/client-api";
 
 type Complaint = {
   _id: string;
@@ -71,7 +72,8 @@ export default function ComplaintsPage() {
         cache: "no-store",
       });
       if (response.ok) {
-        const data = await response.json();
+        const payload = await response.json();
+        const data = unwrapApiArray<Complaint>(payload);
         setComplaints(data);
       }
     } catch (error) {

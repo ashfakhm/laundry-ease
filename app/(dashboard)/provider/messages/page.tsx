@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/client-error";
 import { formatDistanceToNow } from "date-fns";
+import { unwrapApiArray } from "@/lib/client-api";
 
 type ChatPreview = {
   _id: string; // booking_id
@@ -33,7 +34,7 @@ type ChatPreview = {
 };
 
 export default function ProviderMessagesPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [chats, setChats] = useState<ChatPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -47,7 +48,8 @@ export default function ProviderMessagesPage() {
       try {
         const res = await fetch("/api/provider/chats");
         if (res.ok) {
-          const data = await res.json();
+          const payload = await res.json();
+          const data = unwrapApiArray<ChatPreview>(payload);
           setChats(data);
         }
       } catch (err) {
@@ -57,10 +59,14 @@ export default function ProviderMessagesPage() {
       }
     }
 
-    if (session) {
-      fetchChats();
+    if (status === "loading") return;
+    if (!session) {
+      setLoading(false);
+      return;
     }
-  }, [session]);
+
+    fetchChats();
+  }, [session, status]);
 
   const filteredChats = chats.filter((chat) =>
     chat.seeker.name.toLowerCase().includes(searchTerm.toLowerCase()),

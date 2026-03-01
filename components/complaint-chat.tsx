@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Send, Lock, Paperclip, X, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 
 interface ChatMessage {
   _id: string;
@@ -57,6 +58,38 @@ function getSenderLabel(
   return "System";
 }
 
+function getApiErrorMessage(payload: unknown, fallback: string): string {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "message" in payload &&
+    typeof (payload as { message?: unknown }).message === "string"
+  ) {
+    return (payload as { message: string }).message;
+  }
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    typeof (payload as { error?: unknown }).error === "string"
+  ) {
+    return (payload as { error: string }).error;
+  }
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    typeof (payload as { error?: { message?: unknown } }).error?.message ===
+      "string"
+  ) {
+    return (payload as { error: { message: string } }).error.message;
+  }
+
+  return fallback;
+}
+
 export default function ComplaintChat({
   complaintId,
   selfRole,
@@ -98,19 +131,21 @@ export default function ComplaintChat({
           },
         );
         if (res.status === 403) {
-          const data = await res.json();
-          if (data.error?.includes("resolved")) {
+          const payload = await res.json().catch(() => ({}));
+          const message = getApiErrorMessage(payload, "Access Denied");
+          if (message.toLowerCase().includes("resolved")) {
             setIsResolved(true);
             setIsAccessBlocked(true);
             setError("Dispute is resolved. Chat is archived.");
           } else {
             setIsAccessBlocked(true);
-            setError(data.error || "Access Denied");
+            setError(message);
           }
           return;
         }
         if (!res.ok) throw new Error("Failed to fetch messages");
-        const data = (await res.json()) as ChatMessage[];
+        const payload = await res.json();
+        const data = unwrapApiArray<ChatMessage>(payload);
 
         if (incremental && latestMessageAtRef.current) {
           if (data.length > 0) {
@@ -148,13 +183,14 @@ export default function ComplaintChat({
       });
       if (!res.ok) return;
 
-      const data = (await res.json()) as {
+      const payload = await res.json();
+      const data = unwrapApiData<{
         seeker?: { name?: string | null } | null;
         provider?: {
           name?: string | null;
           businessName?: string | null;
         } | null;
-      };
+      }>(payload);
 
       const seekerName = data?.seeker?.name?.trim() || "Seeker";
       const providerName = getProviderParticipantName(data?.provider);

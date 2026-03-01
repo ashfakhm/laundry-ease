@@ -9,6 +9,7 @@ import { showToast } from "@/lib/toast";
 import { Loader2, User, MapPin, Lock, Save, Sparkles } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
+import { unwrapApiData } from "@/lib/client-api";
 import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
@@ -97,8 +98,19 @@ export default function SeekerProfilePage() {
       try {
         const res = await fetch("/api/profile/seeker", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load profile");
-        const json = await res.json();
-        const data = json.data ?? json;
+        const payload = await res.json();
+        const data = unwrapApiData<{
+          name?: string;
+          phone?: string;
+          address?: {
+            line1?: string;
+            city?: string;
+            state?: string;
+            country?: string;
+            postalCode?: string;
+            landmark?: string;
+          };
+        }>(payload);
 
         form.reset({
           name: data.name || "",
@@ -143,7 +155,12 @@ export default function SeekerProfilePage() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to update");
+        throw new Error(
+          (typeof err?.error === "string" && err.error) ||
+            err?.error?.message ||
+            err?.message ||
+            "Failed to update",
+        );
       }
 
       showToast.success("Profile updated successfully");

@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { Send, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { EvidenceUpload } from "@/components/ui/evidence-upload";
+import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 
 interface DisputeState {
   open: boolean;
@@ -62,7 +63,7 @@ export default function BookingChat({
   const fetcher = (url: string) =>
     fetch(url, { cache: "no-store" }).then((r) => {
       if (!r.ok) throw new Error("Failed to load");
-      return r.json();
+      return r.json().then((payload) => unwrapApiArray<ChatMessage>(payload));
     });
 
   const { data: messages = [], mutate } = useSWR<ChatMessage[]>(
@@ -133,7 +134,12 @@ export default function BookingChat({
         throw new Error(data.error?.message || "Failed to raise dispute");
       }
 
-      const data = await res.json();
+      const payload = await res.json();
+      const data = unwrapApiData<{ _id?: string }>(payload);
+      const complaintId = data?._id;
+      if (!complaintId) {
+        throw new Error("Complaint created but ID is missing");
+      }
 
       setDispute((d) => ({
         ...d,
@@ -142,7 +148,7 @@ export default function BookingChat({
       }));
 
       setTimeout(() => {
-        router.push(`/seeker/disputes/${data.data?._id || data._id}`);
+        router.push(`/seeker/disputes/${complaintId}`);
       }, 1000);
     } catch (err) {
       const message =

@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiArray } from "@/lib/client-api";
 
 type OrderItem = {
   name: string;
@@ -68,7 +69,8 @@ export default function ViewOrdersPage() {
           cache: "no-store",
         });
         if (response.ok) {
-          const data = await response.json();
+          const payload = await response.json();
+          const data = unwrapApiArray<Order>(payload);
           setOrders(data);
         } else {
           reportError("OrderFetchError", "Failed to fetch orders");

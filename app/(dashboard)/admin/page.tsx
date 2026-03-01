@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 
 interface ActiveComplaintPreview {
   _id: string;
@@ -129,8 +130,9 @@ export default function AdminDashboardPage() {
         cache: "no-store",
       });
       if (response.ok) {
-        const json = await response.json();
-        setStats(json.data ?? json);
+        const payload = await response.json();
+        const data = unwrapApiData<AdminStats>(payload);
+        setStats(data);
         setLoadError(null);
       } else {
         setStats(null);
@@ -163,7 +165,12 @@ export default function AdminDashboardPage() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || "Failed to acknowledge alert");
+        throw new Error(
+          (typeof payload?.error === "string" && payload.error) ||
+            payload?.error?.message ||
+            payload?.message ||
+            "Failed to acknowledge alert",
+        );
       }
 
       await fetchStats(false);

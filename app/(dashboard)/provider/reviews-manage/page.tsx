@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Star, MessageSquare, Calendar } from "lucide-react";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiArray } from "@/lib/client-api";
 
 type Review = {
   _id: string;
@@ -28,8 +29,8 @@ export default function ReviewsManagePage() {
       try {
         const res = await fetch(`/api/providers/${session.user.id}/reviews`);
         if (res.ok) {
-          const json = await res.json();
-          const data = Array.isArray(json) ? json : (json.data ?? []);
+          const payload = await res.json();
+          const data = unwrapApiArray<Review>(payload);
           setReviews(data);
         }
       } catch (error) {

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 import {
   Select,
   SelectContent,
@@ -118,7 +119,7 @@ function deriveAllowedNextStates(
 }
 
 export default function OrderStatusPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [orders, setOrders] = useState<OrderWithProcessStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<
@@ -161,9 +162,12 @@ export default function OrderStatusPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus, otp }),
       });
-      const data = await res.json();
+      const payload = await res.json();
 
       if (res.ok) {
+        const data = unwrapApiData<{
+          allowedNextStates?: OrderWithProcessStatus["allowedNextStates"];
+        }>(payload);
         // Update local order + allowedNextStates from server so UI stays in sync.
         setOrders((prev) =>
           prev.map((o) =>
@@ -186,6 +190,11 @@ export default function OrderStatusPage() {
         // Close modal if open
         if (otpModalOpen) setOtpModalOpen(false);
       } else {
+        const data = payload as {
+          message?: string;
+          allowedNextStates?: OrderWithProcessStatus["allowedNextStates"];
+          currentStatus?: string;
+        };
         // Keep UI consistent with backend: if backend tells us the allowed states,
         // store them so dropdown becomes correct immediately.
         if (
@@ -235,7 +244,8 @@ export default function OrderStatusPage() {
       body: JSON.stringify({ otp: otpInput }),
     })
       .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
+        const payload = await res.json().catch(() => ({}));
+        const data = unwrapApiData<{ message?: string }>(payload);
         if (!res.ok) {
           setOtpError(data?.message || "Failed to verify OTP");
           return;
@@ -277,7 +287,11 @@ export default function OrderStatusPage() {
       const res = await fetch(`/api/orders/${selectedOrderForOtp}/otp/resend`, {
         method: "POST",
       });
-      const data = await res.json().catch(() => ({}));
+      const payload = await res.json().catch(() => ({}));
+      const data = unwrapApiData<{
+        message?: string;
+        retryAfterSeconds?: number;
+      }>(payload);
 
       if (!res.ok) {
         // Respect backend rate limiting.
@@ -333,7 +347,8 @@ export default function OrderStatusPage() {
           cache: "no-store",
         });
         if (response.ok) {
-          const data = await response.json();
+          const payload = await response.json();
+          const data = unwrapApiArray<OrderWithProcessStatus>(payload);
           setOrders(data);
         }
       } catch (error) {
@@ -343,12 +358,16 @@ export default function OrderStatusPage() {
       }
     }
 
-    if (session) {
-      fetchOrders();
-      const interval = setInterval(fetchOrders, 20000); // Poll every 20s
-      return () => clearInterval(interval);
+    if (status === "loading") return;
+    if (!session) {
+      setLoading(false);
+      return;
     }
-  }, [session]);
+
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 20000); // Poll every 20s
+    return () => clearInterval(interval);
+  }, [session, status]);
 
   function getStatusBadge(order: Order) {
     if (order.cancellation_status) {

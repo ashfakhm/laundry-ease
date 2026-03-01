@@ -15,6 +15,7 @@ import * as z from "zod";
 import { showToast } from "@/lib/toast";
 import { Loader2, Save, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { unwrapApiData } from "@/lib/client-api";
 import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
@@ -174,8 +175,29 @@ export default function ProviderEditProfilePage() {
       try {
         const res = await fetch("/api/profile/provider");
         if (!res.ok) throw new Error("Failed to load profile");
-        const json = await res.json();
-        const data = json.data ?? json;
+        const payload = await res.json();
+        const data = unwrapApiData<{
+          name?: string;
+          businessName?: string;
+          bio?: string;
+          description?: string;
+          location?: string;
+          coordinates?: { lat: number; lng: number };
+          phone?: string;
+          services?: string[];
+          radius_km?: number;
+          free_radius_km?: number;
+          per_km_rate?: number;
+          pricing?: number;
+          capacity?: number;
+          pricingRates?: Record<string, number>;
+          bankDetails?: {
+            accountHolderName?: string;
+            accountNumber?: string;
+            ifsc?: string;
+            upiId?: string;
+          };
+        }>(payload);
 
         form.reset({
           name: data.name || "",
@@ -248,7 +270,12 @@ export default function ProviderEditProfilePage() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to update");
+        throw new Error(
+          (typeof err?.error === "string" && err.error) ||
+            err?.error?.message ||
+            err?.message ||
+            "Failed to update",
+        );
       }
 
       showToast.success("Profile updated successfully");

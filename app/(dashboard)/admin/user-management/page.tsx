@@ -12,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 
 type User = {
   _id: string;
@@ -39,8 +40,9 @@ export default function UserManagementPage() {
     try {
       const response = await fetch("/api/admin/users", { cache: "no-store" });
       if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
+        const payload = await response.json();
+        const data = unwrapApiData<{ users?: User[] }>(payload);
+        setUsers(Array.isArray(data?.users) ? data.users : []);
       }
     } catch (error) {
       reportError("UserFetchError", error);

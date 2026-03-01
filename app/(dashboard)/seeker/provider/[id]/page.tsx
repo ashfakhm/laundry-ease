@@ -20,6 +20,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/client-error";
 import { ProviderHeader } from "@/components/provider/provider-header";
+import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 
 type Provider = {
   _id: string;
@@ -84,7 +85,8 @@ export default function ProviderDetailPage() {
 
         const response = await fetch(`/api/providers/${providerId}`);
         if (response.ok) {
-          const data = await response.json();
+          const payload = await response.json();
+          const data = unwrapApiData<Provider>(payload);
           setProvider(data);
         } else {
           reportError("ProviderNotFound", "Provider not found");
@@ -101,8 +103,8 @@ export default function ProviderDetailPage() {
       try {
         const res = await fetch(`/api/providers/${providerId}/reviews`);
         if (res.ok) {
-          const data = await res.json();
-          setReviews(Array.isArray(data) ? data : []);
+          const payload = await res.json();
+          setReviews(unwrapApiArray<Review>(payload));
         }
       } catch {
         setReviews([]);

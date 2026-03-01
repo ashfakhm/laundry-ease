@@ -5,9 +5,10 @@ import { Package, Truck, Wallet, Clock, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 
 export default function ProviderDashboardPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     revenue: 0,
@@ -23,8 +24,14 @@ export default function ProviderDashboardPage() {
           cache: "no-store",
         });
         if (res.ok) {
-          const data = await res.json();
-          setStats(data);
+          const payload = await res.json();
+          const data = unwrapApiData<typeof stats>(payload);
+          setStats({
+            revenue: Number(data?.revenue ?? 0),
+            deliveriesDue: Number(data?.deliveriesDue ?? 0),
+            pendingPickups: Number(data?.pendingPickups ?? 0),
+            activeProcessing: Number(data?.activeProcessing ?? 0),
+          });
         }
       } catch (error) {
         reportError("ProviderDashboardStatsError", error);
@@ -33,10 +40,14 @@ export default function ProviderDashboardPage() {
       }
     }
 
-    if (session) {
-      fetchStats();
+    if (status === "loading") return;
+    if (!session) {
+      setLoading(false);
+      return;
     }
-  }, [session]);
+
+    fetchStats();
+  }, [session, status]);
 
   const statCards = [
     {

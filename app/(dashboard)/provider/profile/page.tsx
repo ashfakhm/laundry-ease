@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 
 type Provider = {
   _id: string;
@@ -41,7 +42,7 @@ type Provider = {
 };
 
 export default function ProviderProfilePage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,8 +52,9 @@ export default function ProviderProfilePage() {
       try {
         const response = await fetch("/api/profile/provider");
         if (response.ok) {
-          const json = await response.json();
-          setProvider(json.data ?? json);
+          const payload = await response.json();
+          const data = unwrapApiData<Provider>(payload);
+          setProvider(data);
         } else {
           reportError("ProviderProfileFetchError", "Failed to fetch provider profile");
         }
@@ -63,10 +65,14 @@ export default function ProviderProfilePage() {
       }
     }
 
-    if (session) {
-      fetchProviderProfile();
+    if (status === "loading") return;
+    if (!session) {
+      setLoading(false);
+      return;
     }
-  }, [session]);
+
+    fetchProviderProfile();
+  }, [session, status]);
 
   if (loading) {
     return (
