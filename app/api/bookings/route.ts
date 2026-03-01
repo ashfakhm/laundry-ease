@@ -1,5 +1,5 @@
 import { createBooking } from "@/lib/db/index";
-import { RATE_LIMIT_AUTH_WINDOW_MS } from "@/lib/constants";
+import { MIN_PICKUP_ADVANCE_MS, RATE_LIMIT_AUTH_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";
@@ -80,7 +80,7 @@ export const POST = withErrorHandling(async (req: Request) => {
     throw Errors.validation("Invalid booking deadline");
   }
 
-  const minAllowedDeadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const minAllowedDeadline = new Date(Date.now() + MIN_PICKUP_ADVANCE_MS);
   if (parsedDeadline < minAllowedDeadline) {
     throw Errors.validation(
       "Deadline must be at least 2 hours from now",

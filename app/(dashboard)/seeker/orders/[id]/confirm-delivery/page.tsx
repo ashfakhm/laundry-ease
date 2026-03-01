@@ -15,14 +15,14 @@ export default async function DeliveryOtpPage({
   let seekerId: string;
   try {
     const { user } = await requireSeeker();
-    if (!ObjectId.isValid(user.id)) redirect("/signin");
+    if (!ObjectId.isValid(user.id)) redirect("/auth");
     seekerId = user.id;
   } catch {
-    redirect("/signin");
+    redirect("/auth");
   }
 
   if (!ObjectId.isValid(id)) {
-    redirect("/dashboard/seeker");
+    redirect("/seeker");
   }
 
   const { db } = await getDb();
@@ -31,7 +31,7 @@ export default async function DeliveryOtpPage({
     .collection("orders")
     .findOne({ _id: new ObjectId(id) });
   if (!order || order.seeker_id.toString() !== seekerId)
-    redirect("/dashboard/seeker");
+    redirect("/seeker");
   return (
     <div className="max-w-md mx-auto p-6">
       <div className="mb-4">

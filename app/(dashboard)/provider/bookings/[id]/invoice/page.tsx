@@ -13,10 +13,10 @@ export default async function CreateInvoicePage({
   let providerId: ObjectId;
   try {
     const { user } = await requireProvider();
-    if (!ObjectId.isValid(user.id)) redirect("/signin");
+    if (!ObjectId.isValid(user.id)) redirect("/auth");
     providerId = new ObjectId(user.id);
   } catch {
-    redirect("/signin");
+    redirect("/auth");
   }
 
   const { id } = await params;

@@ -38,15 +38,15 @@ export default async function OrderDetailsPage({
   let seekerId: string;
   try {
     const { user } = await requireSeeker();
-    if (!ObjectId.isValid(user.id)) redirect("/signin");
+    if (!ObjectId.isValid(user.id)) redirect("/auth");
     seekerId = user.id;
   } catch {
-    redirect("/signin");
+    redirect("/auth");
   }
 
   const { id } = await params;
   if (!ObjectId.isValid(id)) {
-    redirect("/dashboard/seeker");
+    redirect("/seeker");
   }
   const { db } = await getDb();
 
@@ -70,7 +70,7 @@ export default async function OrderDetailsPage({
   const order = orders[0];
 
   if (!order) {
-    redirect("/dashboard/seeker");
+    redirect("/seeker");
   }
 
   // Check reviewed
@@ -80,7 +80,7 @@ export default async function OrderDetailsPage({
   const hasReviewed = !!existingReview;
 
   if (order.seeker_id.toString() !== seekerId) {
-    redirect("/dashboard/seeker");
+    redirect("/seeker");
   }
 
   // Derived Values

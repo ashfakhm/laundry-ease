@@ -13,14 +13,14 @@ export default async function InvoiceReviewPage({
   let seekerId: string;
   try {
     const { user } = await requireSeeker();
-    if (!ObjectId.isValid(user.id)) redirect("/signin");
+    if (!ObjectId.isValid(user.id)) redirect("/auth");
     seekerId = user.id;
   } catch {
-    redirect("/signin");
+    redirect("/auth");
   }
 
   if (!ObjectId.isValid(id)) {
-    redirect("/dashboard/seeker");
+    redirect("/seeker");
   }
 
   const { db } = await getDb();
@@ -30,10 +30,10 @@ export default async function InvoiceReviewPage({
     .findOne({ _id: new ObjectId(id) });
 
   if (!booking || booking.seeker_id.toString() !== seekerId)
-    redirect("/dashboard/seeker");
+    redirect("/seeker");
 
   const invoice = booking.invoice;
-  if (!invoice) redirect("/dashboard/seeker"); // Or show "Invoice not ready"
+  if (!invoice) redirect("/seeker"); // Or show "Invoice not ready"
 
   // Determine if this is a read-only view (invoice already processed)
   const isReadOnly = booking.status !== "invoice_created";

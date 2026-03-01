@@ -9,7 +9,7 @@ export default async function ProviderBookingsPage() {
 
   if (!result.success) {
     if (result.error === "Unauthorized") {
-      redirect("/signin");
+      redirect("/auth");
     }
     return (
       <div className="p-6">
