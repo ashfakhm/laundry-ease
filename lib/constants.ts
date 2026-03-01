@@ -163,6 +163,7 @@ export const CRON_JOB_NAMES = [
   "notify-system-alerts",
   "process-email-outbox",
   "reconciliation",
+  "webhook-cleanup",
 ] as const;
 
 export type CronJobName = (typeof CRON_JOB_NAMES)[number];

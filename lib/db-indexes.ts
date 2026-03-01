@@ -1,6 +1,7 @@
 import { Db } from "mongodb";
 import { logger } from "./logger";
 import { env } from "./env";
+import { triggerSystemAlertWithDb } from "./services/system-alerts";
 
 type IndexSpec = {
   collection: string;
@@ -284,6 +285,16 @@ async function createIndexSafe(
         message,
       },
     );
+
+    // Always trigger an alert so ops can fix duplicate data manually.
+    // Use the db-handle variant to avoid re-entering getDb() which would
+    // deadlock because it awaits this very index-init promise.
+    await triggerSystemAlertWithDb(db, {
+      key: `index_failure_${spec.collection}_${indexName}`,
+      message: `Failed to create index ${indexName} on ${spec.collection}: ${message}`,
+      severity: spec.critical ? "critical" : "high",
+    });
+
     return {
       ok: false,
       critical: Boolean(spec.critical),

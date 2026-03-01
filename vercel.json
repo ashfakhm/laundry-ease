@@ -36,6 +36,10 @@
     {
       "path": "/api/cron/reconciliation",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/webhook-cleanup",
+      "schedule": "0 1 * * *"
     }
   ]
 }

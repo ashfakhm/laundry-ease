@@ -182,6 +182,7 @@ export async function GET(req: NextRequest) {
     let notifyDelivery: AlertDeliveryResult = {
       emailSent: false,
       webhookSent: false,
+      pagerDutySent: false,
       skipped: true,
       reason: "No notifications due",
     };
@@ -199,6 +200,7 @@ export async function GET(req: NextRequest) {
     let escalateDelivery: AlertDeliveryResult = {
       emailSent: false,
       webhookSent: false,
+      pagerDutySent: false,
       skipped: true,
       reason: "No escalations due",
     };
@@ -216,6 +218,7 @@ export async function GET(req: NextRequest) {
     let routingDelivery: AlertDeliveryResult = {
       emailSent: false,
       webhookSent: false,
+      pagerDutySent: false,
       skipped: true,
       reason: "No ownership routing updates",
     };

@@ -53,7 +53,7 @@ LaundryEase is a **Next.js 16.1.6** full-stack marketplace application that conn
 
 ### Directory Structure
 
-```
+```text
 laundry-ease/
 ├── app/                          # Next.js App Router
 │   ├── (auth)/                   # Auth route group
@@ -169,7 +169,7 @@ type BookingStatus =
 
 Key fields:
 
-- `bookingFee` - Upfront fee (₹149)
+- `bookingFee` - Upfront fee (₹50)
 - `bookingFeeStatus` - pending/paid/refunded/forfeited/applied
 - `pickupSlot` - Proposed/confirmed pickup time
 - `reschedule` - Reschedule metadata
@@ -340,7 +340,7 @@ flowchart TD
 
 ### API Route Structure
 
-```
+```text
 app/api/
 ├── admin/              # Admin-only endpoints
 │   ├── complaints/     # Complaint management
@@ -412,17 +412,17 @@ app/api/
 
 Defined in [`vercel.json`](vercel.json:1):
 
-| Endpoint                               | Schedule     | Purpose                                   |
-| -------------------------------------- | ------------ | ----------------------------------------- |
-| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject expired booking requests      |
-| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows                  |
-| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine    |
-| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency  |
-| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks |
-| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with escalation            |
-| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns    |
-
-Additional registered jobs: `process-email-outbox`, `reconciliation`.
+| Endpoint                               | Schedule     | Purpose                                        |
+| -------------------------------------- | ------------ | ---------------------------------------------- |
+| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject expired booking requests           |
+| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows                       |
+| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine         |
+| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with escalation                 |
+| `/api/cron/process-email-outbox`       | Every 2 min  | Claim-and-dispatch queued transactional emails |
+| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency       |
+| `/api/cron/reconciliation`             | Every 30 min | Reconcile Razorpay records vs internal state   |
+| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks      |
+| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns         |
 
 All cron runs are tracked in `cron_runs` collection via `lib/cron-tracking.ts` with job name, start time, duration, status, and result.
 
@@ -486,10 +486,10 @@ From [`lib/constants.ts`](lib/constants.ts:1):
 | Constant                              | Value      | Purpose                            |
 | ------------------------------------- | ---------- | ---------------------------------- |
 | `DEFAULT_PLATFORM_COMMISSION_RATE`    | 5%         | Platform fee                       |
-| `BOOKING_FEE_INR`                     | ₹149       | Upfront booking fee                |
+| `BOOKING_FEE_INR`                     | ₹50        | Upfront booking fee                |
 | `ESCROW_RELEASE_WINDOW_MS`            | 24 hours   | Escrow hold period                 |
 | `STALE_PAYOUT_CUTOFF_MS`              | 15 minutes | Stale payout processing threshold  |
-| `MIN_PICKUP_ADVANCE_MS`               | 48 hours   | Minimum pickup notice              |
+| `MIN_PICKUP_ADVANCE_MS`               | 2 hours    | Minimum pickup notice              |
 | `DELIVERY_OTP_TTL_MS`                 | 10 minutes | OTP validity                       |
 | `COMPLAINT_FILING_WINDOW_MS`          | 24 hours   | Complaint deadline                 |
 | `SESSION_MAX_AGE_SECONDS`             | 7 days     | Session duration                   |
@@ -508,7 +508,7 @@ From [`lib/constants.ts`](lib/constants.ts:1):
 
 ### Component Hierarchy
 
-```
+```text
 RootLayout (app/layout.tsx)
 ├── SessionProvider
 ├── GoogleMapsProvider
@@ -681,9 +681,9 @@ Required variables (see [`.env.example`](.env.example:1)):
 
 ## 16. Current Project Status
 
-**Quality Snapshot (2026-02-28):**
+**Quality Snapshot (2026-03-01):**
 
-- 99 test files, 468 tests passing (100% core route coverage)
+- 102 test files, 497 tests passing (100% core route coverage)
 - 3 Playwright E2E specs, 7 critical journeys passing
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
@@ -731,7 +731,7 @@ LaundryEase is a well-architected laundry marketplace with:
 2. **Clear Role Separation** - Seeker, Provider, Admin with distinct workflows
 3. **Robust State Machines** - Booking and Order lifecycles with explicit transitions
 4. **Comprehensive Dispute Resolution** - 3-way chat, split settlements, deadline tracking
-5. **Production-Ready Infrastructure** - 10 cron jobs, operational alerting with SLA/escalation, email outbox, rate limiting, structured logging
-6. **Quality Assurance** - 99 test files (468 tests), E2E browser tests, type safety, CI quality gates
+5. **Production-Ready Infrastructure** - 9 cron jobs, operational alerting with SLA/escalation, email outbox, rate limiting, structured logging
+6. **Quality Assurance** - 102 test files (497 tests), E2E browser tests, type safety, CI quality gates
 
 The codebase follows modern Next.js patterns with App Router, Server Actions, and a clear separation of concerns between frontend components and backend business logic.

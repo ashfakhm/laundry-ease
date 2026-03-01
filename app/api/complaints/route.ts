@@ -94,12 +94,24 @@ export const POST = withErrorHandling(async (req: Request) => {
     throw Errors.validation("Invalid delivery timestamp");
   }
 
-  const complaintDeadline = new Date(
+  let complaintDeadline = new Date(
     deliveredAt.getTime() + COMPLAINT_FILING_WINDOW_MS,
   );
+
+  // Allow explicit admin extension of the SLA window
+  if (order.extended_complaint_window_until) {
+    const extendedDeadline = new Date(order.extended_complaint_window_until);
+    if (
+      !Number.isNaN(extendedDeadline.getTime()) &&
+      extendedDeadline.getTime() > complaintDeadline.getTime()
+    ) {
+      complaintDeadline = extendedDeadline;
+    }
+  }
+
   if (Date.now() > complaintDeadline.getTime()) {
     throw Errors.conflict(
-      "Complaint window expired. Complaints must be raised within 24 hours of delivery.",
+      "Complaint window expired. Complaints must be raised within 24 hours of delivery, or by the granted extension deadline.",
     );
   }
 

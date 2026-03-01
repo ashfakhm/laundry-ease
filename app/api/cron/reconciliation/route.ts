@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       .collection("orders")
       .find({
         payment_status: "unpaid",
-        created_at: {
+        createdAt: {
           $gte: twentyFourHoursAgo,
           $lt: oneHourAgo,
         },
@@ -45,6 +45,9 @@ export async function GET(req: NextRequest) {
       correctedCount: 0,
       errors: 0,
       correctedIds: [] as string[],
+      totalPayoutsChecked: 0,
+      payoutsCorrected: 0,
+      payoutsFailed: 0,
     };
 
     for (const order of unpaidOrders) {
@@ -82,7 +85,7 @@ export async function GET(req: NextRequest) {
                     $set: {
                       payment_status: "paid",
                       razorpay_payment_id: paymentId,
-                      updated_at: new Date(),
+                      updatedAt: new Date(),
                       reconciled_at: new Date(),
                       reconciliation_method: "cron",
                     },
@@ -90,30 +93,18 @@ export async function GET(req: NextRequest) {
                   { session },
                 );
 
-                // 2. Update Booking (if linked)
-                const bookingUpdate = await db.collection("bookings").updateOne(
+                // 2. Link payment to booking (do NOT mutate bookingFeeStatus
+                //    here — booking fee is a separate domain from order payment)
+                await db.collection("bookings").updateOne(
                   { razorpay_order_id: order.razorpay_order_id },
                   {
                     $set: {
-                      bookingFeeStatus: "paid",
                       razorpay_payment_id: paymentId,
                       updatedAt: new Date(),
                     },
                   },
                   { session },
                 );
-
-                // Ensure status is 'requested' if pending
-                if (bookingUpdate.matchedCount > 0) {
-                  await db.collection("bookings").updateOne(
-                    {
-                      razorpay_order_id: order.razorpay_order_id,
-                      status: "pending_payment",
-                    },
-                    { $set: { status: "requested" } },
-                    { session },
-                  );
-                }
               });
 
               results.correctedCount++;
@@ -133,6 +124,83 @@ export async function GET(req: NextRequest) {
         logger.error(
           "CRON_RECONCILIATION",
           `Error processing order ${order._id}`,
+          err,
+        );
+        results.errors++;
+      }
+    }
+
+    // --- PHASE 2: ORPHANED PAYOUT RECONCILIATION ---
+    const strandedPayoutOrders = await db
+      .collection("orders")
+      .find({
+        payout_status: "processing",
+        payout_id: { $exists: true, $ne: null },
+        updatedAt: { $lt: oneHourAgo }, // Payout processing for > 1 hour
+      })
+      .toArray();
+
+    results.totalPayoutsChecked = strandedPayoutOrders.length;
+
+    for (const order of strandedPayoutOrders) {
+      if (!order.payout_id) continue;
+
+      try {
+        // @ts-expect-error - Razorpay Node SDK lacks full Typescript support for RazorpayX Payouts
+        const rzpPayout = await razorpay.payouts.fetch(order.payout_id);
+
+        if (rzpPayout.status === "processed") {
+          await db.collection("orders").updateOne(
+            { _id: order._id },
+            {
+              $set: {
+                payout_status: "paid",
+                updatedAt: new Date(),
+                reconciled_at: new Date(),
+                reconciliation_method: "cron",
+              },
+            },
+          );
+          results.payoutsCorrected++;
+        } else if (
+          rzpPayout.status === "failed" ||
+          rzpPayout.status === "rejected" ||
+          rzpPayout.status === "reversed"
+        ) {
+          // Payout failed on gateway legitimately, need to rollback ledger
+          await withTransaction(async (session) => {
+            // 1. Mark order payout as failed
+            await db.collection("orders").updateOne(
+              { _id: order._id },
+              {
+                $set: {
+                  payout_status: "failed",
+                  payout_failure_reason: `Reconciled: ${rzpPayout.status}`,
+                  payout_failure_at: new Date(),
+                  updatedAt: new Date(),
+                },
+              },
+              { session },
+            );
+
+            // 2. Re-credit the provider balance
+            if (order.provider_payout_amount) {
+              await db.collection("users").updateOne(
+                { _id: order.provider_id },
+                {
+                  $inc: { wallet_balance: order.provider_payout_amount },
+                  $set: { updated_at: new Date() },
+                },
+                { session },
+              );
+            }
+          });
+          results.payoutsFailed++;
+        }
+      } catch (err) {
+        logger.error(
+          "CRON_RECONCILIATION",
+          `Error reconciling stranded payout for order ${order._id}`,
           err,
         );
         results.errors++;

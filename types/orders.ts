@@ -58,6 +58,7 @@ export interface Order {
   cancellation_status?: "cancelled_by_seeker" | "cancelled_by_provider";
 
   // Compliance & Quality
+  extended_complaint_window_until?: Date;
   latePenalty?: number;
   deadline_breached_at?: Date;
   deadline_compensated_at?: Date;

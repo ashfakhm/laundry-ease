@@ -144,12 +144,15 @@ describe("GET /api/cron/reconciliation", () => {
       { razorpay_order_id: "order_rzp_1" },
       expect.objectContaining({
         $set: expect.objectContaining({
-          bookingFeeStatus: "paid",
           razorpay_payment_id: "pay_success_1",
         }),
       }),
       expect.objectContaining({ session: expect.anything() }),
     );
+
+    // Verify bookingFeeStatus is NOT mutated during order payment reconciliation
+    const bookingUpdateCall = dbMock.bookings.updateOne.mock.calls[0];
+    expect(bookingUpdateCall[1].$set).not.toHaveProperty("bookingFeeStatus");
   });
 
   it("does not correct if Razorpay says attempted/created", async () => {

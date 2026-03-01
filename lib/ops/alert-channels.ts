@@ -23,11 +23,10 @@ export type AlertDigestPayload = {
 export type AlertDeliveryResult = {
   emailSent: boolean;
   webhookSent: boolean;
+  pagerDutySent: boolean;
   skipped: boolean;
   reason?: string;
 };
-
-
 
 function parseEmails(raw: string | undefined): string[] {
   if (!raw) return [];
@@ -86,11 +85,13 @@ export async function deliverAlertDigest(
   const recipients = parseEmails(env.OPS_ALERT_EMAIL_TO);
   const webhookUrl = env.OPS_ALERT_WEBHOOK_URL || "";
   const webhookBearer = env.OPS_ALERT_WEBHOOK_BEARER || "";
+  const pdRoutingKey = env.OPS_PAGERDUTY_ROUTING_KEY || "";
 
-  if (recipients.length === 0 && !webhookUrl) {
+  if (recipients.length === 0 && !webhookUrl && !pdRoutingKey) {
     return {
       emailSent: false,
       webhookSent: false,
+      pagerDutySent: false,
       skipped: true,
       reason: "No alert channel configured",
     };
@@ -98,9 +99,11 @@ export async function deliverAlertDigest(
 
   let emailSent = false;
   let webhookSent = false;
+  let pagerDutySent = false;
 
   if (recipients.length > 0) {
-    const subjectPrefix = payload.kind === "escalate" ? "[ESCALATION]" : "[ALERT]";
+    const subjectPrefix =
+      payload.kind === "escalate" ? "[ESCALATION]" : "[ALERT]";
     await getEmailTransporter().sendMail({
       from: env.EMAIL_USER,
       to: recipients.join(", "),
@@ -135,9 +138,51 @@ export async function deliverAlertDigest(
     webhookSent = true;
   }
 
+  if (pdRoutingKey && payload.items.length > 0) {
+    // Send to PagerDuty Events API V2
+    // We send a single summary event containing the details of all escalated alerts
+    try {
+      const isCritical = payload.items.some((i) => i.severity === "critical");
+      const pdPayload = {
+        routing_key: pdRoutingKey,
+        event_action: "trigger",
+        payload: {
+          summary: `LaundryEase ${payload.kind === "escalate" ? "Escalation" : "Digest"}: ${payload.totalOpen} open alerts`,
+          severity: isCritical ? "critical" : "warning",
+          source: "laundryease-ops",
+          custom_details: {
+            generatedAt: payload.generatedAt,
+            totalOpen: payload.totalOpen,
+            criticalOpen: payload.criticalOpen,
+            highOpen: payload.highOpen,
+            items: payload.items,
+          },
+        },
+      };
+
+      const pdRes = await fetch("https://events.pagerduty.com/v2/enqueue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pdPayload),
+      });
+
+      if (!pdRes.ok) {
+        logger.error(
+          "OPS_ALERTS",
+          `PagerDuty delivery failed (${pdRes.status})`,
+        );
+      } else {
+        pagerDutySent = true;
+      }
+    } catch (err) {
+      logger.error("OPS_ALERTS", "PagerDuty delivery exception", err);
+    }
+  }
+
   return {
     emailSent,
     webhookSent,
+    pagerDutySent,
     skipped: false,
   };
 }

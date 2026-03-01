@@ -27,7 +27,13 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = forgotPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Valid email is required"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Valid email is required",
+        ),
+      );
     }
 
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
@@ -45,16 +51,17 @@ export async function POST(req: NextRequest) {
 
     const user = await getUserByEmail(normalizedEmail);
 
-    // Keep response generic to avoid account enumeration.
-    if (!user?._id || !user.passwordHash) {
-      return successResponse({ message: GENERIC_RESPONSE.message });
-    }
-
     const resetToken = randomBytes(32).toString("hex");
     const resetTokenHash = createHash("sha256")
       .update(resetToken)
       .digest("hex");
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+
+    // Timing attack mitigation: always perform the same amount of hashing
+    // operations whether the user exists or not, so response times are indistinguishable.
+    if (!user?._id || !user.passwordHash) {
+      return successResponse({ message: GENERIC_RESPONSE.message });
+    }
 
     const { db } = await getDb();
     await db.collection("password_reset_tokens").insertOne({
@@ -86,6 +93,12 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error("AUTH", "Forgot password error", error);
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "An error occurred. Please try again later."));
+    return errorResponse(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        500,
+        "An error occurred. Please try again later.",
+      ),
+    );
   }
 }
