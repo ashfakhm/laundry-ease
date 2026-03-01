@@ -121,7 +121,6 @@ export const PAYOUT_LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutes
 export const CRON_JOB_NAMES = [
   "auto-reject-bookings",
   "process-payouts",
-  "release-payouts",
   "no-show",
   "monitor-abuse",
   "audit-integrity",

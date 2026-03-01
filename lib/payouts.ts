@@ -6,8 +6,8 @@ import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";
+import { PAYOUT_LOCK_TTL_MS } from "@/lib/constants";
 
-const PAYOUT_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 const PAYOUT_ERROR_MAX_LENGTH = 500;
 const PAISE_MULTIPLIER = 100;
 
@@ -104,7 +104,7 @@ export async function initiateOrderPayout(
   },
 ): Promise<PayoutResult> {
   const now = new Date();
-  const staleLockCutoff = new Date(Date.now() - PAYOUT_LOCK_TIMEOUT_MS);
+  const staleLockCutoff = new Date(Date.now() - PAYOUT_LOCK_TTL_MS);
   const source = options?.source || "payout_processor";
   const { db } = await getDb();
 

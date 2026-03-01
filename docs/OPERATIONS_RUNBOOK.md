@@ -70,7 +70,6 @@ This runbook defines how to detect, triage, and resolve production incidents for
 - webhook processing failures (`/api/webhooks/razorpay`)
 - cron endpoint failures:
   - `/api/cron/process-payouts`
-  - `/api/cron/release-payouts`
   - `/api/cron/no-show`
   - `/api/cron/monitor-operational-health`
   - `/api/cron/notify-system-alerts`

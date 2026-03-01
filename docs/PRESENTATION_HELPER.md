@@ -297,7 +297,7 @@ lib/
 ├── razorpay.ts     → Payment integration
 ├── audit.ts        → Logging changes
 ├── otp.ts          → OTP generation/verification
-├── google-maps.ts  → Location services
+├── geocoding.ts    → Location services
 └── mongodb.ts      → Database connection
 ```
 
@@ -458,7 +458,7 @@ throw Errors.validation("Bad input"); // 400
 | DB index bootstrap        | `lib/db-indexes.ts`                       |
 | Webhooks                  | `app/api/webhooks/razorpay/route.ts`      |
 | OTP logic                 | `lib/otp.ts`                              |
-| Location/Maps             | `lib/google-maps.ts`                      |
+| Location/Maps             | `lib/geocoding.ts`                        |
 | Distance calculation      | `lib/distance.ts`                         |
 | Type definitions          | `types/*.ts`                              |
 | Environment validation    | `lib/env.ts`                              |
@@ -645,7 +645,7 @@ const isValid = await bcrypt.compare(password, user.passwordHash);
 | ------------------- | --------------------------------------------------------------------------------- |
 | **SQL Injection**   | Not possible (MongoDB), but we clean all inputs                                   |
 | **XSS**             | React escapes output by default                                                   |
-| **CSRF-like abuse** | Same-origin guard (`requireSameOrigin` + `proxy.ts` checks) on unsafe API methods |
+| **CSRF-like abuse** | Same-origin guard (`requireSameOrigin`) on unsafe API methods                     |
 | **CSP hardening**   | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint           |
 | **Timing Attacks**  | `crypto.timingSafeEqual()` for checking signatures                                |
 | **Fake Webhooks**   | HMAC signature check                                                              |
@@ -970,7 +970,7 @@ function verifyPaymentSignature(
 **Answer**: Providers set a **service radius** (e.g., 5 km). We use MongoDB's geospatial queries:
 
 ```typescript
-// lib/google-maps.ts + MongoDB query
+// lib/geocoding.ts + MongoDB query
 const providers = await db.collection("providers").find({
   isApproved: true,
   coordinates: {
@@ -1257,12 +1257,11 @@ if (!result.success) {
 
 **Cron Run Tracking**: Every cron execution is recorded in a `cron_runs` collection via `lib/cron-tracking.ts` with job name, start time, duration, status (running/success/error), and result details.
 
-**Jobs** (10 registered):
+**Jobs** (9 registered):
 
 - `auto-reject-bookings`: Cancel pending requests after timeout (every 5 min)
 - `no-show`: Handle when provider doesn't show up (every 5 min)
 - `process-payouts`: Run unified escrow release + payout orchestration (every 15 min)
-- `release-payouts`: Protected compatibility endpoint (manual/legacy trigger)
 - `audit-integrity`: Verify data consistency between orders/payments/bookings (every 30 min)
 - `monitor-operational-health`: Detect overdue payouts, failure spikes, overdue complaints (hourly)
 - `notify-system-alerts`: Send alert digests via email/webhook with dedup and escalation (every 15 min)

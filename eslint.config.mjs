@@ -17,19 +17,18 @@ const eslintConfig = defineConfig([
   // Custom rules for production build
   {
     rules: {
-      // Convert critical errors to warnings for build success
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
         },
       ],
       "react/no-unescaped-entities": "warn",
-      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/exhaustive-deps": "error",
       "@next/next/no-img-element": "warn",
-      "prefer-const": "warn",
+      "prefer-const": "error",
     },
   },
 ]);

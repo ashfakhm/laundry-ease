@@ -554,7 +554,7 @@ beforeEach(() => {
         createdAt: complaint.createdAt,
       };
 
-      ctx.store.complaint_messages.push(initialMessage as any);
+      ctx.store.complaint_messages.push(initialMessage);
 
       return complaint;
     },

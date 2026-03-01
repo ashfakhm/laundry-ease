@@ -1,6 +1,6 @@
-import nodemailer from "nodemailer";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { getEmailTransporter } from "@/lib/email-transporter";
 
 export type AlertDigestItem = {
   id: string;
@@ -27,13 +27,7 @@ export type AlertDeliveryResult = {
   reason?: string;
 };
 
-const emailTransporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: env.EMAIL_USER,
-    pass: env.EMAIL_PASS,
-  },
-});
+
 
 function parseEmails(raw: string | undefined): string[] {
   if (!raw) return [];
@@ -107,7 +101,7 @@ export async function deliverAlertDigest(
 
   if (recipients.length > 0) {
     const subjectPrefix = payload.kind === "escalate" ? "[ESCALATION]" : "[ALERT]";
-    await emailTransporter.sendMail({
+    await getEmailTransporter().sendMail({
       from: env.EMAIL_USER,
       to: recipients.join(", "),
       subject: `${subjectPrefix} LaundryEase system alerts (${payload.items.length})`,

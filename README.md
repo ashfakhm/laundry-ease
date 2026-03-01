@@ -382,7 +382,7 @@ Admin dashboard shows: 7-day opened-vs-resolved trend, burn-rate tier (stable/wa
 | `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with escalation            |
 | `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns    |
 
-Additional registered jobs: `release-payouts` (legacy compatibility), `process-email-outbox`, `reconciliation`.
+Additional registered jobs: `process-email-outbox`, `reconciliation`.
 
 All cron runs are tracked in `cron_runs` collection with job name, start time, duration, status, and result details.
 
@@ -511,7 +511,6 @@ laundry-ease/
 │
 ├── cron/                         # Cron job logic
 │   ├── auto-reject-bookings.ts   # Auto-reject expired bookings
-│   ├── escrow-auto-release.ts    # Unified escrow payout trigger
 │   └── no-show-check.ts          # No-show detection
 │
 ├── docs/                         # Documentation
@@ -568,7 +567,6 @@ laundry-ease/
 │   └── governance-audit.yml      # Branch-protection drift detection
 ├── .github/PULL_REQUEST_TEMPLATE.md # PR checklist template
 │
-├── proxy.ts                      # Route protection middleware
 ├── next.config.ts                # Next.js configuration
 ├── vercel.json                   # Vercel config & cron schedules
 └── package.json                  # Dependencies & scripts

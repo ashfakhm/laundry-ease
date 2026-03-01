@@ -118,7 +118,7 @@ laundry-ease/
 
 ### Route Protection Architecture
 
-The application uses a custom proxy middleware ([`proxy.ts`](proxy.ts:1)) for route protection:
+The application uses Next.js middleware and server-side auth guards for route protection:
 
 ```mermaid
 flowchart TD
@@ -422,7 +422,7 @@ Defined in [`vercel.json`](vercel.json:1):
 | `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with escalation            |
 | `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns    |
 
-Additional registered jobs: `release-payouts` (legacy compatibility), `process-email-outbox`, `reconciliation`.
+Additional registered jobs: `process-email-outbox`, `reconciliation`.
 
 All cron runs are tracked in `cron_runs` collection via `lib/cron-tracking.ts` with job name, start time, duration, status, and result.
 
@@ -657,7 +657,6 @@ Required variables (see [`.env.example`](.env.example:1)):
 
 | File                                                             | Purpose                                       |
 | ---------------------------------------------------------------- | --------------------------------------------- |
-| [`proxy.ts`](proxy.ts:1)                                         | Route protection middleware                   |
 | [`lib/mongodb.ts`](lib/mongodb.ts:1)                             | Database connection                           |
 | [`lib/env.ts`](lib/env.ts:1)                                     | Environment validation (Zod)                  |
 | [`lib/constants.ts`](lib/constants.ts:1)                         | Centralized business constants                |
