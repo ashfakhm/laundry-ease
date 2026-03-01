@@ -9,7 +9,7 @@ import { Role } from "@/types/enums";
 import { requireAuth } from "@/lib/api/auth";
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;

@@ -10,7 +10,7 @@ import { logger } from "@/lib/logger";
  * Fetch a single provider by ID (public endpoint for seeker browsing)
  */
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;

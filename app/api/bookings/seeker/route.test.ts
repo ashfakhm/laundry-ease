@@ -29,9 +29,6 @@ describe("GET /api/bookings/seeker", () => {
         provider: { name: "CleanCo" },
       },
     ]);
-    const mockSort = vi.fn().mockReturnValue({ toArray: mockToArray });
-    const _mockUnwind = vi.fn().mockReturnValue({ sort: mockSort });
-    const _mockLookup = vi.fn().mockReturnValue({ unwind: _mockUnwind });
     mockGetDb.mockResolvedValue({
       db: {
         collection: () => ({

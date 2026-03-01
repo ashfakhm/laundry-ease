@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import { useEffect, type ChangeEvent } from "react";
 import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
@@ -17,11 +17,11 @@ interface LocationAutocompleteProps {
   placeholder?: string;
 }
 
-export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
+export const LocationAutocomplete = ({
   value,
   onChange,
   placeholder,
-}) => {
+}: LocationAutocompleteProps) => {
   const {
     ready,
     value: searchValue,
@@ -44,14 +44,14 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInput = (e: ChangeEvent<HTMLInputElement>) => {
     setValue(e.target.value);
     // Note: Only propagate the text value without coordinates
     // User must select from suggestions to get coordinates
     onChange(e.target.value);
   };
 
-  const handleSelect = async (place_id: string, description: string) => {
+  const handleSelect = async (description: string) => {
     setValue(description, false);
     clearSuggestions();
 
@@ -102,7 +102,7 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
             <li
               key={place_id}
               className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0 text-sm"
-              onClick={() => handleSelect(place_id, description)}
+              onClick={() => handleSelect(description)}
             >
               <div className="font-medium truncate">
                 {structured_formatting.main_text}
