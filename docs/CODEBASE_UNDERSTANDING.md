@@ -63,7 +63,6 @@ laundry-ease/
 │   │   ├── admin/                # Admin panel
 │   │   ├── provider/             # Provider dashboard
 │   │   └── seeker/               # Seeker dashboard
-│   ├── (root)/                   # Public landing page
 │   ├── actions/                  # Server actions
 │   └── api/                      # API routes
 ├── components/                   # React components

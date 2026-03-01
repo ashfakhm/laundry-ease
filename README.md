@@ -455,7 +455,6 @@ laundry-ease/
 │   │   ├── admin/                # Admin panel (complaints, users, payments, alerts)
 │   │   ├── provider/             # Provider dashboard (bookings, orders, earnings)
 │   │   └── seeker/               # Seeker dashboard (bookings, orders, disputes)
-│   ├── (root)/                   # Public landing page route group
 │   ├── actions/                  # Server actions
 │   │   ├── booking-actions.ts    # Booking operations
 │   │   ├── order-actions.ts      # Order operations
