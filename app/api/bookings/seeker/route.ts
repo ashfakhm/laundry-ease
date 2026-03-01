@@ -10,34 +10,36 @@ export async function GET() {
   try {
     const { user } = await requireSeeker();
     if (!ObjectId.isValid(user.id)) {
-      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     const { db } = await getDb();
-    
+
     // Aggregation to join provider details
     const bookings = await db
       .collection<Booking>("bookings")
       .aggregate([
         { $match: { seeker_id: new ObjectId(user.id) } },
         {
-             $lookup: {
-                 from: "providers",
-                 localField: "provider_id",
-                 foreignField: "_id",
-                 as: "provider"
-             }
+          $lookup: {
+            from: "providers",
+            localField: "provider_id",
+            foreignField: "_id",
+            as: "provider",
+          },
         },
-        { $unwind: "$provider" },
-        { $sort: { createdAt: -1 } }
+        {
+          $unwind: {
+            path: "$provider",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        { $sort: { createdAt: -1 } },
       ])
       .toArray();
-      
-    // Fix: ObjectId matching might be tricky if not cast.
-    // Let's rely on standard find with proper casting if direct aggregate fails, 
-    // but aggregate is better for joins.
-    // Ideally we import ObjectId.
-    
+
     return successResponse(bookings);
   } catch (error) {
     if (error instanceof AppError) {
@@ -45,6 +47,8 @@ export async function GET() {
     }
 
     logger.error("BOOKINGS", "Error fetching seeker bookings", error);
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
+    );
   }
 }

@@ -4,6 +4,63 @@ import { ObjectId } from "mongodb";
 import { requireProvider, requireSeeker } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
 
+/**
+ * Safely convert a value to an ISO date string.
+ * Returns undefined if the value is falsy or not a valid date.
+ */
+function toISOStringOrUndefined(
+  value: Date | string | null | undefined,
+): string | undefined {
+  if (!value) return undefined;
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+/**
+ * Serialise a pickupSlot sub-document so Date values become ISO strings.
+ */
+function serialisePickupSlot(
+  slot: Record<string, unknown> | null | undefined,
+): PopulatedBooking["pickupSlot"] {
+  if (!slot) return undefined;
+  return {
+    ...(slot as NonNullable<PopulatedBooking["pickupSlot"]>),
+    dateTime: toISOStringOrUndefined(slot.dateTime as Date | string) ?? "",
+    confirmedAt: toISOStringOrUndefined(slot.confirmedAt as Date | string),
+  };
+}
+
+/**
+ * Serialise a reschedule sub-document.
+ */
+function serialiseReschedule(
+  reschedule: Record<string, unknown> | null | undefined,
+) {
+  if (!reschedule) return undefined;
+  return {
+    ...reschedule,
+    requestedAt: toISOStringOrUndefined(
+      reschedule.requestedAt as Date | string,
+    ),
+    previousPickupSlot: reschedule.previousPickupSlot
+      ? serialisePickupSlot(
+          reschedule.previousPickupSlot as Record<string, unknown>,
+        )
+      : undefined,
+  };
+}
+
+/**
+ * Serialise an invoice sub-document.
+ */
+function serialiseInvoice(invoice: Record<string, unknown> | null | undefined) {
+  if (!invoice) return undefined;
+  return {
+    ...invoice,
+    createdAt: toISOStringOrUndefined(invoice.createdAt as Date | string),
+  };
+}
+
 export async function getProviderBookings(): Promise<{
   success: boolean;
   data?: PopulatedBooking[];
@@ -58,28 +115,61 @@ export async function getProviderBookings(): Promise<{
 
     const populatedBookings: PopulatedBooking[] = bookings.map((booking) => {
       const seeker = booking.seekerDetails;
+
+      // Destructure join artifact and raw ObjectId / Date fields; spread
+      // everything else so no booking fields (invoice, updatedAt, …) are lost.
+      const {
+        seekerDetails: _seekerDetails,
+        _id,
+        provider_id: _pid,
+        seeker_id: _sid,
+        status,
+        order_id,
+        createdAt,
+        updatedAt,
+        deadline,
+        pickupSlot,
+        reschedule,
+        invoice,
+        arrivedAt,
+        cancelledAt,
+        refundProcessedAt,
+        payout_lock_at,
+        payout_failure_at,
+        payout_initiated_at,
+        payout_updated_at,
+        booking_fee_released_at,
+        booking_fee_applied_at,
+        refund_in_progress_at,
+        ...rest
+      } = booking;
+
       return {
-        _id: booking._id.toString(),
-        provider_id: booking.provider_id.toString(),
-        seeker_id: booking.seeker_id.toString(),
-        status: booking.status,
-        bookingFee: booking.bookingFee,
-        bookingFeeStatus: booking.bookingFeeStatus,
-        createdAt: new Date(booking.createdAt).toISOString(),
-        order_id: booking.order_id ? booking.order_id.toString() : undefined,
-        deadline: booking.deadline
-          ? new Date(booking.deadline).toISOString()
-          : undefined,
-        seeker_coordinates: booking.seeker_coordinates,
-        pickupSlot: booking.pickupSlot
-          ? {
-              ...booking.pickupSlot,
-              dateTime: new Date(booking.pickupSlot.dateTime).toISOString(),
-              confirmedAt: booking.pickupSlot.confirmedAt
-                ? new Date(booking.pickupSlot.confirmedAt).toISOString()
-                : undefined,
-            }
-          : undefined,
+        ...rest,
+        _id: _id.toString(),
+        provider_id: _pid.toString(),
+        seeker_id: _sid.toString(),
+        status,
+        createdAt:
+          toISOStringOrUndefined(createdAt) ?? new Date().toISOString(),
+        updatedAt: toISOStringOrUndefined(updatedAt),
+        order_id: order_id ? order_id.toString() : undefined,
+        deadline: toISOStringOrUndefined(deadline),
+        pickupSlot: serialisePickupSlot(pickupSlot),
+        reschedule: serialiseReschedule(reschedule),
+        invoice: serialiseInvoice(invoice),
+        arrivedAt: toISOStringOrUndefined(arrivedAt),
+        cancelledAt: toISOStringOrUndefined(cancelledAt),
+        refundProcessedAt: toISOStringOrUndefined(refundProcessedAt),
+        payout_lock_at: toISOStringOrUndefined(payout_lock_at),
+        payout_failure_at: toISOStringOrUndefined(payout_failure_at),
+        payout_initiated_at: toISOStringOrUndefined(payout_initiated_at),
+        payout_updated_at: toISOStringOrUndefined(payout_updated_at),
+        booking_fee_released_at: toISOStringOrUndefined(
+          booking_fee_released_at,
+        ),
+        booking_fee_applied_at: toISOStringOrUndefined(booking_fee_applied_at),
+        refund_in_progress_at: toISOStringOrUndefined(refund_in_progress_at),
         seeker: {
           _id: seeker?._id?.toString() || "unknown",
           name: seeker?.name || "Unknown Seeker",
@@ -149,28 +239,63 @@ export async function getSeekerBookings(): Promise<{
     const populatedBookings: PopulatedSeekerBooking[] = bookings.map(
       (booking) => {
         const provider = booking.providerDetails;
+
+        // Destructure join artifact and raw ObjectId / Date fields; spread
+        // everything else so no booking fields are silently dropped.
+        const {
+          providerDetails: _providerDetails,
+          _id,
+          provider_id: _pid,
+          seeker_id: _sid,
+          status,
+          order_id,
+          createdAt,
+          updatedAt,
+          deadline,
+          pickupSlot,
+          reschedule,
+          invoice,
+          arrivedAt,
+          cancelledAt,
+          refundProcessedAt,
+          payout_lock_at,
+          payout_failure_at,
+          payout_initiated_at,
+          payout_updated_at,
+          booking_fee_released_at,
+          booking_fee_applied_at,
+          refund_in_progress_at,
+          ...rest
+        } = booking;
+
         return {
-          _id: booking._id.toString(),
-          provider_id: booking.provider_id.toString(),
-          seeker_id: booking.seeker_id.toString(),
-          status: booking.status,
-          bookingFee: booking.bookingFee,
-          bookingFeeStatus: booking.bookingFeeStatus,
-          createdAt: new Date(booking.createdAt).toISOString(),
-          order_id: booking.order_id ? booking.order_id.toString() : undefined,
-          deadline: booking.deadline
-            ? new Date(booking.deadline).toISOString()
-            : undefined,
-          seeker_coordinates: booking.seeker_coordinates,
-          pickupSlot: booking.pickupSlot
-            ? {
-                ...booking.pickupSlot,
-                dateTime: new Date(booking.pickupSlot.dateTime).toISOString(),
-                confirmedAt: booking.pickupSlot.confirmedAt
-                  ? new Date(booking.pickupSlot.confirmedAt).toISOString()
-                  : undefined,
-              }
-            : undefined,
+          ...rest,
+          _id: _id.toString(),
+          provider_id: _pid.toString(),
+          seeker_id: _sid.toString(),
+          status,
+          createdAt:
+            toISOStringOrUndefined(createdAt) ?? new Date().toISOString(),
+          updatedAt: toISOStringOrUndefined(updatedAt),
+          order_id: order_id ? order_id.toString() : undefined,
+          deadline: toISOStringOrUndefined(deadline),
+          pickupSlot: serialisePickupSlot(pickupSlot),
+          reschedule: serialiseReschedule(reschedule),
+          invoice: serialiseInvoice(invoice),
+          arrivedAt: toISOStringOrUndefined(arrivedAt),
+          cancelledAt: toISOStringOrUndefined(cancelledAt),
+          refundProcessedAt: toISOStringOrUndefined(refundProcessedAt),
+          payout_lock_at: toISOStringOrUndefined(payout_lock_at),
+          payout_failure_at: toISOStringOrUndefined(payout_failure_at),
+          payout_initiated_at: toISOStringOrUndefined(payout_initiated_at),
+          payout_updated_at: toISOStringOrUndefined(payout_updated_at),
+          booking_fee_released_at: toISOStringOrUndefined(
+            booking_fee_released_at,
+          ),
+          booking_fee_applied_at: toISOStringOrUndefined(
+            booking_fee_applied_at,
+          ),
+          refund_in_progress_at: toISOStringOrUndefined(refund_in_progress_at),
           provider: {
             _id: provider?._id?.toString() || "unknown",
             name: provider?.name || "Unknown Provider",
