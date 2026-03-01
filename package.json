@@ -70,10 +70,13 @@
   },
   "browserslist": "> 1%",
   "overrides": {
-    "//": "Security patches for transitive deps + React 19 type alignment",
+    "// axios": "CVE-2023-45857 SSRF — pin transitive dep to patched version",
     "axios": "^1.13.5",
+    "// qs": "CVE-2022-24999 prototype pollution — pin transitive dep to patched version",
     "qs": "^6.14.2",
+    "// @types/react": "Align with React 19.2 runtime types used by Next.js 16",
     "@types/react": "19.2.10",
+    "// @types/react-dom": "Align with React DOM 19.2 runtime types used by Next.js 16",
     "@types/react-dom": "19.2.3"
   }
 }

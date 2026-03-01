@@ -3,11 +3,11 @@ import { requireAuth } from "@/lib/api/auth";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { requireSameOrigin } from "@/lib/api/security";
+import { MAX_UPLOAD_FILE_BYTES } from "@/lib/constants";
 
 export const runtime = "nodejs";
 
-// Maximum file size: 5MB
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = MAX_UPLOAD_FILE_BYTES;
 // Allowed file types
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 

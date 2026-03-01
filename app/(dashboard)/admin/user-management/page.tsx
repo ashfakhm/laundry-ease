@@ -11,6 +11,7 @@ import {
   Phone,
   Calendar,
 } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 
 type User = {
   _id: string;
@@ -42,7 +43,7 @@ export default function UserManagementPage() {
         setUsers(data);
       }
     } catch (error) {
-      console.error("Error fetching users:", error);
+      reportError("UserFetchError", error);
     } finally {
       setLoading(false);
     }

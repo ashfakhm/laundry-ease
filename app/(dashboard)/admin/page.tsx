@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 
 interface ActiveComplaintPreview {
   _id: string;
@@ -136,7 +137,7 @@ export default function AdminDashboardPage() {
         setLoadError("Unable to load live admin metrics.");
       }
     } catch (error) {
-      console.error("Failed to fetch admin stats:", error);
+      reportError("AdminStatsFetchError", error);
       setStats(null);
       setLoadError("Unable to load live admin metrics.");
     } finally {
@@ -167,7 +168,7 @@ export default function AdminDashboardPage() {
 
       await fetchStats(false);
     } catch (error) {
-      console.error("Failed to acknowledge system alert:", error);
+      reportError("AlertAcknowledgeError", error);
     } finally {
       setAckInFlight(null);
     }

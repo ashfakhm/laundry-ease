@@ -1,16 +1,14 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getOrderById } from "@/lib/db/index";
-import { buildConfirmDeliveryUpdateFields } from "@/lib/db/orders";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
-import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 import { requireProvider } from "@/lib/api/auth";
-import { DELIVERY_OTP_TTL_MS, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
+import { executeDeliveryConfirmation } from "@/lib/orders/confirm-delivery-core";
 
 const schema = z.object({
   otp: z.string().regex(/^\d{6}$/, "OTP must be 6 digits"),
@@ -57,7 +55,6 @@ export async function POST(
     if ((order.process_status || "invoiced") === "delivered") {
       return successResponse({ message: "Delivery already confirmed",
           idempotent: true,
-
           deadlineCompensationApplied:
             order.payment_status === "refunded" ||
             Boolean(order.deadline_compensated_at) });
@@ -67,9 +64,6 @@ export async function POST(
       return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "OTP can only be verified when order is out for delivery"));
     }
 
-    // Allow verification even if payment is already in escrow states.
-    // "paid" = captured, "held" = escrow started (delivery confirmed),
-    // "released" = escrow released. "refunded" and "unpaid" should not allow.
     if (
       order.payment_status !== "paid" &&
       order.payment_status !== "held" &&
@@ -78,159 +72,19 @@ export async function POST(
       return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Order must be paid before confirming delivery"));
     }
 
-    const { otp } = parsed.data;
-
-    const nowMs = Date.now();
-    const otpExpiresAt = order.delivery_otp_expires_at;
-    const otpSentAt = order.delivery_otp_sent_at;
-
-    if (otpExpiresAt) {
-      const expiryDate = new Date(otpExpiresAt);
-      if (
-        !Number.isNaN(expiryDate.getTime()) &&
-        expiryDate.getTime() <= nowMs
-      ) {
-        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 410, "OTP expired. Please resend OTP."));
-      }
-    } else if (otpSentAt) {
-      const sentDate = new Date(otpSentAt);
-      if (
-        !Number.isNaN(sentDate.getTime()) &&
-        sentDate.getTime() + DELIVERY_OTP_TTL_MS <= nowMs
-      ) {
-        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 410, "OTP expired. Please resend OTP."));
-      }
-    }
-
-    // Verify OTP exactly as stored on the order using bcrypt
-    if (!order.delivery_otp) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid OTP"));
-    }
-    const bcrypt = await import("bcrypt");
-    const isOtpValid = await bcrypt.compare(otp, order.delivery_otp);
-    if (!isOtpValid) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid OTP"));
-    }
-
-    const now = new Date();
-    const orderDeadline = order.deadline ? new Date(order.deadline) : null;
-
-    const alreadyCompensated =
-      Boolean(order.deadline_compensated_at) ||
-      Boolean(order.razorpay_refund_id);
-
-    const paidAmount = Number(order.total_price || 0);
-    let refundId: string | null = null;
-    const compensationDecision = evaluateDeadlineCompensation({
-      now,
-      deadline: orderDeadline,
-      paymentStatus: order.payment_status,
-      alreadyCompensated,
-      paidAmount,
-    });
-    const { deadlineBreached, shouldRefund } = compensationDecision;
-
-    if (compensationDecision.blocked) {
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, compensationDecision.blockedMessage ||
-            "Deadline compensation cannot be applied automatically."));
-    }
-
     const { db, client } = await getDb();
     const session = client.startSession();
 
     try {
       return await session.withTransaction(async () => {
-        if (shouldRefund) {
-          if (!order.razorpay_payment_id) {
-            return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Deadline missed, but payment reference is unavailable for automatic refund. Please contact support."));
-          }
-
-          try {
-            const refund = await refundRazorpayPayment(
-              order.razorpay_payment_id,
-              Math.round(paidAmount * 100),
-              {
-                reason: "deadline_breach_full_refund",
-                order_id: id,
-              },
-            );
-            refundId = refund.id || null;
-          } catch (error) {
-            logger.error(
-              "ORDERS",
-              "Failed to refund late-delivery order before OTP verification completion",
-              error,
-              { orderId: id },
-            );
-            return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 502, "Deadline was missed, but refund could not be processed right now. Please retry."));
-          }
-        }
-
-        const orderCheck = await db
-          .collection("orders")
-          .findOne({ _id: order_id }, { session });
-        if (!orderCheck) {
-          return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to confirm delivery"));
-        }
-
-        const setFields = buildConfirmDeliveryUpdateFields(orderCheck, now);
-
-        if (deadlineBreached && !alreadyCompensated) {
-          Object.assign(setFields, {
-            deadline_breached_at: now,
-            deadline_compensated_at: new Date(),
-            deadline_compensation_mode: shouldRefund
-              ? "full_refund"
-              : "no_charge",
-            refund_amount: shouldRefund ? paidAmount : 0,
-            refund_reason: shouldRefund
-              ? "Delivery confirmed after seeker deadline"
-              : "Delivery confirmed after seeker deadline (no captured amount)",
-            ...(refundId ? { razorpay_refund_id: refundId } : {}),
-            ...(shouldRefund
-              ? {
-                  payment_status: "refunded",
-                  latePenalty: paidAmount,
-                }
-              : {}),
-            updatedAt: new Date(),
-          });
-        }
-
-        const res = await db
-          .collection("orders")
-          .updateOne({ _id: order_id }, { $set: setFields }, { session });
-        const success = res.modifiedCount > 0;
-
-        if (!success) {
-          return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to confirm delivery"));
-        }
-
-        if (deadlineBreached && !alreadyCompensated) {
-          logger.info(
-            "ORDERS",
-            "Deadline compensation applied on delivery OTP",
-            {
-              orderId: id,
-              providerId: user.id,
-              refundId,
-            },
-          );
-
-          return successResponse({ message: shouldRefund
-                ? "Delivery confirmed. Deadline was missed and a full refund has been issued."
-                : "Delivery confirmed. Deadline was missed and marked for no-charge completion.",
-
-              deadlineCompensationApplied: shouldRefund,
-              deadlineBreached: true });
-        }
-
-        logger.info("ORDERS", "Delivery OTP verified by provider", {
+        const result = await executeDeliveryConfirmation(db, session, {
           orderId: id,
-          providerId: user.id,
+          order,
+          otp: parsed.data.otp,
+          actorRole: "provider",
+          actorId: user.id,
         });
-
-        return successResponse({ message: "Delivery confirmed" });
+        return successResponse(result);
       });
     } finally {
       await session.endSession();

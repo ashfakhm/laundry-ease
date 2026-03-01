@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { reportError } from "@/lib/client-error";
 
 interface SeekerBookingCardProps {
   booking: PopulatedSeekerBooking;
@@ -100,7 +101,7 @@ function SeekerBookingCardComponent({
               });
             }
           } catch (e) {
-            console.error(e);
+            reportError("PaymentVerificationError", e);
             toast({
               title: "Verification error",
               description: "An error occurred during verification",
@@ -127,7 +128,7 @@ function SeekerBookingCardComponent({
       const rzp1 = new (window as unknown as RazorpayWindow).Razorpay(options);
       rzp1.open();
     } catch (e) {
-      console.error(e);
+      reportError("PaymentInitError", e);
       toast({
         title: "Payment error",
         description: "Failed to initialize payment",
@@ -166,7 +167,7 @@ function SeekerBookingCardComponent({
         });
       }
     } catch (e) {
-      console.error(e);
+      reportError("SlotConfirmationError", e);
       toast({
         title: "Error",
         description: "Failed to confirm slot. Please try again.",
@@ -317,7 +318,7 @@ function SeekerBookingCardComponent({
       );
       rzp1.open();
     } catch (e: unknown) {
-      console.error(e);
+      reportError("InvoicePaymentInitError", e);
       // Toast already shown for specific errors
       if (e instanceof Error && e.message !== "Authentication failed") {
         toast({

@@ -10,10 +10,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import type { Order } from "@/types/orders";
 import type { Booking } from "@/types/bookings";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
-
-function toPaise(amountRupees: number) {
-  return Math.round(amountRupees * 100);
-}
+import { toPaise } from "@/lib/utils/monetary";
 
 function buildRefundNotes(
   reason: string | undefined,

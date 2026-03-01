@@ -110,7 +110,7 @@ const providerProfileSchema = z
     },
   );
 
-type ProviderProfileValues = {
+export type ProviderProfileValues = {
   name: string;
   businessName?: string;
   bio?: string;

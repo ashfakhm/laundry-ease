@@ -6,6 +6,7 @@ import { ArrowLeft, UserPlus, CheckCircle, Ban } from "lucide-react";
 import Link from "next/link";
 import ComplaintChat from "@/components/complaint-chat";
 import { showToast } from "@/lib/toast";
+import { reportError } from "@/lib/client-error";
 
 type Params = Promise<{ id: string }>;
 
@@ -91,7 +92,7 @@ export default function AdminComplaintDetailPage({
         showToast.error("Failed to load complaint");
       }
     } catch (error) {
-      console.error("Error fetching complaint:", error);
+      reportError("ComplaintDetailFetchError", error);
       showToast.error("Failed to load complaint");
     } finally {
       setLoading(false);
@@ -117,7 +118,7 @@ export default function AdminComplaintDetailPage({
         showToast.error(getApiErrorMessage(data, "Failed to add provider"));
       }
     } catch (error) {
-      console.error("Error adding provider:", error);
+      reportError("ProviderAddError", error);
       showToast.error("Failed to add provider");
     } finally {
       setActionLoading(false);
@@ -210,7 +211,7 @@ export default function AdminComplaintDetailPage({
         );
       }
     } catch (error) {
-      console.error("Error resolving complaint:", error);
+      reportError("ComplaintResolutionError", error);
       showToast.error("Failed to resolve complaint");
     } finally {
       setActionLoading(false);

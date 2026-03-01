@@ -1,4 +1,5 @@
 import { logger } from "./logger";
+import type { StatsD } from "hot-shots";
 
 /**
  * Telemetry and Business Metrics System
@@ -8,8 +9,7 @@ import { logger } from "./logger";
  */
 
 class Telemetry {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private client: any;
+  private client: StatsD | null = null;
   private enabled: boolean = false;
 
   constructor() {

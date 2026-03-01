@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ProviderHeader } from "@/components/provider/provider-header";
+import { reportError } from "@/lib/client-error";
 
 type Provider = {
   _id: string;
@@ -53,10 +54,10 @@ export default function ProviderProfilePage() {
           const json = await response.json();
           setProvider(json.data ?? json);
         } else {
-          console.error("Failed to fetch provider profile");
+          reportError("ProviderProfileFetchError", "Failed to fetch provider profile");
         }
       } catch (error) {
-        console.error("Error fetching profile:", error);
+        reportError("ProviderProfileFetchError", error);
       } finally {
         setLoading(false);
       }

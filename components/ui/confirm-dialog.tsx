@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -38,7 +39,7 @@ export function ConfirmDialog({
       await onConfirm();
       onClose();
     } catch (error) {
-      console.error("Confirmation action failed:", error);
+      reportError("ConfirmationError", error);
     } finally {
       setIsConfirming(false);
     }

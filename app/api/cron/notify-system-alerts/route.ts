@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
@@ -12,7 +11,7 @@ import {
 } from "@/lib/ops/alert-channels";
 import type { ObjectId } from "mongodb";
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { AppError, ErrorCode } from "@/lib/api/errors";
+import { requireCronSecret } from "@/lib/api/cron-auth";
 
 type SystemAlertDocument = {
   _id: ObjectId;
@@ -61,22 +60,10 @@ function toDigestItem(alert: SystemAlertDocument): AlertDigestItem {
 
 // GET /api/cron/notify-system-alerts
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!env.CRON_SECRET) {
-    logger.error("CRON", "CRON_SECRET not configured - notify alerts disabled");
-    return errorResponse(
-      new AppError(
-        ErrorCode.VALIDATION_ERROR,
-        503,
-        "Cron endpoint not configured",
-      ),
-    );
-  }
-
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return errorResponse(
-      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
-    );
+  try {
+    requireCronSecret(req);
+  } catch (error) {
+    return errorResponse(error);
   }
 
   const run = await startCronRun("notify-system-alerts");

@@ -20,6 +20,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -120,7 +121,7 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
           setActiveDisputes(getComplaintCount(payload));
         }
       } catch (error) {
-        console.error("Failed to fetch disputes:", error);
+        reportError("DisputeFetchError", error);
       }
     };
 
@@ -277,7 +278,7 @@ export function ProviderMobileNav() {
           setActiveDisputes(getComplaintCount(payload));
         }
       } catch (error) {
-        console.error("Failed to fetch disputes:", error);
+        reportError("DisputeFetchError", error);
       }
     };
 

@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 import { ProviderHeader } from "@/components/provider/provider-header";
 
 type Provider = {
@@ -86,10 +87,10 @@ export default function ProviderDetailPage() {
           const data = await response.json();
           setProvider(data);
         } else {
-          console.error("Provider not found");
+          reportError("ProviderNotFound", "Provider not found");
         }
       } catch (error) {
-        console.error("Error fetching provider:", error);
+        reportError("ProviderFetchError", error);
       } finally {
         setLoading(false);
       }
@@ -162,7 +163,7 @@ export default function ProviderDetailPage() {
         });
       }
     } catch (error) {
-      console.error("Error creating booking:", error);
+      reportError("BookingCreationError", error);
       toast({
         title: "Something went wrong",
         description: "Please check your connection and try again",

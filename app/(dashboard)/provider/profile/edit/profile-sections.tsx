@@ -1,6 +1,7 @@
 "use client";
 
-import { UseFormReturn, useFieldArray } from "react-hook-form";
+import { UseFormReturn, useFieldArray, type FieldErrors } from "react-hook-form";
+import { type ProviderProfileValues } from "./page";
 import { motion } from "framer-motion";
 import {
   Briefcase,
@@ -32,8 +33,7 @@ const LAUNDRY_SERVICES = [
   "Express Service",
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FormProps = { form: UseFormReturn<any> };
+type FormProps = { form: UseFormReturn<ProviderProfileValues> };
 
 export function BusinessInfoSection({ form }: FormProps) {
   return (
@@ -398,23 +398,19 @@ export function FixedPriceListSection({ form }: FormProps) {
                         className="w-full h-9 pl-6 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                     </div>
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {(form.formState.errors.items as any)?.[index]?.name && (
+                    {(form.formState.errors.items as FieldErrors<ProviderProfileValues>["items"])?.[index]?.name && (
                       <p className="text-xs text-destructive">
                         {
-                          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-                          (form.formState.errors.items as any)[index]?.name
-                            ?.message as string
+                          (form.formState.errors.items as FieldErrors<ProviderProfileValues>["items"])?.[index]?.name
+                            ?.message
                         }
                       </p>
                     )}
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {(form.formState.errors.items as any)?.[index]?.price && (
+                    {(form.formState.errors.items as FieldErrors<ProviderProfileValues>["items"])?.[index]?.price && (
                       <p className="text-xs text-destructive">
                         {
-                          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-                          (form.formState.errors.items as any)[index]?.price
-                            ?.message as string
+                          (form.formState.errors.items as FieldErrors<ProviderProfileValues>["items"])?.[index]?.price
+                            ?.message
                         }
                       </p>
                     )}

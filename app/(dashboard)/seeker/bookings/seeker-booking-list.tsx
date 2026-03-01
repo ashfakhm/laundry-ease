@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
 import { motion, AnimatePresence } from "framer-motion";
+import { RAZORPAY_CHECKOUT_SCRIPT_URL } from "@/lib/constants";
 
 interface SeekerBookingListProps {
   initialBookings: PopulatedSeekerBooking[];
@@ -53,7 +54,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
     <div className="space-y-6">
       {/* Load Razorpay Script */}
       <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
+        src={RAZORPAY_CHECKOUT_SCRIPT_URL}
         strategy="lazyOnload"
       />
 

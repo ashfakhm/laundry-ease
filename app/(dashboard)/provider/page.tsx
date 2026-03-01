@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Package, Truck, Wallet, Clock, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { reportError } from "@/lib/client-error";
 
 export default function ProviderDashboardPage() {
   const { data: session } = useSession();
@@ -26,7 +27,7 @@ export default function ProviderDashboardPage() {
           setStats(data);
         }
       } catch (error) {
-        console.error("Failed to fetch dashboard stats", error);
+        reportError("ProviderDashboardStatsError", error);
       } finally {
         setLoading(false);
       }

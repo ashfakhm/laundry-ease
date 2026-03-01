@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
+import { RAZORPAY_CHECKOUT_SCRIPT_URL } from "@/lib/constants";
+import { reportError } from "@/lib/client-error";
 import type { RazorpayResponse, RazorpayError } from "@/types/razorpay";
 
 // Define strict types matching the API response
@@ -136,7 +138,7 @@ export default function InvoiceReviewForm({
           });
           rzp.open();
         } catch (paymentError) {
-          console.error(paymentError);
+          reportError("PaymentInitError", paymentError);
           // If payment init fails, just go to order page
           router.push(`/seeker/orders/${data.orderId}`);
         }
@@ -157,7 +159,7 @@ export default function InvoiceReviewForm({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+      <Script src={RAZORPAY_CHECKOUT_SCRIPT_URL} />
       {/* Header Card */}
       <div className="bg-card/50 backdrop-blur-md p-6 rounded-2xl border border-border shadow-lg">
         <h2 className="text-xl font-heading font-bold mb-1">Invoice Details</h2>

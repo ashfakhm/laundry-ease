@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Calendar,
 } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 
 type ActionType = "refund" | "penalty";
 
@@ -57,7 +58,7 @@ export default function AdminPaymentManagementPage() {
         setPayments(Array.isArray(json) ? json : (json.data ?? []));
       }
     } catch (error) {
-      console.error("Failed to fetch payments", error);
+      reportError("PaymentFetchError", error);
     } finally {
       setLoading(false);
     }

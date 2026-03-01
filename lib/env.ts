@@ -66,4 +66,17 @@ const envSchema = z.object({
   ALLOW_START_WITH_INDEX_ERRORS: z.enum(["0", "1"]).optional().default("0"),
 });
 
-export const env = envSchema.parse(process.env);
+let _env: z.infer<typeof envSchema> | null = null;
+
+function getEnv(): z.infer<typeof envSchema> {
+  if (!_env) {
+    _env = envSchema.parse(process.env);
+  }
+  return _env;
+}
+
+export const env = new Proxy({} as z.infer<typeof envSchema>, {
+  get(_target, prop: string) {
+    return getEnv()[prop as keyof z.infer<typeof envSchema>];
+  },
+});

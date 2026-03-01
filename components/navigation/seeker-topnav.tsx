@@ -16,6 +16,7 @@ import {
   Receipt,
   AlertCircle,
 } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,7 +49,7 @@ export function SeekerTopNav() {
           setActiveDisputes(getComplaintCount(payload));
         }
       } catch (error) {
-        console.error("Failed to fetch disputes:", error);
+        reportError("DisputeFetchError", error);
       }
     };
 

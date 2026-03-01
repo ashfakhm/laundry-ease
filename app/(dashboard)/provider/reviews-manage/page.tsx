@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Star, MessageSquare, Calendar } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 
 type Review = {
   _id: string;
@@ -32,7 +33,7 @@ export default function ReviewsManagePage() {
           setReviews(data);
         }
       } catch (error) {
-        console.error("Failed to fetch reviews", error);
+        reportError("ReviewFetchError", error);
         setReviews([]);
       }
     }

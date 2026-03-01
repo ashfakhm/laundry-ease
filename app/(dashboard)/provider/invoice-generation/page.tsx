@@ -9,6 +9,7 @@ import {
   IndianRupee,
   CheckCircle2,
 } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 
 type OrderItem = {
   name: string;
@@ -63,16 +64,16 @@ export default function InvoiceGenerationPage() {
             (ordersRes.data as Order[]).filter((o) => o.otp_confirmed_at),
           );
         } else if (!ordersRes.success) {
-          console.error("Order fetch error:", ordersRes.error);
+          reportError("OrderFetchError", ordersRes.error);
         }
 
         if (profileRes.success && profileRes.data) {
           setProvider(profileRes.data as ProviderProfile);
         } else if (!profileRes.success) {
-          console.error("Profile fetch error:", profileRes.error);
+          reportError("ProviderProfileFetchError", profileRes.error);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        reportError("DataFetchError", error);
       } finally {
         setLoading(false);
       }

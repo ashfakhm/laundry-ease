@@ -3,51 +3,18 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
-import { env } from "@/lib/env";
-import { auditIntegrity, type IntegrityAnomaly } from "@/lib/audit/integrity";
+import { auditIntegrity } from "@/lib/audit/integrity";
 import { STALE_PAYOUT_CUTOFF_MS } from "@/lib/constants";
 import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
-
-type SystemAlertDocument = {
-  kind: "integrity";
-  key: string;
-  entityType: "order" | "booking" | "complaint";
-  entityId: string;
-  severity: "critical" | "high" | "medium";
-  message: string;
-  status: "open" | "resolved";
-  firstSeenAt: Date;
-  lastSeenAt: Date;
-  resolvedAt?: Date;
-  updatedAt: Date;
-  createdAt: Date;
-};
-
-function anomalyId(anomaly: IntegrityAnomaly): string {
-  return `${anomaly.key}:${anomaly.entityType}:${anomaly.entityId}`;
-}
+import { requireCronSecret } from "@/lib/api/cron-auth";
+import { syncAlerts } from "@/lib/ops/alert-lifecycle";
 
 // GET /api/cron/audit-integrity
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!env.CRON_SECRET) {
-    logger.error(
-      "CRON",
-      "CRON_SECRET not configured - integrity audit endpoint disabled",
-    );
-    return errorResponse(
-      new AppError(
-        ErrorCode.INTERNAL_ERROR,
-        503,
-        "Cron endpoint not configured",
-      ),
-    );
-  }
-
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return errorResponse(
-      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
-    );
+  try {
+    requireCronSecret(req);
+  } catch (error) {
+    return errorResponse(error);
   }
 
   const run = await startCronRun("audit-integrity");
@@ -183,95 +150,22 @@ export async function GET(req: NextRequest) {
       now,
     });
 
-    const alertCollection = db.collection<SystemAlertDocument>("system_alerts");
-    const activeKeys = new Set(anomalies.map(anomalyId));
+    const alertCollection = db.collection("system_alerts");
 
-    let openedOrUpdated = 0;
-    if (anomalies.length > 0) {
-      const openOps = anomalies.map((anomaly) => ({
-        updateOne: {
-          filter: {
-            kind: "integrity" as const,
-            key: anomaly.key,
-            entityType: anomaly.entityType,
-            entityId: anomaly.entityId,
-            status: "open" as const,
-          },
-          update: {
-            $set: {
-              severity: anomaly.severity,
-              message: anomaly.message,
-              lastSeenAt: now,
-              updatedAt: now,
-            },
-            $setOnInsert: {
-              kind: "integrity" as const,
-              key: anomaly.key,
-              entityType: anomaly.entityType,
-              entityId: anomaly.entityId,
-              status: "open" as const,
-              firstSeenAt: now,
-              createdAt: now,
-            },
-          },
-          upsert: true,
-        },
-      }));
+    const alertInputs = anomalies.map((anomaly) => ({
+      key: anomaly.key,
+      entityType: anomaly.entityType,
+      entityId: anomaly.entityId,
+      severity: anomaly.severity,
+      message: anomaly.message,
+    }));
 
-      const openResult = await alertCollection.bulkWrite(openOps, {
-        ordered: false,
-      });
-      openedOrUpdated =
-        (openResult.upsertedCount || 0) + (openResult.modifiedCount || 0);
-    }
-
-    const existingOpenAlerts = await alertCollection
-      .find(
-        {
-          kind: "integrity",
-          status: "open",
-        },
-        {
-          projection: {
-            key: 1,
-            entityType: 1,
-            entityId: 1,
-          },
-        },
-      )
-      .toArray();
-
-    const resolveOps = existingOpenAlerts
-      .filter((alert) => {
-        const id = `${alert.key}:${alert.entityType}:${alert.entityId}`;
-        return !activeKeys.has(id);
-      })
-      .map((alert) => ({
-        updateOne: {
-          filter: {
-            kind: "integrity" as const,
-            key: alert.key,
-            entityType: alert.entityType,
-            entityId: alert.entityId,
-            status: "open" as const,
-          },
-          update: {
-            $set: {
-              status: "resolved" as const,
-              resolvedAt: now,
-              updatedAt: now,
-            },
-          },
-        },
-      }));
-
-    let resolvedCount = 0;
-    if (resolveOps.length > 0) {
-      const resolveResult = await alertCollection.bulkWrite(resolveOps, {
-        ordered: false,
-      });
-      resolvedCount = resolveResult.modifiedCount || 0;
-    }
+    const { openedOrUpdated, resolvedCount } = await syncAlerts(
+      alertCollection,
+      "integrity",
+      alertInputs,
+      now,
+    );
 
     const severitySummary = anomalies.reduce(
       (acc, anomaly) => {

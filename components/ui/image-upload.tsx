@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import { X, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MAX_PROFILE_IMAGE_BYTES, MAX_UPLOAD_FILE_BYTES } from "@/lib/constants";
+import { reportError } from "@/lib/client-error";
 import Image from "next/image";
 
 interface ImageUploadProps {
@@ -24,7 +26,7 @@ export function ImageUpload({
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const maxSize = variant === "profile" ? 2 * 1024 * 1024 : 5 * 1024 * 1024;
+  const maxSize = variant === "profile" ? MAX_PROFILE_IMAGE_BYTES : MAX_UPLOAD_FILE_BYTES;
   const acceptedFormats = ["image/jpeg", "image/png", "image/webp"];
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,7 +71,7 @@ export function ImageUpload({
 
       onChange(data.url);
     } catch (err: unknown) {
-      console.error("Upload error:", err);
+      reportError("ImageUploadError", err);
       const message =
         err instanceof Error
           ? err.message

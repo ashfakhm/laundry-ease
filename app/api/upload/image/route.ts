@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
+import { RATE_LIMIT_STRICT_WINDOW_MS, MAX_UPLOAD_FILE_BYTES } from "@/lib/constants";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
       return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid file type. Only JPG, PNG, and WebP are allowed."));
     }
 
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size
+    const maxSize = MAX_UPLOAD_FILE_BYTES;
     if (file.size > maxSize) {
       return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "File too large. Maximum size is 5MB."));
     }

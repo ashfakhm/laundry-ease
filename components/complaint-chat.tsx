@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Send, Lock, Paperclip, X, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { reportError } from "@/lib/client-error";
 
 interface ChatMessage {
   _id: string;
@@ -132,7 +133,7 @@ export default function ComplaintChat({
         setIsResolved(false);
         setIsAccessBlocked(false);
       } catch (err) {
-        console.error(err);
+        reportError("ComplaintMessageFetchError", err);
         setError("Failed to load messages. Retrying...");
         setIsAccessBlocked(false);
       }

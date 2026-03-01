@@ -15,6 +15,7 @@ import {
   Send,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { reportError } from "@/lib/client-error";
 import {
   Select,
   SelectContent,
@@ -210,7 +211,7 @@ export default function OrderStatusPage() {
         else toast.error(data.message || "Failed to update status");
       }
     } catch (e) {
-      console.error(e);
+      reportError("OrderStatusUpdateError", e);
       if (otp) setOtpError("Network error");
     } finally {
       setUpdating(null);
@@ -336,7 +337,7 @@ export default function OrderStatusPage() {
           setOrders(data);
         }
       } catch (error) {
-        console.error("Error fetching orders:", error);
+        reportError("OrderFetchError", error);
       } finally {
         setLoading(false);
       }

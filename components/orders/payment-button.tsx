@@ -6,6 +6,8 @@ import Script from "next/script";
 import { CreditCard, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
+import { RAZORPAY_CHECKOUT_SCRIPT_URL } from "@/lib/constants";
+import { reportError } from "@/lib/client-error";
 import type { RazorpayResponse, RazorpayError } from "@/types/razorpay";
 
 interface PaymentButtonProps {
@@ -82,7 +84,7 @@ export function PaymentButton({
       });
       rzp.open();
     } catch (error) {
-      console.error(error);
+      reportError("PaymentInitError", error);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -91,7 +93,7 @@ export function PaymentButton({
 
   return (
     <>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+      <Script src={RAZORPAY_CHECKOUT_SCRIPT_URL} />
       <button
         onClick={handlePayment}
         disabled={loading}

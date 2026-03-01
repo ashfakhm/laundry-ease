@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertCircle, ChevronRight, CheckCircle } from "lucide-react";
 import { Complaint } from "@/types/complaints";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 
 export default function ProviderDisputesPage() {
   const [disputes, setDisputes] = useState<Complaint[]>([]);
@@ -19,7 +20,7 @@ export default function ProviderDisputesPage() {
           setDisputes(extractComplaints(payload));
         }
       } catch (error) {
-        console.error("Error fetching disputes:", error);
+        reportError("DisputeFetchError", error);
       } finally {
         setLoading(false);
       }

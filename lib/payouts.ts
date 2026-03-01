@@ -7,9 +7,9 @@ import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";
 import { PAYOUT_LOCK_TTL_MS } from "@/lib/constants";
+import { round2 } from "@/lib/utils/monetary";
 
 const PAYOUT_ERROR_MAX_LENGTH = 500;
-const PAISE_MULTIPLIER = 100;
 
 type PayoutResultStatus =
   | "payout_initiated"
@@ -37,9 +37,7 @@ export type PayoutBatchResult = {
   results: PayoutResult[];
 };
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
+const PAISE_MULTIPLIER = 100;
 
 function toDate(value: unknown): Date | null {
   if (!value) return null;

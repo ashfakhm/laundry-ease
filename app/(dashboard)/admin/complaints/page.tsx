@@ -10,6 +10,7 @@ import {
   Package,
   Calendar,
 } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 
 type Complaint = {
   _id: string;
@@ -74,7 +75,7 @@ export default function ComplaintsPage() {
         setComplaints(data);
       }
     } catch (error) {
-      console.error("Error fetching complaints:", error);
+      reportError("ComplaintFetchError", error);
     } finally {
       setLoading(false);
     }

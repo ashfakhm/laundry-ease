@@ -6,6 +6,7 @@ import usePlacesAutocomplete, {
   getLatLng,
 } from "use-places-autocomplete";
 import { Loader2, MapPin } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 
 interface LocationAutocompleteProps {
   value: string;
@@ -72,7 +73,7 @@ export const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
       onChange(description, { lat, lng, city, pincode });
     } catch (error) {
-      console.error("Error: ", error);
+      reportError("GeocodingError", error);
     }
   };
 

@@ -2,14 +2,19 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
-import { Db, MongoClient, MongoServerError, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import { OrderItem } from "@/types/orders";
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
 import { paymentVerifySchema } from "@/lib/api/schemas";
-import { PLATFORM_COMMISSION_RATE, RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
+import {
+  PLATFORM_COMMISSION_RATE,
+  RATE_LIMIT_DEFAULT_WINDOW_MS,
+} from "@/lib/constants";
+import { finalizeInvoiceOrder } from "@/lib/services/invoice-finalization";
+import { computeDeliveryCharge } from "@/lib/utils/delivery-charge";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -23,10 +28,7 @@ function toObjectId(id: string): ObjectId | null {
   return new ObjectId(id);
 }
 
-function fail(
-  message: string,
-  status: number,
-) {
+function fail(message: string, status: number) {
   const codeMap: Record<number, ErrorCode> = {
     400: ErrorCode.VALIDATION_ERROR,
     403: ErrorCode.FORBIDDEN,
@@ -34,227 +36,9 @@ function fail(
     409: ErrorCode.CONFLICT,
     500: ErrorCode.INTERNAL_ERROR,
   };
-  return errorResponse(new AppError(codeMap[status] || ErrorCode.INTERNAL_ERROR, status, message));
-}
-
-type FinalizeInvoiceOrderInput = {
-  db: Db;
-  client: MongoClient;
-  bookingId: ObjectId;
-  razorpayPaymentId: string;
-  orderData: Record<string, unknown>;
-  now: Date;
-};
-
-type FinalizeInvoiceOrderResult = {
-  orderId: ObjectId;
-  idempotent: boolean;
-};
-
-function isTransactionUnavailable(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const msg = error.message.toLowerCase();
-  return (
-    msg.includes("transaction numbers are only allowed on a replica set") ||
-    msg.includes("replica set") ||
-    msg.includes("mongos") ||
-    msg.includes("transactions are not supported")
+  return errorResponse(
+    new AppError(codeMap[status] || ErrorCode.INTERNAL_ERROR, status, message),
   );
-}
-
-async function finalizeInvoiceOrderWithCompensation({
-  db,
-  bookingId,
-  razorpayPaymentId,
-  orderData,
-  now,
-}: Omit<
-  FinalizeInvoiceOrderInput,
-  "client"
->): Promise<FinalizeInvoiceOrderResult> {
-  let insertedOrderId: ObjectId | null = null;
-  try {
-    const insertResult = await db.collection("orders").insertOne(orderData);
-    insertedOrderId = insertResult.insertedId;
-  } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000) {
-      const concurrentOrder = await db
-        .collection("orders")
-        .findOne({ booking_id: bookingId });
-      if (concurrentOrder?.razorpay_payment_id === razorpayPaymentId) {
-        return { orderId: concurrentOrder._id as ObjectId, idempotent: true };
-      }
-      throw new AppError(
-        ErrorCode.DUPLICATE_RESOURCE,
-        409,
-        "Order already exists for this booking",
-      );
-    }
-    throw error;
-  }
-
-  const bookingUpdateResult = await db.collection("bookings").updateOne(
-    {
-      _id: bookingId,
-      status: "invoice_created",
-      $or: [{ order_id: { $exists: false } }, { order_id: null }],
-    },
-    {
-      $set: {
-        status: "completed",
-        order_id: insertedOrderId,
-        updatedAt: now,
-      },
-    },
-  );
-
-  if (bookingUpdateResult.modifiedCount === 0) {
-    if (insertedOrderId) {
-      await db.collection("orders").deleteOne({
-        _id: insertedOrderId,
-        booking_id: bookingId,
-      });
-    }
-    throw new AppError(
-      ErrorCode.DUPLICATE_RESOURCE,
-      409,
-      "Booking state changed while finalizing order. Please retry.",
-    );
-  }
-
-  return { orderId: insertedOrderId as ObjectId, idempotent: false };
-}
-
-async function finalizeInvoiceOrderWithTransaction({
-  db,
-  client,
-  bookingId,
-  razorpayPaymentId,
-  orderData,
-  now,
-}: FinalizeInvoiceOrderInput): Promise<FinalizeInvoiceOrderResult> {
-  const session = client.startSession();
-  let outcome: FinalizeInvoiceOrderResult | null = null;
-  try {
-    await session.withTransaction(async () => {
-      const existingOrder = await db
-        .collection("orders")
-        .findOne({ booking_id: bookingId }, { session });
-      if (existingOrder) {
-        if (existingOrder.razorpay_payment_id === razorpayPaymentId) {
-          outcome = {
-            orderId: existingOrder._id as ObjectId,
-            idempotent: true,
-          };
-          return;
-        }
-        throw new AppError(
-          ErrorCode.DUPLICATE_RESOURCE,
-          409,
-          "Order already exists for this booking",
-        );
-      }
-
-      const insertResult = await db
-        .collection("orders")
-        .insertOne(orderData, { session });
-
-      const bookingUpdateResult = await db.collection("bookings").updateOne(
-        {
-          _id: bookingId,
-          status: "invoice_created",
-          $or: [{ order_id: { $exists: false } }, { order_id: null }],
-        },
-        {
-          $set: {
-            status: "completed",
-            order_id: insertResult.insertedId,
-            updatedAt: now,
-          },
-        },
-        { session },
-      );
-
-      if (bookingUpdateResult.modifiedCount === 0) {
-        const latestBooking = await db
-          .collection("bookings")
-          .findOne({ _id: bookingId }, { session });
-        if (
-          latestBooking?.order_id &&
-          ObjectId.isValid(latestBooking.order_id)
-        ) {
-          outcome = {
-            orderId: new ObjectId(latestBooking.order_id),
-            idempotent: true,
-          };
-          return;
-        }
-        throw new AppError(
-          ErrorCode.DUPLICATE_RESOURCE,
-          409,
-          "Booking state changed while finalizing order. Please retry.",
-        );
-      }
-
-      outcome = { orderId: insertResult.insertedId, idempotent: false };
-    });
-
-    if (!outcome) {
-      throw new AppError(
-        ErrorCode.INTERNAL_ERROR,
-        500,
-        "Unable to finalize invoice payment",
-      );
-    }
-
-    return outcome;
-  } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000) {
-      const concurrentOrder = await db
-        .collection("orders")
-        .findOne({ booking_id: bookingId });
-      if (concurrentOrder?.razorpay_payment_id === razorpayPaymentId) {
-        return { orderId: concurrentOrder._id as ObjectId, idempotent: true };
-      }
-      throw new AppError(
-        ErrorCode.DUPLICATE_RESOURCE,
-        409,
-        "Order already exists for this booking",
-      );
-    }
-    throw error;
-  } finally {
-    await session.endSession();
-  }
-}
-
-async function finalizeInvoiceOrder(
-  input: FinalizeInvoiceOrderInput,
-): Promise<FinalizeInvoiceOrderResult> {
-  try {
-    return await finalizeInvoiceOrderWithTransaction(input);
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-
-    if (isTransactionUnavailable(error)) {
-      logger.warn(
-        "BOOKINGS",
-        "Transactions unavailable; using compensating finalize path",
-        { bookingId: input.bookingId.toString() },
-      );
-      return finalizeInvoiceOrderWithCompensation({
-        db: input.db,
-        bookingId: input.bookingId,
-        razorpayPaymentId: input.razorpayPaymentId,
-        orderData: input.orderData,
-        now: input.now,
-      });
-    }
-
-    throw error;
-  }
 }
 
 // POST: Create Razorpay Order for Invoice Amount
@@ -297,23 +81,16 @@ export async function POST(
       return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order already exists for this booking"));
     }
 
-    // Calculate delivery charge from provider settings.
     const provider = await db
       .collection("providers")
       .findOne({ _id: new ObjectId(booking.provider_id.toString()) });
 
-    let delivery_charge = 0;
-    if (booking.seeker_coordinates && provider?.coordinates) {
-      const { calculateDistance } = await import("@/lib/distance");
-      const dist = calculateDistance(
-        booking.seeker_coordinates,
-        provider.coordinates,
-      );
-      const freeRadius = provider.free_radius_km || 5;
-      const perKmRate = provider.per_km_rate || 10;
-      const extra = Math.max(0, dist - freeRadius);
-      delivery_charge = Math.round(extra * perKmRate);
-    }
+    const { charge: delivery_charge } = computeDeliveryCharge(
+      booking.seeker_coordinates,
+      provider?.coordinates,
+      provider?.free_radius_km,
+      provider?.per_km_rate,
+    );
 
     const itemsTotal = booking.invoice.items.reduce(
       (sum: number, item: InvoiceLineItem) =>
@@ -427,24 +204,17 @@ export async function PUT(
       return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order already exists for this booking"));
     }
 
-    const booking_coords = booking.seeker_coordinates;
     const provider = await db
       .collection("providers")
       .findOne({ _id: new ObjectId(booking.provider_id.toString()) });
 
-    let delivery_distance_km = 0;
-    let delivery_charge = 0;
-    if (booking_coords && provider?.coordinates) {
-      const { calculateDistance } = await import("@/lib/distance");
-      delivery_distance_km = calculateDistance(
-        booking_coords,
-        provider.coordinates,
+    const { distanceKm: delivery_distance_km, charge: delivery_charge } =
+      computeDeliveryCharge(
+        booking.seeker_coordinates,
+        provider?.coordinates,
+        provider?.free_radius_km,
+        provider?.per_km_rate,
       );
-      const freeRadius = provider.free_radius_km || 5;
-      const perKmRate = provider.per_km_rate || 10;
-      const extraDistance = Math.max(0, delivery_distance_km - freeRadius);
-      delivery_charge = Math.round(extraDistance * perKmRate);
-    }
 
     const processedItems: OrderItem[] = booking.invoice.items.map(
       (item: InvoiceLineItem) => ({
@@ -487,9 +257,13 @@ export async function PUT(
       db,
       client,
       bookingId: booking_id,
-      razorpayPaymentId: razorpay_payment_id,
       orderData,
       now,
+      domain: "BOOKINGS",
+      duplicateCheck: {
+        field: "razorpay_payment_id",
+        value: razorpay_payment_id,
+      },
     });
 
     return successResponse({

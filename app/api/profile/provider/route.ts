@@ -1,22 +1,15 @@
 import { maskBankDetails } from "@/lib/utils";
 import { getDb } from "@/lib/mongodb";
 import { requireProvider } from "@/lib/api/auth";
-import {
-  createRazorpayContact,
-  createRazorpayFundAccount,
-} from "@/lib/razorpay";
 import { Provider } from "@/types/users";
 import { logger } from "@/lib/logger";
 import { updateProviderProfileSchema } from "@/lib/api/schemas";
-import {
-  isStrongPassword,
-  PASSWORD_POLICY_MESSAGE,
-} from "@/lib/auth/password-policy";
 import { AppError, ErrorCode } from "@/lib/api/errors";
-import bcrypt from "bcrypt";
 import { ObjectId } from "mongodb";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { requireSameOrigin } from "@/lib/api/security";
+import { syncBankDetailsOrFail } from "@/lib/services/provider-bank-sync";
+import { verifyAndHashPassword } from "@/lib/services/provider-password";
 
 /**
  * GET /api/profile/provider
@@ -151,13 +144,6 @@ export async function PATCH(req: Request) {
       bankIFSC !== undefined ||
       upiId !== undefined
     ) {
-      updateFields.bankDetails = {
-        ...(bankAccountHolder ? { accountHolderName: bankAccountHolder } : {}),
-        ...(bankAccountNumber ? { accountNumber: bankAccountNumber } : {}),
-        ...(bankIFSC ? { ifsc: bankIFSC } : {}),
-        ...(upiId ? { upiId } : {}),
-      };
-
       if (bankAccountHolder !== undefined)
         updateFields["bankDetails.accountHolderName"] = bankAccountHolder;
       if (bankAccountNumber !== undefined)
@@ -165,135 +151,23 @@ export async function PATCH(req: Request) {
       if (bankIFSC !== undefined) updateFields["bankDetails.ifsc"] = bankIFSC;
       if (upiId !== undefined) updateFields["bankDetails.upiId"] = upiId;
 
-      // Remove the direct object assignment to avoid conflict if mixed
-      delete updateFields.bankDetails;
-
-      try {
-        const { db } = await getDb();
-        // Fetch current provider to get contact_id if exists, and fallback details
-        const currentProvider = await db
-          .collection<Provider>("providers")
-          .findOne({ _id: providerId });
-
-        if (currentProvider) {
-          const contactName =
-            (updateFields.name as string) || currentProvider.name || "Provider";
-          const contactEmail = user.email;
-          const contactPhone =
-            (updateFields.phone as string) || currentProvider.phone || "";
-
-          let contactId = currentProvider.razorpay_contact_id;
-
-          // 1. Create/Get Contact
-          if (!contactId && contactPhone) {
-            const contact = await createRazorpayContact({
-              name: contactName,
-              email: contactEmail,
-              contact: contactPhone,
-              type: "vendor",
-              reference_id: currentProvider._id?.toString(),
-            });
-            contactId = contact.id;
-            updateFields.razorpay_contact_id = contactId;
-          }
-
-          // 2. Create Fund Account (Bank)
-          // We prioritize Bank Account over UPI for now as per mandatory fields
-          const accName =
-            (updateFields["bankDetails.accountHolderName"] as string) ||
-            currentProvider.bankDetails?.accountHolderName;
-          const accNumber =
-            (updateFields["bankDetails.accountNumber"] as string) ||
-            currentProvider.bankDetails?.accountNumber;
-          const accIfsc =
-            (updateFields["bankDetails.ifsc"] as string) ||
-            currentProvider.bankDetails?.ifsc;
-
-          if (contactId && accName && accNumber && accIfsc) {
-            const fundAccount = await createRazorpayFundAccount({
-              contact_id: contactId,
-              account_type: "bank_account",
-              bank_account: {
-                name: accName,
-                account_number: accNumber,
-                ifsc: accIfsc,
-              },
-            });
-            updateFields.razorpay_fund_account_id = fundAccount.id;
-
-            // Truncate the bank account number locally since we've secured it in Razorpay
-            if (updateFields["bankDetails.accountNumber"]) {
-              const str = String(updateFields["bankDetails.accountNumber"]);
-              updateFields["bankDetails.accountNumber"] =
-                "X".repeat(Math.max(0, str.length - 4)) + str.slice(-4);
-            }
-          }
-        }
-      } catch (e: unknown) {
-        const err = e as Error;
-        logger.error(
-          "PROFILE",
-          "Razorpay sync error during profile update",
-          err,
-          { email: user.email },
-        );
-        // Fail the request if critical bank details sync fails so user knows
-        throw new AppError(
-          ErrorCode.INVALID_STATE_TRANSITION,
-          500,
-          "Failed to sync bank details with payment gateway",
-        );
-      }
+      const { db: bankDb } = await getDb();
+      await syncBankDetailsOrFail(bankDb, {
+        providerId,
+        email: user.email,
+        updateFields,
+      });
     }
 
     const { db } = await getDb();
 
     // Secure Password Change Logic
     if (newPassword) {
-      if (!isStrongPassword(newPassword)) {
-        throw new AppError(
-          ErrorCode.VALIDATION_ERROR,
-          400,
-          PASSWORD_POLICY_MESSAGE,
-        );
-      }
-
-      if (!currentPassword) {
-        throw new AppError(
-          ErrorCode.VALIDATION_ERROR,
-          400,
-          "Current password is required to set a new password",
-        );
-      }
-
-      const provider = await db
-        .collection("providers")
-        .findOne({ _id: providerId }, { projection: { passwordHash: 1 } });
-
-      if (!provider || !provider.passwordHash) {
-        throw new AppError(
-          ErrorCode.PROVIDER_NOT_FOUND,
-          404,
-          "Provider not found or no password set",
-        );
-      }
-
-      const isMatch = await bcrypt.compare(
+      updateFields.passwordHash = await verifyAndHashPassword(
+        db,
+        providerId,
         currentPassword,
-        provider.passwordHash,
-      );
-      if (!isMatch) {
-        throw new AppError(
-          ErrorCode.UNAUTHORIZED,
-          401,
-          "Incorrect current password",
-        );
-      }
-
-      const { BCRYPT_SALT_ROUNDS } = await import("@/lib/constants");
-      updateFields.passwordHash = await bcrypt.hash(
         newPassword,
-        BCRYPT_SALT_ROUNDS,
       );
     }
 

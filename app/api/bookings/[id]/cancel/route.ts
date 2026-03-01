@@ -1,4 +1,4 @@
-import { RATE_LIMIT_STRICT_WINDOW_MS, REFUND_LOCK_TIMEOUT_MS } from "@/lib/constants";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getBookingById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -10,6 +10,11 @@ import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateCancellationPolicy } from "@/lib/bookings/cancellation-policy";
 import { requireAuth } from "@/lib/api/auth";
 import { errorResponse, successResponse } from "@/lib/api/response";
+import {
+  acquireBookingRefundLock,
+  releaseBookingRefundLock,
+  diagnoseBookingLockFailure,
+} from "@/lib/services/refund-lock";
 
 function toValidDate(value: unknown): Date | null {
   if (!value) return null;
@@ -125,43 +130,25 @@ export async function POST(
         return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot cancel with refund: payment reference missing. Please contact support."));
       }
 
-      const lockCutoff = new Date(Date.now() - REFUND_LOCK_TIMEOUT_MS);
-      const lockResult = await db.collection("bookings").updateOne(
-        {
-          _id: booking_id,
-          status: booking.status,
-          bookingFeeStatus: "paid",
-          $or: [
-            { refund_in_progress_at: { $exists: false } },
-            { refund_in_progress_at: { $lt: lockCutoff } },
-          ],
-        },
-        {
-          $set: {
-            refund_in_progress_at: new Date(),
-            updatedAt: new Date(),
-          },
-        },
+      const lockAcquired = await acquireBookingRefundLock(
+        db,
+        booking_id,
+        booking.status,
       );
 
-      if (lockResult.modifiedCount === 0) {
-        const latest = await db
-          .collection("bookings")
-          .findOne({ _id: booking_id });
-        if (latest?.status === "cancelled") {
-          return successResponse({ message: "Booking already cancelled",
-            idempotent: true });
+      if (!lockAcquired) {
+        const diagnosis = await diagnoseBookingLockFailure(
+          db,
+          booking_id,
+          "cancelled",
+        );
+        if ("idempotent" in diagnosis) {
+          return successResponse({
+            message: "Booking already cancelled",
+            idempotent: true,
+          });
         }
-        if (latest?.refund_in_progress_at) {
-          const lockAt = new Date(latest.refund_in_progress_at);
-          const lockIsFresh =
-            !Number.isNaN(lockAt.getTime()) &&
-            Date.now() - lockAt.getTime() < REFUND_LOCK_TIMEOUT_MS;
-          if (lockIsFresh) {
-            return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Refund is already in progress for this booking."));
-          }
-        }
-        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking status changed. Please refresh and retry."));
+        return errorResponse(diagnosis);
       }
 
       try {
@@ -176,13 +163,7 @@ export async function POST(
         refundId = refund.id || null;
         shouldMarkRefunded = true;
       } catch (error) {
-        await db.collection("bookings").updateOne(
-          { _id: booking_id },
-          {
-            $unset: { refund_in_progress_at: "" },
-            $set: { updatedAt: new Date() },
-          },
-        );
+        await releaseBookingRefundLock(db, booking_id);
 
         logger.error(
           "BOOKINGS",

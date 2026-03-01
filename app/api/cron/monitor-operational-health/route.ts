@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
-import { env } from "@/lib/env";
 import {
   HELD_ORDER_ALERT_GRACE_MS,
   PAYOUT_FAILURE_ALERT_LOOKBACK_MS,
@@ -14,25 +13,10 @@ import {
 } from "@/lib/ops/health";
 import { ObjectId } from "mongodb";
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { AppError, ErrorCode } from "@/lib/api/errors";
+import { requireCronSecret } from "@/lib/api/cron-auth";
+import { syncAlerts } from "@/lib/ops/alert-lifecycle";
 
 const ACTIVE_COMPLAINT_STATUSES = ["open", "accepted", "in_review"] as const;
-
-type OperationalAlertDocument = {
-  kind: "operational";
-  key: "overdue_held_orders" | "payout_failures_spike" | "overdue_complaints";
-  entityType: "system";
-  entityId: "global";
-  severity: "critical" | "high";
-  message: string;
-  status: "open" | "resolved";
-  firstSeenAt: Date;
-  lastSeenAt: Date;
-  resolvedAt?: Date;
-  updatedAt: Date;
-  createdAt: Date;
-  context: Record<string, unknown>;
-};
 
 function toObjectId(value: unknown): ObjectId | null {
   if (typeof value === "string" && value.length > 0) {
@@ -46,25 +30,10 @@ function toObjectId(value: unknown): ObjectId | null {
 
 // GET /api/cron/monitor-operational-health
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!env.CRON_SECRET) {
-    logger.error(
-      "CRON",
-      "CRON_SECRET not configured - operational monitor endpoint disabled",
-    );
-    return errorResponse(
-      new AppError(
-        ErrorCode.VALIDATION_ERROR,
-        503,
-        "Cron endpoint not configured",
-      ),
-    );
-  }
-
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return errorResponse(
-      new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
-    );
+  try {
+    requireCronSecret(req);
+  } catch (error) {
+    return errorResponse(error);
   }
 
   const run = await startCronRun("monitor-operational-health");
@@ -131,86 +100,27 @@ export async function GET(req: NextRequest) {
       thresholds,
     );
 
-    const alertCollection =
-      db.collection<OperationalAlertDocument>("system_alerts");
-    const activeKeys = new Set(signals.map((signal) => signal.key));
+    const alertCollection = db.collection("system_alerts");
 
-    let openedOrUpdated = 0;
-    if (signals.length > 0) {
-      const openOps = signals.map((signal) => ({
-        updateOne: {
-          filter: {
-            kind: "operational" as const,
-            key: signal.key,
-            entityType: "system" as const,
-            entityId: "global" as const,
-            status: "open" as const,
-          },
-          update: {
-            $set: {
-              severity: signal.severity,
-              message: signal.message,
-              context: {
-                ...signal.context,
-                count: signal.count,
-                threshold: signal.threshold,
-              },
-              lastSeenAt: now,
-              updatedAt: now,
-            },
-            $setOnInsert: {
-              kind: "operational" as const,
-              key: signal.key,
-              entityType: "system" as const,
-              entityId: "global" as const,
-              status: "open" as const,
-              firstSeenAt: now,
-              createdAt: now,
-            },
-          },
-          upsert: true,
-        },
-      }));
+    const alertInputs = signals.map((signal) => ({
+      key: signal.key,
+      entityType: "system",
+      entityId: "global",
+      severity: signal.severity,
+      message: signal.message,
+      context: {
+        ...signal.context,
+        count: signal.count,
+        threshold: signal.threshold,
+      },
+    }));
 
-      const openResult = await alertCollection.bulkWrite(openOps, {
-        ordered: false,
-      });
-      openedOrUpdated =
-        (openResult.upsertedCount || 0) + (openResult.modifiedCount || 0);
-    }
-
-    const existingOpenAlerts = await alertCollection
-      .find({ kind: "operational", status: "open" }, { projection: { key: 1 } })
-      .toArray();
-
-    const resolveOps = existingOpenAlerts
-      .filter((alert) => !activeKeys.has(alert.key))
-      .map((alert) => ({
-        updateOne: {
-          filter: {
-            kind: "operational" as const,
-            key: alert.key,
-            entityType: "system" as const,
-            entityId: "global" as const,
-            status: "open" as const,
-          },
-          update: {
-            $set: {
-              status: "resolved" as const,
-              resolvedAt: now,
-              updatedAt: now,
-            },
-          },
-        },
-      }));
-
-    let resolvedCount = 0;
-    if (resolveOps.length > 0) {
-      const resolveResult = await alertCollection.bulkWrite(resolveOps, {
-        ordered: false,
-      });
-      resolvedCount = resolveResult.modifiedCount || 0;
-    }
+    const { openedOrUpdated, resolvedCount } = await syncAlerts(
+      alertCollection,
+      "operational",
+      alertInputs,
+      now,
+    );
 
     const result = {
       monitoredAt: now.toISOString(),

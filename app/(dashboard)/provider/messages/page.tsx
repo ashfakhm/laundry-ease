@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 import { formatDistanceToNow } from "date-fns";
 
 type ChatPreview = {
@@ -50,7 +51,7 @@ export default function ProviderMessagesPage() {
           setChats(data);
         }
       } catch (err) {
-        console.error("Failed to fetch chats", err);
+        reportError("ChatFetchError", err);
       } finally {
         setLoading(false);
       }

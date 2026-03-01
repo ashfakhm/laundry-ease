@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 
 type OrderItem = {
   name: string;
@@ -70,10 +71,10 @@ export default function ViewOrdersPage() {
           const data = await response.json();
           setOrders(data);
         } else {
-          console.error("Failed to fetch orders");
+          reportError("OrderFetchError", "Failed to fetch orders");
         }
       } catch (error) {
-        console.error("Error fetching orders:", error);
+        reportError("OrderFetchError", error);
       } finally {
         setLoading(false);
       }

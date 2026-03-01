@@ -1,5 +1,5 @@
 import { getBookingById } from "@/lib/db/index";
-import { RATE_LIMIT_STRICT_WINDOW_MS, REFUND_LOCK_TIMEOUT_MS } from "@/lib/constants";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -8,6 +8,11 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
+import {
+  acquireBookingRefundLock,
+  releaseBookingRefundLock,
+  diagnoseBookingLockFailure,
+} from "@/lib/services/refund-lock";
 
 export async function PATCH(
   req: Request,
@@ -67,41 +72,25 @@ export async function PATCH(
       return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot reject booking: payment reference missing for booking-fee refund."));
     }
 
-    const lockCutoff = new Date(Date.now() - REFUND_LOCK_TIMEOUT_MS);
-    const lockResult = await db.collection("bookings").updateOne(
-      {
-        _id: booking_id,
-        status: "requested",
-        bookingFeeStatus: "paid",
-        $or: [
-          { refund_in_progress_at: { $exists: false } },
-          { refund_in_progress_at: { $lt: lockCutoff } },
-        ],
-      },
-      {
-        $set: {
-          refund_in_progress_at: new Date(),
-          updatedAt: new Date(),
-        },
-      }
+    const lockAcquired = await acquireBookingRefundLock(
+      db,
+      booking_id,
+      "requested",
     );
 
-    if (lockResult.modifiedCount === 0) {
-      const latest = await db.collection("bookings").findOne({ _id: booking_id });
-      if (latest?.status === "rejected") {
-        return successResponse({ message: "Booking already rejected",
-          idempotent: true });
+    if (!lockAcquired) {
+      const diagnosis = await diagnoseBookingLockFailure(
+        db,
+        booking_id,
+        "rejected",
+      );
+      if ("idempotent" in diagnosis) {
+        return successResponse({
+          message: "Booking already rejected",
+          idempotent: true,
+        });
       }
-      if (latest?.refund_in_progress_at) {
-        const lockAt = new Date(latest.refund_in_progress_at);
-        const lockIsFresh =
-          !Number.isNaN(lockAt.getTime()) &&
-          Date.now() - lockAt.getTime() < REFUND_LOCK_TIMEOUT_MS;
-        if (lockIsFresh) {
-          return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Refund is already in progress for this booking."));
-        }
-      }
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking status changed during rejection. Please refresh."));
+      return errorResponse(diagnosis);
     }
 
     let refundId: string | null = null;
@@ -116,13 +105,7 @@ export async function PATCH(
       );
       refundId = refund.id || null;
     } catch (error) {
-      await db.collection("bookings").updateOne(
-        { _id: booking_id },
-        {
-          $unset: { refund_in_progress_at: "" },
-          $set: { updatedAt: new Date() },
-        }
-      );
+      await releaseBookingRefundLock(db, booking_id);
 
       logger.error(
         "BOOKINGS",

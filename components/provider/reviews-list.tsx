@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Star, User } from "lucide-react";
+import { reportError } from "@/lib/client-error";
 
 type ReviewItem = {
   seeker?: { name?: string };
@@ -20,7 +21,7 @@ export function ReviewsList({ providerId }: { providerId: string }) {
             .then(data => {
                 if (Array.isArray(data)) setReviews(data as ReviewItem[]);
             })
-            .catch(err => console.error(err))
+            .catch(err => reportError("ReviewFetchError", err))
             .finally(() => setLoading(false));
     }, [providerId]);
 

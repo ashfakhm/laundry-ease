@@ -70,6 +70,21 @@ export const SEEKER_CANCELLATION_BLOCK_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 /** Delivery OTP validity window (ms). */
 export const DELIVERY_OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
+// ─── File Upload Limits ─────────────────────────────────────────────────────
+
+/** Maximum profile image file size (bytes). */
+export const MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024; // 2MB
+
+/** Maximum file size for evidence, invoice, and general uploads (bytes). */
+export const MAX_UPLOAD_FILE_BYTES = 5 * 1024 * 1024; // 5MB
+
+/** Maximum number of evidence photos per complaint. */
+export const MAX_EVIDENCE_FILES = 5;
+
+/** Razorpay checkout script URL. */
+export const RAZORPAY_CHECKOUT_SCRIPT_URL =
+  "https://checkout.razorpay.com/v1/checkout.js";
+
 // ─── Complaints ─────────────────────────────────────────────────────────────
 
 /** Window after delivery in which a seeker can file a complaint (ms). */

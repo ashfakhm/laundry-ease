@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Star, AlertTriangle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { showToast } from "@/lib/toast";
+import { MAX_EVIDENCE_FILES } from "@/lib/constants";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -262,7 +263,7 @@ export function ComplaintModal({
             <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
               Evidence (Optional)
             </label>
-            <EvidenceUpload value={photos} onChange={setPhotos} maxFiles={5} />
+            <EvidenceUpload value={photos} onChange={setPhotos} maxFiles={MAX_EVIDENCE_FILES} />
           </div>
 
           <button

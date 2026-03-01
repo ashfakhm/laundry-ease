@@ -1,18 +1,13 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
-import {
-  Db,
-  MongoClient,
-  MongoServerError,
-  ObjectId,
-  type ClientSession,
-} from "mongodb";
+import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { invoiceReviewSchema } from "@/lib/api/schemas";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
+import { finalizeInvoiceOrder } from "@/lib/services/invoice-finalization";
 
 export const runtime = "nodejs";
 
@@ -22,239 +17,6 @@ type InvoiceReviewLineItem = {
   unitPrice: number;
   photoUrl?: string;
 };
-
-type FinalizeInvoiceReviewInput = {
-  db: Db;
-  client: MongoClient;
-  bookingId: ObjectId;
-  orderData: Record<string, unknown>;
-  now: Date;
-};
-
-type FinalizeInvoiceReviewResult = {
-  orderId: ObjectId;
-};
-
-function isTransactionUnavailable(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const message = error.message.toLowerCase();
-  return (
-    message.includes("transaction numbers are only allowed on a replica set") ||
-    message.includes("replica set") ||
-    message.includes("mongos") ||
-    message.includes("transactions are not supported")
-  );
-}
-
-async function syncBookingOrderLink(params: {
-  db: Db;
-  bookingId: ObjectId;
-  orderId: ObjectId;
-  now: Date;
-  session?: ClientSession;
-}) {
-  const { db, bookingId, orderId, now, session } = params;
-  await db.collection("bookings").updateOne(
-    { _id: bookingId, status: "invoice_created" },
-    {
-      $set: {
-        status: "completed",
-        order_id: orderId,
-        updatedAt: now,
-      },
-    },
-    session ? { session } : undefined,
-  );
-}
-
-async function finalizeInvoiceReviewWithCompensation({
-  db,
-  bookingId,
-  orderData,
-  now,
-}: Omit<
-  FinalizeInvoiceReviewInput,
-  "client"
->): Promise<FinalizeInvoiceReviewResult> {
-  let insertedOrderId: ObjectId | null = null;
-  try {
-    const insertResult = await db.collection("orders").insertOne(orderData);
-    insertedOrderId = insertResult.insertedId;
-  } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000) {
-      const existingOrder = await db
-        .collection("orders")
-        .findOne({ booking_id: bookingId });
-      if (!existingOrder?._id) {
-        throw error;
-      }
-      const orderId = existingOrder._id as ObjectId;
-      await syncBookingOrderLink({ db, bookingId, orderId, now });
-      return { orderId };
-    }
-    throw error;
-  }
-
-  const bookingUpdateResult = await db.collection("bookings").updateOne(
-    {
-      _id: bookingId,
-      status: "invoice_created",
-      $or: [{ order_id: { $exists: false } }, { order_id: null }],
-    },
-    {
-      $set: {
-        status: "completed",
-        order_id: insertedOrderId,
-        updatedAt: now,
-      },
-    },
-  );
-
-  if (bookingUpdateResult.modifiedCount === 0) {
-    if (insertedOrderId) {
-      await db.collection("orders").deleteOne({
-        _id: insertedOrderId,
-        booking_id: bookingId,
-      });
-    }
-
-    const latestBooking = await db
-      .collection("bookings")
-      .findOne({ _id: bookingId });
-    if (
-      latestBooking?.order_id &&
-      ObjectId.isValid(String(latestBooking.order_id))
-    ) {
-      return { orderId: new ObjectId(String(latestBooking.order_id)) };
-    }
-
-    throw new AppError(
-      ErrorCode.DUPLICATE_RESOURCE,
-      409,
-      "Booking state changed while finalizing order. Please retry.",
-    );
-  }
-
-  return { orderId: insertedOrderId as ObjectId };
-}
-
-async function finalizeInvoiceReviewWithTransaction({
-  db,
-  client,
-  bookingId,
-  orderData,
-  now,
-}: FinalizeInvoiceReviewInput): Promise<FinalizeInvoiceReviewResult> {
-  const session = client.startSession();
-  let outcome: FinalizeInvoiceReviewResult | null = null;
-  try {
-    await session.withTransaction(async () => {
-      const existingOrder = await db
-        .collection("orders")
-        .findOne({ booking_id: bookingId }, { session });
-
-      if (existingOrder?._id) {
-        const orderId = existingOrder._id as ObjectId;
-        await syncBookingOrderLink({ db, bookingId, orderId, now, session });
-        outcome = { orderId };
-        return;
-      }
-
-      const insertResult = await db
-        .collection("orders")
-        .insertOne(orderData, { session });
-
-      const bookingUpdateResult = await db.collection("bookings").updateOne(
-        {
-          _id: bookingId,
-          status: "invoice_created",
-          $or: [{ order_id: { $exists: false } }, { order_id: null }],
-        },
-        {
-          $set: {
-            status: "completed",
-            order_id: insertResult.insertedId,
-            updatedAt: now,
-          },
-        },
-        { session },
-      );
-
-      if (bookingUpdateResult.modifiedCount === 0) {
-        const latestBooking = await db
-          .collection("bookings")
-          .findOne({ _id: bookingId }, { session });
-        if (
-          latestBooking?.order_id &&
-          ObjectId.isValid(String(latestBooking.order_id))
-        ) {
-          outcome = { orderId: new ObjectId(String(latestBooking.order_id)) };
-          return;
-        }
-
-        throw new AppError(
-          ErrorCode.DUPLICATE_RESOURCE,
-          409,
-          "Booking state changed while finalizing order. Please retry.",
-        );
-      }
-
-      outcome = { orderId: insertResult.insertedId };
-    });
-
-    if (!outcome) {
-      throw new AppError(
-        ErrorCode.INTERNAL_ERROR,
-        500,
-        "Unable to finalize invoice review",
-      );
-    }
-
-    return outcome;
-  } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000) {
-      const existingOrder = await db
-        .collection("orders")
-        .findOne({ booking_id: bookingId });
-      if (existingOrder?._id) {
-        const orderId = existingOrder._id as ObjectId;
-        await syncBookingOrderLink({ db, bookingId, orderId, now });
-        return { orderId };
-      }
-    }
-    throw error;
-  } finally {
-    await session.endSession();
-  }
-}
-
-async function finalizeInvoiceReviewOrder(
-  input: FinalizeInvoiceReviewInput,
-): Promise<FinalizeInvoiceReviewResult> {
-  try {
-    return await finalizeInvoiceReviewWithTransaction(input);
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-
-    if (isTransactionUnavailable(error)) {
-      logger.warn(
-        "INVOICES",
-        "Transactions unavailable; using compensating invoice review finalize path",
-        { bookingId: input.bookingId.toString() },
-      );
-      return finalizeInvoiceReviewWithCompensation({
-        db: input.db,
-        bookingId: input.bookingId,
-        orderData: input.orderData,
-        now: input.now,
-      });
-    }
-
-    throw error;
-  }
-}
 
 export async function POST(
   req: Request,
@@ -412,12 +174,13 @@ export async function POST(
       updatedAt: new Date(),
     };
 
-    const { orderId } = await finalizeInvoiceReviewOrder({
+    const { orderId } = await finalizeInvoiceOrder({
       db,
       client,
       bookingId,
       orderData: newOrder,
       now: new Date(),
+      domain: "INVOICES",
     });
 
     return successResponse({

@@ -1,4 +1,5 @@
-import { env } from "@/lib/env";
+// Read CSP env vars directly from process.env to avoid pulling in lib/env.ts
+// (which uses Zod parse and path aliases unsupported by next.config.ts bundling).
 
 const DEFAULT_REPORT_URI = "/api/security/csp-report";
 
@@ -14,7 +15,7 @@ function directive(name: string, values: string[]): string {
 export function buildCspPolicy(options: CspBuildOptions = {}): string {
   const reportUri = options.reportUri ?? DEFAULT_REPORT_URI;
   const enforce = options.enforce ?? false;
-  const allowUnsafeEval = env.CSP_ALLOW_UNSAFE_EVAL === "true";
+  const allowUnsafeEval = process.env.CSP_ALLOW_UNSAFE_EVAL === "true";
 
   const scriptSrc = [
     "'self'",
@@ -69,7 +70,7 @@ export function buildCspPolicy(options: CspBuildOptions = {}): string {
 }
 
 export function getCspHeader() {
-  const enforceFlag = env.CSP_ENFORCE;
+  const enforceFlag = process.env.CSP_ENFORCE;
   const enforce =
     enforceFlag === "true" ||
     (enforceFlag !== "false" && process.env.NODE_ENV === "production");

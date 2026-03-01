@@ -17,6 +17,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface NavItem {
@@ -80,7 +81,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
           }
         }
       } catch (error) {
-        console.error("Failed to fetch complaints:", error);
+        reportError("ComplaintFetchError", error);
       }
     };
     fetchActiveComplaints();
@@ -258,7 +259,7 @@ export function AdminMobileNav() {
           }
         }
       } catch (error) {
-        console.error("Failed to fetch complaints:", error);
+        reportError("ComplaintFetchError", error);
       }
     };
     fetchActiveComplaints();

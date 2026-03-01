@@ -3,161 +3,21 @@ import { getOrderById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
-import {
-  refundRazorpayPayment,
-  fetchRazorpayPaymentDetails,
-} from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
 import { adminComplaintResolveSchema } from "@/lib/api/schemas";
-import { initiateOrderPayout } from "@/lib/payouts";
 import { derivePayoutAmounts } from "@/lib/payouts/amounts";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { errorResponse, successResponse } from "@/lib/api/response";
-
-const EPSILON = 0.01;
-const PAISE_MULTIPLIER = 100;
-
-type RequestOutcome =
-  | "refund_full"
-  | "refund_partial"
-  | "release_payout"
-  | "reject";
-
-type ComplaintDbOutcome = "refund_full" | "refund_partial" | "release_payout";
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function formatInr(amount: number): string {
-  return `INR ${round2(amount).toFixed(2)}`;
-}
-
-function toPaise(amountInRupees: number): number {
-  return Math.round(round2(amountInRupees) * PAISE_MULTIPLIER);
-}
-
-function buildComplaintRevertUpdate(complaint: Record<string, unknown>) {
-  const setFields: Record<string, unknown> = {
-    status: complaint.status,
-  };
-  const unsetFields: Record<string, string> = {};
-
-  if (complaint.resolution_outcome) {
-    setFields.resolution_outcome = complaint.resolution_outcome;
-  } else {
-    unsetFields.resolution_outcome = "";
-  }
-
-  if (complaint.resolvedAt) {
-    setFields.resolvedAt = complaint.resolvedAt;
-  } else {
-    unsetFields.resolvedAt = "";
-  }
-
-  if (complaint.resolution_breakdown) {
-    setFields.resolution_breakdown = complaint.resolution_breakdown;
-  } else {
-    unsetFields.resolution_breakdown = "";
-  }
-
-  return {
-    $set: setFields,
-    ...(Object.keys(unsetFields).length > 0 ? { $unset: unsetFields } : {}),
-  };
-}
-
-function normalizeRefundAmount(
-  outcome: RequestOutcome,
-  seekerRefundAmountInput: number | undefined,
-  distributableAmount: number,
-): { seekerRefundAmount: number; normalizedOutcome: RequestOutcome } {
-  if (outcome === "release_payout" || outcome === "reject") {
-    return { seekerRefundAmount: 0, normalizedOutcome: outcome };
-  }
-
-  if (outcome === "refund_full") {
-    return {
-      seekerRefundAmount: round2(distributableAmount),
-      normalizedOutcome: "refund_full",
-    };
-  }
-
-  if (
-    typeof seekerRefundAmountInput !== "number" ||
-    !Number.isFinite(seekerRefundAmountInput)
-  ) {
-    throw new Error("seeker_refund_amount is required for partial settlement.");
-  }
-
-  const normalizedAmount = round2(seekerRefundAmountInput);
-  if (
-    normalizedAmount < 0 ||
-    normalizedAmount - distributableAmount > EPSILON
-  ) {
-    throw new Error(
-      `seeker_refund_amount must be within 0 and ${distributableAmount.toFixed(2)}.`,
-    );
-  }
-
-  if (normalizedAmount <= EPSILON) {
-    return { seekerRefundAmount: 0, normalizedOutcome: "release_payout" };
-  }
-
-  if (Math.abs(normalizedAmount - distributableAmount) <= EPSILON) {
-    return {
-      seekerRefundAmount: round2(distributableAmount),
-      normalizedOutcome: "refund_full",
-    };
-  }
-
-  return {
-    seekerRefundAmount: normalizedAmount,
-    normalizedOutcome: "refund_partial",
-  };
-}
-
-function resolveDbOutcome(
-  requestedOutcome: RequestOutcome,
-  seekerRefundAmount: number,
-  providerPayoutAmount: number,
-): {
-  dbStatus: "resolved" | "rejected";
-  dbOutcome: ComplaintDbOutcome;
-  statusMessage: string;
-} {
-  if (requestedOutcome === "reject") {
-    return {
-      dbStatus: "rejected",
-      dbOutcome: "release_payout",
-      statusMessage: "Complaint rejected in provider favor",
-    };
-  }
-
-  if (providerPayoutAmount <= EPSILON) {
-    return {
-      dbStatus: "resolved",
-      dbOutcome: "refund_full",
-      statusMessage: "Complaint resolved in seeker favor",
-    };
-  }
-
-  if (seekerRefundAmount <= EPSILON) {
-    return {
-      dbStatus: "resolved",
-      dbOutcome: "release_payout",
-      statusMessage: "Complaint resolved in provider favor",
-    };
-  }
-
-  return {
-    dbStatus: "resolved",
-    dbOutcome: "refund_partial",
-    statusMessage: "Complaint resolved with split settlement",
-  };
-}
+import { MONEY_EPSILON as EPSILON, round2, formatInr } from "@/lib/utils/monetary";
+import {
+  normalizeRefundAmount,
+  resolveDbOutcome,
+  buildComplaintRevertUpdate,
+  executeSettlementActions,
+  fetchManualTransferDetails,
+} from "@/lib/services/complaint-resolution";
 
 export async function POST(
   req: Request,
@@ -269,111 +129,20 @@ export async function POST(
       },
     );
 
-    let refund: { id?: string } | null = null;
-    let payoutApplied = false;
-    let payoutPendingManual = false;
-    let refundApplied = false;
-    let refundPendingManual = false;
-
+    let financialResult;
     try {
-      if (providerPayoutAmount > EPSILON) {
-        const payoutResult = await initiateOrderPayout(orderId, {
-          ignoreEscrowDate: true,
-          source: `complaint_${settlement.normalizedOutcome}`,
-          overrideProviderPayoutAmount: providerPayoutAmount,
-          overridePlatformCommission: round2(platformCommission),
-        });
-
-        const successStatuses = new Set([
-          "payout_initiated",
-          "already_paid_out",
-          "already_processing",
-        ]);
-
-        // When RazorpayX is not configured or provider has no fund account,
-        // mark payout as pending manual transfer instead of failing entirely.
-        const manualPayoutStatuses = new Set([
-          "failed_no_fund_account",
-          "failed_account_not_configured",
-        ]);
-
-        if (successStatuses.has(payoutResult.status)) {
-          payoutApplied = true;
-        } else if (manualPayoutStatuses.has(payoutResult.status)) {
-          payoutPendingManual = true;
-          await db.collection("orders").updateOne(
-            { _id: orderId },
-            {
-              $set: {
-                payout_status: "pending_manual",
-                provider_payout_amount: providerPayoutAmount,
-                platform_commission: round2(platformCommission),
-                payout_updated_at: new Date(),
-              },
-              $unset: {
-                payout_lock_at: "",
-                payout_failure_reason: "",
-                payout_failure_at: "",
-              },
-            },
-          );
-          logger.warn("ADMIN_COMPLAINTS", "Payout marked as pending_manual", {
-            complaintId: id,
-            reason: payoutResult.status,
-            providerPayoutAmount,
-          });
-        } else {
-          throw new Error(
-            payoutResult.message ||
-              `Unable to release payout (status: ${payoutResult.status})`,
-          );
-        }
-      }
-
-      if (seekerRefundAmount > EPSILON) {
-        if (!order.razorpay_payment_id) {
-          // No payment reference — mark as manual refund needed
-          refundPendingManual = true;
-          logger.warn(
-            "ADMIN_COMPLAINTS",
-            "Refund marked as pending_manual (no payment ID)",
-            {
-              complaintId: id,
-              seekerRefundAmount,
-            },
-          );
-        } else {
-          try {
-            refund = await refundRazorpayPayment(
-              order.razorpay_payment_id,
-              toPaise(seekerRefundAmount),
-              {
-                source: "complaint_resolution",
-                complaint_id: complaintId.toString(),
-                outcome: resolved.dbOutcome,
-              },
-            );
-            refundApplied = true;
-          } catch (refundError) {
-            // Razorpay refund failed — mark as manual refund needed
-            refundPendingManual = true;
-            logger.warn(
-              "ADMIN_COMPLAINTS",
-              "Refund marked as pending_manual (Razorpay error)",
-              {
-                complaintId: id,
-                seekerRefundAmount,
-                error:
-                  refundError instanceof Error
-                    ? refundError.message
-                    : String(refundError),
-              },
-            );
-          }
-        }
-      }
+      financialResult = await executeSettlementActions(db, {
+        complaintId: id,
+        orderId,
+        order: { razorpay_payment_id: order.razorpay_payment_id },
+        seekerRefundAmount,
+        providerPayoutAmount,
+        platformCommission: round2(platformCommission),
+        normalizedOutcome: settlement.normalizedOutcome,
+        dbOutcome: resolved.dbOutcome,
+      });
     } catch (finError: unknown) {
-      if (!payoutApplied && !refundApplied) {
+      if (!financialResult?.payoutApplied && !financialResult?.refundApplied) {
         await db
           .collection("complaints")
           .updateOne(
@@ -391,8 +160,8 @@ export async function POST(
         complaintId: id,
         requestedOutcome: outcome,
         normalizedOutcome: settlement.normalizedOutcome,
-        payoutApplied,
-        refundApplied,
+        payoutApplied: financialResult?.payoutApplied,
+        refundApplied: financialResult?.refundApplied,
       });
 
       await db.collection("complaint_messages").insertOne({
@@ -401,20 +170,22 @@ export async function POST(
         sender_role: "system",
         message_type: "SYSTEM",
         content:
-          !payoutApplied && !refundApplied
+          !financialResult?.payoutApplied && !financialResult?.refundApplied
             ? `Failed to finalize complaint due to financial action error: ${details}`
-            : `Complaint finalized but follow-up is needed. ${details}. payoutApplied=${payoutApplied}, refundApplied=${refundApplied}`,
+            : `Complaint finalized but follow-up is needed. ${details}. payoutApplied=${financialResult?.payoutApplied}, refundApplied=${financialResult?.refundApplied}`,
         createdAt: new Date(),
       });
 
       return errorResponse(new AppError(
         ErrorCode.INTERNAL_ERROR,
         500,
-        !payoutApplied && !refundApplied
+        !financialResult?.payoutApplied && !financialResult?.refundApplied
           ? "Financial Action Failed"
           : "Financial Action Partially Applied"
       ));
     }
+
+    const { refund, payoutPendingManual, refundPendingManual } = financialResult;
 
     const orderSetFields: Record<string, unknown> = {
       platform_commission: round2(platformCommission),
@@ -474,67 +245,11 @@ export async function POST(
 
     await db.collection("complaint_messages").insertOne(systemMsg);
 
-    // Fetch contact/bank details for manual transfers
-    let manualTransferDetails: Record<string, unknown> | undefined;
-    if (payoutPendingManual || refundPendingManual) {
-      manualTransferDetails = {};
-
-      if (payoutPendingManual && order.provider_id) {
-        const provider = await db.collection("providers").findOne(
-          { _id: order.provider_id },
-          {
-            projection: {
-              name: 1,
-              businessName: 1,
-              email: 1,
-              phone: 1,
-              bankDetails: 1,
-            },
-          },
-        );
-        if (provider) {
-          manualTransferDetails.provider = {
-            name: provider.businessName || provider.name || "Provider",
-            email: provider.email,
-            phone: provider.phone,
-            upiId: provider.bankDetails?.upiId || null,
-            accountNumber: provider.bankDetails?.accountNumber || null,
-            ifsc: provider.bankDetails?.ifsc || null,
-            accountHolderName: provider.bankDetails?.accountHolderName || null,
-          };
-        }
-      }
-
-      if (refundPendingManual && order.seeker_id) {
-        const seeker = await db
-          .collection("seekers")
-          .findOne(
-            { _id: order.seeker_id },
-            { projection: { name: 1, email: 1, phone: 1 } },
-          );
-
-        // Fetch payment method details from Razorpay to get seeker's UPI/bank info
-        let paymentDetails = null;
-        if (order.razorpay_payment_id) {
-          paymentDetails = await fetchRazorpayPaymentDetails(
-            order.razorpay_payment_id,
-          );
-        }
-
-        if (seeker) {
-          manualTransferDetails.seeker = {
-            name: seeker.name || "Seeker",
-            email: paymentDetails?.email || seeker.email,
-            phone: paymentDetails?.contact || seeker.phone,
-            paymentMethod: paymentDetails?.method || null,
-            vpa: paymentDetails?.vpa || null,
-            bank: paymentDetails?.bank || null,
-            card: paymentDetails?.card || null,
-            wallet: paymentDetails?.wallet || null,
-          };
-        }
-      }
-    }
+    const manualTransferDetails = await fetchManualTransferDetails(
+      db,
+      order,
+      { payoutPendingManual, refundPendingManual },
+    );
 
     return successResponse({ outcome: resolved.dbOutcome,
       status: resolved.dbStatus,

@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/toast";
 import { ProviderCardSkeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 
 type Provider = {
   _id: string;
@@ -107,7 +108,7 @@ export default function SeekerDashboardPage() {
           }
         }
       } catch (error) {
-        console.error("Error fetching seeker profile:", error);
+        reportError("SeekerProfileFetchError", error);
       }
     }
     fetchSeekerProfile();
@@ -136,7 +137,7 @@ export default function SeekerDashboardPage() {
           setProviders(data.providers || []);
         }
       } catch (error) {
-        console.error("Error fetching providers:", error);
+        reportError("ProviderFetchError", error);
         toast({
           title: "Failed to load providers",
           description: "Please try again later",
@@ -211,7 +212,7 @@ export default function SeekerDashboardPage() {
         });
       }
     } catch (error) {
-      console.error("Error creating booking:", error);
+      reportError("BookingCreationError", error);
       toast({
         title: "Something went wrong",
         description: "Please check your connection and try again",

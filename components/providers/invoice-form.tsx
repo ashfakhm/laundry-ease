@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { reportError } from "@/lib/client-error";
 
 export interface InvoiceItem {
   itemType: string;
@@ -44,7 +45,7 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
           setPricingRates(data.pricingRates || {});
         }
       } catch (e) {
-        console.error("Failed to fetch pricing", e);
+        reportError("PricingFetchError", e);
       } finally {
         setLoadingRates(false);
       }

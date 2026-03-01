@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Complaint } from "@/types/complaints";
 import { cn } from "@/lib/utils";
+import { reportError } from "@/lib/client-error";
 
 export default function SeekerDisputesPage() {
   const [disputes, setDisputes] = useState<Complaint[]>([]);
@@ -23,7 +24,7 @@ export default function SeekerDisputesPage() {
           setDisputes(extractComplaints(payload));
         }
       } catch (error) {
-        console.error("Error fetching disputes:", error);
+        reportError("DisputeFetchError", error);
       } finally {
         setLoading(false);
       }

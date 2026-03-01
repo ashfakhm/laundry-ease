@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import { X, Loader2, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MAX_UPLOAD_FILE_BYTES, MAX_EVIDENCE_FILES } from "@/lib/constants";
+import { reportError } from "@/lib/client-error";
 import Image from "next/image";
 
 interface EvidenceUploadProps {
@@ -15,7 +17,7 @@ interface EvidenceUploadProps {
 export function EvidenceUpload({
   value = [],
   onChange,
-  maxFiles = 5,
+  maxFiles = MAX_EVIDENCE_FILES,
   disabled = false,
 }: EvidenceUploadProps) {
   const [uploading, setUploading] = useState(false);
@@ -38,7 +40,7 @@ export function EvidenceUpload({
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
         // Validate
-        if (file.size > 5 * 1024 * 1024)
+        if (file.size > MAX_UPLOAD_FILE_BYTES)
           throw new Error(`File ${file.name} is too large (max 5MB)`);
         if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
           throw new Error(`File ${file.name} format not supported`);
@@ -60,7 +62,7 @@ export function EvidenceUpload({
       const uploadedUrls = await Promise.all(uploadPromises);
       onChange([...value, ...uploadedUrls]);
     } catch (err: unknown) {
-      console.error("Upload Error:", err);
+      reportError("EvidenceUploadError", err);
       const message =
         err instanceof Error ? err.message : "Failed to upload some images";
       setError(message);
