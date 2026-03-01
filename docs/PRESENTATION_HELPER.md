@@ -1245,10 +1245,13 @@ if (!result.success) {
     { "path": "/api/cron/auto-reject-bookings", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/process-payouts", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/audit-integrity", "schedule": "*/30 * * * *" },
-    { "path": "/api/cron/monitor-operational-health", "schedule": "0 * * * *" },
     { "path": "/api/cron/notify-system-alerts", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/monitor-abuse", "schedule": "0 2 * * *" }
+    { "path": "/api/cron/process-email-outbox", "schedule": "*/2 * * * *" },
+    { "path": "/api/cron/audit-integrity", "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/reconciliation", "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/monitor-operational-health", "schedule": "0 * * * *" },
+    { "path": "/api/cron/monitor-abuse", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/webhook-cleanup", "schedule": "0 1 * * *" }
   ]
 }
 ```
@@ -1257,17 +1260,18 @@ if (!result.success) {
 
 **Cron Run Tracking**: Every cron execution is recorded in a `cron_runs` collection via `lib/cron-tracking.ts` with job name, start time, duration, status (running/success/error), and result details.
 
-**Jobs** (9 registered):
+**Jobs** (10 registered):
 
 - `auto-reject-bookings`: Cancel pending requests after timeout (every 5 min)
 - `no-show`: Handle when provider doesn't show up (every 5 min)
 - `process-payouts`: Run unified escrow release + payout orchestration (every 15 min)
-- `audit-integrity`: Verify data consistency between orders/payments/bookings (every 30 min)
-- `monitor-operational-health`: Detect overdue payouts, failure spikes, overdue complaints (hourly)
 - `notify-system-alerts`: Send alert digests via email/webhook with dedup and escalation (every 15 min)
+- `process-email-outbox`: Process queued emails with retry/backoff (every 2 min)
+- `audit-integrity`: Verify data consistency between orders/payments/bookings (every 30 min)
+- `reconciliation`: Reconcile Razorpay records against internal state (every 30 min)
+- `monitor-operational-health`: Detect overdue payouts, failure spikes, overdue complaints (hourly)
 - `monitor-abuse`: Find suspicious cancellation patterns (daily at 2 AM)
-- `process-email-outbox`: Process queued emails with retry/backoff
-- `reconciliation`: Reconcile Razorpay records against internal state
+- `webhook-cleanup`: Purge processed webhook events older than 30 days (daily at 1 AM)
 
 ---
 
@@ -1431,11 +1435,11 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 6. **Financial precision**: All monetary calculations use `decimal.js` to prevent floating-point bugs
 7. **CI pipeline**: GitHub Actions `Quality Gates` workflow runs typecheck → lint → test → build → smoke E2E on every push
 
-Current quality snapshot (2026-02-28):
+Current quality snapshot (2026-03-01):
 
-- `99` test files
-- `468` tests passing
-- `3` Playwright E2E specs with `7` critical journeys passing
+- `104` test files
+- `506` tests passing
+- `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts
 - One-shot local verification: `npm run verify:gates`

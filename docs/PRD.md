@@ -531,6 +531,11 @@ Note: TypeScript type definitions for the Razorpay SDK are maintained in `types/
 - `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name (for image uploads)
 - `CLOUDINARY_API_KEY` - Cloudinary API key
 - `CLOUDINARY_API_SECRET` - Cloudinary API secret
+- `DATADOG_API_KEY` - Datadog API key for APM tracing via dd-trace
+- `DD_API_KEY` - Alternative Datadog API key
+- `OPS_PAGERDUTY_ROUTING_KEY` - PagerDuty routing key for alert integration
+- `E2E_FAKE_PAYMENTS` - Set to `1` to bypass real Razorpay in E2E tests
+- `CSP_ALLOW_UNSAFE_EVAL` - Set to `true` to allow unsafe-eval in CSP (dev only)
 
 ### Setup Instructions
 
@@ -566,7 +571,7 @@ See `README.md` for detailed setup instructions.
 - **Team calendar / on-call integration**
   Alert owner routing currently uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`). Real dynamic on-call scheduling requires external calendar integration.
 
-## 14. Implementation Alignment Matrix (2026-02-28)
+## 14. Implementation Alignment Matrix (2026-03-01)
 
 | PRD Requirement                  | Expected Behavior                                                                                                                | Current System Status                                                                                                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

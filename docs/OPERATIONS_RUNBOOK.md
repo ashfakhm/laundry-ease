@@ -1,6 +1,6 @@
 # LaundryEase Operations Runbook
 
-**Version:** 2026-02-19  
+**Version:** 2026-03-01  
 **Scope:** Payment, escrow, complaint, and reliability-critical operational response
 
 ---
@@ -71,10 +71,14 @@ This runbook defines how to detect, triage, and resolve production incidents for
 - cron endpoint failures:
   - `/api/cron/process-payouts`
   - `/api/cron/no-show`
+  - `/api/cron/auto-reject-bookings`
+  - `/api/cron/process-email-outbox`
+  - `/api/cron/audit-integrity`
+  - `/api/cron/reconciliation`
   - `/api/cron/monitor-operational-health`
   - `/api/cron/notify-system-alerts`
   - `/api/cron/webhook-cleanup`
-  - `/api/cron/reconciliation`
+  - `/api/cron/monitor-abuse`
 
 ---
 
@@ -199,6 +203,13 @@ For every `SEV-1`/`SEV-2`:
 - Add staging scheduled smoke for real gateway interaction paths
 - Add archival policy for old webhook payloads
 
+## 9.1 APM & Telemetry
+
+- **Datadog APM**: `dd-trace` initialized via `instrumentation.ts` (service name: `laundryease-web`)
+- **StatsD Metrics**: `hot-shots` DogStatsD client in `lib/telemetry.ts` (prefix: `laundryease.`)
+- **Structured Logging**: Pino with secret redaction in `lib/logger.ts`
+- **Env vars**: `DATADOG_API_KEY` or `DD_API_KEY` enables tracing; falls back to Pino logging if unset
+
 ## 10. Release Gate Checklist
 
 Before shipping production-impacting changes:
@@ -206,4 +217,4 @@ Before shipping production-impacting changes:
 1. Run `npm run verify:gates` locally (or equivalent CI checks).
 2. If high-impact code changed (`app/api`, `lib`, `types`, or config files), run `npm run check:docs-sync` and update impacted docs.
 3. Confirm smoke journeys pass in serial mode:
-   - `npm run test:e2e -- --workers=1 e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts`
+   - `npm run test:e2e -- --workers=1 e2e/smoke-role-journeys.spec.ts e2e/complaint-chat-journey.spec.ts e2e/settlement-chain-journey.spec.ts e2e/booking-lifecycle-journey.spec.ts e2e/booking-negative-journeys.spec.ts`

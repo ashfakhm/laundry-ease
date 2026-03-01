@@ -98,6 +98,7 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 | **Data Fetching**  | SWR                          | Client-side caching with revalidation         |
 | **Logging**        | Pino + pino-pretty           | Structured JSON logging with secret redaction |
 | **Financial Math** | decimal.js                   | Precise monetary calculations (no float bugs) |
+| **APM / Telemetry**| Datadog (dd-trace + StatsD)  | Application performance monitoring & metrics  |
 | **Rate Limiting**  | MongoDB-backed counters      | Per-IP/actor abuse prevention with TTL        |
 | **Testing**        | Vitest + Playwright          | Unit tests + browser E2E tests                |
 | **CI/CD**          | GitHub Actions + Vercel      | Quality gates + serverless deployment         |
@@ -209,6 +210,11 @@ All environment variables are validated on startup via Zod schema in `lib/env.ts
 | `CLOUDINARY_CLOUD_NAME`    | Cloudinary cloud name                                |
 | `CLOUDINARY_API_KEY`       | Cloudinary API key                                   |
 | `CLOUDINARY_API_SECRET`    | Cloudinary API secret                                |
+| `DATADOG_API_KEY`          | Datadog API key for APM tracing                      |
+| `DD_API_KEY`               | Alternative Datadog API key                          |
+| `OPS_PAGERDUTY_ROUTING_KEY`| PagerDuty routing key for alert integration          |
+| `E2E_FAKE_PAYMENTS`        | Set `1` to bypass real Razorpay in E2E tests         |
+| `CSP_ALLOW_UNSAFE_EVAL`    | Set `true` to allow unsafe-eval in CSP (dev only)    |
 
 ### External Service Setup
 
@@ -374,15 +380,16 @@ Admin dashboard shows: 7-day opened-vs-resolved trend, burn-rate tier (stable/wa
 
 | Endpoint                               | Schedule     | Purpose                                   |
 | -------------------------------------- | ------------ | ----------------------------------------- |
-| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject expired booking requests      |
-| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows                  |
-| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine    |
-| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency  |
-| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks |
-| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with escalation            |
-| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns    |
-
-Additional registered jobs: `process-email-outbox`, `reconciliation`.
+| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject expired booking requests           |
+| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows                       |
+| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine         |
+| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with escalation                 |
+| `/api/cron/process-email-outbox`       | Every 2 min  | Claim-and-dispatch queued transactional emails  |
+| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency       |
+| `/api/cron/reconciliation`             | Every 30 min | Reconcile Razorpay records vs internal state   |
+| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks      |
+| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns         |
+| `/api/cron/webhook-cleanup`            | Daily 1 AM   | Purge processed webhook events older than 30 d |
 
 All cron runs are tracked in `cron_runs` collection with job name, start time, duration, status, and result details.
 
@@ -425,10 +432,10 @@ All cron runs are tracked in `cron_runs` collection with job name, start time, d
 - Local release parity: `npm run verify:gates`
 - Docs sync guardrails: `npm run check:docs-sync`
 
-**Quality Snapshot (2026-02-28):**
+**Quality Snapshot (2026-03-01):**
 
-- `99` test files, `468` tests passing (100% core route coverage)
-- `3` Playwright E2E specs, `7` critical journeys passing
+- `104` test files, `506` tests passing (100% core route coverage)
+- `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
 - Zero production type casts
 - Strict escrow paise precision enforced
@@ -440,7 +447,6 @@ All cron runs are tracked in `cron_runs` collection with job name, start time, d
 - Team calendar/on-call integration for dynamic owner pools
 - Password-recovery anti-abuse hardening (captcha strategy)
 - Promote CSP from report-only to enforce mode after violation cleanup
-- Complaint window extension requests
 - Split-settlement reconciliation tooling for rare one-leg failure cases
 
 ## 15. Project Structure

@@ -13,7 +13,7 @@ LaundryEase is a **Next.js 16.1.6** full-stack marketplace application that conn
 | Technology      | Version | Purpose                                     |
 | --------------- | ------- | ------------------------------------------- |
 | Next.js         | 16.1.6  | Full-stack React framework with App Router  |
-| React           | 19.2.4  | UI library                                  |
+| React           | 19.2.4  | UI library (React Compiler enabled)         |
 | TypeScript      | 5.x     | Type safety                                 |
 | Tailwind CSS    | 4.1.18  | Styling                                     |
 | Framer Motion   | 12.29.2 | Animations                                  |
@@ -36,6 +36,8 @@ LaundryEase is a **Next.js 16.1.6** full-stack marketplace application that conn
 | Cloudinary      | Image uploads (CDN-backed)                     |
 | Google Maps API | Location services (Places, Geocoding, Maps JS) |
 | Pino            | Structured JSON logging with secret redaction  |
+| dd-trace        | Datadog APM tracing (service: laundryease-web) |
+| hot-shots       | DogStatsD metrics client (prefix: laundryease.) |
 | decimal.js      | Precise monetary calculations (no float drift) |
 
 ### Testing & Quality
@@ -295,7 +297,7 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    A[Booking Fee ₹149] --> B{Provider Arrives?}
+    A[Booking Fee ₹50] --> B{Provider Arrives?}
     B -->|Yes| C[Release Booking Fee to Provider]
 
     D[Invoice Payment] --> E[Payment Captured]
@@ -677,7 +679,7 @@ Required variables (see [`.env.example`](.env.example:1)):
 | [`lib/ops/alert-channels.ts`](lib/ops/alert-channels.ts:1)       | Email/webhook alert delivery channels         |
 | [`lib/ops/ack-sla.ts`](lib/ops/ack-sla.ts:1)                     | Alert acknowledgement SLA tracking            |
 | [`lib/ops/owner-routing.ts`](lib/ops/owner-routing.ts:1)         | SLA-based alert owner assignment              |
-| [`lib/ops/alerts-analytics.ts`](lib/ops/alerts-analytics.ts:1)   | 7-day trend, burn-rate, MTTR analytics        |
+| [`lib/ops/alerts-analytics.ts`](lib/ops/alerts-analytics.ts:1)   | 7-day trend, burn-rate, MTTR analytics        |\n| [`instrumentation.ts`](instrumentation.ts:1)                     | Datadog APM init hook (dd-trace)              |\n| [`lib/telemetry.ts`](lib/telemetry.ts:1)                         | DogStatsD metrics (hot-shots)                 |
 
 ---
 
@@ -686,7 +688,7 @@ Required variables (see [`.env.example`](.env.example:1)):
 **Quality Snapshot (2026-03-01):**
 
 - 104 test files, 506 tests passing (100% core route coverage)
-- 3 Playwright E2E specs, 7 critical journeys passing
+- 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
 - System webhooks fully mutex-locked
@@ -732,7 +734,7 @@ LaundryEase is a well-architected laundry marketplace with:
 2. **Clear Role Separation** - Seeker, Provider, Admin with distinct workflows
 3. **Robust State Machines** - Booking and Order lifecycles with explicit transitions
 4. **Comprehensive Dispute Resolution** - 3-way chat, split settlements, deadline tracking
-5. **Production-Ready Infrastructure** - 10 cron jobs, operational alerting with SLA/escalation, email outbox, rate limiting, structured logging
-6. **Quality Assurance** - 104 test files (506 tests), E2E browser tests, type safety, CI quality gates
+5. **Production-Ready Infrastructure** - 10 cron jobs, operational alerting with SLA/escalation, email outbox, rate limiting, structured logging, Datadog APM
+6. **Quality Assurance** - 104 test files (506 tests), 5 E2E browser specs, type safety, CI quality gates
 
 The codebase follows modern Next.js patterns with App Router, Server Actions, and a clear separation of concerns between frontend components and backend business logic.
