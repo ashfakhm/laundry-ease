@@ -557,7 +557,8 @@ See `README.md` for detailed setup instructions.
   The platform needs a policy for excessive reschedule requests (caps, cooldowns, or admin escalation) to prevent griefing.
 
 - **Complaint window extension requests**
-  If a seeker misses the 24-hour complaint window due to legitimate reasons (travel, illness), there's no current mechanism to request an extension.
+  ~~If a seeker misses the 24-hour complaint window due to legitimate reasons (travel, illness), there's no current mechanism to request an extension.~~
+  **Implemented**: Admin can extend the complaint filing window via `POST /api/admin/orders/[id]/extend-complaint` with a new deadline date.
 
 - **Split-settlement reconciliation**
   If one financial leg succeeds (for example payout initiated) and the second leg fails (for example refund failure), admin follow-up tooling is still required to fully reconcile the case.
@@ -612,6 +613,8 @@ See `README.md` for detailed setup instructions.
 | Owner routing                    | SLA-breached alerts auto-assign to appropriate oncall, persistent breaches escalate to tech_lead                                 | Implemented (`lib/ops/owner-routing.ts` with load-balanced assignment)                                                                                                   |
 | Alert analytics                  | Dashboard must show trend, burn-rate, and MTTR                                                                                   | Implemented (`lib/ops/alerts-analytics.ts` — 7d trend, burn-rate tier, MTTR)                                                                                             |
 | Abuse monitoring                 | System must detect excessive cancellation patterns                                                                               | Implemented (`/api/cron/monitor-abuse` — daily 2 AM scan with configurable lookback/threshold)                                                                           |
+| Webhook hygiene                  | Processed webhook events must be purged after retention period                                                                   | Implemented (`/api/cron/webhook-cleanup` — daily purge of events older than 30 days)                                                                                     |
+| Complaint window extension       | Admin must be able to extend complaint filing window for exceptional cases                                                       | Implemented (`POST /api/admin/orders/[id]/extend-complaint`)                                                                                                             |
 | Data integrity auditing          | System must periodically verify order/payment/booking consistency                                                                | Implemented (`/api/cron/audit-integrity` — every 30 min)                                                                                                                 |
 | Cron observability               | Every cron run must be tracked                                                                                                   | Implemented (`cron_runs` collection with `lib/cron-tracking.ts`)                                                                                                         |
 
@@ -623,5 +626,4 @@ See `README.md` for detailed setup instructions.
 4. Add abuse hardening on password-recovery endpoints (rate limits/captcha strategy).
 5. Promote CSP from report-only to enforced mode after violation cleanup.
 6. Integrate real team calendar/on-call system for dynamic owner pool routing.
-7. Add complaint window extension request mechanism.
-8. Add split-settlement reconciliation tooling for rare one-leg failure cases.
+7. Add split-settlement reconciliation tooling for rare one-leg failure cases.

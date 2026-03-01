@@ -4,6 +4,8 @@ const SMOKE_SPECS = [
   "e2e/smoke-role-journeys.spec.ts",
   "e2e/complaint-chat-journey.spec.ts",
   "e2e/settlement-chain-journey.spec.ts",
+  "e2e/booking-lifecycle-journey.spec.ts",
+  "e2e/booking-negative-journeys.spec.ts",
 ];
 
 const shouldSkipE2E = process.argv.includes("--skip-e2e");

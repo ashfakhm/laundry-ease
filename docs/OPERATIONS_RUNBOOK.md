@@ -73,6 +73,8 @@ This runbook defines how to detect, triage, and resolve production incidents for
   - `/api/cron/no-show`
   - `/api/cron/monitor-operational-health`
   - `/api/cron/notify-system-alerts`
+  - `/api/cron/webhook-cleanup`
+  - `/api/cron/reconciliation`
 
 ---
 

@@ -44,19 +44,172 @@ test.describe("booking lifecycle journey", () => {
     seed = await seedSmokeData({ namespace: "full-lifecycle" });
   });
 
-  // TODO: This test navigates to /provider/bookings/{id} and /seeker/bookings/{id}
-  // which are not valid pages. Booking management uses list pages
-  // (/provider/bookings, /seeker/bookings) with card components.
-  // The test also used non-canonical states ("pending", "in_progress").
-  // Needs full rewrite to match actual UI architecture.
-  test.skip("full booking lifecycle (seeker request -> provider accept -> arrive -> invoice -> complete)", async ({
+  test("provider accepts booking and arrives via manage-booking page", async ({
     browser,
   }) => {
     const { mongoUri, dbName } = getSmokeDbConfig();
     const client = new MongoClient(mongoUri);
-    let currentBookingId: string | undefined;
 
-    // STEP 1: Seeker requests a booking
+    // Seed a fresh "requested" booking for the lifecycle test
+    const bookingId = new ObjectId();
+    const idFragment = bookingId.toString().slice(-6).toUpperCase();
+
+    await client.connect();
+    const db = client.db(dbName);
+
+    try {
+      await db.collection("bookings").insertOne({
+        _id: bookingId,
+        seeker_id: seed.seekerId,
+        provider_id: seed.providerId,
+        status: "requested",
+        bookingFee: 149,
+        bookingFeeStatus: "paid",
+        pickupSlot: {
+          dateTime: new Date(Date.now() + 2 * 86400000),
+          confirmedAt: new Date(),
+        },
+        deadline: new Date(Date.now() + 3 * 86400000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    } finally {
+      await client.close();
+    }
+
+    // STEP 1: Provider accepts the booking via manage-booking list page
+    await runAsRole(
+      browser,
+      smokeUsers.provider.email,
+      smokeUsers.provider.password,
+      async (page) => {
+        await page.waitForURL("**/provider");
+
+        await page.goto("/provider/manage-booking");
+        await expect(
+          page.getByRole("heading", { name: "Manage Bookings" }),
+        ).toBeVisible();
+
+        // Find the booking card by its ID fragment
+        const card = page.locator("article").filter({
+          hasText: `#${idFragment}`,
+        });
+        await expect(card).toBeVisible({ timeout: 10000 });
+
+        // Accept the booking
+        const acceptBtn = card.getByRole("button", { name: /^Accept$/ });
+        await expect(acceptBtn).toBeVisible();
+        page.once("dialog", (dialog) => dialog.accept());
+        await acceptBtn.click();
+
+        // Wait for status to change - the card should update
+        await expect(
+          card.getByText(/Accepted|Proposed|Confirmed/i).first(),
+        ).toBeVisible({ timeout: 10000 });
+      },
+    );
+
+    // STEP 2: Fast-forward booking to "confirmed" state via DB (bypass schedule negotiation)
+    await client.connect();
+    try {
+      await client
+        .db(dbName)
+        .collection("bookings")
+        .updateOne(
+          { _id: bookingId },
+          {
+            $set: {
+              status: "confirmed",
+              pickupSlot: {
+                dateTime: new Date(Date.now() + 2 * 86400000),
+                confirmedAt: new Date(),
+              },
+              updatedAt: new Date(),
+            },
+          },
+        );
+    } finally {
+      await client.close();
+    }
+
+    // STEP 3: Provider marks arrival
+    await runAsRole(
+      browser,
+      smokeUsers.provider.email,
+      smokeUsers.provider.password,
+      async (page) => {
+        await page.goto("/provider/manage-booking");
+        await expect(
+          page.getByRole("heading", { name: "Manage Bookings" }),
+        ).toBeVisible();
+
+        // Click "Confirmed" tab to find our booking
+        const confirmedTab = page.getByRole("button", { name: /Confirmed/i });
+        await confirmedTab.click();
+
+        const card = page.locator("article").filter({
+          hasText: `#${idFragment}`,
+        });
+        await expect(card).toBeVisible({ timeout: 10000 });
+
+        // Mark arrived
+        const arriveBtn = card.getByRole("button", {
+          name: /I Have Arrived/i,
+        });
+        await expect(arriveBtn).toBeVisible();
+        page.once("dialog", (dialog) => dialog.accept());
+        await arriveBtn.click();
+
+        // After arrival, "Create Invoice" link should appear
+        await expect(
+          card.getByRole("link", { name: /Create Invoice/i }),
+        ).toBeVisible({ timeout: 10000 });
+      },
+    );
+
+    // Verify final DB state
+    await client.connect();
+    try {
+      const booking = await client
+        .db(dbName)
+        .collection("bookings")
+        .findOne({ _id: bookingId });
+      expect(booking?.arrivedAt).toBeTruthy();
+    } finally {
+      await client.close();
+    }
+  });
+
+  test("seeker sees booking in list and can cancel a requested booking", async ({
+    browser,
+  }) => {
+    const { mongoUri, dbName } = getSmokeDbConfig();
+    const client = new MongoClient(mongoUri);
+
+    // Seed a "requested" booking
+    const bookingId = new ObjectId();
+    const idFragment = bookingId.toString().slice(-6).toUpperCase();
+
+    await client.connect();
+    try {
+      await client
+        .db(dbName)
+        .collection("bookings")
+        .insertOne({
+          _id: bookingId,
+          seeker_id: seed.seekerId,
+          provider_id: seed.providerId,
+          status: "requested",
+          bookingFee: 149,
+          bookingFeeStatus: "paid",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+    } finally {
+      await client.close();
+    }
+
+    // Seeker navigates to bookings list, finds the card, and cancels
     await runAsRole(
       browser,
       smokeUsers.seeker.email,
@@ -64,132 +217,29 @@ test.describe("booking lifecycle journey", () => {
       async (page) => {
         await page.waitForURL("**/seeker");
 
-        // Find provider and request booking
-        await page.goto(`/seeker/providers/${seed.providerId.toString()}`);
+        await page.goto("/seeker/bookings");
+        await expect(
+          page.getByRole("heading", { name: "My Bookings" }),
+        ).toBeVisible();
 
-        const requestBtn = page.getByRole("button", {
-          name: /Request Booking/i,
+        // Find booking card by ID fragment
+        const card = page.locator("article, [class*='card']").filter({
+          hasText: `#${idFragment}`,
         });
-        await expect(requestBtn).toBeVisible();
-        await requestBtn.click();
+        await expect(card.first()).toBeVisible({ timeout: 10000 });
 
-        // Wait for redirect to checkout or booking page
-        await page.waitForURL(/.*\/bookings\/[a-f0-9]+.*/);
-        currentBookingId = page.url().split("/").pop();
-        expect(currentBookingId).toBeDefined();
-      },
-    );
-
-    expect(currentBookingId).toBeTruthy();
-
-    // STEP 2: Bypass Razorpay Booking Fee via DB
-    await client.connect();
-    const db = client.db(dbName);
-
-    await db.collection("bookings").updateOne(
-      { _id: new ObjectId(currentBookingId) },
-      {
-        $set: {
-          status: "requested",
-          bookingFeeStatus: "paid",
-          bookingFee: 50,
-          pickupSlot: {
-            dateTime: new Date(Date.now() + 86400000), // tomorrow
-            confirmedAt: new Date(),
-          },
-          updatedAt: new Date(),
-        },
-      },
-    );
-    await client.close();
-
-    // STEP 3: Provider accepts booking and marks arrival
-    await runAsRole(
-      browser,
-      smokeUsers.provider.email,
-      smokeUsers.provider.password,
-      async (page) => {
-        await page.goto(`/provider/bookings/${currentBookingId}`);
-
-        // Accept
-        const acceptBtn = page.getByRole("button", { name: /Accept/i });
-        if (await acceptBtn.isVisible()) {
-          page.once("dialog", (dialog) => dialog.accept());
-          await acceptBtn.click();
-        }
-
-        // Fast forward: Bypass schedule negotiation for E2E simplicity (or assume flexible)
-        // Mark Arrived
-        const arriveBtn = page.getByRole("button", { name: /I Have Arrived/i });
-        if (await arriveBtn.isVisible()) {
-          page.once("dialog", (dialog) => dialog.accept());
-          await arriveBtn.click();
-        }
-
-        // Create Invoice
-        const generateInvoiceLink = page.getByRole("link", {
-          name: /Create Invoice/i,
+        // Cancel the booking
+        const cancelBtn = card.first().getByRole("button", {
+          name: /Cancel Request/i,
         });
-        if (await generateInvoiceLink.isVisible()) {
-          await generateInvoiceLink.click();
-          // Fill dummy invoice
-          await page.getByPlaceholder(/Amount/i).fill("500");
-          await page
-            .getByRole("button", { name: /Submit|Create Invoice|Send/i })
-            .first()
-            .click();
-        }
-      },
-    );
+        await expect(cancelBtn).toBeVisible();
+        page.once("dialog", (dialog) => dialog.accept());
+        await cancelBtn.click();
 
-    // STEP 4: Bypass Razorpay Invoice Payment and generate Order via DB
-    await client.connect();
-    const dbInvoice = client.db(dbName);
-    const orderId = new ObjectId();
-
-    // Simulate invoice payment webhooks success
-    await dbInvoice
-      .collection("bookings")
-      .updateOne(
-        { _id: new ObjectId(currentBookingId) },
-        {
-          $set: {
-            status: "completed",
-            order_id: orderId,
-            updatedAt: new Date(),
-          },
-        },
-      );
-
-    await dbInvoice.collection("orders").insertOne({
-      _id: orderId,
-      booking_id: new ObjectId(currentBookingId),
-      seeker_id: seed.seekerId,
-      provider_id: seed.providerId,
-      process_status: "processing",
-      payment_status: "held",
-      total_price: 500,
-      delivery_charge: 50,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    await client.close();
-
-    // STEP 5: Provider marks as delivered
-    await runAsRole(
-      browser,
-      smokeUsers.provider.email,
-      smokeUsers.provider.password,
-      async (page) => {
-        await page.goto(`/provider/orders/${orderId.toString()}`);
-
-        // Mark Delivered
-        const deliverBtn = page.getByRole("button", {
-          name: /Mark Delivered/i,
-        });
-        if (await deliverBtn.isVisible()) {
-          await deliverBtn.click();
-        }
+        // Verify status changed to cancelled
+        await expect(
+          page.getByText(/Cancelled/i).first(),
+        ).toBeVisible({ timeout: 10000 });
       },
     );
   });

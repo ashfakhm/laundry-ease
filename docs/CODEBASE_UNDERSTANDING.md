@@ -345,6 +345,7 @@ app/api/
 ├── admin/              # Admin-only endpoints
 │   ├── complaints/     # Complaint management
 │   ├── dashboard-stats/# Dashboard statistics
+│   ├── orders/         # Order admin actions (extend-complaint)
 │   ├── payments/       # Payment management
 │   ├── refund/         # Refund processing
 │   ├── system-alerts/  # System alert management
@@ -423,6 +424,7 @@ Defined in [`vercel.json`](vercel.json:1):
 | `/api/cron/reconciliation`             | Every 30 min | Reconcile Razorpay records vs internal state   |
 | `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks      |
 | `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns         |
+| `/api/cron/webhook-cleanup`            | Daily        | Purge processed webhook events older than 30 days |
 
 All cron runs are tracked in `cron_runs` collection via `lib/cron-tracking.ts` with job name, start time, duration, status, and result.
 
@@ -683,7 +685,7 @@ Required variables (see [`.env.example`](.env.example:1)):
 
 **Quality Snapshot (2026-03-01):**
 
-- 102 test files, 497 tests passing (100% core route coverage)
+- 104 test files, 506 tests passing (100% core route coverage)
 - 3 Playwright E2E specs, 7 critical journeys passing
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
@@ -717,7 +719,6 @@ Required variables (see [`.env.example`](.env.example:1)):
 - CSP enforcement mode (currently report-only)
 - Password-recovery anti-abuse hardening (captcha strategy)
 - Team calendar/on-call integration for dynamic owner pools
-- Complaint window extension requests
 - Split-settlement reconciliation tooling for rare one-leg failures
 - Webhook payload archival policy
 
@@ -731,7 +732,7 @@ LaundryEase is a well-architected laundry marketplace with:
 2. **Clear Role Separation** - Seeker, Provider, Admin with distinct workflows
 3. **Robust State Machines** - Booking and Order lifecycles with explicit transitions
 4. **Comprehensive Dispute Resolution** - 3-way chat, split settlements, deadline tracking
-5. **Production-Ready Infrastructure** - 9 cron jobs, operational alerting with SLA/escalation, email outbox, rate limiting, structured logging
-6. **Quality Assurance** - 102 test files (497 tests), E2E browser tests, type safety, CI quality gates
+5. **Production-Ready Infrastructure** - 10 cron jobs, operational alerting with SLA/escalation, email outbox, rate limiting, structured logging
+6. **Quality Assurance** - 104 test files (506 tests), E2E browser tests, type safety, CI quality gates
 
 The codebase follows modern Next.js patterns with App Router, Server Actions, and a clear separation of concerns between frontend components and backend business logic.
