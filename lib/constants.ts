@@ -19,7 +19,7 @@ export const MAX_ARRIVAL_DISTANCE_METERS = 200;
 export const BCRYPT_SALT_ROUNDS = 10;
 
 /** Booking fee amount in INR (charged upfront to seekers). */
-export const BOOKING_FEE_INR = 149;
+export const BOOKING_FEE_INR = 50;
 
 // ─── Escrow & Payouts ───────────────────────────────────────────────────────
 
