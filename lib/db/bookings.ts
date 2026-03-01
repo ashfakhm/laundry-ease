@@ -122,20 +122,6 @@ export async function getBookingById(
 }
 
 /**
- * Update a booking's status
- */
-export async function updateBookingStatus(
-  booking_id: ObjectId,
-  status: "accepted" | "rejected",
-) {
-  const { db } = await getDb();
-  const res = await db
-    .collection<Booking>("bookings")
-    .updateOne({ _id: booking_id }, { $set: { status } });
-  return res.modifiedCount > 0;
-}
-
-/**
  * Accept a booking with atomic capacity check using MongoDB transaction.
  * Prevents race conditions where multiple accepts could exceed provider capacity.
  *

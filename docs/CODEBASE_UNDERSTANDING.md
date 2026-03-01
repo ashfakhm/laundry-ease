@@ -117,19 +117,20 @@ laundry-ease/
 
 ### Route Protection Architecture
 
-The application uses Next.js middleware and server-side auth guards for route protection:
+The application uses route-level server-side guards (not Next.js middleware) for protection:
 
 ```mermaid
 flowchart TD
-    A[Request] --> B{Public Route?}
-    B -->|Yes| C[Allow Access]
-    B -->|No| D{Authenticated?}
-    D -->|No| E[Redirect to /auth]
-    D -->|Yes| F{Has Role?}
-    F -->|No| G[Redirect to /choose-role]
-    F -->|Yes| H{Role Matches Route?}
-    H -->|No| I[Redirect to /unauthorized]
-    H -->|Yes| J[Allow Access]
+    A[Request] --> B{State-changing route?}
+    B -->|Yes| C[requireSameOrigin + enforceRateLimit]
+    B -->|No| D[Continue]
+    C --> E{Protected route?}
+    D --> E
+    E -->|Yes| F[requireSeeker / requireProvider / requireAdmin]
+    E -->|No| G[Allow Access]
+    F --> H{Authorized?}
+    H -->|No| I[Return 401/403]
+    H -->|Yes| G
 ```
 
 ---

@@ -34,7 +34,7 @@ export function ReviewsList({ providerId }: { providerId: string }) {
                  <div key={i} className="border-b border-border last:border-0 pb-6 last:pb-0">
                      <div className="flex items-start justify-between mb-2">
                          <div className="flex items-center gap-3">
-                             <div className="h-10 w-10 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center shadow-sm">
+                             <div className="h-10 w-10 bg-linear-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center shadow-sm">
                                  <User className="w-5 h-5 text-primary" />
                              </div>
                              <div>

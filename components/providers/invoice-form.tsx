@@ -184,7 +184,7 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
     >
       {/* Item Entry Area */}
       <div className="p-6 bg-card/80 backdrop-blur-md rounded-2xl border border-border shadow-xl space-y-6 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-purple-500 opacity-80" />
+        <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-primary to-purple-500 opacity-80" />
 
         <div className="flex items-center justify-between">
           <h3 className="font-heading text-lg font-bold text-foreground flex items-center gap-2">

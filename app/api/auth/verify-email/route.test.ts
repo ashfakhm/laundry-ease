@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetDb, mockJwtVerify } = vi.hoisted(() => ({
+const { mockGetDb, mockJwtVerify, mockRequireSameOrigin, mockEnforceRateLimit } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockJwtVerify: vi.fn(),
+  mockRequireSameOrigin: vi.fn(),
+  mockEnforceRateLimit: vi.fn(),
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -15,6 +17,11 @@ vi.mock("jose", () => ({
 
 vi.mock("@/lib/env", () => ({
   env: { NEXTAUTH_SECRET: "test-jwt-secret" },
+}));
+
+vi.mock("@/lib/api/security", () => ({
+  requireSameOrigin: mockRequireSameOrigin,
+  enforceRateLimit: mockEnforceRateLimit,
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -36,6 +43,13 @@ describe("POST /api/auth/verify-email", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireSameOrigin.mockResolvedValue(undefined);
+    mockEnforceRateLimit.mockResolvedValue({
+      limit: 20,
+      remaining: 19,
+      resetAt: new Date(),
+      retryAfterSeconds: 60,
+    });
     mockJwtVerify.mockResolvedValue({
       payload: {
         email: "user@example.com",
@@ -101,5 +115,11 @@ describe("POST /api/auth/verify-email", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
+  });
+
+  it("applies request origin and rate-limit guards", async () => {
+    await POST(makeReq({ token: "valid-token" }));
+    expect(mockRequireSameOrigin).toHaveBeenCalledTimes(1);
+    expect(mockEnforceRateLimit).toHaveBeenCalledTimes(1);
   });
 });

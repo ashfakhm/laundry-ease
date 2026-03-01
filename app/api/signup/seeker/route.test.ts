@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockEmailExists, mockCreateSeeker, mockIsOtpVerifiedRecently } =
-  vi.hoisted(() => ({
-    mockEmailExists: vi.fn(),
-    mockCreateSeeker: vi.fn(),
-    mockIsOtpVerifiedRecently: vi.fn(),
-  }));
+const {
+  mockEmailExists,
+  mockCreateSeeker,
+  mockIsOtpVerifiedRecently,
+  mockRequireSameOrigin,
+  mockEnforceRateLimit,
+} = vi.hoisted(() => ({
+  mockEmailExists: vi.fn(),
+  mockCreateSeeker: vi.fn(),
+  mockIsOtpVerifiedRecently: vi.fn(),
+  mockRequireSameOrigin: vi.fn(),
+  mockEnforceRateLimit: vi.fn(),
+}));
 
 vi.mock("@/lib/db/index", () => ({
   emailExists: mockEmailExists,
@@ -14,6 +21,11 @@ vi.mock("@/lib/db/index", () => ({
 
 vi.mock("@/lib/otp", () => ({
   isOtpVerifiedRecently: mockIsOtpVerifiedRecently,
+}));
+
+vi.mock("@/lib/api/security", () => ({
+  requireSameOrigin: mockRequireSameOrigin,
+  enforceRateLimit: mockEnforceRateLimit,
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -51,6 +63,13 @@ describe("POST /api/signup/seeker", () => {
     mockIsOtpVerifiedRecently.mockResolvedValue(true);
     mockEmailExists.mockResolvedValue(false);
     mockCreateSeeker.mockResolvedValue(undefined);
+    mockRequireSameOrigin.mockResolvedValue(undefined);
+    mockEnforceRateLimit.mockResolvedValue({
+      limit: 10,
+      remaining: 9,
+      resetAt: new Date(),
+      retryAfterSeconds: 60,
+    });
   });
 
   it("returns 400 for invalid payload", async () => {
@@ -88,5 +107,11 @@ describe("POST /api/signup/seeker", () => {
     expect(mockCreateSeeker).toHaveBeenCalledWith(
       expect.objectContaining({ email: "test@example.com" }),
     );
+  });
+
+  it("applies request origin and rate-limit guards", async () => {
+    await POST(makeReq(validPayload) as never);
+    expect(mockRequireSameOrigin).toHaveBeenCalledTimes(1);
+    expect(mockEnforceRateLimit).toHaveBeenCalledTimes(1);
   });
 });

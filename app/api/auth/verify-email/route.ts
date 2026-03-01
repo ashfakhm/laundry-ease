@@ -1,9 +1,11 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
+import { RATE_LIMIT_AUTH_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { jwtVerify, JWTPayload } from "jose";
 import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
+import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
 const JWT_SECRET = new TextEncoder().encode(env.NEXTAUTH_SECRET);
 
@@ -14,6 +16,13 @@ type EmailVerificationTokenPayload = JWTPayload & {
 
 export async function POST(req: Request) {
   try {
+    await requireSameOrigin(req);
+    await enforceRateLimit(req, {
+      bucket: "auth:verify-email:ip",
+      max: 20,
+      windowMs: RATE_LIMIT_AUTH_WINDOW_MS,
+    });
+
     const { token } = await req.json();
 
     if (!token) {
@@ -82,6 +91,10 @@ export async function POST(req: Request) {
 
     return successResponse({});
   } catch (error) {
+    if (error instanceof AppError) {
+      return errorResponse(error);
+    }
+
     logger.error("AUTH", "Email verification error", error);
     return errorResponse(
       new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),

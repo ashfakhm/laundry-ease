@@ -8,6 +8,7 @@
  * For now, this serves as a foundation that can be flexibly expanded
  * when the application scales up to require full APM.
  */
+import { logger } from "@/lib/logger";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
@@ -22,9 +23,10 @@ export async function register() {
         logInjection: true,
       });
 
-      console.log("[APM] Datadog tracer initialized successfully.");
+      logger.info("APM", "Datadog tracer initialized successfully.");
     } else if (process.env.NODE_ENV === "production") {
-      console.log(
+      logger.warn(
+        "APM",
         "[APM] Instrumentation hook ready, but no DATADOG_API_KEY found. APM disabled.",
       );
     }

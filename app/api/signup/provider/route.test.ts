@@ -7,6 +7,8 @@ const {
   mockGetDb,
   mockCreateRazorpayContact,
   mockCreateRazorpayFundAccount,
+  mockRequireSameOrigin,
+  mockEnforceRateLimit,
 } = vi.hoisted(() => ({
   mockEmailExists: vi.fn(),
   mockCreateProvider: vi.fn(),
@@ -14,6 +16,8 @@ const {
   mockGetDb: vi.fn(),
   mockCreateRazorpayContact: vi.fn(),
   mockCreateRazorpayFundAccount: vi.fn(),
+  mockRequireSameOrigin: vi.fn(),
+  mockEnforceRateLimit: vi.fn(),
 }));
 
 vi.mock("@/lib/db/index", () => ({
@@ -32,6 +36,11 @@ vi.mock("@/lib/mongodb", () => ({
 vi.mock("@/lib/razorpay", () => ({
   createRazorpayContact: mockCreateRazorpayContact,
   createRazorpayFundAccount: mockCreateRazorpayFundAccount,
+}));
+
+vi.mock("@/lib/api/security", () => ({
+  requireSameOrigin: mockRequireSameOrigin,
+  enforceRateLimit: mockEnforceRateLimit,
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -77,6 +86,13 @@ describe("POST /api/signup/provider", () => {
     mockIsOtpVerifiedRecently.mockResolvedValue(true);
     mockEmailExists.mockResolvedValue(false);
     mockCreateProvider.mockResolvedValue(undefined);
+    mockRequireSameOrigin.mockResolvedValue(undefined);
+    mockEnforceRateLimit.mockResolvedValue({
+      limit: 8,
+      remaining: 7,
+      resetAt: new Date(),
+      retryAfterSeconds: 60,
+    });
     const mockCollection = {
       findOne: vi.fn().mockResolvedValue({ _id: "provider123" }),
       updateOne: vi.fn().mockResolvedValue({ modifiedCount: 1 }),
@@ -117,5 +133,11 @@ describe("POST /api/signup/provider", () => {
     mockCreateRazorpayContact.mockRejectedValue(new Error("Razorpay down"));
     const res = await POST(makeReq(validPayload) as never);
     expect(res.status).toBe(200);
+  });
+
+  it("applies request origin and rate-limit guards", async () => {
+    await POST(makeReq(validPayload) as never);
+    expect(mockRequireSameOrigin).toHaveBeenCalledTimes(1);
+    expect(mockEnforceRateLimit).toHaveBeenCalledTimes(1);
   });
 });

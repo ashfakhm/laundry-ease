@@ -16,21 +16,9 @@ import {
 } from "lucide-react";
 import { PasswordInput } from "@/components/ui/password-input";
 import { cn } from "@/lib/utils";
+import { LAUNDRY_SERVICES } from "@/lib/constants";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { ImageUpload } from "@/components/ui/image-upload";
-
-const LAUNDRY_SERVICES = [
-  "Wash",
-  "Fold",
-  "Dry Cleaning",
-  "Ironing",
-  "Shoe Cleaning",
-  "Stain Removal",
-  "Bedding & Linen",
-  "Curtains & Drapes",
-  "Premium Laundry",
-  "Express Service",
-];
 
 async function postJSON(url: string, body: Record<string, unknown>) {
   const res = await fetch(url, {

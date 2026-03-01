@@ -14,7 +14,7 @@ export function ProviderHeader({ provider }: ProviderHeaderProps) {
   return (
     <div className="relative mb-8">
       {/* Banner Image */}
-      <div className="relative h-48 md:h-64 w-full rounded-3xl overflow-hidden bg-gradient-to-r from-primary/20 to-purple-600/20 border border-border">
+      <div className="relative h-48 md:h-64 w-full rounded-3xl overflow-hidden bg-linear-to-r from-primary/20 to-purple-600/20 border border-border">
         {provider.bannerImage ? (
           <Image
             src={provider.bannerImage}

@@ -19,19 +19,7 @@ import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { cn } from "@/lib/utils";
-
-const LAUNDRY_SERVICES = [
-  "Wash",
-  "Fold",
-  "Dry Cleaning",
-  "Ironing",
-  "Shoe Cleaning",
-  "Stain Removal",
-  "Bedding & Linen",
-  "Curtains & Drapes",
-  "Premium Laundry",
-  "Express Service",
-];
+import { LAUNDRY_SERVICES } from "@/lib/constants";
 
 type FormProps = { form: UseFormReturn<ProviderProfileValues> };
 

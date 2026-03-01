@@ -8,6 +8,7 @@ import ComplaintChat from "@/components/complaint-chat";
 import { showToast } from "@/lib/toast";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
+import { formatInr, round2 } from "@/lib/utils/monetary";
 
 type Params = Promise<{ id: string }>;
 
@@ -41,14 +42,6 @@ type ResolveOutcome =
   | "refund_full"
   | "refund_partial"
   | "reject";
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function formatInr(value: number): string {
-  return `INR ${round2(value).toFixed(2)}`;
-}
 
 function getProviderDisplayName(
   provider?: {

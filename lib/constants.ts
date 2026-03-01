@@ -64,6 +64,20 @@ export const HIGH_ALERT_PERSISTENT_ROUTE_MS = 4 * 60 * 60 * 1000; // 4 hours
 /** Minimum advance notice for pickup scheduling (ms). */
 export const MIN_PICKUP_ADVANCE_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+/** Canonical laundry service categories shown in provider flows. */
+export const LAUNDRY_SERVICES = [
+  "Wash",
+  "Fold",
+  "Dry Cleaning",
+  "Ironing",
+  "Shoe Cleaning",
+  "Stain Removal",
+  "Bedding & Linen",
+  "Curtains & Drapes",
+  "Premium Laundry",
+  "Express Service",
+] as const;
+
 /** Duration a seeker is blocked after cancelling a paid order (ms). */
 export const SEEKER_CANCELLATION_BLOCK_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 

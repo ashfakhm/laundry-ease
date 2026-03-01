@@ -130,22 +130,6 @@ export async function confirmDelivery(order_id: ObjectId) {
 }
 
 /**
- * Get all orders with status 'held' and escrow_release_at in the past
- */
-export async function getHeldOrdersPastEscrowDate(): Promise<Order[]> {
-  const { db } = await getDb();
-  const now = new Date();
-  const orders = await db
-    .collection<Order>("orders")
-    .find({
-      payment_status: "held",
-      escrow_release_at: { $lte: now },
-    })
-    .toArray();
-  return orders;
-}
-
-/**
  * Cancel an order before payment
  */
 export async function cancelOrder(

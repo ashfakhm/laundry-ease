@@ -152,7 +152,7 @@ export const InteractiveGridPattern = () => {
     <div ref={containerRef} className="absolute inset-0 -z-0 overflow-hidden pointer-events-auto">
         <canvas ref={canvasRef} className="block w-full h-full opacity-60 dark:opacity-80" />
         {/* Gradient Overlay for Fade Out at bottom */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background" />
     </div>
   );
 };
