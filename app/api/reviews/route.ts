@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
+import { requireSameOrigin } from "@/lib/api/security";
 
 const createReviewSchema = z.object({
   booking_id: z.string().min(1),
@@ -19,6 +20,7 @@ const createReviewSchema = z.object({
 // POST /api/reviews — accepts booking_id, looks up order internally
 export async function POST(req: NextRequest) {
   try {
+    await requireSameOrigin(req);
     const { user } = await requireSeeker();
 
     const body = await req.json();

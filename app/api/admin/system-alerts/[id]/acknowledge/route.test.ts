@@ -109,7 +109,7 @@ describe("PATCH /api/admin/system-alerts/[id]/acknowledge", () => {
     const data = await res.json();
 
     expect(res.status).toBe(401);
-    expect(data.error).toBe("Unauthorized");
+    expect(data.error.message).toBe("Unauthorized");
   });
 
   it("returns 403 when user is not admin", async () => {
@@ -183,9 +183,8 @@ describe("PATCH /api/admin/system-alerts/[id]/acknowledge", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual(
+    expect(data.data).toEqual(
       expect.objectContaining({
-        success: true,
         alertId: alertId.toString(),
         owner: "tech_lead",
         note: "On-call has taken ownership",

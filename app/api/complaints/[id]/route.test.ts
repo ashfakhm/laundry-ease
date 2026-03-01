@@ -87,7 +87,7 @@ describe("GET /api/complaints/[id]", () => {
     });
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(body.seeker.name).toBe("Test Seeker");
-    expect(body.provider.name).toBe("Test Provider");
+    expect(body.data.seeker.name).toBe("Test Seeker");
+    expect(body.data.provider.name).toBe("Test Provider");
   });
 });

@@ -99,7 +99,7 @@ describe("POST /api/invoices/[id]", () => {
     const data = await res.json();
 
     expect(res.status).toBe(403);
-    expect(data.error).toBe("This action requires PROVIDER role");
+    expect(data.error.message).toBe("This action requires PROVIDER role");
   });
 
   it("returns 400 for invalid booking id", async () => {
@@ -113,7 +113,7 @@ describe("POST /api/invoices/[id]", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toBe("Invalid booking ID");
+    expect(data.error.message).toBe("Invalid booking ID");
   });
 
   it("returns 404 when booking does not exist", async () => {
@@ -130,7 +130,7 @@ describe("POST /api/invoices/[id]", () => {
     const data = await res.json();
 
     expect(res.status).toBe(404);
-    expect(data.error).toBe("Booking not found");
+    expect(data.error.message).toBe("Booking not found");
   });
 
   it("returns 403 when provider does not own booking", async () => {
@@ -151,7 +151,7 @@ describe("POST /api/invoices/[id]", () => {
     const data = await res.json();
 
     expect(res.status).toBe(403);
-    expect(data.error).toBe("Unauthorized");
+    expect(data.error.message).toBe("Unauthorized");
   });
 
   it("persists invoice with provider ObjectId from authenticated session", async () => {

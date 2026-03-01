@@ -104,6 +104,9 @@ export const RATE_LIMIT_DEFAULT_WINDOW_MS = 60 * 1000; // 1 minute
 /** Strict rate limit window — sensitive operations like accept/reject/cancel (ms). */
 export const RATE_LIMIT_STRICT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
+/** Aggressive rate limit window — auth/OTP endpoints (ms). */
+export const RATE_LIMIT_AUTH_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
 // ─── Lock Timeouts ──────────────────────────────────────────────────────────
 
 /** Refund lock timeout — max duration a refund lock is held before considered stale (ms). */

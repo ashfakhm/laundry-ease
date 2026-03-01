@@ -160,10 +160,8 @@ describe("POST /api/invoices/[id]/review", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({
-      success: true,
-      orderId: existingOrderId.toString(),
-    });
+    expect(data.success).toBe(true);
+    expect(data.data.orderId).toBe(existingOrderId.toString());
     expect(dbMock.ordersInsertOne).not.toHaveBeenCalled();
   });
 
@@ -204,11 +202,9 @@ describe("POST /api/invoices/[id]/review", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({
-      success: true,
-      orderId: orderId.toString(),
-      status: "approved",
-    });
+    expect(data.success).toBe(true);
+    expect(data.data.orderId).toBe(orderId.toString());
+    expect(data.data.status).toBe("approved");
     expect(dbMock.ordersInsertOne).toHaveBeenCalledOnce();
   });
 
@@ -255,7 +251,7 @@ describe("POST /api/invoices/[id]/review", () => {
     const data = await res.json();
 
     expect(res.status).toBe(409);
-    expect(data.error).toBe(
+    expect(data.error.message).toBe(
       "Booking state changed while finalizing order. Please retry.",
     );
     expect(dbMock.ordersDeleteOne).toHaveBeenCalledWith({

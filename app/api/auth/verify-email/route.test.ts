@@ -9,8 +9,8 @@ vi.mock("@/lib/mongodb", () => ({
   getDb: mockGetDb,
 }));
 
-vi.mock("jsonwebtoken", () => ({
-  default: { verify: mockJwtVerify },
+vi.mock("jose", () => ({
+  jwtVerify: mockJwtVerify,
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -36,9 +36,11 @@ describe("POST /api/auth/verify-email", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockJwtVerify.mockReturnValue({
-      email: "user@example.com",
-      type: "email_verification",
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        email: "user@example.com",
+        type: "email_verification",
+      },
     });
     const mockFindOne = vi
       .fn()
@@ -59,17 +61,17 @@ describe("POST /api/auth/verify-email", () => {
   });
 
   it("returns 400 when token is invalid", async () => {
-    mockJwtVerify.mockImplementation(() => {
-      throw new Error("invalid");
-    });
+    mockJwtVerify.mockRejectedValue(new Error("invalid"));
     const res = await POST(makeReq({ token: "bad-token" }));
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when token type is wrong", async () => {
-    mockJwtVerify.mockReturnValue({
-      email: "user@example.com",
-      type: "password_reset",
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        email: "user@example.com",
+        type: "password_reset",
+      },
     });
     const res = await POST(makeReq({ token: "valid-token" }));
     expect(res.status).toBe(400);
@@ -82,6 +84,12 @@ describe("POST /api/auth/verify-email", () => {
           findOne: vi.fn().mockResolvedValue(null),
           updateOne: mockUpdateOne,
         }),
+      },
+    });
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        email: "user@example.com",
+        type: "email_verification",
       },
     });
     const res = await POST(makeReq({ token: "valid-token" }));

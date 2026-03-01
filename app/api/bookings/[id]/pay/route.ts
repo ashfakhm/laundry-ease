@@ -1,4 +1,5 @@
 import { getBookingById } from "@/lib/db/index";
+import { RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 import { ObjectId } from "mongodb";
 import { createRazorpayOrder } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
@@ -19,7 +20,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "bookings:fee:init",
       max: 8,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();
@@ -119,7 +120,7 @@ export async function PUT(
     await enforceRateLimit(req, {
       bucket: "bookings:fee:verify",
       max: 10,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();

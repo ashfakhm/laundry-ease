@@ -82,7 +82,7 @@ describe("POST /api/orders/[id]/status", () => {
 
     expect(res.status).toBe(400);
     expect(body.message).toBe("Invalid order id");
-    expect(body.error).toBe("Invalid order id");
+    expect(body.error.message).toBe("Invalid order id");
   });
 
   it("returns compatibility not found payload when order missing", async () => {
@@ -105,7 +105,7 @@ describe("POST /api/orders/[id]/status", () => {
 
     expect(res.status).toBe(404);
     expect(body.message).toBe("Order not found");
-    expect(body.error).toBe("Order not found");
+    expect(body.error.message).toBe("Order not found");
   });
 
   it("returns compatibility success payload for valid transition", async () => {
@@ -155,7 +155,7 @@ describe("POST /api/orders/[id]/status", () => {
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.ok).toBe(true);
-    expect(body.message).toBe("Status updated successfully");
+    expect(body.data.message).toBe("Status updated successfully");
     expect(updateOne).toHaveBeenCalledOnce();
     expect(mockRevalidatePath).toHaveBeenCalledWith(
       `/seeker/orders/${orderId.toString()}`,

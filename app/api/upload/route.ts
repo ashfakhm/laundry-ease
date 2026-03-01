@@ -2,6 +2,7 @@ import { uploadInvoicePhoto } from "@/lib/cloudinary";
 import { requireAuth } from "@/lib/api/auth";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { requireSameOrigin } from "@/lib/api/security";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export async function POST(req: Request) {
   try {
+    await requireSameOrigin(req);
     // Require authentication for file uploads
     await requireAuth();
 

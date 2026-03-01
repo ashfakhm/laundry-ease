@@ -1,4 +1,5 @@
 import { createBooking } from "@/lib/db/index";
+import { RATE_LIMIT_AUTH_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";
@@ -55,7 +56,7 @@ export const POST = withErrorHandling(async (req: Request) => {
   await enforceRateLimit(req, {
     bucket: "bookings:create",
     max: 12,
-    windowMs: 15 * 60 * 1000,
+    windowMs: RATE_LIMIT_AUTH_WINDOW_MS,
   });
 
   const session = await requireSeeker();

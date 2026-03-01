@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -22,7 +23,7 @@ export async function PATCH(
     await enforceRateLimit(req, {
       bucket: "admin:complaints:update-status",
       max: 40,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     if (!ObjectId.isValid(id)) {
@@ -35,19 +36,7 @@ export async function PATCH(
     const parsed = adminComplaintStatusSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid status data",
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Invalid status data",
-            details: parsed.error.flatten().fieldErrors,
-          },
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid status data"));
     }
 
     const { status } = parsed.data;

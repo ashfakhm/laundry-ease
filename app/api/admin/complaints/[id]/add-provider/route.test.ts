@@ -153,12 +153,10 @@ describe("POST /api/admin/complaints/[id]/add-provider", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({
-      success: true,
-      ok: true,
-      idempotent: true,
-      message: "Provider already added",
-    });
+    expect(data.success).toBe(true);
+    expect(data.ok).toBe(true);
+    expect(data.data.idempotent).toBe(true);
+    expect(data.data.message).toBe("Provider already added");
     expect(dbMock.complaintUpdateOne).not.toHaveBeenCalled();
     expect(dbMock.complaintMessagesInsertOne).not.toHaveBeenCalled();
   });
@@ -188,7 +186,8 @@ describe("POST /api/admin/complaints/[id]/add-provider", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({ success: true, ok: true });
+    expect(data.success).toBe(true);
+    expect(data.ok).toBe(true);
     expect(dbMock.complaintUpdateOne).toHaveBeenCalledWith(
       { _id: complaintId },
       {

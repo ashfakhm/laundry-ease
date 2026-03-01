@@ -41,7 +41,7 @@ describe("POST /api/bookings/payment/verify (legacy alias)", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toBe("Missing bookingId");
+    expect(data.error.message).toBe("Missing bookingId");
     expect(mockVerifyBookingFeePayment).not.toHaveBeenCalled();
   });
 
@@ -78,8 +78,7 @@ describe("POST /api/bookings/payment/verify (legacy alias)", () => {
       razorpay_signature: "sig_1",
     });
     expect(params).toEqual({ id: BOOKING_ID });
-    expect(data).toEqual({
-      success: true,
+    expect(data.data).toEqual({
       message: "Payment successful",
       idempotent: false,
     });

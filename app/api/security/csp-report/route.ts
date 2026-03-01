@@ -1,4 +1,5 @@
 import { errorResponse } from "@/lib/api/response";
+import { RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit } from "@/lib/api/security";
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
     await enforceRateLimit(req, {
       bucket: "security:csp-report",
       max: 120,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const raw = await req.json().catch(() => null);

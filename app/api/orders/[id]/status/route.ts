@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { revalidatePath } from "next/cache";
 import { getOrderById } from "@/lib/db/index";
@@ -13,7 +12,7 @@ import {
 } from "@/lib/orders/status-machine";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
+import { DELIVERY_OTP_TTL_MS, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 
 // POST: Update Order Process Status
@@ -27,7 +26,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "orders:status:update",
       max: 30,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireProvider();
@@ -60,16 +59,7 @@ export async function POST(
     const parsed = orderStatusUpdateSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid status data",
-          fields: parsed.error.flatten().fieldErrors,
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid status data"));
     }
 
     const { status } = parsed.data;
@@ -85,21 +75,7 @@ export async function POST(
         attemptedStatus: status,
         allowedNextStates,
       });
-      return NextResponse.json(
-        {
-          success: false,
-
-          error: `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(
-            ", ",
-          )}`,
-
-          currentStatus,
-          allowedNextStates,
-        },
-        {
-          status: 422,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 422, `Cannot transition from "${currentStatus}" to "${status}". Allowed next states: ${allowedNextStates.join(", ")}`));
     }
 
     const { db } = await getDb();

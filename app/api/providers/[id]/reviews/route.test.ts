@@ -49,7 +49,7 @@ describe("GET /api/providers/[id]/reviews", () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
-    expect(body.error).toBe("Invalid provider ID");
+    expect(body.error.message).toBe("Invalid provider ID");
     expect(mockGetDb).not.toHaveBeenCalled();
   });
 
@@ -67,8 +67,8 @@ describe("GET /api/providers/[id]/reviews", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(body)).toBe(true);
-    expect(body).toHaveLength(2);
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toHaveLength(2);
     expect(dbMock.find).toHaveBeenCalledWith({ provider_id: providerId });
     expect(dbMock.sort).toHaveBeenCalledWith({ createdAt: -1 });
     expect(dbMock.limit).toHaveBeenCalledWith(50);

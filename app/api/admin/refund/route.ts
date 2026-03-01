@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     await enforceRateLimit(req, {
       bucket: "admin:refund",
       max: 30,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const session = await requireAdminWithDbCheck();

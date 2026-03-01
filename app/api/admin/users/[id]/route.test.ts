@@ -88,7 +88,7 @@ describe("DELETE /api/admin/users/[id]", () => {
     const data = await res.json();
 
     expect(res.status).toBe(404);
-    expect(data.error).toBe("User not found or not deleted");
+    expect(data.error.message).toBe("User not found or not deleted");
   });
 
   it("returns 200 when delete succeeds", async () => {

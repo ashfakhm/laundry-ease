@@ -1,6 +1,7 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { RATE_LIMIT_AUTH_WINDOW_MS } from "@/lib/constants";
 import { createHash } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { otpRequestSchema } from "@/lib/api/schemas";
 import { requestOtp } from "@/lib/otp";
 import { AppError, ErrorCode } from "@/lib/api/errors";
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     await enforceRateLimit(req, {
       bucket: "auth:otp:request:ip",
       max: 20,
-      windowMs: 15 * 60 * 1000,
+      windowMs: RATE_LIMIT_AUTH_WINDOW_MS,
     });
 
     const json = await req.json();
@@ -45,12 +46,11 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       const isRateLimit =
         result.error?.includes("Too many") || result.error?.includes("rate");
-      return NextResponse.json({
-        success: false,
-        error: result.error || "Rate limit or processing error"
-      }, {
-        status: isRateLimit ? 429 : 502
-      });
+      return errorResponse(new AppError(
+        isRateLimit ? ErrorCode.RATE_LIMITED : ErrorCode.INTERNAL_ERROR,
+        isRateLimit ? 429 : 502,
+        result.error || "Rate limit or processing error"
+      ));
     }
 
     return successResponse({

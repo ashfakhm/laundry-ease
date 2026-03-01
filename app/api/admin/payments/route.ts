@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { RATE_LIMIT_DEFAULT_WINDOW_MS, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { z } from "zod";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
     await enforceRateLimit(req, {
       bucket: "admin:payments:get",
       max: 40,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
     await requireAdminWithDbCheck();
 
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
     await enforceRateLimit(req, {
       bucket: "admin:payments:action",
       max: 40,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const session = await requireAdminWithDbCheck();
@@ -150,16 +150,7 @@ export async function POST(req: Request) {
       ]);
 
       if (!successStatuses.has(payoutResult.status)) {
-        return NextResponse.json({
-          success: false,
-
-          error: payoutResult.message ||
-            `Unable to initiate payout (${payoutResult.status})`,
-
-          result: payoutResult
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, payoutResult.message || `Unable to initiate payout (${payoutResult.status})`));
       }
 
       await db.collection("admin_logs").insertOne({

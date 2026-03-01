@@ -44,7 +44,7 @@ describe("GET /api/providers/[id]", () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
-    expect(body.error).toBe("Invalid provider ID");
+    expect(body.error.message).toBe("Invalid provider ID");
     expect(mockGetDb).not.toHaveBeenCalled();
   });
 
@@ -60,7 +60,7 @@ describe("GET /api/providers/[id]", () => {
     const body = await res.json();
 
     expect(res.status).toBe(404);
-    expect(body.error).toBe("Provider not found");
+    expect(body.error.message).toBe("Provider not found");
     expect(dbMock.findOne).toHaveBeenCalledOnce();
   });
 
@@ -82,7 +82,7 @@ describe("GET /api/providers/[id]", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.name).toBe("Ash Laundry");
+    expect(body.data.name).toBe("Ash Laundry");
     expect(dbMock.findOne).toHaveBeenCalledWith(
       { _id: providerId },
       expect.objectContaining({

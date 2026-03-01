@@ -112,7 +112,7 @@ describe("POST /api/reset-password", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Token and password are required");
+    expect(data.error.message).toContain("Token and password are required");
   });
 
   it("returns 429 when rate limit is exceeded", async () => {
@@ -133,7 +133,7 @@ describe("POST /api/reset-password", () => {
     const data = await res.json();
 
     expect(res.status).toBe(429);
-    expect(data.error).toContain("Too many requests");
+    expect(data.error.message).toContain("Too many requests");
   });
 
   it("returns 400 when reset token is invalid or expired", async () => {
@@ -150,7 +150,7 @@ describe("POST /api/reset-password", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Invalid or expired");
+    expect(data.error.message).toContain("Invalid or expired");
   });
 
   it("resets password and invalidates all active reset tokens", async () => {
@@ -180,7 +180,7 @@ describe("POST /api/reset-password", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.message).toContain("successful");
+    expect(data.data.message).toContain("successful");
     expect(mockEnforceRateLimit).toHaveBeenCalledWith(
       expect.any(Request),
       expect.objectContaining({ bucket: "auth:reset-password:ip" }),

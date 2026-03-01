@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getOrderById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -169,7 +169,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "admin:complaints:resolve",
       max: 40,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const session = await requireAdminWithDbCheck();
@@ -386,10 +386,6 @@ export async function POST(
         finError instanceof Error
           ? finError.message
           : "Unknown financial error";
-      const safeDetails =
-        !payoutApplied && !refundApplied
-          ? "Financial action failed during complaint resolution"
-          : "Partial financial action completed; manual follow-up required";
 
       logger.error("ADMIN_COMPLAINTS", "Financial action failed", finError, {
         complaintId: id,
@@ -411,19 +407,13 @@ export async function POST(
         createdAt: new Date(),
       });
 
-      return NextResponse.json({
-        success: false,
-
-        error: !payoutApplied && !refundApplied
+      return errorResponse(new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        500,
+        !payoutApplied && !refundApplied
           ? "Financial Action Failed"
-          : "Financial Action Partially Applied",
-
-        details: safeDetails,
-        payoutApplied,
-        refundApplied
-      }, {
-        status: 500
-      });
+          : "Financial Action Partially Applied"
+      ));
     }
 
     const orderSetFields: Record<string, unknown> = {

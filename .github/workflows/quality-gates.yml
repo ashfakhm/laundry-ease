@@ -69,6 +69,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Docs Sync Guard
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -82,9 +85,6 @@ jobs:
           fi
           echo "Using DOCS_SYNC_DIFF_RANGE=$DOCS_SYNC_DIFF_RANGE"
           npm run check:docs-sync
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

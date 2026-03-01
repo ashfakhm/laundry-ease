@@ -59,7 +59,7 @@ describe("POST /api/otp/request", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Invalid params");
+    expect(data.error.message).toContain("Invalid params");
     expect(mockRequestOtp).not.toHaveBeenCalled();
   });
 
@@ -74,7 +74,7 @@ describe("POST /api/otp/request", () => {
     const data = await res.json();
 
     expect(res.status).toBe(429);
-    expect(data.error).toContain("Too many requests");
+    expect(data.error.message).toContain("Too many requests");
   });
 
   it("returns 429 when otp layer reports rate limit", async () => {
@@ -104,7 +104,7 @@ describe("POST /api/otp/request", () => {
     const data = await res.json();
 
     expect(res.status).toBe(502);
-    expect(data.error).toBe("Failed to send OTP");
+    expect(data.error.message).toBe("Failed to send OTP");
   });
 
   it("returns 200 for successful OTP requests", async () => {

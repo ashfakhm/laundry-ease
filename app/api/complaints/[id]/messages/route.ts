@@ -1,5 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+import { RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
@@ -140,7 +140,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "complaints:messages:create",
       max: 25,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const { user } = await requireAuth();
@@ -156,19 +156,7 @@ export async function POST(
     const parsed = complaintMessageSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message: "Invalid message data",
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Invalid message data",
-            details: parsed.error.flatten().fieldErrors,
-          },
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid message data"));
     }
 
     const content = parsed.data.content?.trim() || "";

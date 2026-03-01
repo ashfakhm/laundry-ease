@@ -226,7 +226,7 @@ describe("PUT /api/bookings/[id]/pay-invoice", () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(String(data.orderId)).toBe(existingOrderId.toString());
+    expect(String(data.data.orderId)).toBe(existingOrderId.toString());
     expect(dbMock.ordersInsertOne).not.toHaveBeenCalled();
   });
 

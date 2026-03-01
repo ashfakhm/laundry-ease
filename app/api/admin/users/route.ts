@@ -1,4 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { Role } from "@/types/enums";
 import { AppError, ErrorCode } from "@/lib/api/errors";
@@ -22,27 +23,31 @@ export async function GET(req: Request) {
     await enforceRateLimit(req, {
       bucket: "admin:users:get",
       max: 40,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     await requireAdminWithDbCheck();
 
+    const url = new URL(req.url);
+    const page = Math.max(0, parseInt(url.searchParams.get("page") || "0", 10) || 0);
+    const limit = 50;
+
     const { db } = await getDb();
 
-    // Fetch seekers
-    const seekers = await db
-      .collection<UserDocument>("seekers")
-      .find({}, { projection: { password: 0 } })
-      .toArray();
+    // Fetch seekers and providers with pagination applied after merge
+    const [seekers, providers] = await Promise.all([
+      db
+        .collection<UserDocument>("seekers")
+        .find({}, { projection: { password: 0 } })
+        .toArray(),
+      db
+        .collection<UserDocument>("providers")
+        .find({}, { projection: { password: 0 } })
+        .toArray(),
+    ]);
 
-    // Fetch providers
-    const providers = await db
-      .collection<UserDocument>("providers")
-      .find({}, { projection: { password: 0 } })
-      .toArray();
-
-    // Combine and add role field
-    const users: UserWithRole[] = [
+    // Combine, sort, and paginate
+    const allUsers: UserWithRole[] = [
       ...seekers.map((s) => ({
         ...s,
         role: Role.SEEKER,
@@ -57,7 +62,9 @@ export async function GET(req: Request) {
         new Date(a.createdAt || 0).getTime(),
     );
 
-    return successResponse(users);
+    const users = allUsers.slice(page * limit, (page + 1) * limit);
+
+    return successResponse({ users, total: allUsers.length, page, limit });
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);

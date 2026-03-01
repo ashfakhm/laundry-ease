@@ -25,32 +25,34 @@ export async function GET() {
       return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"));
     }
 
-    // Fetch all bookings for this provider
-    const bookings = await db
+    // Fetch all bookings for this provider with seeker details via $lookup
+    const enrichedBookings = await db
       .collection("bookings")
-      .find({ 
-        provider_id: providerId,
-        bookingFeeStatus: { $in: ["paid", "applied"] },
-      })
-      .sort({ createdAt: -1 })
+      .aggregate([
+        {
+          $match: {
+            provider_id: providerId,
+            bookingFeeStatus: { $in: ["paid", "applied"] },
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: "seekers",
+            localField: "seeker_id",
+            foreignField: "_id",
+            pipeline: [{ $project: { passwordHash: 0 } }],
+            as: "_seekerArr",
+          },
+        },
+        {
+          $addFields: {
+            seeker: { $arrayElemAt: ["$_seekerArr", 0] },
+          },
+        },
+        { $project: { _seekerArr: 0 } },
+      ])
       .toArray();
-
-    // Fetch seeker details for each booking
-    const enrichedBookings = await Promise.all(
-      bookings.map(async (booking) => {
-        const seeker = await db
-          .collection("seekers")
-          .findOne(
-            { _id: new ObjectId(booking.seeker_id) },
-            { projection: { passwordHash: 0 } }
-          );
-
-        return {
-          ...booking,
-          seeker: seeker || null,
-        };
-      })
-    );
 
     return successResponse(enrichedBookings, 200);
   } catch (error) {

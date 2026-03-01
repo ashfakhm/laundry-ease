@@ -51,7 +51,7 @@ describe("booking chat route contracts", () => {
 
     expect(res.status).toBe(400);
     expect(body.message).toBe("Invalid booking id");
-    expect(body.error).toBe("Invalid booking id");
+    expect(body.error.message).toBe("Invalid booking id");
   });
 
   it("POST returns compatibility success payload for a valid participant", async () => {

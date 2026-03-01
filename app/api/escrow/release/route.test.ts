@@ -51,7 +51,7 @@ describe("POST /api/escrow/release", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.processed).toBe(3);
+    expect(body.data.processed).toBe(3);
     expect(mockProcessEligibleEscrowPayouts).toHaveBeenCalledWith({
       source: "escrow_release_endpoint",
     });

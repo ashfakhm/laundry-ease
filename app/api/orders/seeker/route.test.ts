@@ -31,21 +31,23 @@ function buildDbMock(options: {
   provider?: Record<string, unknown> | null;
 }) {
   const seekerFindOne = vi.fn().mockResolvedValue(options.seeker);
-  const providerFindOne = vi.fn().mockResolvedValue(options.provider ?? null);
-  const toArray = vi.fn().mockResolvedValue(options.orders ?? []);
-  const sort = vi.fn().mockReturnValue({ toArray });
-  const find = vi.fn().mockReturnValue({ sort });
+  // Simulate $lookup: embed provider data into each order
+  const enrichedOrders = (options.orders ?? []).map((order) => ({
+    ...order,
+    provider: options.provider ?? null,
+  }));
+  const toArray = vi.fn().mockResolvedValue(enrichedOrders);
+  const aggregate = vi.fn().mockReturnValue({ toArray });
 
   const db = {
     collection: vi.fn((name: string) => {
       if (name === "seekers") return { findOne: seekerFindOne };
-      if (name === "orders") return { find };
-      if (name === "providers") return { findOne: providerFindOne };
+      if (name === "orders") return { aggregate };
       throw new Error(`Unexpected collection: ${name}`);
     }),
   };
 
-  return { db, seekerFindOne, providerFindOne, find, sort, toArray };
+  return { db, seekerFindOne, aggregate, toArray };
 }
 
 describe("GET /api/orders/seeker", () => {
@@ -61,7 +63,7 @@ describe("GET /api/orders/seeker", () => {
 
     expect(res.status).toBe(401);
     expect(body.message).toBe("Unauthorized");
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error.message).toBe("Unauthorized");
     expect(mockGetDb).not.toHaveBeenCalled();
   });
 
@@ -76,7 +78,7 @@ describe("GET /api/orders/seeker", () => {
 
     expect(res.status).toBe(404);
     expect(body.message).toBe("Seeker not found");
-    expect(body.error).toBe("Seeker not found");
+    expect(body.error.message).toBe("Seeker not found");
   });
 
   it("returns enriched seeker orders", async () => {
@@ -96,8 +98,8 @@ describe("GET /api/orders/seeker", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(body)).toBe(true);
-    expect(body[0].provider?.name).toBe("Ash Laundry");
-    expect(dbMock.find).toHaveBeenCalledWith({ seeker_id: seekerId });
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data[0].provider?.name).toBe("Ash Laundry");
+    expect(dbMock.aggregate).toHaveBeenCalled();
   });
 });

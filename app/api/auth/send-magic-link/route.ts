@@ -1,4 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { RATE_LIMIT_AUTH_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { SignJWT } from "jose";
 import { z } from "zod";
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     await enforceRateLimit(req, {
       bucket: "auth:send-magic-link:ip",
       max: 10,
-      windowMs: 15 * 60 * 1000,
+      windowMs: RATE_LIMIT_AUTH_WINDOW_MS,
     });
 
     const payload = await req.json();

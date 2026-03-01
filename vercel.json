@@ -28,6 +28,14 @@
     {
       "path": "/api/cron/notify-system-alerts",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-email-outbox",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/reconciliation",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

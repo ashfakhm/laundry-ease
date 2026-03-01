@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Order } from "@/types/orders";
@@ -22,7 +23,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "orders:schedule-delivery",
       max: 30,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireAuth();
@@ -39,13 +40,7 @@ export async function POST(
     const parsed = orderScheduleDeliverySchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        success: true,
-        message: "Invalid schedule data",
-        details: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid schedule data"));
     }
 
     const parsedData = parsed.data;
@@ -72,13 +67,7 @@ export async function POST(
       if (!dateTime)
         return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Date required"));
       if ((order.process_status || "invoiced") !== "ready") {
-        return NextResponse.json({
-          success: true,
-          message: "Delivery slots can only be proposed when order is ready for dispatch",
-          currentStatus: order.process_status || "invoiced"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Delivery slots can only be proposed when order is ready for dispatch"));
       }
       if (order.deliverySlot?.confirmedAt) {
         return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Delivery slot is already confirmed"));
@@ -114,13 +103,7 @@ export async function POST(
         return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
       }
       if ((order.process_status || "invoiced") !== "ready") {
-        return NextResponse.json({
-          success: true,
-          message: "Delivery slot can only be confirmed while order is ready for dispatch",
-          currentStatus: order.process_status || "invoiced"
-        }, {
-          status: 409
-        });
+        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Delivery slot can only be confirmed while order is ready for dispatch"));
       }
 
       if (!order.deliverySlot)

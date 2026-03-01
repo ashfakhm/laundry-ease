@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/mongodb";
+import { RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 import { ObjectId } from "mongodb";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
@@ -23,7 +24,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "orders:payment:init",
       max: 8,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();
@@ -96,7 +97,7 @@ export async function PUT(
     await enforceRateLimit(req, {
       bucket: "orders:payment:verify",
       max: 10,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();

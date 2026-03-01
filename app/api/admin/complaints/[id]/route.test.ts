@@ -118,7 +118,7 @@ describe("PATCH /api/admin/complaints/[id]", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({ ok: true, success: true });
+    expect(data.data).toEqual({ ok: true });
     expect(dbMock.updateOne).toHaveBeenCalledWith(
       { _id: complaintId },
       { $set: { status: "in_review" } },
@@ -136,6 +136,6 @@ describe("PATCH /api/admin/complaints/[id]", () => {
     const data = await res.json();
 
     expect(res.status).toBe(403);
-    expect(data.error).toBe("Admin access required");
+    expect(data.error.message).toBe("Admin access required");
   });
 });

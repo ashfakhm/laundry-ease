@@ -155,7 +155,7 @@ describe("POST /api/admin/complaints/[id]/accept", () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.status).toBe("accepted");
+    expect(data.data.status).toBe("accepted");
     expect(dbMock.complaintUpdateOne).toHaveBeenCalledOnce();
     expect(dbMock.complaintMessagesInsertOne).toHaveBeenCalledOnce();
     expect(dbMock.notificationsInsertMany).toHaveBeenCalledWith(

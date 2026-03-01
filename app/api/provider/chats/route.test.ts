@@ -38,7 +38,7 @@ describe("GET /api/provider/chats", () => {
 
     expect(res.status).toBe(401);
     expect(body.message).toBe("Unauthorized");
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error.message).toBe("Unauthorized");
   });
 
   it("returns mapped chat summaries for provider", async () => {
@@ -76,12 +76,12 @@ describe("GET /api/provider/chats", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(body)).toBe(true);
-    expect(body[0]).toMatchObject({
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data[0]).toMatchObject({
       status: "washing",
       messageCount: 2,
     });
-    expect(body[0].lastMessage.sender).toBe(senderId.toString());
+    expect(body.data[0].lastMessage.sender).toBe(senderId.toString());
     expect(aggregate).toHaveBeenCalledOnce();
   });
 });

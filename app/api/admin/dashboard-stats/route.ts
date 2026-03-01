@@ -7,10 +7,7 @@ import { alertAgeMinutes, isAckSlaBreached } from "@/lib/ops/ack-sla";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { enforceRateLimit } from "@/lib/api/security";
 import { AppError, ErrorCode } from "@/lib/api/errors";
-import {
-  CRITICAL_ALERT_ACK_SLA_MS,
-  HIGH_ALERT_ACK_SLA_MS,
-} from "@/lib/constants";
+import { CRITICAL_ALERT_ACK_SLA_MS, HIGH_ALERT_ACK_SLA_MS, RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 
 const ACTIVE_COMPLAINT_STATUSES = ["open", "accepted", "in_review"] as const;
 
@@ -51,7 +48,7 @@ export async function GET(req: Request) {
     await enforceRateLimit(req, {
       bucket: "admin:dashboard_stats:get",
       max: 30, // Dashboard stats are extremely heavy
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
     await requireAdminWithDbCheck();
 

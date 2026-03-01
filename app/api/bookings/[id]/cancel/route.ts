@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getBookingById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -29,7 +29,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "bookings:cancel",
       max: 15,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireAuth();
@@ -279,17 +279,13 @@ export async function POST(
         idempotent: true });
     }
 
-    return NextResponse.json({
-      success: false,
-
-      error: shouldMarkRefunded
+    return errorResponse(new AppError(ErrorCode.CONFLICT, 409,
+      shouldMarkRefunded
         ? "Booking status changed. Refund has been processed; please refresh and retry."
         : shouldForfeitFee
           ? "Booking status changed. Same-day cancellation is non-refundable; please refresh and retry."
           : "Booking status changed. Please refresh and retry."
-    }, {
-      status: 409
-    });
+    ));
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);

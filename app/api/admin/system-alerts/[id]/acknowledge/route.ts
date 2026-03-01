@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -35,7 +35,7 @@ export async function PATCH(
     await enforceRateLimit(req, {
       bucket: "admin:system-alerts:acknowledge",
       max: 60,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     if (!ObjectId.isValid(id)) {
@@ -53,13 +53,7 @@ export async function PATCH(
 
     const parsed = adminSystemAlertAcknowledgeSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid acknowledgement data",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid acknowledgement data"));
     }
 
     const { db } = await getDb();
@@ -106,8 +100,7 @@ export async function PATCH(
       },
     );
 
-    return NextResponse.json({
-      success: true,
+    return successResponse({
       alertId: id,
       acknowledgedAt: now.toISOString(),
       owner,

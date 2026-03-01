@@ -47,8 +47,8 @@ describe("GET /api/bookings/seeker", () => {
     const res = await GET();
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(Array.isArray(body)).toBe(true);
-    expect(body.length).toBe(1);
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data.length).toBe(1);
   });
 
   it("returns 401-level error for invalid user id", async () => {

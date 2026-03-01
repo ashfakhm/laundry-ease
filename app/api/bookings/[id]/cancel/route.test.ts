@@ -219,7 +219,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.message).toContain("non-refundable");
+    expect(data.data.message).toContain("non-refundable");
     expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
     expect(dbMock.bookingUpdateOne).toHaveBeenCalledWith(
       expect.anything(),

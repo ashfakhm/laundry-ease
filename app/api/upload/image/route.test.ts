@@ -2,12 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectId } from "mongodb";
 import { NextRequest } from "next/server";
 
-const { mockRequireAuth, mockRequireSameOrigin, mockEnforceRateLimit } =
+const { mockRequireAuth, mockRequireSameOrigin, mockEnforceRateLimit, mockEnv } =
   vi.hoisted(() => ({
     mockRequireAuth: vi.fn(),
     mockRequireSameOrigin: vi.fn(),
     mockEnforceRateLimit: vi.fn(),
+    mockEnv: {
+      CLOUDINARY_CLOUD_NAME: "test-cloud",
+      CLOUDINARY_API_KEY: "test-cloud-key",
+      CLOUDINARY_API_SECRET: "test-cloud-secret",
+      ALLOW_BASE64_UPLOAD_FALLBACK: "0",
+    } as Record<string, string>,
   }));
+
+vi.mock("@/lib/env", () => ({ env: mockEnv }));
 
 vi.mock("@/lib/api/auth", () => ({
   requireAuth: mockRequireAuth,
@@ -46,6 +54,10 @@ describe("POST /api/upload/image", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
+    mockEnv.CLOUDINARY_CLOUD_NAME = "test-cloud";
+    mockEnv.CLOUDINARY_API_KEY = "test-cloud-key";
+    mockEnv.CLOUDINARY_API_SECRET = "test-cloud-secret";
+    mockEnv.ALLOW_BASE64_UPLOAD_FALLBACK = "0";
     mockRequireSameOrigin.mockResolvedValue(undefined);
     mockEnforceRateLimit.mockResolvedValue({
       limit: 30,
@@ -65,9 +77,9 @@ describe("POST /api/upload/image", () => {
 
   it("uploads via base64 fallback in non-production when cloudinary is not configured", async () => {
     vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv("CLOUDINARY_CLOUD_NAME", "");
-    vi.stubEnv("CLOUDINARY_API_KEY", "");
-    vi.stubEnv("CLOUDINARY_API_SECRET", "");
+    mockEnv.CLOUDINARY_CLOUD_NAME = "";
+    mockEnv.CLOUDINARY_API_KEY = "";
+    mockEnv.CLOUDINARY_API_SECRET = "";
 
     const { POST } = await import("./route");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.png", {
@@ -78,17 +90,17 @@ describe("POST /api/upload/image", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(String(data.url)).toMatch(/^data:image\/png;base64,/);
+    expect(String(data.data.url)).toMatch(/^data:image\/png;base64,/);
     expect(mockRequireSameOrigin).toHaveBeenCalledOnce();
     expect(mockEnforceRateLimit).toHaveBeenCalledOnce();
   });
 
   it("returns 503 in production when cloudinary is not configured and fallback is disabled", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("CLOUDINARY_CLOUD_NAME", "");
-    vi.stubEnv("CLOUDINARY_API_KEY", "");
-    vi.stubEnv("CLOUDINARY_API_SECRET", "");
-    vi.stubEnv("ALLOW_BASE64_UPLOAD_FALLBACK", "0");
+    mockEnv.CLOUDINARY_CLOUD_NAME = "";
+    mockEnv.CLOUDINARY_API_KEY = "";
+    mockEnv.CLOUDINARY_API_SECRET = "";
+    mockEnv.ALLOW_BASE64_UPLOAD_FALLBACK = "0";
 
     const { POST } = await import("./route");
     const file = new File([new Uint8Array([1, 2, 3])], "sample.png", {
@@ -99,7 +111,7 @@ describe("POST /api/upload/image", () => {
     const data = await res.json();
 
     expect(res.status).toBe(503);
-    expect(data.error).toContain("Image upload service is unavailable");
+    expect(data.error.message).toContain("Image upload service is unavailable");
   });
 
   it("returns 400 for invalid folder path", async () => {

@@ -84,7 +84,7 @@ describe("GET /api/admin/complaints", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual([
+    expect(body.data).toEqual([
       {
         _id: complaintId.toString(),
         seeker_id: seekerId.toString(),
@@ -105,6 +105,6 @@ describe("GET /api/admin/complaints", () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
-    expect(body.error).toBe("Admin access required");
+    expect(body.error.message).toBe("Admin access required");
   });
 });

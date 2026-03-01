@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getOrderById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
@@ -7,7 +6,7 @@ import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
-import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
+import { DELIVERY_OTP_TTL_MS, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 
 const MIN_RESEND_INTERVAL_MS = 60_000; // 1 minute
@@ -42,7 +41,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "orders:otp:resend",
       max: 25,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     if (!ObjectId.isValid(id)) {
@@ -71,16 +70,7 @@ export async function POST(
     }
 
     if ((order.process_status || "invoiced") !== "out_for_delivery") {
-      return NextResponse.json(
-        {
-          success: true,
-          message: "OTP can only be resent when order is out for delivery",
-          currentStatus: order.process_status || "invoiced",
-        },
-        {
-          status: 409,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "OTP can only be resent when order is out for delivery"));
     }
 
     const { db } = await getDb();
@@ -100,20 +90,7 @@ export async function POST(
     if (order.delivery_otp_sent_at) {
       const last = new Date(order.delivery_otp_sent_at);
       if (now.getTime() - last.getTime() < MIN_RESEND_INTERVAL_MS) {
-        const retryAfterSeconds = Math.ceil(
-          (MIN_RESEND_INTERVAL_MS - (now.getTime() - last.getTime())) / 1000,
-        );
-        return NextResponse.json(
-          {
-            success: true,
-            message:
-              "OTP resent too recently. Please wait before trying again.",
-            retryAfterSeconds,
-          },
-          {
-            status: 429,
-          },
-        );
+        return errorResponse(new AppError(ErrorCode.RATE_LIMITED, 429, "OTP resent too recently. Please wait before trying again."));
       }
     }
 

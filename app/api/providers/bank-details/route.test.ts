@@ -84,7 +84,7 @@ describe("POST /api/providers/bank-details", () => {
     const body = await res.json();
 
     expect(res.status).toBe(401);
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error.message).toBe("Unauthorized");
   });
 
   it("returns 400 for invalid payload", async () => {
@@ -98,7 +98,7 @@ describe("POST /api/providers/bank-details", () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
-    expect(body.error).toBe("Missing or invalid bank details");
+    expect(body.error.message).toBe("Missing or invalid bank details");
   });
 
   it("returns 404 when provider record is missing", async () => {
@@ -121,7 +121,7 @@ describe("POST /api/providers/bank-details", () => {
     const body = await res.json();
 
     expect(res.status).toBe(404);
-    expect(body.error).toBe("Provider not found");
+    expect(body.error.message).toBe("Provider not found");
     expect(dbMock.findOne).toHaveBeenCalledOnce();
   });
 

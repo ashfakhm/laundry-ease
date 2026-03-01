@@ -51,7 +51,7 @@ describe("GET /api/cron/monitor-abuse", () => {
     const res = await GET(req);
     const body = await res.json();
     expect(res.status).toBe(401);
-    expect(body.error).toBeDefined();
+    expect(body.error.message).toBeDefined();
   });
 
   it("runs abuse monitoring when authorized", async () => {

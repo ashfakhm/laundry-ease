@@ -5,6 +5,7 @@ import twilio from "twilio";
 import { env } from "./env";
 import { logger } from "./logger";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
+import { BCRYPT_SALT_ROUNDS } from "./constants";
 
 type OtpType = "email" | "phone";
 
@@ -61,7 +62,6 @@ export async function requestOtp(
   }
 
   const code = generateCode();
-  const { BCRYPT_SALT_ROUNDS } = await import("./constants");
   const hash = await bcrypt.hash(code, BCRYPT_SALT_ROUNDS);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);

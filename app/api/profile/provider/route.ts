@@ -16,6 +16,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import bcrypt from "bcrypt";
 import { ObjectId } from "mongodb";
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { requireSameOrigin } from "@/lib/api/security";
 
 /**
  * GET /api/profile/provider
@@ -71,6 +72,7 @@ export async function GET() {
  */
 export async function PATCH(req: Request) {
   try {
+    await requireSameOrigin(req);
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
       throw new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized");

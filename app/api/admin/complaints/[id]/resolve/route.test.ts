@@ -170,9 +170,9 @@ describe("POST /api/admin/complaints/[id]/resolve", () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.status).toBe("rejected");
-    expect(data.outcome).toBe("release_payout");
-    expect(data.settlement).toEqual({
+    expect(data.data.status).toBe("rejected");
+    expect(data.data.outcome).toBe("release_payout");
+    expect(data.data.settlement).toEqual({
       seeker_refund_amount: 0,
       provider_payout_amount: 95,
       platform_commission: 5,
@@ -235,9 +235,9 @@ describe("POST /api/admin/complaints/[id]/resolve", () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.status).toBe("resolved");
-    expect(data.outcome).toBe("refund_partial");
-    expect(data.settlement).toEqual({
+    expect(data.data.status).toBe("resolved");
+    expect(data.data.outcome).toBe("refund_partial");
+    expect(data.data.settlement).toEqual({
       seeker_refund_amount: 30,
       provider_payout_amount: 65,
       platform_commission: 5,
@@ -300,7 +300,7 @@ describe("POST /api/admin/complaints/[id]/resolve", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("seeker_refund_amount must be within 0 and 95.00.");
+    expect(data.error.message).toContain("seeker_refund_amount must be within 0 and 95.00.");
     expect(mockInitiateOrderPayout).not.toHaveBeenCalled();
     expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
   });

@@ -1,5 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
@@ -19,11 +19,11 @@ export async function PATCH(
     await enforceRateLimit(req, {
       bucket: "admin:complaints:access",
       max: 40,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     if (!ObjectId.isValid(id)) {
-      return successResponse({ error: "Invalid complaint id" }, 400);
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint id"));
     }
 
     const session = await requireAdminWithDbCheck();
@@ -32,13 +32,7 @@ export async function PATCH(
     const parsed = adminComplaintAccessSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid access data",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid access data"));
     }
 
     const { granted } = parsed.data;
@@ -49,7 +43,7 @@ export async function PATCH(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint)
-      return successResponse({ error: "Not Found" }, 404);
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
       return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot update provider access after complaint is finalized"));
@@ -96,7 +90,7 @@ export async function PATCH(
 
     await db.collection("complaint_messages").insertOne(systemMsg);
 
-    return NextResponse.json({ success: true, granted });
+    return successResponse({ granted });
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
@@ -105,6 +99,6 @@ export async function PATCH(
     logger.error("ADMIN_COMPLAINTS", "Error updating access", error, {
       complaintId: id,
     });
-    return successResponse({ error: "Internal Error" }, 500);
+    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
   }
 }

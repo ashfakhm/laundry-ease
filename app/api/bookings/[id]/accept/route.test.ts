@@ -73,7 +73,7 @@ describe("PATCH /api/bookings/[id]/accept", () => {
 
     expect(res.status).toBe(401);
     expect(body.message).toBe("Unauthorized");
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error.message).toBe("Unauthorized");
   });
 
   it("returns compatibility invalid booking id payload", async () => {
@@ -99,7 +99,7 @@ describe("PATCH /api/bookings/[id]/accept", () => {
 
     expect(res.status).toBe(400);
     expect(body.message).toBe("Invalid booking id");
-    expect(body.error).toBe("Invalid booking id");
+    expect(body.error.message).toBe("Invalid booking id");
     expect(mockGetBookingById).not.toHaveBeenCalled();
   });
 });

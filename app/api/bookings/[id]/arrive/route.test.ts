@@ -103,7 +103,7 @@ describe("POST /api/bookings/[id]/arrive", () => {
 
       expect(res.status).toBe(401);
       const data = await res.json();
-      expect(data.message).toBe("Unauthorized");
+      expect(data.error).toBe("Unauthorized");
     });
   });
 
@@ -385,7 +385,7 @@ describe("POST /api/bookings/[id]/arrive", () => {
 
       expect(res.status).toBe(500);
       const data = await res.json();
-      expect(data.message).toBe("Internal Server Error");
+      expect(data.error).toBe("Internal Server Error");
     });
 
     it("handles AppError correctly", async () => {

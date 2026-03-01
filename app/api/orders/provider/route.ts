@@ -25,29 +25,29 @@ export async function GET() {
       return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"));
     }
 
-    // Fetch all orders for this provider
-    const orders = await db
+    // Fetch all orders for this provider with seeker details via $lookup
+    const enrichedOrders = await db
       .collection("orders")
-      .find({ provider_id: providerId })
-      .sort({ createdAt: -1 })
+      .aggregate([
+        { $match: { provider_id: providerId } },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: "seekers",
+            localField: "seeker_id",
+            foreignField: "_id",
+            pipeline: [{ $project: { name: 1, email: 1, phone: 1 } }],
+            as: "_seekerArr",
+          },
+        },
+        {
+          $addFields: {
+            seeker: { $arrayElemAt: ["$_seekerArr", 0] },
+          },
+        },
+        { $project: { _seekerArr: 0 } },
+      ])
       .toArray();
-
-    // Fetch seeker details for each order
-    const enrichedOrders = await Promise.all(
-      orders.map(async (order) => {
-        const seeker = await db
-          .collection("seekers")
-          .findOne(
-            { _id: new ObjectId(order.seeker_id) },
-            { projection: { name: 1, email: 1, phone: 1 } }
-          );
-
-        return {
-          ...order,
-          seeker: seeker || null,
-        };
-      })
-    );
 
     return successResponse(enrichedOrders, 200);
   } catch (error) {

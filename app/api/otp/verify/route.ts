@@ -1,4 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { RATE_LIMIT_AUTH_WINDOW_MS } from "@/lib/constants";
 import { NextRequest } from "next/server";
 import { otpVerifySchema } from "@/lib/api/schemas";
 import { verifyOtp } from "@/lib/otp";
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
     await enforceRateLimit(req, {
       bucket: "auth:otp:verify",
       max: 25,
-      windowMs: 15 * 60 * 1000,
+      windowMs: RATE_LIMIT_AUTH_WINDOW_MS,
     });
 
     const json = await req.json();

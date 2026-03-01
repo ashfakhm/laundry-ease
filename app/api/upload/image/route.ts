@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     await enforceRateLimit(req, {
       bucket: "upload:image",
       max: 30,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireAuth();

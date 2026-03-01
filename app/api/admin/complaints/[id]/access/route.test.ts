@@ -143,7 +143,7 @@ describe("PATCH /api/admin/complaints/[id]/access", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({ success: true, granted: true });
+    expect(data.data).toEqual({ granted: true });
     expect(dbMock.complaintUpdateOne).toHaveBeenCalledWith(
       { _id: complaintId },
       {
@@ -185,7 +185,7 @@ describe("PATCH /api/admin/complaints/[id]/access", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data).toEqual({ success: true, granted: false });
+    expect(data.data).toEqual({ granted: false });
     expect(dbMock.complaintUpdateOne).toHaveBeenCalledWith(
       { _id: complaintId },
       {

@@ -233,7 +233,7 @@ export async function acceptBookingWithCapacityCheck(data: {
         throw new AppError(
           "CAPACITY_EXCEEDED",
           422,
-          `You are at your maximum capacity of ${data.maxCapacity} active bookings.`,
+          `CAPACITY_EXCEEDED: You are at your maximum capacity of ${data.maxCapacity} active bookings.`,
         );
       }
 

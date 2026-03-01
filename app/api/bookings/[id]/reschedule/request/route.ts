@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/mongodb";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { requireAuth } from "@/lib/api/auth";
 import { Errors } from "@/lib/api/errors";
 import { successResponse, withErrorHandling } from "@/lib/api/response";
@@ -18,7 +19,7 @@ export const POST = withErrorHandling(
     await enforceRateLimit(req, {
       bucket: "bookings:reschedule:request",
       max: 20,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireAuth();

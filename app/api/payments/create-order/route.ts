@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 import Razorpay from "razorpay";
 import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     await enforceRateLimit(req, {
       bucket: "payments:create-order",
       max: 8,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();
@@ -58,20 +58,7 @@ export async function POST(req: Request) {
       booking.bookingFeeStatus === "refunded" ||
       booking.bookingFeeStatus === "forfeited"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          ok: false,
-          message:
-            "Booking fee payment is not allowed for refunded or forfeited bookings.",
-          error: {
-            code: "ERROR",
-            message:
-              "Booking fee payment is not allowed for refunded or forfeited bookings.",
-          },
-        },
-        { status: 409 },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking fee payment is not allowed for refunded or forfeited bookings."));
     }
 
     const bookingFee = Number(booking.bookingFee || 0);

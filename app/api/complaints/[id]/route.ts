@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -97,7 +96,7 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({
+    return successResponse({
       ...complaint,
       seeker: seeker
         ? {

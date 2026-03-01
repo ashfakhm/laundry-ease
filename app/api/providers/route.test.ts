@@ -81,7 +81,7 @@ describe("GET /api/providers", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Both lat and lng");
+    expect(data.error.message).toContain("Both lat and lng");
   });
 
   it("returns 400 for invalid coordinate range", async () => {
@@ -96,7 +96,7 @@ describe("GET /api/providers", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Invalid coordinates");
+    expect(data.error.message).toContain("Invalid coordinates");
   });
 
   it("uses geo query and includes provider-radius match stage", async () => {
@@ -142,8 +142,8 @@ describe("GET /api/providers", () => {
     });
     expect(hasProviderRadiusMatch).toBe(true);
 
-    expect(data.providers).toHaveLength(2);
-    expect(data.providers[0].distance_km).toBeCloseTo(1.2, 4);
-    expect(data.providers[1].distanceFromSeeker).toBeCloseTo(2.5, 4);
+    expect(data.data.providers).toHaveLength(2);
+    expect(data.data.providers[0].distance_km).toBeCloseTo(1.2, 4);
+    expect(data.data.providers[1].distanceFromSeeker).toBeCloseTo(2.5, 4);
   });
 });

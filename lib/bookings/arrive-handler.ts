@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError } from "@/lib/api/errors";
@@ -26,7 +27,7 @@ export async function handleProviderArrival(
     await enforceRateLimit(req, {
       bucket: rateLimitBucket,
       max: 30,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireProvider();

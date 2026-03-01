@@ -16,19 +16,24 @@ jobs:
   precheck:
     name: Secret Precheck
     runs-on: ubuntu-latest
+    outputs:
+      has_keys: ${{ steps.check.outputs.has_keys }}
     steps:
-      - name: Report configuration state
+      - id: check
+        name: Report configuration state
         run: |
           if [ -z "${{ secrets.RAZORPAY_KEY_ID }}" ] || [ -z "${{ secrets.RAZORPAY_KEY_SECRET }}" ]; then
+            echo "has_keys=false" >> $GITHUB_OUTPUT
             echo "Real gateway smoke skipped: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET are not configured."
           else
+            echo "has_keys=true" >> $GITHUB_OUTPUT
             echo "Real gateway smoke secrets are configured."
           fi
 
   razorpay-connectivity:
     name: Razorpay Connectivity Smoke
     needs: precheck
-    if: ${{ secrets.RAZORPAY_KEY_ID != '' && secrets.RAZORPAY_KEY_SECRET != '' }}
+    if: needs.precheck.outputs.has_keys == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

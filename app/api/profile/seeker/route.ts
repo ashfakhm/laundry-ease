@@ -10,6 +10,7 @@ import {
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/auth/password-policy";
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { requireSameOrigin } from "@/lib/api/security";
 
 /**
  * GET /api/profile/seeker
@@ -50,6 +51,7 @@ export async function GET() {
  */
 export async function PUT(req: Request) {
   try {
+    await requireSameOrigin(req);
     const { user } = await requireSeeker();
     if (!ObjectId.isValid(user.id)) {
       throw new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized");

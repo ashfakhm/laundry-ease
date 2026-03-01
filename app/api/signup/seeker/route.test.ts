@@ -63,7 +63,7 @@ describe("POST /api/signup/seeker", () => {
     const res = await POST(makeReq(validPayload) as never);
     const body = await res.json();
     expect(res.status).toBe(400);
-    expect(body.error).toBeDefined();
+    expect(body.error.message).toBeDefined();
   });
 
   it("returns 409 when email already exists", async () => {

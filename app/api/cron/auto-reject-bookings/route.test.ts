@@ -42,7 +42,7 @@ describe("GET /api/cron/auto-reject-bookings", () => {
     const res = await GET(req);
     const body = await res.json();
     expect(res.status).toBe(401);
-    expect(body.error).toBeDefined();
+    expect(body.error.message).toBeDefined();
   });
 
   it("processes auto-reject when authorized", async () => {

@@ -1,4 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -22,7 +23,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "bookings:dispute:create",
       max: 10,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     if (!ObjectId.isValid(id)) {

@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/mongodb";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
 import { logger } from "@/lib/logger";
@@ -50,7 +51,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "admin:complaints:accept",
       max: 40,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     if (!ObjectId.isValid(id)) {

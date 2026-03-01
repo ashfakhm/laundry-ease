@@ -4,13 +4,13 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 const {
   mockGetDb,
   mockEnqueueEmailOutboxJob,
-  mockJwtSign,
+  mockSignJWT,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
 } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockEnqueueEmailOutboxJob: vi.fn(),
-  mockJwtSign: vi.fn(),
+  mockSignJWT: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
 }));
@@ -23,11 +23,17 @@ vi.mock("@/lib/email-outbox", () => ({
   enqueueEmailOutboxJob: mockEnqueueEmailOutboxJob,
 }));
 
-vi.mock("jsonwebtoken", () => ({
-  default: {
-    sign: mockJwtSign,
-  },
-}));
+vi.mock("jose", () => {
+  const signInstance = {
+    setProtectedHeader: vi.fn().mockReturnThis(),
+    setIssuedAt: vi.fn().mockReturnThis(),
+    setExpirationTime: vi.fn().mockReturnThis(),
+    sign: mockSignJWT,
+  };
+  return {
+    SignJWT: vi.fn(() => signInstance),
+  };
+});
 
 vi.mock("@/lib/env", () => ({
   env: {
@@ -101,7 +107,7 @@ describe("POST /api/auth/send-magic-link", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockJwtSign.mockReturnValue("signed-token");
+    mockSignJWT.mockResolvedValue("signed-token");
     mockEnqueueEmailOutboxJob.mockResolvedValue({
       id: "job_1",
       queuedAt: new Date().toISOString(),
@@ -117,7 +123,7 @@ describe("POST /api/auth/send-magic-link", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Valid email");
+    expect(data.error.message).toContain("Valid email");
   });
 
   it("returns 404 when user does not exist", async () => {
@@ -134,7 +140,7 @@ describe("POST /api/auth/send-magic-link", () => {
     const data = await res.json();
 
     expect(res.status).toBe(404);
-    expect(data.error).toContain("User not found");
+    expect(data.error.message).toContain("User not found");
     expect(mockEnqueueEmailOutboxJob).not.toHaveBeenCalled();
   });
 
@@ -153,7 +159,7 @@ describe("POST /api/auth/send-magic-link", () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(mockJwtSign).toHaveBeenCalledOnce();
+    expect(mockSignJWT).toHaveBeenCalledOnce();
     expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledWith({
       kind: "magic_link",
       payload: {
@@ -177,6 +183,6 @@ describe("POST /api/auth/send-magic-link", () => {
     const data = await res.json();
 
     expect(res.status).toBe(429);
-    expect(data.error).toContain("Too many requests");
+    expect(data.error.message).toContain("Too many requests");
   });
 });

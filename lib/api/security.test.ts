@@ -1,18 +1,28 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const mockEnv = vi.hoisted(() => ({
+  TRUST_PROXY: "true",
+  NEXT_PUBLIC_APP_URL: "https://laundryease.test",
+  NEXT_PUBLIC_BASE_URL: "https://laundryease.test",
+  NEXTAUTH_URL: "https://laundryease.test",
+  CSP_ENFORCE: "false",
+  CSP_ALLOW_UNSAFE_EVAL: "false",
+}));
+
+vi.mock("@/lib/env", () => ({ env: mockEnv }));
+
+// Undo the global requireSameOrigin mock so we test the real implementation
+vi.unmock("@/lib/api/security");
+
 import {
   collectAllowedOrigins,
   extractClientIp,
   requireSameOrigin,
 } from "./security";
 
-const ORIGINAL_APP_URL = process.env.NEXT_PUBLIC_APP_URL;
-
 afterEach(() => {
-  if (ORIGINAL_APP_URL === undefined) {
-    delete process.env.NEXT_PUBLIC_APP_URL;
-  } else {
-    process.env.NEXT_PUBLIC_APP_URL = ORIGINAL_APP_URL;
-  }
+  mockEnv.TRUST_PROXY = "true";
+  mockEnv.NEXT_PUBLIC_APP_URL = "https://laundryease.test";
 });
 
 describe("extractClientIp", () => {
@@ -41,7 +51,7 @@ describe("extractClientIp", () => {
 
 describe("collectAllowedOrigins", () => {
   it("includes request origin and configured public app url", () => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://app.laundryease.test";
+    mockEnv.NEXT_PUBLIC_APP_URL = "https://app.laundryease.test";
 
     const req = new Request("https://laundryease.test/api/bookings", {
       method: "POST",

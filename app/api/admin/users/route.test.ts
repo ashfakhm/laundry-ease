@@ -108,13 +108,15 @@ describe("GET /api/admin/users", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toHaveLength(3);
-    expect(body[0].name).toBe("Seeker New");
-    expect(body[0].role).toBe(Role.SEEKER);
-    expect(body[1].name).toBe("Provider Mid");
-    expect(body[1].role).toBe(Role.PROVIDER);
-    expect(body[2].name).toBe("Seeker Old");
-    expect(body[2].role).toBe(Role.SEEKER);
+    expect(body.data.users).toHaveLength(3);
+    expect(body.data.users[0].name).toBe("Seeker New");
+    expect(body.data.users[0].role).toBe(Role.SEEKER);
+    expect(body.data.users[1].name).toBe("Provider Mid");
+    expect(body.data.users[1].role).toBe(Role.PROVIDER);
+    expect(body.data.users[2].name).toBe("Seeker Old");
+    expect(body.data.users[2].role).toBe(Role.SEEKER);
+    expect(body.data.total).toBe(3);
+    expect(body.data.page).toBe(0);
   });
 
   it("maps AppError to expected status and payload", async () => {
@@ -126,6 +128,6 @@ describe("GET /api/admin/users", () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
-    expect(body.error).toBe("Admin access required");
+    expect(body.error.message).toBe("Admin access required");
   });
 });

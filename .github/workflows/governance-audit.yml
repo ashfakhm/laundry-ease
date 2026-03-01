@@ -16,19 +16,24 @@ jobs:
   precheck:
     name: Secret Precheck
     runs-on: ubuntu-latest
+    outputs:
+      has_token: ${{ steps.check.outputs.has_token }}
     steps:
-      - name: Report configuration state
+      - id: check
+        name: Report configuration state
         run: |
           if [ -z "${{ secrets.BRANCH_ADMIN_TOKEN }}" ]; then
+            echo "has_token=false" >> $GITHUB_OUTPUT
             echo "Governance audit skipped: BRANCH_ADMIN_TOKEN is not configured."
           else
+            echo "has_token=true" >> $GITHUB_OUTPUT
             echo "Governance audit token is configured."
           fi
 
   branch-protection:
     name: Branch Protection Guardrails
     needs: precheck
-    if: ${{ secrets.BRANCH_ADMIN_TOKEN != '' }}
+    if: needs.precheck.outputs.has_token == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -39,6 +44,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Verify branch protection
         env:

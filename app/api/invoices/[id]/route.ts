@@ -5,6 +5,7 @@ import { requireProvider } from "@/lib/api/auth";
 import { invoiceCreateSchema } from "@/lib/api/schemas";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { logger } from "@/lib/logger";
+import { requireSameOrigin } from "@/lib/api/security";
 
 /**
  * POST /api/invoices/[id]
@@ -16,6 +17,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireSameOrigin(req);
     const { user } = await requireProvider();
 
     const { id } = await params;

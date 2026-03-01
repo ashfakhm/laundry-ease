@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import {
   getOrderById,
   buildConfirmDeliveryUpdateFields,
@@ -13,7 +12,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 import { requireSeeker } from "@/lib/api/auth";
-import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
+import { DELIVERY_OTP_TTL_MS, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { successResponse, errorResponse } from "@/lib/api/response";
 
 export async function POST(
@@ -26,7 +25,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "orders:confirm-delivery",
       max: 15,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();
@@ -39,13 +38,7 @@ export async function POST(
     const parsed = confirmDeliverySchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid OTP data",
-        fields: parsed.error.flatten().fieldErrors
-      }, {
-        status: 400
-      });
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid OTP data"));
     }
 
     const { otp } = parsed.data;
@@ -71,13 +64,7 @@ export async function POST(
     }
 
     if ((order.process_status || "invoiced") !== "out_for_delivery") {
-      return NextResponse.json({
-        success: true,
-        message: "Delivery can only be confirmed when order is out for delivery",
-        currentStatus: order.process_status || "invoiced"
-      }, {
-        status: 409
-      });
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Delivery can only be confirmed when order is out for delivery"));
     }
 
     // If escrow has already started, payment_status will be "held" (or later "released").

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getOrderById } from "@/lib/db/index";
 import { buildConfirmDeliveryUpdateFields } from "@/lib/db/orders";
@@ -11,7 +10,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateDeadlineCompensation } from "@/lib/orders/deadline-compensation";
 import { requireProvider } from "@/lib/api/auth";
-import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
+import { DELIVERY_OTP_TTL_MS, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 
 const schema = z.object({
   otp: z.string().regex(/^\d{6}$/, "OTP must be 6 digits"),
@@ -29,7 +28,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "orders:otp-verify",
       max: 20,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireProvider();
@@ -41,16 +40,7 @@ export async function POST(
     const json = await req.json().catch(() => null);
     const parsed = schema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid OTP",
-          fields: parsed.error.flatten().fieldErrors,
-        },
-        {
-          status: 400,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid OTP"));
     }
 
     const order_id = new ObjectId(id);
@@ -74,16 +64,7 @@ export async function POST(
     }
 
     if ((order.process_status || "invoiced") !== "out_for_delivery") {
-      return NextResponse.json(
-        {
-          success: true,
-          message: "OTP can only be verified when order is out for delivery",
-          currentStatus: order.process_status || "invoiced",
-        },
-        {
-          status: 409,
-        },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "OTP can only be verified when order is out for delivery"));
     }
 
     // Allow verification even if payment is already in escrow states.

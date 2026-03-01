@@ -38,7 +38,7 @@ describe("GET /api/provider/dashboard-stats", () => {
 
     expect(res.status).toBe(401);
     expect(body.message).toBe("Unauthorized");
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error.message).toBe("Unauthorized");
   });
 
   it("returns calculated dashboard stats", async () => {
@@ -73,7 +73,7 @@ describe("GET /api/provider/dashboard-stats", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual({
+    expect(body.data).toEqual({
       revenue: 768,
       deliveriesDue: 4,
       pendingPickups: 3,

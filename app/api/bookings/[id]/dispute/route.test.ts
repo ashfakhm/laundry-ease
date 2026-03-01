@@ -62,7 +62,7 @@ describe("POST /api/bookings/[id]/dispute", () => {
 
     expect(res.status).toBe(400);
     expect(body.message).toBe("Invalid booking id");
-    expect(body.error).toBe("Invalid booking id");
+    expect(body.error.message).toBe("Invalid booking id");
   });
 
   it("creates dispute and returns compatibility success payload", async () => {

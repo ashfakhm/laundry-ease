@@ -669,7 +669,7 @@ describe("complaint ticket lifecycle", () => {
     );
     expect(providerMessagesAfterAccess.status).toBe(200);
     const providerMessagesAfterData = await providerMessagesAfterAccess.json();
-    expect(providerMessagesAfterData.length).toBeGreaterThanOrEqual(1); // 1 = initial seker message
+    expect(providerMessagesAfterData.data.length).toBeGreaterThanOrEqual(1); // 1 = initial seker message
 
     const providerReplyRes = await postComplaintMessage(
       jsonRequest(
@@ -693,7 +693,7 @@ describe("complaint ticket lifecycle", () => {
     );
     const seekerMessagesData = await seekerMessagesWithProviderReply.json();
     expect(
-      seekerMessagesData.some(
+      seekerMessagesData.data.some(
         (msg: { content?: string }) =>
           msg.content === "I can recollect and rewash the items today.",
       ),
@@ -784,10 +784,10 @@ describe("complaint ticket lifecycle", () => {
     const resolveData = await resolveRes.json();
 
     expect(resolveRes.status).toBe(200);
-    expect(resolveData.outcome).toBe("refund_partial");
-    expect(resolveData.settlement.seeker_refund_amount).toBe(200);
-    expect(resolveData.settlement.provider_payout_amount).toBe(275);
-    expect(resolveData.settlement.platform_commission).toBe(25);
+    expect(resolveData.data.outcome).toBe("refund_partial");
+    expect(resolveData.data.settlement.seeker_refund_amount).toBe(200);
+    expect(resolveData.data.settlement.provider_payout_amount).toBe(275);
+    expect(resolveData.data.settlement.platform_commission).toBe(25);
 
     const payoutCall = mockInitiateOrderPayout.mock.calls.at(-1);
     expect(payoutCall).toBeDefined();
@@ -858,11 +858,11 @@ describe("complaint ticket lifecycle", () => {
     const resolveData = await resolveRes.json();
 
     expect(resolveRes.status).toBe(200);
-    expect(resolveData.status).toBe("rejected");
-    expect(resolveData.outcome).toBe("release_payout");
-    expect(resolveData.settlement.seeker_refund_amount).toBe(0);
-    expect(resolveData.settlement.provider_payout_amount).toBe(475);
-    expect(resolveData.settlement.platform_commission).toBe(25);
+    expect(resolveData.data.status).toBe("rejected");
+    expect(resolveData.data.outcome).toBe("release_payout");
+    expect(resolveData.data.settlement.seeker_refund_amount).toBe(0);
+    expect(resolveData.data.settlement.provider_payout_amount).toBe(475);
+    expect(resolveData.data.settlement.platform_commission).toBe(25);
     expect(mockInitiateOrderPayout).toHaveBeenCalledWith(
       expect.any(ObjectId),
       expect.objectContaining({

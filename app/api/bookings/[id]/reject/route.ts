@@ -1,4 +1,5 @@
 import { getBookingById } from "@/lib/db/index";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -20,7 +21,7 @@ export async function PATCH(
     await enforceRateLimit(req, {
       bucket: "bookings:reject",
       max: 15,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireProvider();

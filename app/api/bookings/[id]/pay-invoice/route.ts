@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getBookingById } from "@/lib/db/index";
 import { getDb } from "@/lib/mongodb";
@@ -10,7 +9,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
 import { paymentVerifySchema } from "@/lib/api/schemas";
-import { PLATFORM_COMMISSION_RATE } from "@/lib/constants";
+import { PLATFORM_COMMISSION_RATE, RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -27,18 +26,15 @@ function toObjectId(id: string): ObjectId | null {
 function fail(
   message: string,
   status: number,
-  details?: Record<string, unknown>,
 ) {
-  return NextResponse.json(
-    {
-      success: false,
-      error: message,
-      details: details,
-    },
-    {
-      status: status,
-    },
-  );
+  const codeMap: Record<number, ErrorCode> = {
+    400: ErrorCode.VALIDATION_ERROR,
+    403: ErrorCode.FORBIDDEN,
+    404: ErrorCode.NOT_FOUND,
+    409: ErrorCode.CONFLICT,
+    500: ErrorCode.INTERNAL_ERROR,
+  };
+  return errorResponse(new AppError(codeMap[status] || ErrorCode.INTERNAL_ERROR, status, message));
 }
 
 type FinalizeInvoiceOrderInput = {
@@ -272,7 +268,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "bookings:invoice-payment:init",
       max: 8,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();
@@ -298,14 +294,7 @@ export async function POST(
     const { db } = await getDb();
     const existingOrder = await db.collection("orders").findOne({ booking_id });
     if (existingOrder) {
-      return NextResponse.json(
-        {
-          message: "Order already exists for this booking",
-          error: "Order already exists for this booking",
-          orderId: existingOrder._id,
-        },
-        { status: 409 },
-      );
+      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order already exists for this booking"));
     }
 
     // Calculate delivery charge from provider settings.
@@ -349,7 +338,7 @@ export async function POST(
       },
     );
 
-    return NextResponse.json({
+    return successResponse({
       id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
@@ -375,7 +364,7 @@ export async function PUT(
     await enforceRateLimit(req, {
       bucket: "bookings:invoice-payment:verify",
       max: 10,
-      windowMs: 60 * 1000,
+      windowMs: RATE_LIMIT_DEFAULT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();
@@ -388,9 +377,7 @@ export async function PUT(
     const body = await req.json().catch(() => null);
     const parsed = paymentVerifySchema.safeParse(body);
     if (!parsed.success) {
-      return fail("Invalid payment fields", 400, {
-        fieldErrors: parsed.error.flatten().fieldErrors,
-      });
+      return fail("Invalid payment fields", 400);
     }
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
       parsed.data;
@@ -408,7 +395,7 @@ export async function PUT(
     // Idempotency: if booking already converted, return existing order.
     const bookingOrderId = (booking as { order_id?: ObjectId }).order_id;
     if (bookingOrderId) {
-      return NextResponse.json({ success: true, orderId: bookingOrderId });
+      return successResponse({ orderId: bookingOrderId });
     }
 
     if (booking.status !== "invoice_created" || !booking.invoice) {
@@ -435,7 +422,7 @@ export async function PUT(
     const existingOrder = await db.collection("orders").findOne({ booking_id });
     if (existingOrder) {
       if (existingOrder.razorpay_payment_id === razorpay_payment_id) {
-        return NextResponse.json({ success: true, orderId: existingOrder._id });
+        return successResponse({ orderId: existingOrder._id });
       }
       return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order already exists for this booking"));
     }
@@ -505,9 +492,7 @@ export async function PUT(
       now,
     });
 
-    return NextResponse.json({
-      success: true,
-      error: null,
+    return successResponse({
       orderId: finalized.orderId,
       ...(finalized.idempotent ? { idempotent: true } : {}),
     });

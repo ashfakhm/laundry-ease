@@ -11,6 +11,7 @@ import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
+import { requireSameOrigin } from "@/lib/api/security";
 
 const bankDetailsPayloadSchema = z.object({
   bankDetails: z.object({
@@ -29,6 +30,7 @@ const bankDetailsPayloadSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    await requireSameOrigin(req);
     // Authentication check - only providers can update bank details
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {

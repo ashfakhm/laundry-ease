@@ -1,4 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { ComplaintMessage } from "@/types/complaints";
@@ -17,7 +18,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "admin:complaints:add-provider",
       max: 40,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const session = await requireAdminWithDbCheck();

@@ -163,7 +163,7 @@ describe("GET /api/admin/dashboard-stats", () => {
     const data = await res.json();
 
     expect(res.status).toBe(401);
-    expect(data.error).toBe("Unauthorized");
+    expect(data.error.message).toBe("Unauthorized");
     expect(mockGetDb).not.toHaveBeenCalled();
   });
 
@@ -296,23 +296,23 @@ describe("GET /api/admin/dashboard-stats", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.criticalSystemAlerts).toBe(1);
-    expect(data.highSystemAlerts).toBe(2);
-    expect(data.systemAlertCount).toBe(3);
-    expect(data.unacknowledgedCriticalSystemAlerts).toBe(1);
-    expect(data.unacknowledgedHighSystemAlerts).toBe(1);
-    expect(data.unacknowledgedSystemAlertCount).toBe(2);
-    expect(data.ackSlaBreachedCriticalSystemAlerts).toBe(1);
-    expect(data.ackSlaBreachedHighSystemAlerts).toBe(0);
-    expect(data.ackSlaBreachedSystemAlertCount).toBe(1);
-    expect(data.recentSystemAlerts).toHaveLength(2);
-    expect(data.recentSystemAlerts[0]).toEqual(
+    expect(data.data.criticalSystemAlerts).toBe(1);
+    expect(data.data.highSystemAlerts).toBe(2);
+    expect(data.data.systemAlertCount).toBe(3);
+    expect(data.data.unacknowledgedCriticalSystemAlerts).toBe(1);
+    expect(data.data.unacknowledgedHighSystemAlerts).toBe(1);
+    expect(data.data.unacknowledgedSystemAlertCount).toBe(2);
+    expect(data.data.ackSlaBreachedCriticalSystemAlerts).toBe(1);
+    expect(data.data.ackSlaBreachedHighSystemAlerts).toBe(0);
+    expect(data.data.ackSlaBreachedSystemAlertCount).toBe(1);
+    expect(data.data.recentSystemAlerts).toHaveLength(2);
+    expect(data.data.recentSystemAlerts[0]).toEqual(
       expect.objectContaining({
         key: "overdue_held_orders",
         ackSlaBreached: true,
       }),
     );
-    expect(data.recentSystemAlerts[1]).toEqual(
+    expect(data.data.recentSystemAlerts[1]).toEqual(
       expect.objectContaining({
         key: "payout_failures_spike",
         severity: "high",
@@ -321,7 +321,7 @@ describe("GET /api/admin/dashboard-stats", () => {
         ackSlaBreached: false,
       }),
     );
-    expect(data.operationalHealth).toEqual(
+    expect(data.data.operationalHealth).toEqual(
       expect.objectContaining({
         trend7d: expect.any(Array),
         burnRate: expect.any(Number),
@@ -329,17 +329,17 @@ describe("GET /api/admin/dashboard-stats", () => {
         mttrHours7d: expect.any(Number),
       }),
     );
-    expect(data.operationalHealth.trend7d).toHaveLength(7);
-    expect(data.openComplaints).toBe(2);
-    expect(data.activeComplaints).toBe(3);
-    expect(data.escrowBalance).toBe(768);
-    expect(data.activeProviders).toBe(2);
-    expect(data.totalProviders).toBe(4);
-    expect(data.providerUtilizationPct).toBe(50);
-    expect(data.totalOrders).toBe(8);
-    expect(data.totalRevenue).toBe(858);
-    expect(data.recentActiveComplaints).toHaveLength(2);
-    expect(data.recentActiveComplaints[0]).toEqual(
+    expect(data.data.operationalHealth.trend7d).toHaveLength(7);
+    expect(data.data.openComplaints).toBe(2);
+    expect(data.data.activeComplaints).toBe(3);
+    expect(data.data.escrowBalance).toBe(768);
+    expect(data.data.activeProviders).toBe(2);
+    expect(data.data.totalProviders).toBe(4);
+    expect(data.data.providerUtilizationPct).toBe(50);
+    expect(data.data.totalOrders).toBe(8);
+    expect(data.data.totalRevenue).toBe(858);
+    expect(data.data.recentActiveComplaints).toHaveLength(2);
+    expect(data.data.recentActiveComplaints[0]).toEqual(
       expect.objectContaining({
         title: "Bad Service",
         status: "open",
@@ -347,7 +347,7 @@ describe("GET /api/admin/dashboard-stats", () => {
         providerName: "Smoke Laundry Hub",
       }),
     );
-    expect(data.recentActiveComplaints[1]).toEqual(
+    expect(data.data.recentActiveComplaints[1]).toEqual(
       expect.objectContaining({
         title: null,
         status: "in_review",
@@ -456,7 +456,7 @@ describe("GET /api/admin/dashboard-stats", () => {
     const data = await res.json();
 
     expect(res.status).toBe(500);
-    expect(data.error).toBe("Internal server error");
+    expect(data.error.message).toBe("Internal server error");
     expect(mockLoggerError).toHaveBeenCalledWith(
       "ADMIN_DASHBOARD",
       "Error fetching admin dashboard stats",

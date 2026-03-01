@@ -1,10 +1,9 @@
-import { NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireProvider } from "@/lib/api/auth";
-import { errorResponse } from "@/lib/api/response";
+import { errorResponse, successResponse } from "@/lib/api/response";
 
 export async function GET() {
   try {
@@ -56,7 +55,7 @@ export async function GET() {
        process_status: { $in: ["washing", "ironing", "processing"] }
     });
 
-    return NextResponse.json({
+    return successResponse({
       revenue: totalRevenue,
       deliveriesDue: deliveriesDue,
       pendingPickups: pendingPickups, // Representing "Actionable Inbound"

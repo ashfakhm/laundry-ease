@@ -3,6 +3,7 @@ import { Role } from "@/types/enums";
 import { getDb } from "../mongodb";
 import bcrypt from "bcrypt";
 import { ObjectId } from "mongodb";
+import { BCRYPT_SALT_ROUNDS } from "../constants";
 
 /**
  * Find user by email across all collections (seekers → providers → admins)
@@ -73,7 +74,7 @@ export async function createSeeker(data: {
   const passwordHash = data.password
     ? await bcrypt.hash(
         data.password,
-        (await import("../constants")).BCRYPT_SALT_ROUNDS,
+        BCRYPT_SALT_ROUNDS,
       )
     : null;
 
@@ -128,7 +129,7 @@ export async function createProvider(data: {
   const passwordHash = data.password
     ? await bcrypt.hash(
         data.password,
-        (await import("../constants")).BCRYPT_SALT_ROUNDS,
+        BCRYPT_SALT_ROUNDS,
       )
     : null;
 

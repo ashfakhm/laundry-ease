@@ -6,6 +6,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { Role } from "@/types/enums";
 import { z } from "zod";
+import { requireSameOrigin } from "@/lib/api/security";
 
 const banUserSchema = z.object({
   blocked_until: z.string().datetime(),
@@ -17,6 +18,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireSameOrigin(req);
     await requireAdminWithDbCheck();
 
     const { id } = await params;

@@ -1,4 +1,5 @@
 import { getOrderById, cancelOrder } from "@/lib/db/index";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
@@ -18,7 +19,7 @@ export async function POST(
     await enforceRateLimit(req, {
       bucket: "orders:cancel",
       max: 12,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireSeeker();

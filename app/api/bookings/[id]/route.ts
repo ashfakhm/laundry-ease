@@ -1,4 +1,5 @@
 import { getBookingById } from "@/lib/db/index";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -17,7 +18,7 @@ export async function DELETE(
     await enforceRateLimit(req, {
       bucket: "bookings:delete",
       max: 10,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     if (!ObjectId.isValid(id)) {

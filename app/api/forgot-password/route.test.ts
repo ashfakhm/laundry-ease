@@ -110,7 +110,7 @@ describe("POST /api/forgot-password", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.message).toContain("If an account exists");
+    expect(data.data.message).toContain("If an account exists");
     expect(mockEnqueueEmailOutboxJob).not.toHaveBeenCalled();
   });
 
@@ -131,7 +131,7 @@ describe("POST /api/forgot-password", () => {
     const data = await res.json();
 
     expect(res.status).toBe(429);
-    expect(data.error).toContain("Too many requests");
+    expect(data.error.message).toContain("Too many requests");
   });
 
   it("stores token and sends email for valid local account", async () => {
@@ -153,7 +153,7 @@ describe("POST /api/forgot-password", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.message).toContain("If an account exists");
+    expect(data.data.message).toContain("If an account exists");
     expect(mockEnforceRateLimit).toHaveBeenCalledTimes(2);
     expect(mockEnforceRateLimit).toHaveBeenCalledWith(
       expect.any(Request),

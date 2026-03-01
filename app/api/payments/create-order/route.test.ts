@@ -105,7 +105,7 @@ describe("POST /api/payments/create-order", () => {
     const data = await res.json();
 
     expect(res.status).toBe(403);
-    expect(data.error).toBe("Seeker role required");
+    expect(data.error.message).toBe("Seeker role required");
   });
 
   it("returns 400 when payload is invalid", async () => {
@@ -117,7 +117,7 @@ describe("POST /api/payments/create-order", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toBe("Invalid booking payment request");
+    expect(data.error.message).toBe("Invalid booking payment request");
   });
 
   it("returns 404 when booking is missing", async () => {
@@ -132,7 +132,7 @@ describe("POST /api/payments/create-order", () => {
     const data = await res.json();
 
     expect(res.status).toBe(404);
-    expect(data.error).toBe("Booking not found");
+    expect(data.error.message).toBe("Booking not found");
   });
 
   it("creates Razorpay order from server-side booking fee, ignoring client amount", async () => {
@@ -172,9 +172,9 @@ describe("POST /api/payments/create-order", () => {
       receipt: BOOKING_ID,
       payment_capture: true,
     });
-    expect(data.orderId).toBe("order_test_123");
-    expect(data.amount).toBe(14900);
-    expect(data.currency).toBe("INR");
-    expect(data.key).toBe("rzp_public_key");
+    expect(data.data.orderId).toBe("order_test_123");
+    expect(data.data.amount).toBe(14900);
+    expect(data.data.currency).toBe("INR");
+    expect(data.data.key).toBe("rzp_public_key");
   });
 });

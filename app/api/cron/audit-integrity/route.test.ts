@@ -74,7 +74,7 @@ describe("GET /api/cron/audit-integrity", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.anomalies).toBe(0);
+    expect(body.data.anomalies).toBe(0);
     expect(mockAuditIntegrity).toHaveBeenCalled();
     expect(mockCompleteCronRun).toHaveBeenCalledWith(
       expect.any(ObjectId),

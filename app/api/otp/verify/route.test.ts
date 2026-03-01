@@ -59,7 +59,7 @@ describe("POST /api/otp/verify", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Invalid params");
+    expect(data.error.message).toContain("Invalid params");
     expect(mockVerifyOtp).not.toHaveBeenCalled();
   });
 
@@ -74,7 +74,7 @@ describe("POST /api/otp/verify", () => {
     const data = await res.json();
 
     expect(res.status).toBe(429);
-    expect(data.error).toContain("Too many requests");
+    expect(data.error.message).toContain("Too many requests");
   });
 
   it("returns 400 when OTP verification fails", async () => {
@@ -86,7 +86,7 @@ describe("POST /api/otp/verify", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Invalid code");
+    expect(data.error.message).toContain("Invalid code");
   });
 
   it("returns 200 for successful OTP verification", async () => {

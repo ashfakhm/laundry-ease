@@ -10,7 +10,7 @@ import {
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { PLATFORM_COMMISSION_RATE } from "@/lib/constants";
+import { PLATFORM_COMMISSION_RATE, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 
 export async function PATCH(
   req: Request,
@@ -22,7 +22,7 @@ export async function PATCH(
     await enforceRateLimit(req, {
       bucket: "bookings:accept",
       max: 25,
-      windowMs: 5 * 60 * 1000,
+      windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
     const { user } = await requireProvider();

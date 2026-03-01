@@ -80,7 +80,7 @@ describe("POST /api/security/csp-report", () => {
     const data = await res.json();
 
     expect(res.status).toBe(429);
-    expect(data.error).toBe("Too many requests");
+    expect(data.error.message).toBe("Too many requests");
     expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
 });

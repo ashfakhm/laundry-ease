@@ -1,6 +1,7 @@
-import { successResponse } from "@/lib/api/response";
-import { NextRequest, NextResponse } from "next/server";
+import { successResponse, errorResponse } from "@/lib/api/response";
+import { NextRequest } from "next/server";
 import { PUT as verifyBookingFeePayment } from "../../[id]/pay/route";
+import { AppError, ErrorCode } from "@/lib/api/errors";
 
 // Legacy alias for booking fee payment verification.
 // Accepts legacy body shape and forwards canonical payload.
@@ -9,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   const bookingId = body.bookingId;
   if (!bookingId) {
-    return successResponse({ error: "Missing bookingId" }, 400);
+    return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Missing bookingId"));
   }
 
   const normalizedPayload = {
@@ -38,8 +39,7 @@ export async function POST(req: NextRequest) {
   const json = await res.json();
   const data = json.data || json; // Fallback for safety
 
-  return NextResponse.json({
-    success: true,
+  return successResponse({
     message: data?.message || "Payment verified",
     idempotent: Boolean(data?.idempotent ?? false),
   });

@@ -66,7 +66,7 @@ describe("POST /api/bookings/[id]/schedule", () => {
 
     expect(res.status).toBe(400);
     expect(body.message).toBe("Invalid booking id");
-    expect(body.error).toBe("Invalid booking id");
+    expect(body.error.message).toBe("Invalid booking id");
   });
 
   it("returns compatibility success payload for valid provider proposal", async () => {

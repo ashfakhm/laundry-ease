@@ -1,25 +1,20 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const mockEnv = vi.hoisted(() => ({
+  CSP_ENFORCE: "false" as string | undefined,
+  CSP_ALLOW_UNSAFE_EVAL: "false" as string | undefined,
+}));
+
+vi.mock("@/lib/env", () => ({ env: mockEnv }));
+
 import { buildCspPolicy, getCspHeader } from "./csp";
 
-const ORIGINAL_CSP_ENFORCE = process.env.CSP_ENFORCE;
-const ORIGINAL_CSP_ALLOW_UNSAFE_EVAL = process.env.CSP_ALLOW_UNSAFE_EVAL;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
-
 const env = process.env as Record<string, string | undefined>;
 
 afterEach(() => {
-  if (ORIGINAL_CSP_ENFORCE === undefined) {
-    delete process.env.CSP_ENFORCE;
-  } else {
-    process.env.CSP_ENFORCE = ORIGINAL_CSP_ENFORCE;
-  }
-
-  if (ORIGINAL_CSP_ALLOW_UNSAFE_EVAL === undefined) {
-    delete process.env.CSP_ALLOW_UNSAFE_EVAL;
-  } else {
-    process.env.CSP_ALLOW_UNSAFE_EVAL = ORIGINAL_CSP_ALLOW_UNSAFE_EVAL;
-  }
-
+  mockEnv.CSP_ENFORCE = "false";
+  mockEnv.CSP_ALLOW_UNSAFE_EVAL = "false";
   if (ORIGINAL_NODE_ENV === undefined) {
     delete env.NODE_ENV;
   } else {
@@ -50,7 +45,7 @@ describe("buildCspPolicy", () => {
 
 describe("getCspHeader", () => {
   it("returns report-only header by default", () => {
-    delete process.env.CSP_ENFORCE;
+    mockEnv.CSP_ENFORCE = undefined;
 
     const header = getCspHeader();
     expect(header.key).toBe("Content-Security-Policy-Report-Only");
@@ -58,8 +53,8 @@ describe("getCspHeader", () => {
   });
 
   it("returns enforcement header when CSP_ENFORCE=true", () => {
-    process.env.CSP_ENFORCE = "true";
-    delete process.env.CSP_ALLOW_UNSAFE_EVAL;
+    mockEnv.CSP_ENFORCE = "true";
+    mockEnv.CSP_ALLOW_UNSAFE_EVAL = undefined;
 
     const header = getCspHeader();
     expect(header.key).toBe("Content-Security-Policy");
@@ -67,8 +62,8 @@ describe("getCspHeader", () => {
   });
 
   it("allows unsafe-eval override in enforce mode when explicitly enabled", () => {
-    process.env.CSP_ENFORCE = "true";
-    process.env.CSP_ALLOW_UNSAFE_EVAL = "true";
+    mockEnv.CSP_ENFORCE = "true";
+    mockEnv.CSP_ALLOW_UNSAFE_EVAL = "true";
 
     const header = getCspHeader();
     expect(header.key).toBe("Content-Security-Policy");
@@ -76,7 +71,7 @@ describe("getCspHeader", () => {
   });
 
   it("defaults to enforced CSP in production when not explicitly disabled", () => {
-    delete process.env.CSP_ENFORCE;
+    mockEnv.CSP_ENFORCE = undefined;
     env.NODE_ENV = "production";
 
     const header = getCspHeader();
@@ -85,7 +80,7 @@ describe("getCspHeader", () => {
   });
 
   it("keeps report-only header when CSP_ENFORCE=false in production", () => {
-    process.env.CSP_ENFORCE = "false";
+    mockEnv.CSP_ENFORCE = "false";
     env.NODE_ENV = "production";
 
     const header = getCspHeader();

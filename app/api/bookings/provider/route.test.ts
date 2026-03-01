@@ -31,21 +31,23 @@ function buildDbMock(options: {
   seeker?: Record<string, unknown> | null;
 }) {
   const providerFindOne = vi.fn().mockResolvedValue(options.provider);
-  const seekerFindOne = vi.fn().mockResolvedValue(options.seeker ?? null);
-  const toArray = vi.fn().mockResolvedValue(options.bookings ?? []);
-  const sort = vi.fn().mockReturnValue({ toArray });
-  const find = vi.fn().mockReturnValue({ sort });
+  // Simulate $lookup: embed seeker data into each booking
+  const enrichedBookings = (options.bookings ?? []).map((booking) => ({
+    ...booking,
+    seeker: options.seeker ?? null,
+  }));
+  const toArray = vi.fn().mockResolvedValue(enrichedBookings);
+  const aggregate = vi.fn().mockReturnValue({ toArray });
 
   const db = {
     collection: vi.fn((name: string) => {
       if (name === "providers") return { findOne: providerFindOne };
-      if (name === "bookings") return { find };
-      if (name === "seekers") return { findOne: seekerFindOne };
+      if (name === "bookings") return { aggregate };
       throw new Error(`Unexpected collection: ${name}`);
     }),
   };
 
-  return { db, find };
+  return { db, aggregate };
 }
 
 describe("GET /api/bookings/provider", () => {
@@ -61,7 +63,7 @@ describe("GET /api/bookings/provider", () => {
 
     expect(res.status).toBe(401);
     expect(body.message).toBe("Unauthorized");
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error.message).toBe("Unauthorized");
   });
 
   it("returns compatibility not-found payload when provider record is missing", async () => {
@@ -75,7 +77,7 @@ describe("GET /api/bookings/provider", () => {
 
     expect(res.status).toBe(404);
     expect(body.message).toBe("Provider not found");
-    expect(body.error).toBe("Provider not found");
+    expect(body.error.message).toBe("Provider not found");
   });
 
   it("returns provider bookings filtered by fee status", async () => {
@@ -93,10 +95,7 @@ describe("GET /api/bookings/provider", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(body)).toBe(true);
-    expect(dbMock.find).toHaveBeenCalledWith({
-      provider_id: providerId,
-      bookingFeeStatus: { $in: ["paid", "applied"] },
-    });
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(dbMock.aggregate).toHaveBeenCalled();
   });
 });

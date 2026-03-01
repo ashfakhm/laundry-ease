@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { RATE_LIMIT_AUTH_WINDOW_MS } from "@/lib/constants";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
 import bcrypt from "bcrypt";
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     await enforceRateLimit(req, {
       bucket: "auth:reset-password:ip",
       max: 15,
-      windowMs: 15 * 60 * 1000,
+      windowMs: RATE_LIMIT_AUTH_WINDOW_MS,
     });
 
     const payload = await req.json();

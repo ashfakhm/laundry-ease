@@ -65,7 +65,7 @@ describe("DELETE /api/bookings/[id]", () => {
 
     expect(res.status).toBe(400);
     expect(body.message).toBe("Invalid booking id");
-    expect(body.error).toBe("Invalid booking id");
+    expect(body.error.message).toBe("Invalid booking id");
     expect(mockGetBookingById).not.toHaveBeenCalled();
   });
 
@@ -107,11 +107,9 @@ describe("DELETE /api/bookings/[id]", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual({
-      success: true,
-      ok: true,
-      message: "Booking deleted successfully",
-    });
+    expect(body.success).toBe(true);
+    expect(body.ok).toBe(true);
+    expect(body.data.message).toBe("Booking deleted successfully");
   });
 
   it("returns compatibility error payload when booking has associated order", async () => {
@@ -155,6 +153,6 @@ describe("DELETE /api/bookings/[id]", () => {
 
     expect(res.status).toBe(400);
     expect(body.message).toContain("Cannot delete booking");
-    expect(body.error).toContain("Cannot delete booking");
+    expect(body.error.message).toContain("Cannot delete booking");
   });
 });

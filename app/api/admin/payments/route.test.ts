@@ -192,7 +192,7 @@ describe("POST /api/admin/payments", () => {
 
     const data = await res.json();
     expect(res.status).toBe(409);
-    expect(data.error).toContain("Complaint is still open");
+    expect(data.error.message).toContain("Complaint is still open");
   });
 
   it("returns conflict for refund when payout has already started", async () => {
@@ -219,7 +219,7 @@ describe("POST /api/admin/payments", () => {
 
     const data = await res.json();
     expect(res.status).toBe(409);
-    expect(data.error).toContain("Cannot auto-refund after payout");
+    expect(data.error.message).toContain("Cannot auto-refund after payout");
     expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
   });
 
@@ -283,6 +283,6 @@ describe("POST /api/admin/payments", () => {
 
     const data = await res.json();
     expect(res.status).toBe(400);
-    expect(data.error).toContain("Penalty amount and reason are required");
+    expect(data.error.message).toContain("Penalty amount and reason are required");
   });
 });
