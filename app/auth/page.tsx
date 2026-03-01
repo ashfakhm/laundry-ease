@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useState, Suspense, useEffect } from "react";
 // removed unused useRouter
 import React from "react";
@@ -11,7 +11,15 @@ import { AppHeader } from "@/components/ui/app-header";
 import { motion } from "framer-motion";
 import { ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
 
+function getRoleRedirectPath(role: unknown): string {
+  if (role === "seeker") return "/seeker";
+  if (role === "provider") return "/provider";
+  if (role === "admin") return "/admin";
+  return "/choose-role";
+}
+
 function AuthPageContent() {
+  const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
 
@@ -39,6 +47,11 @@ function AuthPageContent() {
     }
   }, [urlError]);
 
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    window.location.href = getRoleRedirectPath(session?.user?.role);
+  }, [session?.user?.role, status]);
+
   async function onCredentials(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -49,8 +62,19 @@ function AuthPageContent() {
       redirect: false,
     });
     if (res?.ok) {
-      // Force a full page reload to ensure the session cookie is recognized by server components
-      window.location.href = "/";
+      // Resolve role from canonical session and hard-redirect so server components
+      // pick up the fresh auth cookie before rendering dashboard routes.
+      try {
+        const sessionResponse = await fetch("/api/auth/session", {
+          cache: "no-store",
+        });
+        const sessionData = await sessionResponse.json().catch(() => null);
+        window.location.href = getRoleRedirectPath(sessionData?.user?.role);
+        return;
+      } catch {
+        window.location.href = "/choose-role";
+        return;
+      }
     } else {
       if (res?.error === "NO_ACCOUNT") {
         setError(
@@ -181,7 +205,7 @@ function AuthPageContent() {
                   </header>
                   <button
                     className="w-full h-11 flex items-center justify-center gap-2 rounded-lg border border-border bg-background hover:bg-secondary transition-colors text-sm font-medium"
-                    onClick={() => signIn("google", { callbackUrl: "/" })}
+                    onClick={() => signIn("google", { callbackUrl: "/auth" })}
                     type="button"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
