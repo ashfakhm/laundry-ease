@@ -24,6 +24,7 @@ import { env } from "@/lib/env";
 import {
   PLATFORM_COMMISSION_RATE,
   MAX_ARRIVAL_DISTANCE_METERS,
+  REFUND_LOCK_TIMEOUT_MS,
 } from "@/lib/constants";
 import { calculateDistance } from "@/lib/distance";
 import { requireProvider } from "@/lib/api/auth";
@@ -35,8 +36,6 @@ export type ActionResponse = {
   message?: string;
   error?: string;
 };
-
-const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
 function actionErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof AppError) {

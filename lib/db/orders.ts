@@ -2,7 +2,7 @@ import { Order, OrderItem } from "@/types/orders";
 import { Seeker } from "@/types/users";
 import { getDb } from "../mongodb";
 import { ObjectId } from "mongodb";
-import { ESCROW_RELEASE_WINDOW_MS } from "@/lib/constants";
+import { ESCROW_RELEASE_WINDOW_MS, SEEKER_CANCELLATION_BLOCK_MS } from "@/lib/constants";
 
 /**
  * Create a new order
@@ -175,7 +175,7 @@ export async function cancelOrder(
         {
           $inc: { outstanding_fees: cancellation_fee },
           $set: {
-            blocked_until: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+            blocked_until: new Date(Date.now() + SEEKER_CANCELLATION_BLOCK_MS),
           }, // Block for 30 days or until fee is paid
         },
         { session },

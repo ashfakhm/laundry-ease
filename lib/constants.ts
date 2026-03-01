@@ -64,6 +64,9 @@ export const HIGH_ALERT_PERSISTENT_ROUTE_MS = 4 * 60 * 60 * 1000; // 4 hours
 /** Minimum advance notice for pickup scheduling (ms). */
 export const MIN_PICKUP_ADVANCE_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+/** Duration a seeker is blocked after cancelling a paid order (ms). */
+export const SEEKER_CANCELLATION_BLOCK_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 /** Delivery OTP validity window (ms). */
 export const DELIVERY_OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -86,6 +89,9 @@ export const ABUSE_LOOKBACK_DAYS = 30;
 export const EXCESSIVE_CANCELLATION_THRESHOLD = 3;
 
 // ─── Operational Alert Thresholds ───────────────────────────────────────────
+
+/** Lookback window for alert analytics on the admin dashboard (ms). */
+export const ALERT_ANALYTICS_WINDOW_MS = 8 * 24 * 60 * 60 * 1000; // 8 days
 
 /** Alert when overdue held orders (without active complaints) reach this count. */
 export const OVERDUE_HELD_ORDERS_ALERT_THRESHOLD = 3;

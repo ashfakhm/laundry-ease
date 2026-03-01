@@ -1,4 +1,4 @@
-import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
+import { RATE_LIMIT_STRICT_WINDOW_MS, REFUND_LOCK_TIMEOUT_MS } from "@/lib/constants";
 import { getBookingById } from "@/lib/db/index";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -10,8 +10,6 @@ import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { evaluateCancellationPolicy } from "@/lib/bookings/cancellation-policy";
 import { requireAuth } from "@/lib/api/auth";
 import { errorResponse, successResponse } from "@/lib/api/response";
-
-const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
 function toValidDate(value: unknown): Date | null {
   if (!value) return null;

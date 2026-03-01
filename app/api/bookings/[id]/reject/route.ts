@@ -1,5 +1,5 @@
 import { getBookingById } from "@/lib/db/index";
-import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
+import { RATE_LIMIT_STRICT_WINDOW_MS, REFUND_LOCK_TIMEOUT_MS } from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -8,8 +8,6 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
-
-const REFUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
 export async function PATCH(
   req: Request,

@@ -6,11 +6,10 @@ import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
 import {
   MAX_ARRIVAL_DISTANCE_METERS,
+  PAYOUT_LOCK_TTL_MS,
   PLATFORM_COMMISSION_RATE,
 } from "@/lib/constants";
 import type { Booking } from "@/types/bookings";
-
-const PAYOUT_LOCK_TTL_MS = 5 * 60 * 1000;
 
 type Coordinates = { lat: number; lng: number };
 

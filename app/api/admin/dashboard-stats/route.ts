@@ -7,7 +7,7 @@ import { alertAgeMinutes, isAckSlaBreached } from "@/lib/ops/ack-sla";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { enforceRateLimit } from "@/lib/api/security";
 import { AppError, ErrorCode } from "@/lib/api/errors";
-import { CRITICAL_ALERT_ACK_SLA_MS, HIGH_ALERT_ACK_SLA_MS, RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
+import { ALERT_ANALYTICS_WINDOW_MS, CRITICAL_ALERT_ACK_SLA_MS, HIGH_ALERT_ACK_SLA_MS, RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
 
 const ACTIVE_COMPLAINT_STATUSES = ["open", "accepted", "in_review"] as const;
 
@@ -112,7 +112,7 @@ export async function GET(req: Request) {
       }),
     ]);
     const analyticsWindowStart = new Date(
-      now.getTime() - 8 * 24 * 60 * 60 * 1000,
+      now.getTime() - ALERT_ANALYTICS_WINDOW_MS,
     );
 
     const alertAnalyticsRows = await db
