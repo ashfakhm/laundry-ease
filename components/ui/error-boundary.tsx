@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/client-error";
 
 interface ErrorBoundaryProps {
   error: Error & { digest?: string };
@@ -12,8 +12,7 @@ interface ErrorBoundaryProps {
 
 export default function ErrorBoundary({ error, reset }: ErrorBoundaryProps) {
   useEffect(() => {
-    // Log error to monitoring service in production
-    logger.error("ERROR_BOUNDARY", "React error boundary caught error", error, {
+    reportError("ErrorBoundary", error, {
       digest: error.digest,
       message: error.message,
       stack: error.stack,

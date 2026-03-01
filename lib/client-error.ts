@@ -19,7 +19,7 @@ export function reportError(
     console.error(`[${context}]`, error, extra);
   }
 
-  // TODO(sentry): Replace with Sentry.captureException(error, { tags: { context }, extra })
+  // Future integration hook: replace with Sentry.captureException(error, { tags: { context }, extra })
   // For now, structured console output in production for DevTools debugging
   if (process.env.NODE_ENV === "production") {
     console.error(
