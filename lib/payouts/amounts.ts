@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 
 type PayoutAmountInput = {
   total_price?: number | null;
+  subtotal?: number | null;
   provider_payout_amount?: number | null;
   platform_commission?: number | null;
 };
@@ -67,10 +68,16 @@ export function derivePayoutAmounts(
     };
   }
 
+  // When subtotal (pre-discount item total) is available, compute commission
+  // on subtotal so the platform always takes 5% of the undiscounted amount.
+  const storedSubtotal = toDecimal(order.subtotal);
+  const commissionBase =
+    storedSubtotal !== null ? Decimal.max(0, storedSubtotal) : normalizedTotal;
+
   const defaultCommissionRate = new Decimal(PLATFORM_COMMISSION_RATE);
   const defaultCommission = Decimal.max(
     0,
-    normalizedTotal.times(defaultCommissionRate),
+    commissionBase.times(defaultCommissionRate),
   );
 
   return {

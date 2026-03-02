@@ -137,7 +137,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
    Provider verifies the actual items.
 
 2. **Invoice creation**
-   Provider issues an invoice based on the inspected items.
+   Provider issues an invoice based on the inspected items. The provider may optionally apply a **discount** to the invoice. When a discount is applied, the total payable by the seeker is reduced (`total = subtotal - discount`), but the platform commission is still calculated on the **pre-discount subtotal** (see Settlement Math in Section D).
 
 3. **Invoice review**
    Seeker can view the invoice details including:
@@ -194,8 +194,11 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
    - **Seeker full distributable award** (`refund_full`): Seeker receives full distributable amount (provider gets `0`)
    - **Reject** (`reject`): Complaint is invalid; provider receives full distributable amount through the same payout rail as `release_payout`. Case is hidden from ongoing lists.
 
-   Settlement math is commission-aware: commission is retained first, and the slider applies only on the distributable amount (`invoice_total - platform_commission`).
-   With default commission at 5%, successful/no-complaint or rejected-complaint outcomes pay provider 95% of invoice value (plus delivery charge handling per order math).
+   Settlement math is commission-aware: platform commission is always calculated as **5% of the pre-discount subtotal** (the sum of item prices before any provider-applied discount), not on the discounted total. The distributable amount is `total_price - platform_commission`, where `total_price = subtotal - discount + delivery_charge`. The slider applies only on the distributable amount.
+
+   **Example**: subtotal = ₹1000, discount = ₹200, delivery = ₹50 → total_price = ₹850, platform_commission = ₹50 (5% of ₹1000), distributable = ₹800.
+
+   With this rule, the platform retains the same commission regardless of discounts applied by the provider. Successful/no-complaint or rejected-complaint outcomes pay the provider the full distributable amount.
 
 ## 5. System Requirements
 

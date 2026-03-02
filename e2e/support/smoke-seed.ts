@@ -187,7 +187,9 @@ async function upsertProvider(
     { upsert: true },
   );
 
-  const provider = await providers.findOne({ email: smokeUsers.provider.email });
+  const provider = await providers.findOne({
+    email: smokeUsers.provider.email,
+  });
   if (!provider?._id) throw new Error("Failed to seed provider");
   return provider._id as ObjectId;
 }
@@ -220,7 +222,9 @@ async function upsertAdmin(
   return admin._id as ObjectId;
 }
 
-export async function seedSmokeData(options?: SmokeSeedOptions): Promise<SeedResult> {
+export async function seedSmokeData(
+  options?: SmokeSeedOptions,
+): Promise<SeedResult> {
   const { mongoUri, dbName } = getSmokeDbConfig();
 
   const client = new MongoClient(mongoUri);
@@ -270,9 +274,12 @@ export async function seedSmokeData(options?: SmokeSeedOptions): Promise<SeedRes
           provider_id: providerId,
           process_status: "delivered",
           payment_status: "held",
+          subtotal: 450,
+          discount: 0,
           total_price: 499,
           delivery_charge: 49,
-          provider_payout_amount: 420,
+          platform_commission: 22.5,
+          provider_payout_amount: 476.5,
           razorpay_order_id: `order_smoke_${scenarioToken}`,
           razorpay_payment_id: `pay_smoke_${scenarioToken}`,
           otp_confirmed_at: new Date(now.getTime() - 2 * 60 * 60 * 1000),
@@ -381,10 +388,13 @@ export async function seedSettlementJourneyData(
       options?.complaintTitle?.trim() ||
       `Settlement Chain E2E Complaint ${complaintId.toString().slice(-6)}`;
 
-    const totalPrice = 500;
-    const platformCommission = 25;
-    const distributableAmount = totalPrice - platformCommission;
-    const halfSettlement = distributableAmount / 2;
+    const subtotal = 500;
+    const discount = 50;
+    const deliveryCharge = 50;
+    const totalPrice = subtotal - discount + deliveryCharge; // 500
+    const platformCommission = subtotal * 0.05; // 25 (5% of pre-discount subtotal)
+    const distributableAmount = totalPrice - platformCommission; // 475
+    const halfSettlement = distributableAmount / 2; // 237.5
 
     await db.collection("bookings").updateOne(
       { _id: bookingId },
@@ -414,8 +424,10 @@ export async function seedSettlementJourneyData(
           provider_id: providerId,
           process_status: "delivered",
           payment_status: "held",
+          subtotal,
+          discount,
           total_price: totalPrice,
-          delivery_charge: 50,
+          delivery_charge: deliveryCharge,
           platform_commission: platformCommission,
           provider_payout_amount: distributableAmount,
           razorpay_order_id: `order_settlement_e2e_${scenarioToken}`,

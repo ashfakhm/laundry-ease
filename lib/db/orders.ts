@@ -2,7 +2,10 @@ import { Order, OrderItem } from "@/types/orders";
 import { Seeker } from "@/types/users";
 import { getDb } from "../mongodb";
 import { ObjectId } from "mongodb";
-import { ESCROW_RELEASE_WINDOW_MS, SEEKER_CANCELLATION_BLOCK_MS } from "@/lib/constants";
+import {
+  ESCROW_RELEASE_WINDOW_MS,
+  SEEKER_CANCELLATION_BLOCK_MS,
+} from "@/lib/constants";
 
 /**
  * Create a new order
@@ -12,6 +15,8 @@ export async function createOrder(data: {
   seeker_id: ObjectId;
   provider_id: ObjectId;
   items: OrderItem[];
+  subtotal?: number;
+  discount?: number;
   total_price: number;
   delivery_distance_km?: number;
   delivery_charge: number;
@@ -27,6 +32,8 @@ export async function createOrder(data: {
     seeker_id: data.seeker_id,
     provider_id: data.provider_id,
     items: data.items,
+    subtotal: data.subtotal,
+    discount: data.discount,
     total_price: data.total_price,
     delivery_distance_km: data.delivery_distance_km,
     delivery_charge: data.delivery_charge,

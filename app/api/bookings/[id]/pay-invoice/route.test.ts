@@ -193,7 +193,9 @@ describe("PUT /api/bookings/[id]/pay-invoice", () => {
     const data = await res.json();
 
     expect(res.status).toBe(409);
-    expect(data.message).toContain("Booking state changed while finalizing order");
+    expect(data.message).toContain(
+      "Booking state changed while finalizing order",
+    );
     expect(dbMock.ordersDeleteOne).not.toHaveBeenCalled();
     expect(clientMock.startSession).toHaveBeenCalledTimes(1);
     expect(clientMock.withTransaction).toHaveBeenCalledTimes(1);
@@ -244,5 +246,120 @@ describe("PUT /api/bookings/[id]/pay-invoice", () => {
     );
 
     expect(res.status).toBe(400);
+  });
+
+  it("stores subtotal, discount and computes commission from pre-discount subtotal", async () => {
+    const dbMock = makeDbMock();
+    const clientMock = makeClientMock();
+    const insertedOrderId = new ObjectId();
+
+    // First findOne (duplicate check) → null, second findOne (booking link race) → null
+    dbMock.ordersFindOne.mockResolvedValue(null);
+    dbMock.providersFindOne.mockResolvedValue(null); // no provider → delivery_charge = 0
+    dbMock.ordersInsertOne.mockResolvedValue({ insertedId: insertedOrderId });
+    dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockGetDb.mockResolvedValue({ db: dbMock.db, client: clientMock.client });
+
+    // Invoice with subtotal=1000, discount=200 → items total before discount
+    mockGetBookingById.mockResolvedValue({
+      _id: bookingId,
+      seeker_id: seekerId,
+      provider_id: providerId,
+      status: "invoice_created",
+      razorpay_order_id: "rzp_order_456",
+      invoice: {
+        items: [
+          { itemType: "Shirt", quantity: 5, unitPrice: 100 },
+          { itemType: "Pants", quantity: 5, unitPrice: 100 },
+        ],
+        subtotal: 1000,
+        discount: 200,
+        total: 800,
+      },
+      createdAt: new Date(),
+    });
+
+    const res = await PUT(
+      makeRequest({
+        razorpay_order_id: "rzp_order_456",
+        razorpay_payment_id: "pay_456",
+        razorpay_signature: "sig_456",
+      }),
+      { params: Promise.resolve({ id: bookingId.toString() }) },
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.orderId).toBeDefined();
+
+    // Verify the order data passed to insertOne
+    expect(dbMock.ordersInsertOne).toHaveBeenCalledTimes(1);
+    const orderData = dbMock.ordersInsertOne.mock.calls[0][0];
+
+    // subtotal and discount persisted on the order
+    expect(orderData.subtotal).toBe(1000);
+    expect(orderData.discount).toBe(200);
+
+    // total_price = max(0, 1000 - 200) + 0 (no delivery) = 800
+    expect(orderData.total_price).toBe(800);
+
+    // Commission is 5% of pre-discount subtotal (1000), NOT 5% of total (800)
+    // platform_commission = round2(1000 * 0.05) = 50
+    expect(orderData.platform_commission).toBe(50);
+
+    // provider_payout = round2(800 - 50) = 750
+    expect(orderData.provider_payout_amount).toBe(750);
+  });
+
+  it("falls back to items sum when invoice lacks explicit subtotal", async () => {
+    const dbMock = makeDbMock();
+    const clientMock = makeClientMock();
+    const insertedOrderId = new ObjectId();
+
+    dbMock.ordersFindOne.mockResolvedValue(null);
+    dbMock.providersFindOne.mockResolvedValue(null);
+    dbMock.ordersInsertOne.mockResolvedValue({ insertedId: insertedOrderId });
+    dbMock.bookingsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockGetDb.mockResolvedValue({ db: dbMock.db, client: clientMock.client });
+
+    // Invoice without explicit subtotal/discount fields
+    mockGetBookingById.mockResolvedValue({
+      _id: bookingId,
+      seeker_id: seekerId,
+      provider_id: providerId,
+      status: "invoice_created",
+      razorpay_order_id: "rzp_order_789",
+      invoice: {
+        items: [{ itemType: "Shirt", quantity: 2, unitPrice: 50 }],
+      },
+      createdAt: new Date(),
+    });
+
+    const res = await PUT(
+      makeRequest({
+        razorpay_order_id: "rzp_order_789",
+        razorpay_payment_id: "pay_789",
+        razorpay_signature: "sig_789",
+      }),
+      { params: Promise.resolve({ id: bookingId.toString() }) },
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+
+    const orderData = dbMock.ordersInsertOne.mock.calls[0][0];
+
+    // subtotal falls back to items sum: 2 * 50 = 100
+    expect(orderData.subtotal).toBe(100);
+    // discount defaults to 0
+    expect(orderData.discount).toBe(0);
+    // total_price = 100 - 0 + 0 = 100
+    expect(orderData.total_price).toBe(100);
+    // commission = 5% of 100 = 5
+    expect(orderData.platform_commission).toBe(5);
+    // provider payout = 100 - 5 = 95
+    expect(orderData.provider_payout_amount).toBe(95);
   });
 });

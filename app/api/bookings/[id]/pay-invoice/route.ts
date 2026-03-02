@@ -15,6 +15,7 @@ import {
 } from "@/lib/constants";
 import { finalizeInvoiceOrder } from "@/lib/services/invoice-finalization";
 import { computeDeliveryCharge } from "@/lib/utils/delivery-charge";
+import { round2 } from "@/lib/utils/monetary";
 
 type InvoiceLineItem = {
   itemType: string;
@@ -78,7 +79,13 @@ export async function POST(
     const { db } = await getDb();
     const existingOrder = await db.collection("orders").findOne({ booking_id });
     if (existingOrder) {
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order already exists for this booking"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Order already exists for this booking",
+        ),
+      );
     }
 
     const provider = await db
@@ -97,7 +104,10 @@ export async function POST(
         sum + item.quantity * item.unitPrice,
       0,
     );
-    const totalAmount = itemsTotal + delivery_charge;
+    const invoiceSubtotal: number = booking.invoice.subtotal ?? itemsTotal;
+    const invoiceDiscount: number = booking.invoice.discount ?? 0;
+    const totalAmount =
+      Math.max(0, invoiceSubtotal - invoiceDiscount) + delivery_charge;
     const amountInPaise = Math.round(totalAmount * 100);
 
     if (amountInPaise <= 0) {
@@ -201,7 +211,13 @@ export async function PUT(
       if (existingOrder.razorpay_payment_id === razorpay_payment_id) {
         return successResponse({ orderId: existingOrder._id });
       }
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order already exists for this booking"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Order already exists for this booking",
+        ),
+      );
     }
 
     const provider = await db
@@ -225,11 +241,14 @@ export async function PUT(
       }),
     );
 
-    const total_price =
-      processedItems.reduce((acc, item) => acc + item.line_total, 0) +
-      delivery_charge;
-    const platform_commission = total_price * PLATFORM_COMMISSION_RATE;
-    const provider_payout_amount = total_price - platform_commission;
+    const subtotal: number =
+      booking.invoice.subtotal ??
+      processedItems.reduce((acc, item) => acc + item.line_total, 0);
+    const discount: number = booking.invoice.discount ?? 0;
+    const total_price = Math.max(0, subtotal - discount) + delivery_charge;
+    // Platform commission is always 5% of the pre-discount subtotal
+    const platform_commission = round2(subtotal * PLATFORM_COMMISSION_RATE);
+    const provider_payout_amount = round2(total_price - platform_commission);
 
     const now = new Date();
     const orderData = {
@@ -237,6 +256,8 @@ export async function PUT(
       seeker_id: new ObjectId(booking.seeker_id.toString()),
       provider_id: new ObjectId(booking.provider_id.toString()),
       items: processedItems,
+      subtotal,
+      discount,
       total_price,
       delivery_distance_km,
       delivery_charge,

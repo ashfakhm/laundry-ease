@@ -96,14 +96,17 @@ function makeDbMock() {
 }
 
 function makeRequest(body: unknown) {
-  return new Request("https://laundryease.test/api/admin/complaints/123/resolve", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      origin: "https://laundryease.test",
+  return new Request(
+    "https://laundryease.test/api/admin/complaints/123/resolve",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        origin: "https://laundryease.test",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+  );
 }
 
 describe("POST /api/admin/complaints/[id]/resolve", () => {
@@ -300,8 +303,139 @@ describe("POST /api/admin/complaints/[id]/resolve", () => {
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error.message).toContain("seeker_refund_amount must be within 0 and 95.00.");
+    expect(data.error.message).toContain(
+      "seeker_refund_amount must be within 0 and 95.00.",
+    );
     expect(mockInitiateOrderPayout).not.toHaveBeenCalled();
     expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
+  });
+
+  it("uses subtotal-based commission for discounted orders when stored values reflect pre-discount subtotal", async () => {
+    // Scenario: subtotal=1000, discount=200, delivery=50 → total_price=850
+    // platform_commission = 1000 * 0.05 = 50 (5% of pre-discount subtotal)
+    // provider_payout_amount = 850 - 50 = 800 (distributable)
+    const complaintId = new ObjectId();
+    const orderId = new ObjectId();
+    const dbMock = makeDbMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    dbMock.complaintsFindOne.mockResolvedValue({
+      _id: complaintId,
+      status: "accepted",
+      order_id: orderId,
+    });
+    dbMock.complaintsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.complaintMessagesInsertOne.mockResolvedValue({ acknowledged: true });
+
+    mockGetOrderById.mockResolvedValue({
+      _id: orderId,
+      subtotal: 1000,
+      discount: 200,
+      delivery_charge: 50,
+      total_price: 850,
+      platform_commission: 50,
+      provider_payout_amount: 800,
+      razorpay_payment_id: "pay_discount_case",
+    });
+    mockInitiateOrderPayout.mockResolvedValue({
+      status: "payout_initiated",
+      message: "ok",
+    });
+    mockRefundRazorpayPayment.mockResolvedValue({ id: "rfnd_discount_case" });
+
+    // Full refund to seeker: seeker gets entire distributable (800)
+    const res = await POST(makeRequest({ outcome: "refund_full" }), {
+      params: Promise.resolve({ id: complaintId.toString() }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.status).toBe("resolved");
+    expect(data.data.outcome).toBe("refund_full");
+    expect(data.data.settlement).toEqual({
+      seeker_refund_amount: 800,
+      provider_payout_amount: 0,
+      platform_commission: 50,
+      distributable_amount: 800,
+    });
+
+    // Platform keeps 50 (5% of 1000 subtotal), not 42.5 (5% of 850 total)
+    expect(mockRefundRazorpayPayment).toHaveBeenCalledWith(
+      "pay_discount_case",
+      80000, // 800 * 100 paise
+      expect.objectContaining({
+        source: "complaint_resolution",
+        complaint_id: complaintId.toString(),
+        outcome: "refund_full",
+      }),
+    );
+    // No payout to provider since full refund to seeker
+    expect(mockInitiateOrderPayout).not.toHaveBeenCalled();
+  });
+
+  it("handles partial refund on discounted order with subtotal-based commission", async () => {
+    // Same discounted order: distributable = 800, partial refund of 300
+    const complaintId = new ObjectId();
+    const orderId = new ObjectId();
+    const dbMock = makeDbMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    dbMock.complaintsFindOne.mockResolvedValue({
+      _id: complaintId,
+      status: "accepted",
+      order_id: orderId,
+    });
+    dbMock.complaintsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    dbMock.complaintMessagesInsertOne.mockResolvedValue({ acknowledged: true });
+
+    mockGetOrderById.mockResolvedValue({
+      _id: orderId,
+      subtotal: 1000,
+      discount: 200,
+      delivery_charge: 50,
+      total_price: 850,
+      platform_commission: 50,
+      provider_payout_amount: 800,
+      razorpay_payment_id: "pay_discount_partial",
+    });
+    mockInitiateOrderPayout.mockResolvedValue({
+      status: "payout_initiated",
+      message: "ok",
+    });
+    mockRefundRazorpayPayment.mockResolvedValue({
+      id: "rfnd_discount_partial",
+    });
+
+    const res = await POST(
+      makeRequest({ outcome: "refund_partial", seeker_refund_amount: 300 }),
+      {
+        params: Promise.resolve({ id: complaintId.toString() }),
+      },
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.data.settlement).toEqual({
+      seeker_refund_amount: 300,
+      provider_payout_amount: 500,
+      platform_commission: 50,
+      distributable_amount: 800,
+    });
+
+    expect(mockInitiateOrderPayout).toHaveBeenCalledWith(orderId, {
+      ignoreEscrowDate: true,
+      source: "complaint_refund_partial",
+      overrideProviderPayoutAmount: 500,
+      overridePlatformCommission: 50,
+    });
+    expect(mockRefundRazorpayPayment).toHaveBeenCalledWith(
+      "pay_discount_partial",
+      30000,
+      expect.objectContaining({
+        source: "complaint_resolution",
+        outcome: "refund_partial",
+      }),
+    );
   });
 });

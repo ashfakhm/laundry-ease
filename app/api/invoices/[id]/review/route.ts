@@ -1,5 +1,8 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
-import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
+import {
+  PLATFORM_COMMISSION_RATE,
+  RATE_LIMIT_STRICT_WINDOW_MS,
+} from "@/lib/constants";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
@@ -8,6 +11,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireSeeker } from "@/lib/api/auth";
 import { finalizeInvoiceOrder } from "@/lib/services/invoice-finalization";
+import { round2 } from "@/lib/utils/monetary";
 
 export const runtime = "nodejs";
 
@@ -157,6 +161,10 @@ export async function POST(
     const discount = invoice.discount || 0;
     const total = invoice.total || Math.max(0, subtotal - discount);
 
+    // Platform commission is always 5% of the pre-discount subtotal
+    const platform_commission = round2(subtotal * PLATFORM_COMMISSION_RATE);
+    const provider_payout_amount = round2(total - platform_commission);
+
     // Prepare Order Object
     const newOrder = {
       booking_id: bookingId,
@@ -167,6 +175,8 @@ export async function POST(
       discount,
       delivery_charge: 0,
       total_price: total,
+      platform_commission,
+      provider_payout_amount,
       payment_status: "unpaid",
       process_status: "invoiced",
       deadline: booking.deadline ? new Date(booking.deadline) : undefined,

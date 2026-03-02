@@ -15,12 +15,16 @@ export interface InvoiceItem {
   itemType: string;
   quantity: number;
   unitPrice: number;
+  photoUrl?: string;
 }
 
 export interface InvoiceData {
   items: InvoiceItem[];
   notes?: string;
   photos?: string[];
+  subtotal?: number;
+  discount?: number;
+  total?: number;
   createdAt: Date | string;
 }
 
