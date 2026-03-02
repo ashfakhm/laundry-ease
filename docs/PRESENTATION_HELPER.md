@@ -1697,48 +1697,99 @@ Used in dashboard views, complaint lists, and order status polling.
 
 Use these points if you are asked about differences between the PRD and what is built now:
 
-- **Historical data cleanup**: New unique indexes enforce integrity, but old duplicate data can still block index creation until cleaned.
-- **Webhook payload retention**: Archive policy for old `webhook_events` payloads is still a backlog item.
-- **CSP rollout**: CSP is currently in Report-Only mode; enforcement requires violation cleanup.
-- **Password-recovery abuse hardening**: Forgot-password flow needs dedicated anti-abuse strategy (captcha policy).
-- **Team calendar integration**: Alert owner routing uses static pools; real on-call scheduling requires calendar integration.
-- **PRD future scope**: Complaint window extension requests and split-settlement reconciliation tooling remain future work.
+- **Historical data cleanup**: 30+ unique indexes enforce integrity, but old duplicate data can still block index creation until cleaned. The app triggers a `system_alert` for each index failure and refuses startup in production unless `ALLOW_START_WITH_INDEX_ERRORS=1` is set.
+- **Webhook payload retention**: Archive policy for old `webhook_events` payloads is still a backlog item. The `webhook-cleanup` cron purges events older than 30 days, but no long-term archive exists.
+- **CSP rollout**: CSP is currently in Report-Only mode; enforcement requires violation cleanup. Switch to enforce mode via `CSP_ENFORCE=true`.
+- **Password-recovery abuse hardening**: Forgot-password flow has rate limiting, but needs dedicated anti-abuse strategy (captcha policy).
+- **Team calendar integration**: Alert owner routing uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`); real on-call scheduling requires external calendar integration.
+- **Reschedule abuse prevention**: No caps or cooldowns on reschedule requests — theoretically either party could loop indefinitely. Policy needed (caps, cooldowns, or admin escalation).
+- **Split-settlement reconciliation**: If one financial leg succeeds and the other fails, admin has `manual_transfer_details` but no automated reconciliation tooling.
 
-## Key Features Implemented Recently
+## Key Features Implemented (Full System — 2026-03-02)
 
-- **Canonical payment routing**: Unified around `/api/orders/:id/payment` and `/api/bookings/:id/pay` with backward-compatible aliases.
-- **Order creation guardrails**: Direct `/api/orders` creation path is disabled; order creation is tied to invoice approval/payment flow.
-- **Webhook resilience**: Razorpay webhook handling now has replay-safe idempotency, retry handling, and domain reconciliation.
-- **Payment verification coverage**: Deep route tests for canonical and legacy payment verification paths (including idempotency and signature validation).
-- **Security policy telemetry**: Report-Only CSP header pipeline with violation capture endpoint (`/api/security/csp-report`).
-- **DB index bootstrap**: Startup index initialization enforces critical uniqueness and TTL cleanup invariants.
-- **Complaint-window enforcement**: 24-hour complaint timing validated in API logic.
-- **Complaint split settlement**: Admin complaint resolution supports commission-aware partial splits (`refund_partial`) with slider-based seeker/provider allocation.
-- **Settlement branch E2E depth**: Browser tests cover split settlement, reject/provider-favor, and full seeker-refund outcomes.
-- **E2E diagnostics hardening**: Playwright runner sanitizes conflicting color env vars to remove warning noise in test output.
-- **Structured logging**: Pino logger with native secret redaction (passwords, tokens, OTPs, API keys) and pretty-printing in dev.
-- **Email outbox system**: All transactional emails (OTP, password reset, delivery OTP, magic link) queued through outbox pattern with exponential backoff retry and dead-letter tracking.
-- **Cron run tracking**: Every cron execution recorded in `cron_runs` collection with duration, status, and result for operational auditing.
-- **Rate limiting**: MongoDB-backed per-IP rate limiting on admin actions, signup, password reset, and cron endpoints with TTL auto-cleanup.
-- **Financial precision**: `decimal.js` for payout calculations, paise-based Razorpay amounts to prevent floating-point drift.
-- **SWR data fetching**: Client-side data fetching with revalidation for responsive dashboards.
-- **Operational health monitoring**: Hourly cron detects overdue held orders, payout failure spikes, and overdue complaints → `system_alerts`.
-- **Alert delivery & escalation**: 15-minute cron sends email digests and/or webhook payloads with dedup (1h spacing) and escalation routing.
-- **Alert acknowledgement & SLA**: Admins acknowledge alerts with ownership assignment; critical 15 min / high 60 min SLA enforcement.
-- **Owner routing with load-balancing**: SLA-breached alerts auto-route to appropriate oncall with persistent escalation to `tech_lead`.
-- **Alert analytics dashboard**: 7-day opened-vs-resolved trend, burn-rate tier (stable/watch/high/critical), and MTTR for recent alerts.
-- **Abuse monitoring**: Daily cron scans for excessive cancellation patterns (30-day lookback, configurable thresholds).
-- **Data integrity auditing**: 30-minute cron verifies order/payment/booking consistency.
-- **Concurrent batch payout processing**: Escrow payout cron processes eligible orders in parallel for faster settlement.
-- **Manual refund fallback**: Graceful fallback with seeker payment details shown when Razorpay auto-refund fails.
-- **Proxy trust model**: Secure IP extraction respecting Vercel/CF headers with configurable `TRUST_PROXY` flag.
+### Core Workflow
+- **Full booking lifecycle**: requested → accepted → pickup_proposed → reschedule_requested → confirmed → invoice_created → completed/cancelled/rejected
+- **Order state machine**: invoiced → processing → washing → ironing → ready → out_for_delivery → delivered — with enforced valid transitions (`lib/orders/status-machine.ts`)
+- **Canonical payment routing**: Unified around `/api/orders/:id/payment` and `/api/bookings/:id/pay` with backward-compatible legacy aliases
+- **Invoice finalization**: Atomic order creation with MongoDB transaction + compensating-write fallback for non-replica-set environments (`lib/services/invoice-finalization.ts`)
+- **Delivery OTP**: 6-digit bcrypt-hashed OTP with 10-minute TTL, sent via email outbox, verifiable by both seeker and provider
+- **Deadline compensation**: Automatic full Razorpay refund on late delivery at OTP confirmation — idempotent (checks `deadline_compensated_at`, `razorpay_refund_id`, and payment status)
+- **Booking reschedule**: Either side can request reschedule during pickup negotiation; explicit `reschedule_requested` state with metadata tracking
+
+### Financial System
+- **Escrow**: 24-hour hold after delivery; complaint blocks release; transactional release with audit log
+- **Payout orchestration**: Concurrent batch processing with distributed payout locks, stale-lock recovery, and `decimal.js` precision
+- **Platform commission**: 5% deducted from subtotal (or total if no subtotal) using `decimal.js` — commission preserved even on complaint resolution
+- **Delivery charges**: Distance-based (Haversine), free within provider's free radius, per-km rate applied beyond
+- **Booking fee**: ₹50 upfront, refunded on provider cancel/auto-reject/no-show, forfeited on same-day seeker cancel or invoice rejection, applied on arrival
+- **Distributed refund locks**: `lib/services/refund-lock.ts` prevents concurrent double-refunds with stale-lock timeout (5 min) and diagnostic recovery
+- **Financial precision**: `decimal.js` for payout calculations, paise-based Razorpay amounts, `round2()`, `toPaise()`, `formatInr()` helpers
+
+### Complaint & Dispute Resolution
+- **Complaint split settlement**: Admin can split distributable amount between seeker refund and provider payout (`refund_partial`) with commission preserved
+- **4 resolution outcomes**: `refund_full`, `refund_partial`, `release_payout`, `reject` — each with appropriate financial actions
+- **Manual fallback**: When Razorpay auto-refund or auto-payout fails, admin UI shows counterparty bank/payment details for manual transfer
+- **Complaint revert**: If settlement fails mid-way, `buildComplaintRevertUpdate()` restores complaint to previous state
+- **Complaint window extension**: Admin can extend the 24-hour filing window via `POST /api/admin/orders/[id]/extend-complaint`
+- **3-way chat**: Seeker, provider (after admin grants access), and admin exchange TEXT/IMAGE/SYSTEM messages; auto-archived after resolution
+
+### Security & Hardening
+- **CSP pipeline**: Content-Security-Policy in Report-Only mode with violation capture endpoint; enforce via `CSP_ENFORCE=true`
+- **Security headers**: HSTS (production), X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy
+- **Rate limiting**: MongoDB-backed per-IP with 3 tiers (default 1 min, strict 5 min, auth 15 min) and TTL auto-cleanup
+- **Same-origin enforcement**: `requireSameOrigin()` validates Origin/Referer on unsafe HTTP methods
+- **Password policy**: 8+ chars, uppercase, number, special char — enforced on signup, profile update, reset
+- **Webhook security**: Razorpay HMAC-SHA256 signature verification + idempotent event processing via unique `event_id` index
+- **DB index bootstrap**: 30+ indexes (integrity, query, TTL) created on startup; critical failures block production startup
+- **Proxy trust model**: Secure IP extraction respecting Vercel/CF/standard proxy headers with `TRUST_PROXY` flag
+
+### Operational Monitoring
+- **10 cron jobs**: auto-reject-bookings (5m), no-show (5m), process-payouts (15m), notify-system-alerts (15m), process-email-outbox (2m), audit-integrity (30m), reconciliation (30m), monitor-operational-health (1h), monitor-abuse (daily 2AM), webhook-cleanup (daily 1AM)
+- **Cron run tracking**: Every cron execution recorded in `cron_runs` with duration, status, result (TTL: 7 days)
+- **Health monitoring**: Hourly cron evaluates overdue held orders (critical, ≥3), payout failures (high, ≥3), overdue complaints (high, ≥2)
+- **Alert delivery & escalation**: Email/webhook/PagerDuty fan-out with 1h dedup, 30min/2h escalation triggers, 6h escalation repeat
+- **Alert SLA**: Critical 15 min / High 60 min acknowledgement windows; dashboard surfaces SLA-breached counts
+- **Owner routing**: SLA-breached critical → `backend_oncall`; high → load-balanced; persistent breaches → `tech_lead`
+- **Alert analytics**: 7-day opened-vs-resolved trend, burn-rate tier (stable/watch/high/critical), MTTR
+- **Abuse monitoring**: Daily scan for excessive cancellations (30-day lookback, threshold: 3) → flags seekers
+- **Data integrity auditing**: 30-minute cron verifies order/payment/booking consistency → system alerts on mismatch
+
+### Email & Communication
+- **Email outbox**: 4 email types (delivery_otp, password_reset, magic_link, otp_email) queued through claim-lock-dispatch pattern with exponential backoff (base 30s, max 30min), max 5 attempts, dead-letter tracking
+- **Structured logging**: Pino with native secret redaction (password, token, otp, apiKey, secret, etc.), pretty-printing in dev, JSON in production
+- **APM**: Datadog dd-trace (service: `laundryease-web`) + DogStatsD metrics via hot-shots (prefix: `laundryease.`)
+
+### Testing & CI
+- **104 test files, 517 unit tests** passing (Vitest + mongodb-memory-server)
+- **5 Playwright E2E specs**: smoke-role-journeys, complaint-chat-journey, settlement-chain-journey, booking-lifecycle-journey, booking-negative-journeys
+- **3 GitHub CI workflows**: Quality Gates (typecheck → lint → test → build → E2E), Real Gateway Smoke (live Razorpay), Governance Audit (branch protection)
+- **Local release parity**: `npm run verify:gates`
+- **Documentation sync guardrails**: `npm run check:docs-sync`
+- **React Compiler**: Enabled via `reactCompiler: true` for automatic frontend optimizations
+
+### Provider Search Engine (`lib/services/provider-search.ts`)
+- **Primary path**: `$geoNear` aggregation with 2dsphere index on `locationGeoJSON`
+- **Fallback**: Bounding-box filter on `coordinates.lat`/`coordinates.lng` when geo index unavailable
+- **Radius enforcement**: Provider's `radius_km` checked against distance — only shows providers who cover the seeker's location
+- **Sensitive field projection**: Excludes `passwordHash`, `emailVerified`, `phoneVerified`, `documents`, `bankDetails`, `razorpay_*` from results
+- **Filters**: Name (regex), service (regex), seeker search radius cap
+
+### SEO & PWA Foundations
+- `app/sitemap.ts` — Dynamic sitemap.xml generation
+- `app/robots.ts` — Robots.txt with admin/API/internal route disallow rules
+- `components/seo/json-ld.tsx` — Structured data for search engines
+- `public/manifest.json` — PWA manifest
+- `public/og-image.png` — Open Graph image
 
 ## Quick Presentation Tips
 
-1. **Start with the problem**: "Local laundry services have trust and payment issues"
-2. **Show how it works**: Live demo of booking → payment → delivery flow
-3. **Show what's special**: Escrow system, 3-way chat for problems, location matching
-4. **Talk with confidence about tech choices**: Use the comparison tables above
-5. **Mention production quality**: Audit logs, no double payments, error handling
+1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
+2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
+3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
+4. **Show what's special**: Escrow system, 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation
+5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation"
+6. **Mention production quality**: "104 test files, 517 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing"
+7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
+8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 104 test files
 
 **Good luck with your presentation! 🚀**
