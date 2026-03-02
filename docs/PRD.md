@@ -574,7 +574,7 @@ See `README.md` for detailed setup instructions.
 - **Team calendar / on-call integration**
   Alert owner routing currently uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`). Real dynamic on-call scheduling requires external calendar integration.
 
-## 14. Implementation Alignment Matrix (2026-03-01)
+## 14. Implementation Alignment Matrix (2026-03-02)
 
 | PRD Requirement                  | Expected Behavior                                                                                                                | Current System Status                                                                                                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -626,6 +626,13 @@ See `README.md` for detailed setup instructions.
 | Data integrity auditing          | System must periodically verify order/payment/booking consistency                                                                | Implemented (`/api/cron/audit-integrity` — every 30 min)                                                                                                                 |
 | Cron observability               | Every cron run must be tracked                                                                                                   | Implemented (`cron_runs` collection with `lib/cron-tracking.ts`)                                                                                                         |
 
+| Invoice finalization safety     | Invoice payment must atomically create order and link booking                                                                    | Implemented (`lib/services/invoice-finalization.ts` with MongoDB transaction + compensating-write fallback for non-replica-set envs)                                      |
+| Distributed refund locking      | Concurrent cancel/reject must not double-refund booking fees                                                                     | Implemented (`lib/services/refund-lock.ts` with stale-lock timeout and diagnostic recovery)                                                                              |
+| React Compiler                  | Frontend should leverage compiler optimizations for performance                                                                  | Implemented (`reactCompiler: true` in `next.config.ts`)                                                                                                                  |
+| Provider bank sync              | Bank detail changes must sync to Razorpay contact/fund account                                                                  | Implemented (`lib/services/provider-bank-sync.ts` — creates contact + fund account, masks stored account number)                                                         |
+| Delivery charge calculation     | Charges must be distance-based with free radius and per-km rate                                                                  | Implemented (`lib/utils/delivery-charge.ts` — Haversine distance, configurable free radius and per-km rate)                                                              |
+| SEO foundations                 | Platform should have sitemap, robots.txt, and structured data                                                                    | Implemented (`app/sitemap.ts`, `app/robots.ts`, `components/seo/json-ld.tsx`)                                                                                            |
+
 ### Remaining Hardening Opportunities
 
 1. Add alerting/monitoring dashboards for index creation failures caused by pre-existing duplicate historical data.
@@ -635,3 +642,4 @@ See `README.md` for detailed setup instructions.
 5. Promote CSP from report-only to enforced mode after violation cleanup.
 6. Integrate real team calendar/on-call system for dynamic owner pool routing.
 7. Add split-settlement reconciliation tooling for rare one-leg failure cases.
+8. Add reschedule abuse prevention (caps, cooldowns, or admin escalation).
