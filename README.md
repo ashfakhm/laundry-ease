@@ -48,14 +48,21 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
 
 - **Delivery authentication**
   Providers stop fearing "delivered but unpaid." Seekers stop fearing "paid but not delivered." OTP ties the final handoff to a recorded confirmation.
+
 - **Arrival-gated booking-fee release**
   Booking-fee payout starts only when the provider marks arrival (with geofence checks when seeker coordinates are available).
+
 - **Complaint & dispute resolution**
   Seekers can raise complaints within 24 hours of delivery. Escrow freezes immediately. Admin mediates through a 3-way chat system with response deadlines and commission-aware split settlement.
+
 - **Reschedule without cancellation (booking-level)**
   Either side can request a pickup reschedule while pickup is still being negotiated. Reschedule creates an explicit booking state (not a cancellation) and routes the booking back into the propose/confirm flow.
+
 - **Operational health monitoring & alerting**
   Platform automatically detects overdue payouts, failure spikes, and complaint backlogs. Alerts are delivered via email/webhook with SLA-driven escalation and owner routing.
+
+- **Deadline guarantee with auto-compensation**
+  Bookings carry a deadline. Late delivery triggers automatic full refund at OTP confirmation — the seeker is compensated without needing to file a complaint.
 
 ## 6. Who This Is For
 
@@ -83,7 +90,7 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 | Layer              | Technology                   | Purpose                                       |
 | ------------------ | ---------------------------- | --------------------------------------------- |
 | **Framework**      | Next.js 16.1.6 (App Router)  | Full-stack React framework with SSR/SSG       |
-| **Frontend**       | React 19.2.4 + TypeScript 5  | Type-safe modern UI                           |
+| **Frontend**       | React 19.2.4 + TypeScript 5  | Type-safe modern UI with React Compiler       |
 | **Styling**        | Tailwind CSS 4 + shadcn/ui   | Utility-first CSS + accessible components     |
 | **Animations**     | Framer Motion                | Smooth page and element animations            |
 | **Database**       | MongoDB 6.21 (native driver) | Flexible documents + geospatial queries       |
@@ -108,323 +115,353 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 ### Prerequisites
 
 - Node.js 18+ and npm
-- MongoDB (local instance or MongoDB Atlas)
-- Google Cloud Project with OAuth credentials
-- Razorpay account with API keys and RazorpayX account
+- MongoDB instance (local or Atlas — replica set recommended for transactions)
+- Razorpay account (test mode works for development)
+- Google Cloud project with Maps JavaScript API, Places API, Geocoding API enabled
 - Twilio account for SMS OTP
-- Google Cloud API key (Maps, Places, Geocoding)
-- (Optional) Cloudinary account for image uploads
+- Google OAuth credentials (for social login)
 
 ### Installation
 
-1. **Clone the repository**
+```bash
+git clone https://github.com/your-org/laundry-ease.git
+cd laundry-ease
+npm install
+```
 
-   ```bash
-   git clone <repository-url>
-   cd laundry-ease
-   ```
+Create a `.env.local` file with your configuration (see Environment Variables section below).
 
-2. **Install dependencies**
+Start the development server:
 
-   ```bash
-   npm install
-   ```
+```bash
+npm run dev
+```
 
-3. **Configure environment variables**
+### Scripts
 
-   Copy the example environment file:
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   Edit `.env.local` and fill in all required variables. See the [Environment Variables](#environment-variables) section below for details.
-
-4. **Set up MongoDB**
-   - For local MongoDB: Ensure MongoDB is running on `localhost:27017`
-   - For MongoDB Atlas: Update `MONGODB_URI` with your Atlas connection string
-
-   Core indexes are initialized automatically on first DB access through `lib/mongodb.ts` and `lib/db-indexes.ts`.
-   This includes integrity, query, and TTL indexes used by payments, complaints, OTP, and reset-token flows.
-   Optional geospatial migration helpers remain in `lib/setup-geospatial-index.ts` for one-off operational scripts.
-
-5. **Generate secure secrets**
-
-   Generate strong random secrets for `CRON_SECRET` and `NEXTAUTH_SECRET`:
-
-   ```bash
-   openssl rand -base64 32
-   ```
-
-   Copy the output and use it for both secrets (or generate separate ones).
-
-6. **Start the development server**
-
-   ```bash
-   npm run dev
-   ```
-
-7. **Access the application**
-
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
+| Command                      | Purpose                                               |
+| ---------------------------- | ----------------------------------------------------- |
+| `npm run dev`                | Start development server                              |
+| `npm run build`              | Production build                                      |
+| `npm run start`              | Start production server                               |
+| `npm run lint`               | ESLint checks                                         |
+| `npm run typecheck`          | TypeScript type checking                              |
+| `npm run typecheck:strict`   | Strict mode (unused locals/params)                    |
+| `npm run test`               | Run unit tests (Vitest)                               |
+| `npm run test:watch`         | Run unit tests in watch mode                          |
+| `npm run test:e2e`           | Run E2E tests (Playwright)                            |
+| `npm run test:e2e:headed`    | Run E2E with browser visible                          |
+| `npm run test:e2e:ui`        | Playwright UI mode                                    |
+| `npm run verify:gates`       | Local release gate runner (typecheck+lint+test+build) |
+| `npm run check:docs-sync`    | Documentation sync checker                            |
 
 ### Environment Variables
 
-All environment variables are validated on startup via Zod schema in `lib/env.ts`. See `.env.example` for a complete template.
+**Required:**
 
-**Required Variables:**
+| Variable                          | Description                                          |
+| --------------------------------- | ---------------------------------------------------- |
+| `GOOGLE_ID`                       | Google OAuth client ID                               |
+| `GOOGLE_SECRET`                   | Google OAuth client secret                           |
+| `MONGODB_URI`                     | MongoDB connection string                            |
+| `MONGODB_DB`                      | Database name (default: `laundryease`)               |
+| `EMAIL_USER`                      | Email address for sending OTP emails                 |
+| `EMAIL_PASS`                      | App-specific password for email service              |
+| `TWILIO_ACCOUNT_SID`             | Twilio account SID                                   |
+| `TWILIO_AUTH_TOKEN`              | Twilio authentication token                          |
+| `TWILIO_PHONE_NUMBER`           | Twilio phone number (E.164 format)                   |
+| `RAZORPAY_KEY_ID`               | Razorpay API key ID                                  |
+| `RAZORPAY_KEY_SECRET`           | Razorpay API key secret                              |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID`   | Same as RAZORPAY_KEY_ID (exposed to client)          |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`| Google Maps API key                                  |
+| `CRON_SECRET`                    | Secret for securing cron endpoints                   |
+| `NEXTAUTH_SECRET`               | Secret for NextAuth JWT signing                      |
 
-| Variable                          | Description                    | Example                                  |
-| --------------------------------- | ------------------------------ | ---------------------------------------- |
-| `GOOGLE_ID`                       | Google OAuth client ID         | From Google Cloud Console                |
-| `GOOGLE_SECRET`                   | Google OAuth client secret     | From Google Cloud Console                |
-| `MONGODB_URI`                     | MongoDB connection string      | `mongodb://localhost:27017` or Atlas URI |
-| `MONGODB_DB`                      | Database name                  | `laundryease`                            |
-| `EMAIL_USER`                      | Email for sending OTP          | `your-email@gmail.com`                   |
-| `EMAIL_PASS`                      | Email app password             | Gmail App Password                       |
-| `TWILIO_ACCOUNT_SID`              | Twilio account SID             | From Twilio Console                      |
-| `TWILIO_AUTH_TOKEN`               | Twilio auth token              | From Twilio Console                      |
-| `TWILIO_PHONE_NUMBER`             | Twilio phone number            | `+919876543210`                          |
-| `RAZORPAY_KEY_ID`                 | Razorpay API key ID            | From Razorpay Dashboard                  |
-| `RAZORPAY_KEY_SECRET`             | Razorpay API key secret        | From Razorpay Dashboard                  |
-| `NEXT_PUBLIC_RAZORPAY_KEY_ID`     | Same as RAZORPAY_KEY_ID        | Same as above                            |
-| `RAZORPAYX_ACCOUNT_NUMBER`        | RazorpayX account number       | `2323230000000000`                       |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps API key            | From Google Cloud Console                |
-| `CRON_SECRET`                     | Secret for cron authentication | Generate with `openssl rand -base64 32`  |
-| `NEXTAUTH_SECRET`                 | Secret for JWT signing         | Generate with `openssl rand -base64 32`  |
+**Optional:**
 
-**Optional Variables:**
-
-| Variable                   | Description                                          |
-| -------------------------- | ---------------------------------------------------- |
-| `NEXTAUTH_URL`             | Application base URL (defaults to localhost:3000)    |
-| `NEXT_PUBLIC_BASE_URL`     | Public URL for email links                           |
-| `NEXT_PUBLIC_APP_URL`      | Alternative app URL                                  |
-| `CSP_ENFORCE`              | Set `true` to switch CSP from report-only to enforce |
-| `TRUST_PROXY`              | Set `true` to trust `x-forwarded-for` headers        |
-| `DEBUG_LOGGING`            | Set `true` for debug-level Pino logging              |
-| `ADMIN_ALLOWLIST_IPS`      | Comma-separated IP allowlist for admin routes        |
-| `OPS_ALERT_EMAIL_TO`       | Comma-separated email recipients for alert digests   |
-| `OPS_ALERT_WEBHOOK_URL`    | Webhook URL for alert delivery (Slack, PagerDuty)    |
-| `OPS_ALERT_WEBHOOK_BEARER` | Bearer token for webhook authentication              |
-| `CLOUDINARY_CLOUD_NAME`    | Cloudinary cloud name                                |
-| `CLOUDINARY_API_KEY`       | Cloudinary API key                                   |
-| `CLOUDINARY_API_SECRET`    | Cloudinary API secret                                |
-| `DATADOG_API_KEY`          | Datadog API key for APM tracing                      |
-| `DD_API_KEY`               | Alternative Datadog API key                          |
-| `OPS_PAGERDUTY_ROUTING_KEY`| PagerDuty routing key for alert integration          |
-| `E2E_FAKE_PAYMENTS`        | Set `1` to bypass real Razorpay in E2E tests         |
-| `CSP_ALLOW_UNSAFE_EVAL`    | Set `true` to allow unsafe-eval in CSP (dev only)    |
+| Variable                          | Description                                          |
+| --------------------------------- | ---------------------------------------------------- |
+| `NEXTAUTH_URL`                   | Application base URL                                 |
+| `NEXT_PUBLIC_BASE_URL`           | Public URL for email links                           |
+| `NEXT_PUBLIC_APP_URL`            | Alternative application URL                          |
+| `RAZORPAYX_ACCOUNT_NUMBER`      | RazorpayX account number for payouts                 |
+| `CLOUDINARY_CLOUD_NAME`         | Cloudinary cloud name                                |
+| `CLOUDINARY_API_KEY`            | Cloudinary API key                                   |
+| `CLOUDINARY_API_SECRET`         | Cloudinary API secret                                |
+| `DATADOG_API_KEY` / `DD_API_KEY`| Datadog API key for APM tracing                      |
+| `OPS_ALERT_EMAIL_TO`            | Comma-separated alert email recipients               |
+| `OPS_ALERT_WEBHOOK_URL`         | Webhook URL for alert delivery (Slack, PagerDuty)    |
+| `OPS_ALERT_WEBHOOK_BEARER`      | Bearer token for webhook auth                        |
+| `OPS_PAGERDUTY_ROUTING_KEY`     | PagerDuty routing key                                |
+| `CSP_ENFORCE`                    | `true` to switch CSP from report-only to enforced    |
+| `CSP_ALLOW_UNSAFE_EVAL`         | `true` to allow unsafe-eval in CSP (dev only)        |
+| `TRUST_PROXY`                    | `true` to trust x-forwarded-for headers              |
+| `DEBUG_LOGGING`                  | `true` for debug-level Pino logging in production    |
+| `ADMIN_ALLOWLIST_IPS`           | Comma-separated IP allowlist for admin access        |
+| `E2E_FAKE_PAYMENTS`             | `1` to bypass real Razorpay in E2E tests             |
+| `PROVIDER_SEARCH_DEBUG`         | `true` to log provider search diagnostics            |
+| `ALLOW_BASE64_UPLOAD_FALLBACK`  | `1` to allow base64 upload when Cloudinary is down   |
+| `ALLOW_START_WITH_INDEX_ERRORS` | `1` to skip critical index failure hard-stop         |
 
 ### External Service Setup
 
-**Google OAuth:**
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project or select existing
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials (Web application type)
-5. Add authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
-6. Copy Client ID and Secret to `.env.local`
-
-**Razorpay:**
-
-1. Sign up at [Razorpay](https://razorpay.com/)
-2. Activate your account
-3. Get API keys from Settings → API Keys
-4. Set up RazorpayX account for escrow
-5. Copy account number and API keys to `.env.local`
-
-**Twilio:**
-
-1. Sign up at [Twilio](https://www.twilio.com/)
-2. Get a phone number
-3. Copy Account SID, Auth Token, and Phone Number to `.env.local`
-
-**Google Maps:**
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Enable these APIs:
-   - Maps JavaScript API
-   - Places API
-   - Geocoding API
-3. Create API key and restrict it (recommended)
-4. Copy API key to `.env.local`
+1. **Google OAuth**: Create credentials in [Google Cloud Console](https://console.cloud.google.com), add authorized redirect URI (`http://localhost:3000/api/auth/callback/google`)
+2. **Razorpay**: Create a [Razorpay](https://razorpay.com) account, enable test mode, get API keys. For payouts, enable RazorpayX.
+3. **Google Maps**: Enable Maps JavaScript API, Places API, and Geocoding API in your Google Cloud project
+4. **Twilio**: Create a [Twilio](https://twilio.com) account, get a phone number for SMS OTP
+5. **Cloudinary**: Create a [Cloudinary](https://cloudinary.com) account for image uploads
+6. **MongoDB**: Use a replica set for transaction support (MongoDB Atlas works out of the box)
 
 ### Troubleshooting
 
-- **Environment variable errors**: Check `lib/env.ts` for exact variable names and requirements
-- **MongoDB connection issues**: Verify `MONGODB_URI` format and network access
-- **OTP not sending**: Verify email credentials (`EMAIL_USER` / `EMAIL_PASS`) and that your email provider allows app passwords / SMTP
-- **Payment errors**: Verify Razorpay keys match environment (test/live) and account status
+- **Transaction errors**: Ensure MongoDB is running as a replica set. Standalone mode doesn't support transactions — the app has a compensating-write fallback for invoice finalization, but other operations require replica set support.
+- **Index bootstrap errors**: On first startup, the app creates 30+ indexes. If historical data has duplicates that conflict with new unique indexes, set `ALLOW_START_WITH_INDEX_ERRORS=1` temporarily and clean up duplicates.
+- **CSP violations**: CSP runs in report-only mode by default. Violations are logged to `/api/security/csp-report`. Set `CSP_ENFORCE=true` only after cleaning up violations.
 
-## 10. Booking Reschedule Flow
+## 10. Booking Lifecycle
 
-LaundryEase supports a _reschedule request_ that is separate from cancellation.
+### States
 
-### What it does
+```
+requested → accepted → pickup_proposed → confirmed → invoice_created → completed
+                    ↘ rejected
+         ↘ cancelled
+              reschedule_requested ↩ (loops back to propose/confirm)
+```
 
-- Either **seeker or provider** can request a pickup reschedule.
-- The booking moves to `reschedule_requested`.
-- The system clears pickup confirmation (`pickupSlot.confirmedAt`) so a new proposal can be made.
-- The reschedule action is tracked via `booking.reschedule` metadata (requestedBy, requestedAt, reason, count, previousPickupSlot).
+### Booking flow
 
-### When it's allowed
+1. **Seeker requests** a booking with a provider (includes deadline and optional coordinates)
+2. **Provider accepts or rejects** (acceptance checks capacity limits)
+3. **Pickup scheduling**: provider proposes a pickup slot, seeker confirms (or either side requests reschedule)
+4. **Provider arrives**: arrival marked with optional geofence verification against seeker coordinates (max 200m)
+5. **Invoice creation**: provider inspects items and creates a detailed invoice with line items and optional photos
+6. **Seeker reviews invoice**: approve to proceed to payment, or reject (booking cancelled, booking fee forfeited)
+7. **Payment**: seeker pays the invoice amount via Razorpay, which creates an Order and transitions booking to `completed`
 
-Reschedule requests are allowed only while the booking is still in pickup negotiation:
+### Booking fee
 
-- `accepted`
-- `pickup_proposed`
-- `confirmed`
+- ₹50 upfront booking fee collected at acceptance
+- Refunded if provider cancels or doesn't respond within 2 hours (auto-reject)
+- Forfeited if seeker cancels same-day or rejects a legitimate invoice
+- Applied toward provider payout on successful arrival
 
-Not allowed:
+### Cancellation policy
 
-- after provider arrival (`arrivedAt` exists)
-- after invoice creation / completion
+- **Seeker**: can cancel only before the booked slot time; same-day cancellation forfeits the booking fee
+- **Provider**: cancellation always refunds the booking fee to seeker
+- **After slot time**: seeker cannot cancel (enforced at API level)
+- **Booking fee already applied**: cancellation blocked (requires admin intervention)
 
-### API endpoint
+## 11. Order Lifecycle
 
-- `POST /api/bookings/:id/reschedule/request`
-  - Body: `{ "reason"?: string }`
-  - Access: booking owner (seeker) or the assigned provider
+### Process states
 
-## 11. Complaint & Dispute Resolution
+```
+invoiced → processing → washing → ironing → ready → out_for_delivery → delivered
+```
 
-LaundryEase provides a structured dispute resolution workflow for post-delivery issues.
+The order state machine (`lib/orders/status-machine.ts`) enforces valid transitions. Shortcuts are allowed (e.g., `processing` can go directly to `ready`).
+
+### Payment states
+
+```
+unpaid → paid → held → released
+                    → refunded
+```
+
+### Delivery flow
+
+1. Provider advances order through processing states
+2. Provider proposes a delivery slot; seeker confirms
+3. Provider generates a delivery OTP (6-digit, hashed with bcrypt, 10-minute TTL)
+4. OTP sent to seeker via email outbox
+5. At handoff, OTP is verified → order marked `delivered`, payment moves to `held`
+6. Escrow holds for 24 hours; if no complaint filed, payout cron releases funds
+
+### Deadline compensation
+
+If delivery confirmation happens after the booking deadline:
+- If payment status is `paid`: automatic full refund via Razorpay, order marked `refunded` with `deadline_compensation_mode: full_refund`
+- If payment is in another state: blocked with manual-support message
+- Compensation is idempotent — applied only once per order
+
+## 12. Complaint & Dispute Resolution
 
 ### Complaint Lifecycle
 
-| State       | Description                                     |
-| ----------- | ----------------------------------------------- |
-| `open`      | Seeker raised complaint; escrow frozen          |
-| `accepted`  | Admin acknowledged; 7-day response deadline set |
-| `in_review` | Provider added to chat; active mediation        |
-| `resolved`  | Admin decided outcome; escrow action executed   |
-| `rejected`  | Invalid complaint dismissed; escrow released    |
+```
+open → accepted → in_review → resolved
+                            → rejected
+```
 
 ### How it works
 
-1. **Seeker raises complaint** within 24 hours of delivery
-   - Escrow immediately freezes
-   - Complaint created in `open` status
-   - Initial message includes title, description, and evidence photos
+1. **Filing**: seeker files within 24 hours of delivery (enforced by API). Complaint type, title, description, and optional photo evidence required. One complaint per order enforced via unique index.
+2. **Escrow freeze**: open complaint immediately blocks escrow release. The `releaseEscrowPayment` function checks for non-terminal complaints before any release.
+3. **Admin acceptance**: admin reviews and accepts the complaint, setting a response deadline (1–14 days, default 7).
+4. **Provider access**: admin grants provider access to the complaint chat — only then can the provider see and participate.
+5. **3-way chat**: seeker, provider, and admin exchange messages (text + image attachments). System messages auto-posted on state changes.
+6. **Resolution**: admin resolves with one of four outcomes:
+   - `refund_full` — full distributable amount refunded to seeker
+   - `refund_partial` — commission-aware split between seeker refund and provider payout
+   - `release_payout` — full distributable amount paid out to provider
+   - `reject` — complaint rejected, provider receives payout, complaint hidden from seeker/provider navigation
+7. **Settlement math**: 5% platform commission is always deducted first. The remaining distributable amount is split based on the admin's decision. `decimal.js` ensures paise-level precision.
+8. **Chat lock**: after resolution/rejection, chat is archived and no further messages are accepted.
+9. **Manual fallback**: if Razorpay auto-refund or auto-payout fails, the admin UI shows counterparty bank/payment details for manual transfer.
 
-2. **Admin accepts complaint**
-   - Sets 7-day response deadline for provider
-   - Status moves to `accepted`
-   - Conversation remains Admin + Seeker during this stage
+### Complaint window extension
 
-3. **Admin adds provider to chat**
-   - Provider gains access to complaint details (only after admin action)
-   - Status moves to `in_review`
-   - 3-way conversation begins (Admin, Seeker, Provider)
-
-4. **Admin resolves complaint**
-   - `release_payout` - Funds go to provider (complaint dismissed or resolved in provider's favor)
-   - `refund_partial` - Admin chooses seeker refund amount via slider; remaining distributable amount goes to provider
-   - `refund_full` - Seeker receives full distributable amount (provider gets zero)
-   - `reject` - Complaint invalid; funds released to provider (minus standard commission). Case is hidden from ongoing lists.
-   - Commission remains retained by the platform (default 5%) before split logic is applied.
+Admin can extend the complaint filing window for exceptional cases via `POST /api/admin/orders/[id]/extend-complaint` with a new deadline date.
 
 ### API endpoints
 
-- `POST /api/complaints` - Create complaint (seeker)
-- `GET /api/complaints/:id` - Get complaint details
-- `GET /api/complaints/:id/messages` - Get chat messages
-- `POST /api/complaints/:id/messages` - Send message
-- `POST /api/admin/complaints/:id/accept` - Accept complaint (admin)
-- `POST /api/admin/complaints/:id/add-provider` - Add provider to chat (admin)
-- `POST /api/admin/complaints/:id/resolve` - Resolve with outcome (admin; `refund_partial` expects `seeker_refund_amount`)
+| Endpoint                                         | Purpose                            |
+| ------------------------------------------------ | ---------------------------------- |
+| `POST /api/complaints`                           | File a new complaint               |
+| `GET /api/complaints/[id]`                       | Get complaint details              |
+| `GET/POST /api/complaints/[id]/messages`         | Read/send chat messages            |
+| `PATCH /api/admin/complaints/[id]/accept`        | Accept complaint, set deadline     |
+| `PATCH /api/admin/complaints/[id]/add-provider`  | Grant provider chat access         |
+| `PATCH /api/admin/complaints/[id]/access`        | Toggle provider access             |
+| `PATCH /api/admin/complaints/[id]/resolve`       | Resolve with settlement outcome    |
+| `POST /api/admin/orders/[id]/extend-complaint`   | Extend complaint filing window     |
 
-### Key rules
-
-- **One order, one complaint**: Each order can have at most one complaint
-- **Escrow freeze**: Raising a complaint halts the escrow release timer
-- **Provider access control**: Provider only sees complaint after admin explicitly grants access
-- **Role-scoped visibility**: Seeker/provider complaint menus list only ongoing complaints (`open`, `accepted`, `in_review`)
-- **Finalized thread lock**: After `resolved`/`rejected`, seeker/provider chat is archived/read-only
-- **Response deadline**: Default 7 days from acceptance; overdue complaints surfaced to admin
-
-## 12. Operational Monitoring & Alerting
+## 13. Operational Monitoring & Alerting
 
 ### Health Monitoring
 
-An hourly cron (`/api/cron/monitor-operational-health`) evaluates three operational signals:
+The `/api/cron/monitor-operational-health` cron runs hourly and evaluates three operational signals:
 
-- **Overdue held orders** (critical): Orders past escrow release window without active complaints
-- **Payout failure spikes** (high): Failures in the last 24h exceeding threshold
-- **Overdue complaints** (high): Accepted/in-review complaints past response deadlines
+| Signal                  | Severity   | Threshold | Description                                                            |
+| ----------------------- | ---------- | --------- | ---------------------------------------------------------------------- |
+| `overdue_held_orders`   | `critical` | ≥ 3       | Held orders past release window + 1h grace without active complaints   |
+| `payout_failures_spike` | `high`     | ≥ 3       | Payout failures in the last 24 hours                                   |
+| `overdue_complaints`    | `high`     | ≥ 2       | Accepted/in-review complaints past response deadline                   |
+
+Breached thresholds create or update `system_alerts` documents (upserted by alert key).
 
 ### Alert Delivery & Escalation
 
-A 15-minute cron (`/api/cron/notify-system-alerts`) sends alert digests:
+The `/api/cron/notify-system-alerts` cron runs every 15 minutes:
 
-- **Email**: HTML digest to configured `OPS_ALERT_EMAIL_TO` recipients
-- **Webhook**: JSON payload to `OPS_ALERT_WEBHOOK_URL` (Slack, PagerDuty, etc.)
-- **Dedup**: Notifications spaced minimum 1 hour per alert
-- **Escalation**: Critical alerts escalate after 30 min, high alerts after 2 hours
+1. Finds open `critical`/`high` alerts that are unacknowledged
+2. Applies dedup: notifications spaced at least 1 hour apart
+3. Sends via configured channels: email digest (`OPS_ALERT_EMAIL_TO`), webhook (`OPS_ALERT_WEBHOOK_URL`), PagerDuty (`OPS_PAGERDUTY_ROUTING_KEY`)
+4. Escalation: alerts older than 30 min (critical) or 2 hours (high) trigger escalation with 6-hour repeat spacing
 
 ### SLA & Owner Routing
 
-- Critical alerts: **15-minute** acknowledgement SLA
-- High alerts: **60-minute** acknowledgement SLA
-- SLA-breached critical alerts auto-route to `backend_oncall`
-- SLA-breached high alerts load-balance between `platform_admin_oncall` and `backend_oncall`
-- Persistent breaches (60 min critical, 4h high) escalate to `tech_lead`
+- **Critical alerts**: 15-minute acknowledgement SLA
+- **High alerts**: 60-minute acknowledgement SLA
+- SLA-breached alerts are auto-assigned an owner:
+  - Critical → `backend_oncall`
+  - High → load-balanced between `platform_admin_oncall` and `backend_oncall`
+- Persistent unacknowledged alerts escalate to `tech_lead`:
+  - Critical after 60 minutes
+  - High after 4 hours
 
 ### Alert Analytics
 
-Admin dashboard shows: 7-day opened-vs-resolved trend, burn-rate tier (stable/watch/high/critical), and MTTR for recent alerts.
+The admin dashboard surfaces:
+- 7-day opened-vs-resolved trend
+- Burn-rate tier: `stable` / `watch` / `high` / `critical`
+- Mean Time To Resolve (MTTR) for recently resolved alerts
+- SLA-breached alert counts (critical and high separately)
 
-## 13. Cron Jobs
+## 14. Cron Jobs
 
-| Endpoint                               | Schedule     | Purpose                                   |
-| -------------------------------------- | ------------ | ----------------------------------------- |
-| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject expired booking requests           |
-| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows                       |
-| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine         |
-| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with escalation                 |
-| `/api/cron/process-email-outbox`       | Every 2 min  | Claim-and-dispatch queued transactional emails  |
-| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency       |
-| `/api/cron/reconciliation`             | Every 30 min | Reconcile Razorpay records vs internal state   |
-| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks      |
-| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns         |
-| `/api/cron/webhook-cleanup`            | Daily 1 AM   | Purge processed webhook events older than 30 d |
+| Endpoint                               | Schedule     | Purpose                                         |
+| -------------------------------------- | ------------ | ----------------------------------------------- |
+| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject bookings not accepted within 2 hours |
+| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows (30 min after pickup)   |
+| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine           |
+| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with dedup and escalation         |
+| `/api/cron/process-email-outbox`       | Every 2 min  | Claim-and-dispatch queued transactional emails   |
+| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency         |
+| `/api/cron/reconciliation`             | Every 30 min | Reconcile Razorpay records vs internal state     |
+| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks        |
+| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns           |
+| `/api/cron/webhook-cleanup`            | Daily 1 AM   | Purge processed webhook events older than 30 d   |
 
-All cron runs are tracked in `cron_runs` collection with job name, start time, duration, status, and result details.
+All cron runs are tracked in the `cron_runs` collection with job name, start time, duration, status, and result details. Cron endpoints are secured with `CRON_SECRET` bearer token authentication.
 
-## 14. Project Status & Direction
+## 15. Security
+
+### Headers & Transport
+
+- **CSP**: Content-Security-Policy (report-only by default, enforce via `CSP_ENFORCE=true`) with violation reporting to `/api/security/csp-report`
+- **HSTS**: `max-age=31536000; includeSubDomains; preload` in production
+- **X-Frame-Options**: `DENY`
+- **X-Content-Type-Options**: `nosniff`
+- **Referrer-Policy**: `strict-origin-when-cross-origin`
+- **Permissions-Policy**: camera/microphone disabled, geolocation self-only
+
+### Authentication & Authorization
+
+- Google OAuth + email/password credentials via NextAuth v4
+- Session-based JWT tokens (7-day max age)
+- Role-based API guards: `requireSeeker()`, `requireProvider()`, `requireAdmin()`, `requireAdminWithDbCheck()`
+- Same-origin enforcement on unsafe HTTP methods
+- Password policy: 8+ chars, uppercase, number, special character
+
+### Rate Limiting
+
+MongoDB-backed per-IP rate limiting with three tiers:
+- **Default**: 60 requests per minute (standard API endpoints)
+- **Strict**: limited per 5-minute window (accept/reject/cancel actions)
+- **Auth**: limited per 15-minute window (signup, password reset, OTP)
+
+Auto-cleanup via TTL indexes. Stale lock recovery for burst traffic.
+
+### Payment Security
+
+- Razorpay HMAC signature verification on all payment callbacks
+- Idempotent webhook processing with event dedup via unique `event_id` index
+- Escrow hold before release with complaint-gated checks
+- Distributed refund locks to prevent concurrent double-refunds
+- Payout locks with stale-lock timeout detection
+
+### Logging & Redaction
+
+Structured Pino logging with native redaction of: `password`, `passwordHash`, `token`, `secret`, `apiKey`, `otp`, `code`, `codeHash`, `authToken`, `accessToken`. Pretty-printing in dev, JSON in production.
+
+## 16. Project Status & Direction
 
 **Stable:**
 
 - Role-based flows (seeker/provider/admin)
-- Location-based provider discovery with geospatial indexes
-- Booking → invoicing → payment capture → delivery confirmation → escrow hold/release loop
+- Location-based provider discovery with geospatial indexes (`$geoNear` + bounding-box fallback)
+- Full booking → invoicing → payment capture → delivery confirmation → escrow hold/release loop
 - Canonical payment APIs with backward-compatible legacy aliases
 - Booking reschedule requests during pickup scheduling
 - Complaint system with admin workflow (accept → add provider → resolve)
-- Complaint split-settlement support (`refund_partial`) with commission-aware slider
-- Unified payout orchestration for cron/manual/admin flows
+- Complaint split-settlement support (`refund_partial`) with commission-aware allocation
+- Unified payout orchestration with concurrent batch processing
 - Booking cancellation rules with enforced refund/forfeiture policy
 - Geofenced provider arrival checks before booking-fee payout release
 - 24-hour complaint window enforcement at API level
+- Deadline compensation (auto full-refund on late delivery at OTP confirmation)
 - Idempotent webhook reconciliation with retry-safe event tracking
-- Startup DB index bootstrap for integrity/query/TTL invariants
+- Startup DB index bootstrap for 30+ integrity/query/TTL indexes
 - CSP telemetry pipeline (Report-Only + `/api/security/csp-report`)
 - Operational health monitoring with configurable alert thresholds
-- Alert delivery + escalation with email/webhook fan-out
+- Alert delivery + escalation with email/webhook/PagerDuty fan-out
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
-- Email outbox with retry/backoff for all transactional emails
-- MongoDB-backed rate limiting on sensitive endpoints
+- Email outbox with retry/backoff for all transactional emails (delivery OTP, password reset, magic link, email OTP)
+- MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
 - `decimal.js` financial precision for payout calculations
 - SWR data fetching for responsive client-side dashboards
-- Abuse monitoring (excessive cancellation patterns)
-- Data integrity auditing (order/payment/booking consistency)
+- Abuse monitoring (excessive cancellation patterns, 30-day lookback)
+- Data integrity auditing (order/payment/booking consistency, every 30 min)
 - Cron run tracking for operational observability
 - Secure signup with password strength validation
-- Real-time client-side form validation (email, password matching)
+- Invoice finalization with transaction + compensating-write fallback
+- Distributed refund locks with stale-lock recovery
+- React Compiler enabled for automatic optimizations
 - GitHub CI workflows:
   - `Quality Gates`: typecheck → lint → test → build → smoke E2E
   - `Real Gateway Smoke`: scheduled/manual live Razorpay connectivity
@@ -432,9 +469,9 @@ All cron runs are tracked in `cron_runs` collection with job name, start time, d
 - Local release parity: `npm run verify:gates`
 - Docs sync guardrails: `npm run check:docs-sync`
 
-**Quality Snapshot (2026-03-01):**
+**Quality Snapshot (2026-03-02):**
 
-- `104` test files, `506` tests passing (100% core route coverage)
+- `104` test files, `517` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
 - Zero production type casts
@@ -448,8 +485,9 @@ All cron runs are tracked in `cron_runs` collection with job name, start time, d
 - Password-recovery anti-abuse hardening (captcha strategy)
 - Promote CSP from report-only to enforce mode after violation cleanup
 - Split-settlement reconciliation tooling for rare one-leg failure cases
+- Reschedule abuse prevention (caps, cooldowns, or admin escalation)
 
-## 15. Project Structure
+## 17. Project Structure
 
 ```text
 laundry-ease/
@@ -459,64 +497,126 @@ laundry-ease/
 │   │   └── verify-phone/         # Phone verification flow
 │   ├── (dashboard)/              # Protected dashboard routes
 │   │   ├── admin/                # Admin panel (complaints, users, payments, alerts)
-│   │   ├── provider/             # Provider dashboard (bookings, orders, earnings)
-│   │   └── seeker/               # Seeker dashboard (bookings, orders, disputes)
+│   │   │   ├── complaints/       # Complaint management UI
+│   │   │   ├── payment-management/ # Payment oversight
+│   │   │   └── user-management/  # User administration
+│   │   ├── provider/             # Provider dashboard
+│   │   │   ├── bookings/         # Booking management
+│   │   │   ├── disputes/         # Dispute view
+│   │   │   ├── invoice-generation/ # Invoice creation
+│   │   │   ├── manage-booking/   # Booking details
+│   │   │   ├── messages/         # Chat interface
+│   │   │   ├── order-status/     # Order lifecycle management
+│   │   │   ├── profile/          # Provider profile
+│   │   │   └── reviews-manage/   # Review management
+│   │   └── seeker/               # Seeker dashboard
+│   │       ├── bookings/         # Booking list and details
+│   │       ├── disputes/         # Dispute view
+│   │       ├── invoices/         # Invoice review
+│   │       ├── orders/           # Order tracking
+│   │       ├── profile/          # Seeker profile
+│   │       ├── provider/         # Provider discovery
+│   │       └── view-orders/      # Order history
+│   ├── (root)/                   # Root layout group
 │   ├── actions/                  # Server actions
 │   │   ├── booking-actions.ts    # Booking operations
 │   │   ├── order-actions.ts      # Order operations
 │   │   └── profile-actions.ts    # Profile operations
 │   ├── api/                      # API routes
-│   │   ├── admin/                # Admin endpoints (complaints, users, system-alerts, payments, refund)
-│   │   ├── auth/                 # NextAuth configuration
-│   │   ├── bookings/             # Booking CRUD, chat, reschedule, dispute
-│   │   ├── complaints/           # Complaint creation, messages
-│   │   ├── cron/                 # Scheduled job endpoints (10 jobs)
-│   │   ├── escrow/               # Escrow release endpoints
+│   │   ├── admin/                # Admin endpoints
+│   │   │   ├── complaints/       # Complaint CRUD + accept/access/add-provider/resolve
+│   │   │   ├── dashboard-stats/  # Admin dashboard statistics
+│   │   │   ├── orders/           # Order management (extend-complaint)
+│   │   │   ├── payments/         # Payment oversight
+│   │   │   ├── refund/           # Manual refund processing
+│   │   │   ├── system-alerts/    # Alert acknowledge/manage
+│   │   │   └── users/            # User management + ban
+│   │   ├── auth/                 # NextAuth + magic link + email verification
+│   │   ├── bookings/             # Booking CRUD + accept/reject/cancel/arrive/schedule/reschedule/dispute/chat/invoice/pay/pay-invoice
+│   │   ├── complaints/           # Complaint creation + messages
+│   │   ├── cron/                 # 10 scheduled job endpoints
+│   │   ├── escrow/               # Escrow release endpoint
 │   │   ├── forgot-password/      # Password reset request
-│   │   ├── invoices/             # Invoice generation and review
-│   │   ├── orders/               # Order lifecycle management
+│   │   ├── invoices/             # Invoice review
+│   │   ├── orders/               # Order lifecycle + status/payment/confirm-delivery/otp/schedule-delivery/cancel
 │   │   ├── otp/                  # OTP send/verify
-│   │   ├── payments/             # Razorpay integration
+│   │   ├── payments/             # Razorpay order creation
 │   │   ├── profile/              # Profile management
-│   │   ├── provider/             # Provider-specific endpoints (dashboard-stats)
-│   │   ├── providers/            # Provider search, discovery
+│   │   ├── provider/             # Provider dashboard stats
+│   │   ├── providers/            # Provider search + discovery
 │   │   ├── reset-password/       # Password reset execution
 │   │   ├── reviews/              # Review submission
-│   │   ├── security/             # Security telemetry (CSP reports)
+│   │   ├── security/             # CSP report endpoint
 │   │   ├── signup/               # Registration endpoints
 │   │   ├── upload/               # Image upload (Cloudinary)
-│   │   └── webhooks/             # Payment webhooks (Razorpay)
-│   ├── auth/                     # Auth pages (login)
+│   │   └── webhooks/             # Razorpay webhook handler
+│   ├── auth/                     # Login page
 │   ├── choose-role/              # Role selection after OAuth
-│   ├── complete-signup/          # Profile completion
+│   ├── complete-signup/          # Profile completion (provider/seeker)
 │   ├── reset-password/           # Password reset page
-│   ├── signup/                   # Registration pages
+│   ├── signup/                   # Registration pages (provider/seeker)
+│   ├── forbidden.tsx             # 403 page
 │   ├── global-error.tsx          # Global error boundary
-│   ├── globals.css               # Global Tailwind styles
-│   ├── layout.tsx                # Root layout with providers
-│   └── page.tsx                  # Landing page
+│   ├── globals.css               # Tailwind global styles
+│   ├── layout.tsx                # Root layout
+│   ├── loading.tsx               # Global loading skeleton
+│   ├── not-found.tsx             # 404 page
+│   ├── page.tsx                  # Landing page
+│   ├── robots.ts                 # SEO robots.txt
+│   ├── sitemap.ts                # SEO sitemap.xml
+│   └── unauthorized.tsx          # 401 page
 │
 ├── components/                   # React components
-│   ├── bookings/                 # Booking list components
-│   ├── navigation/               # Sidebar, topnav (admin, provider, seeker)
-│   ├── orders/                   # Order actions, payment buttons
+│   ├── navigation/               # Role-based navigation
+│   │   ├── admin-sidebar.tsx     # Admin sidebar menu
+│   │   ├── provider-sidebar.tsx  # Provider sidebar menu
+│   │   └── seeker-topnav.tsx     # Seeker top navigation
+│   ├── orders/                   # Order UI components
+│   │   ├── live-status-refresh.tsx # Auto-refreshing order status
+│   │   ├── order-actions.tsx     # Provider order action buttons
+│   │   ├── payment-button.tsx    # Razorpay payment integration
+│   │   └── post-delivery-actions.tsx # Post-delivery review/complaint buttons
 │   ├── provider/                 # Provider-specific components
-│   ├── providers/                # Provider listing, invoice form
+│   │   ├── provider-header.tsx   # Provider page header
+│   │   └── reviews-list.tsx      # Provider review display
+│   ├── providers/                # Shared provider components
+│   │   ├── google-maps-provider.tsx # Maps context provider
+│   │   ├── invoice-form.tsx      # Invoice creation form
+│   │   ├── provider-booking-list.tsx # Booking list for providers
+│   │   └── session-provider.tsx  # NextAuth session wrapper
 │   ├── seeker/                   # Seeker-specific components
-│   ├── seo/                      # SEO components (JSON-LD)
-│   ├── ui/                       # shadcn/ui components
-│   ├── booking-modal.tsx         # Booking creation modal
+│   │   ├── delivery-otp-form.tsx # OTP confirmation form
+│   │   └── invoice-review-form.tsx # Invoice approval/rejection
+│   ├── seo/                      # SEO components
+│   │   └── json-ld.tsx           # Structured data
+│   ├── ui/                       # shadcn/ui + custom components
+│   │   ├── app-header.tsx        # Application header bar
+│   │   ├── confirm-dialog.tsx    # Confirmation modal
+│   │   ├── error-boundary.tsx    # React error boundary
+│   │   ├── evidence-upload.tsx   # Complaint evidence upload
+│   │   ├── global-footer.tsx     # Site footer
+│   │   ├── go-back-button.tsx    # Navigation back button
+│   │   ├── image-upload.tsx      # Image upload component
+│   │   ├── interactive-grid.tsx  # Animated grid background
+│   │   ├── location-autocomplete.tsx # Google Places autocomplete
+│   │   ├── password-input.tsx    # Password with visibility toggle
+│   │   ├── select.tsx            # Radix select wrapper
+│   │   ├── skeleton.tsx          # Loading skeleton
+│   │   ├── spotlight-card.tsx    # Animated spotlight card
+│   │   ├── text-generate-effect.tsx # Text animation
+│   │   ├── theme-provider.tsx    # Dark/light theme context
+│   │   ├── theme-toggle.tsx      # Theme toggle button
+│   │   └── toast.tsx             # Toast notifications
 │   ├── chat-interface.tsx        # Booking chat with dispute modal
 │   ├── complaint-chat.tsx        # 3-way complaint chat
-│   ├── provider-card.tsx         # Provider search result card
-│   └── theme-toggle.tsx          # Dark/light mode toggle
+│   └── landing-page-client.tsx   # Landing page client component
 │
 ├── hooks/                        # Custom React hooks
 │   └── use-booking-actions.ts    # Booking action handlers
 │
 ├── cron/                         # Cron job logic
 │   ├── auto-reject-bookings.ts   # Auto-reject expired bookings
-│   └── no-show-check.ts          # No-show detection
+│   └── no-show-check.ts          # No-show detection + refund
 │
 ├── docs/                         # Documentation
 │   ├── CODEBASE_UNDERSTANDING.md # Architecture reference
@@ -524,71 +624,182 @@ laundry-ease/
 │   ├── ML_AI_INTEGRATION.md      # Future ML capabilities
 │   ├── OPERATIONS_RUNBOOK.md     # Incident response playbook
 │   ├── PRD.md                    # Product Requirements Document
-│   └── PRESENTATION_HELPER.md    # Q&A and demo guide
+│   ├── PRESENTATION_HELPER.md    # Q&A and demo guide
+│   └── PRODUCTION_READINESS_REVIEW.md # Production readiness checklist
 │
 ├── e2e/                          # End-to-end tests (Playwright)
+│   ├── support/                  # E2E test utilities
+│   ├── booking-lifecycle-journey.spec.ts
+│   ├── booking-negative-journeys.spec.ts
+│   ├── complaint-chat-journey.spec.ts
+│   ├── settlement-chain-journey.spec.ts
+│   └── smoke-role-journeys.spec.ts
 │
 ├── lib/                          # Core business logic & utilities
-│   ├── api/                      # API helpers (errors, auth, security, schemas)
+│   ├── api/                      # API layer
+│   │   ├── auth.ts               # Role-based auth guards
+│   │   ├── auth.test.ts          # Auth guard tests
+│   │   ├── cron-auth.ts          # Cron secret verification
+│   │   ├── errors.ts             # AppError class + error codes
+│   │   ├── response.ts           # Standardized API responses
+│   │   ├── schemas.ts            # Centralized Zod validation schemas
+│   │   ├── schemas.contract.test.ts # Schema contract tests
+│   │   ├── security.ts           # Rate limiting + origin checks
+│   │   └── security.test.ts      # Security tests
+│   ├── audit/                    # Data integrity
+│   │   ├── integrity.ts          # Order/payment/booking consistency checks
+│   │   └── integrity.test.ts     # Integrity test suite
 │   ├── auth/                     # Auth policies
-│   ├── audit/                    # Data integrity auditing
-│   │   └── integrity.ts          # Order/payment/booking consistency checks
-│   ├── bookings/                 # Booking logic (cancellation)
-│   ├── complaints/               # Complaint access control
+│   │   └── password-policy.ts    # Password strength rules
+│   ├── bookings/                 # Booking business logic
+│   │   ├── arrive-handler.ts     # Provider arrival request handler
+│   │   ├── cancellation-policy.ts # Cancellation rules engine
+│   │   ├── cancellation-policy.test.ts
+│   │   └── mark-arrived.ts       # Arrival marking with geofence
+│   ├── complaints/               # Complaint logic
+│   │   ├── access.ts             # Complaint access control
+│   │   └── access.test.ts        # Access control tests
 │   ├── data/                     # Data access helpers
-│   │   └── bookings.ts           # Booking data queries
-│   ├── db/                       # Database operations (bookings, orders, users)
+│   │   └── bookings.ts           # Booking queries
+│   ├── db/                       # Database operations
+│   │   ├── index.ts              # Re-exports all DB modules
+│   │   ├── bookings.ts           # Booking CRUD
+│   │   ├── complaints.ts         # Complaint CRUD
+│   │   ├── escrow.ts             # Escrow hold/release with transactions
+│   │   ├── orders.ts             # Order CRUD
+│   │   ├── transaction.ts        # MongoDB transaction wrapper
+│   │   └── users.ts              # User CRUD
 │   ├── ops/                      # Operational monitoring
 │   │   ├── ack-sla.ts            # Alert acknowledgement SLA tracking
-│   │   ├── alert-channels.ts     # Email/webhook alert delivery
+│   │   ├── ack-sla.test.ts
+│   │   ├── alert-channels.ts     # Email/webhook/PagerDuty delivery
 │   │   ├── alert-delivery.ts     # Delivery plan builder (notify + escalate)
+│   │   ├── alert-delivery.test.ts
+│   │   ├── alert-lifecycle.ts    # Alert state management
 │   │   ├── alerts-analytics.ts   # 7-day trend, burn-rate, MTTR
+│   │   ├── alerts-analytics.test.ts
 │   │   ├── health.ts             # Operational signal evaluation
-│   │   └── owner-routing.ts      # SLA-based alert owner assignment
-│   ├── orders/                   # Order state machine & compensation
-│   ├── payouts/                  # Payout calculation logic
-│   ├── security/                 # CSP and origin checks
-│   ├── constants.ts              # Centralized business constants
+│   │   ├── health.test.ts
+│   │   ├── owner-routing.ts      # SLA-based alert owner assignment
+│   │   └── owner-routing.test.ts
+│   ├── orders/                   # Order business logic
+│   │   ├── confirm-delivery-core.ts # Shared OTP verify + deadline compensation
+│   │   ├── deadline-compensation.ts # Deadline breach evaluation
+│   │   ├── deadline-compensation.test.ts
+│   │   ├── status-machine.ts     # Order state machine
+│   │   └── status-machine.test.ts
+│   ├── payouts/                  # Payout logic
+│   │   ├── amounts.ts            # Commission/payout calculation with decimal.js
+│   │   └── amounts.test.ts
+│   ├── security/                 # Security infrastructure
+│   │   ├── csp.ts                # CSP policy builder
+│   │   ├── csp.test.ts
+│   │   ├── origin.ts             # Origin validation
+│   │   └── origin.test.ts
+│   ├── services/                 # Domain services
+│   │   ├── admin-stats.ts        # Admin dashboard statistics
+│   │   ├── complaint-resolution.ts # Settlement logic + financial actions
+│   │   ├── invoice-finalization.ts # Transaction + compensating-write order creation
+│   │   ├── provider-bank-sync.ts # Razorpay contact/fund account sync
+│   │   ├── provider-password.ts  # Secure password change
+│   │   ├── provider-search.ts    # Geo search engine ($geoNear + fallback)
+│   │   ├── refund-lock.ts        # Distributed refund lock
+│   │   └── system-alerts.ts      # System alert trigger helpers
+│   ├── utils/                    # Utility functions
+│   │   ├── delivery-charge.ts    # Distance-based delivery fee calculation
+│   │   └── monetary.ts           # round2, toPaise, formatInr, MONEY_EPSILON
+│   ├── webhooks/                 # Webhook handlers
+│   │   └── razorpay-handlers.ts  # Razorpay event processing
+│   ├── audit.ts                  # Audit log creation (booking, order, escrow, payment, complaint)
+│   ├── client-api.ts             # Client-side API helpers
+│   ├── client-error.ts           # Client error utilities
+│   ├── cloudinary.ts             # Cloudinary upload integration
+│   ├── constants.ts              # Centralized business constants (fees, timeouts, thresholds)
 │   ├── cron-tracking.ts          # Cron job run observability
-│   ├── db-indexes.ts             # Database index bootstrap
-│   ├── email-outbox.ts           # Queued email delivery with retry
-│   ├── env.ts                    # Environment variable validation
-│   ├── logger.ts                 # Structured Pino logging
-│   ├── mongodb.ts                # Database connection
-│   ├── payouts.ts                # Payout orchestration engine
-│   └── razorpay.ts               # Payment gateway integration
+│   ├── db-indexes.ts             # 30+ database index bootstrap
+│   ├── db-indexes.test.ts        # Index tests
+│   ├── db.test.ts                # DB connection tests
+│   ├── delivery-otp-email.ts     # Delivery OTP email template
+│   ├── distance.ts               # Haversine distance calculation
+│   ├── email-outbox.ts           # Queued email system (4 email types, claim-lock-dispatch)
+│   ├── email-outbox.test.ts      # Outbox tests
+│   ├── email-transporter.ts      # Nodemailer SMTP transport
+│   ├── env.ts                    # Zod environment validation (lazy singleton)
+│   ├── geocoding.ts              # Google Geocoding API
+│   ├── logger.ts                 # Pino structured logging with secret redaction
+│   ├── magic-link-email.ts       # Magic link email template
+│   ├── mongodb.ts                # MongoDB connection + index init
+│   ├── otp.ts                    # OTP generation + verification
+│   ├── otp-code-email.ts         # OTP code email template
+│   ├── password-reset-email.ts   # Password reset email template
+│   ├── payouts.ts                # Payout orchestration engine (batch + lock)
+│   ├── razorpay.ts               # Razorpay SDK wrapper (payments, refunds, payouts, contacts, fund accounts)
+│   ├── telemetry.ts              # DogStatsD metrics (hot-shots)
+│   └── utils.ts                  # General utilities (cn, etc.)
 │
-├── scripts/
-│   ├── audit-branch-protection.mjs # Branch-protection auditor
+├── scripts/                      # Development & CI scripts
+│   ├── audit-branch-protection.mjs # Branch protection auditor
 │   ├── check-doc-sync.mjs        # Documentation sync checker
 │   ├── run-playwright.mjs        # E2E env sanitization wrapper
 │   └── verify-gates.mjs          # One-shot quality gate runner
 │
 ├── types/                        # TypeScript definitions
+│   ├── bookings.ts               # Booking, Invoice, PopulatedBooking types
+│   ├── complaints.ts             # Complaint, ComplaintMessage types
+│   ├── enums.ts                  # Role enum (seeker, provider, admin)
+│   ├── next-auth.d.ts            # NextAuth session type augmentation
+│   ├── orders.ts                 # Order, OrderItem, PaymentStatus types
+│   ├── razorpay.d.ts             # Razorpay SDK type definitions
+│   ├── reviews.ts                # Review type
+│   └── users.ts                  # BaseUser, Seeker, Provider, Admin, ProviderSearchResult
 │
-├── .github/workflows/            # CI/CD
-│   ├── quality-gates.yml         # Lint/test/build/E2E on every push
-│   ├── real-gateway-smoke.yml    # Live Razorpay connectivity checks
-│   └── governance-audit.yml      # Branch-protection drift detection
-├── .github/PULL_REQUEST_TEMPLATE.md # PR checklist template
+├── public/                       # Static assets
+│   ├── apple-touch-icon.png
+│   ├── icon.svg
+│   ├── laundryease-logo.png
+│   ├── manifest.json             # PWA manifest
+│   └── og-image.png              # Open Graph image
 │
-├── next.config.ts                # Next.js configuration
-├── vercel.json                   # Vercel config & cron schedules
+├── .github/                      # GitHub configuration
+│   ├── workflows/
+│   │   ├── quality-gates.yml     # CI: typecheck → lint → test → build → E2E
+│   │   ├── real-gateway-smoke.yml # Scheduled live Razorpay connectivity
+│   │   └── governance-audit.yml  # Branch-protection drift detection
+│   ├── copilot-instructions.md   # AI assistant instructions
+│   └── PULL_REQUEST_TEMPLATE.md  # PR checklist template
+│
+├── instrumentation.ts            # Datadog APM initialization hook
+├── next.config.ts                # Next.js config (React Compiler, CSP headers, HSTS)
+├── vercel.json                   # Vercel config + 10 cron schedules
+├── playwright.config.ts          # Playwright E2E configuration
+├── vitest.config.ts              # Vitest unit test configuration
+├── vitest.setup.ts               # Test setup
+├── global.d.ts                   # Global TypeScript declarations
+├── proxy.ts                      # Development proxy
+├── components.json               # shadcn/ui configuration
+├── eslint.config.mjs             # ESLint configuration
+├── postcss.config.mjs            # PostCSS configuration
+├── tsconfig.json                 # TypeScript configuration
 └── package.json                  # Dependencies & scripts
 ```
 
 ### Key Directories
 
-| Directory         | Purpose                                            |
-| ----------------- | -------------------------------------------------- |
-| `app/(dashboard)` | Role-based dashboards with protected routes        |
-| `app/api/`        | RESTful API endpoints organized by domain          |
-| `app/actions/`    | Next.js Server Actions for data mutations          |
-| `components/ui/`  | Reusable shadcn/ui components                      |
-| `cron/`           | Scheduled background job logic (Vercel cron)       |
-| `docs/`           | Product documentation and guides                   |
-| `e2e/`            | End-to-end browser tests (Playwright)              |
-| `lib/api/`        | Request validation, error handling, rate limiting  |
-| `lib/db/`         | Core database operations (CRUD, transactions)      |
-| `lib/ops/`        | Operational health monitoring and alert management |
-| `types/`          | Shared TypeScript interfaces, enums, and SDK types |
+| Directory         | Purpose                                               |
+| ----------------- | ----------------------------------------------------- |
+| `app/(dashboard)` | Role-based dashboards with protected routes           |
+| `app/api/`        | RESTful API endpoints organized by domain             |
+| `app/actions/`    | Next.js Server Actions for data mutations             |
+| `components/ui/`  | Reusable shadcn/ui + custom components                |
+| `cron/`           | Scheduled background job logic                        |
+| `docs/`           | Product documentation and guides                      |
+| `e2e/`            | End-to-end browser tests (Playwright)                 |
+| `lib/api/`        | Request validation, error handling, rate limiting     |
+| `lib/db/`         | Core database operations (CRUD, escrow, transactions) |
+| `lib/ops/`        | Operational health monitoring and alert management    |
+| `lib/orders/`     | Order state machine and delivery logic                |
+| `lib/payouts/`    | Payout calculation with decimal.js precision          |
+| `lib/security/`   | CSP policy and origin validation                      |
+| `lib/services/`   | Domain services (search, settlement, invoicing)       |
+| `scripts/`        | CI/CD and development tooling                         |
+| `types/`          | Shared TypeScript interfaces, enums, and SDK types    |
