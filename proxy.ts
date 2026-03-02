@@ -72,9 +72,14 @@ function isAuthPage(pathname: string): boolean {
 }
 
 /**
- * Extract the client IP from trusted proxy headers (same logic as
- * `lib/api/security.ts#extractClientIp` but Edge-compatible without env
- * module import).
+ * Extract the client IP from trusted proxy headers.
+ *
+ * NOTE: This intentionally duplicates the logic in `lib/api/security.ts#extractClientIp`.
+ * The proxy runs on the Edge Runtime, which cannot import Node.js modules (including the
+ * `env` validation module used by `lib/api/security.ts`). Extracting the function into a
+ * shared module would either pull in Node-only imports or require a separate edge-safe env
+ * module. The duplication is small (< 20 lines) and the comment here serves as the
+ * cross-reference so future maintainers know both copies must stay in sync.
  */
 function extractClientIp(req: NextRequest): string {
   const vercelForwarded = req.headers.get("x-vercel-forwarded-for");

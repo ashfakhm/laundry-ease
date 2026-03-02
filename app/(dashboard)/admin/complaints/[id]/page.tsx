@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, UserPlus, CheckCircle, Ban } from "lucide-react";
 import Link from "next/link";
 import ComplaintChat from "@/components/complaint-chat";
-import { showToast } from "@/lib/toast";
+import { useToast } from "@/components/ui/toast";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
 import { formatInr, round2 } from "@/lib/utils/monetary";
@@ -70,6 +70,7 @@ export default function AdminComplaintDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const toast = useToast();
   const [complaint, setComplaint] = useState<ComplaintData | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -84,15 +85,15 @@ export default function AdminComplaintDetailPage({
         setComplaint(data);
         setSeekerRefundAmount(0);
       } else {
-        showToast.error("Failed to load complaint");
+        toast.error("Failed to load complaint");
       }
     } catch (error) {
       reportError("ComplaintDetailFetchError", error);
-      showToast.error("Failed to load complaint");
+      toast.error("Failed to load complaint");
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, toast]);
 
   useEffect(() => {
     fetchComplaint();
@@ -106,15 +107,15 @@ export default function AdminComplaintDetailPage({
       });
 
       if (res.ok) {
-        showToast.success("Provider added to conversation");
+        toast.success("Provider added to conversation");
         fetchComplaint(); // Refresh
       } else {
         const data = await res.json();
-        showToast.error(getApiErrorMessage(data, "Failed to add provider"));
+        toast.error(getApiErrorMessage(data, "Failed to add provider"));
       }
     } catch (error) {
       reportError("ProviderAddError", error);
-      showToast.error("Failed to add provider");
+      toast.error("Failed to add provider");
     } finally {
       setActionLoading(false);
     }
@@ -183,11 +184,11 @@ export default function AdminComplaintDetailPage({
         }>(responsePayload);
         const settlement = data?.settlement;
         if (settlement) {
-          showToast.success(
+          toast.success(
             `Complaint finalized. Seeker ${formatInr(Number(settlement.seeker_refund_amount || 0))}, Provider ${formatInr(Number(settlement.provider_payout_amount || 0))}.`,
           );
         } else {
-          showToast.success("Complaint resolved successfully");
+          toast.success("Complaint resolved successfully");
         }
         if (data?.payoutPendingManual || data?.refundPendingManual) {
           const details = data.manualTransferDetails || {};
@@ -234,13 +235,13 @@ export default function AdminComplaintDetailPage({
         }
         router.push("/admin/complaints");
       } else {
-        showToast.error(
+        toast.error(
           getApiErrorMessage(responsePayload, "Failed to resolve complaint"),
         );
       }
     } catch (error) {
       reportError("ComplaintResolutionError", error);
-      showToast.error("Failed to resolve complaint");
+      toast.error("Failed to resolve complaint");
     } finally {
       setActionLoading(false);
     }
@@ -248,7 +249,7 @@ export default function AdminComplaintDetailPage({
 
   async function handleApplySettlement() {
     if (distributableAmount <= 0) {
-      showToast.error("No distributable amount available for settlement.");
+      toast.error("No distributable amount available for settlement.");
       return;
     }
 
@@ -419,16 +420,14 @@ export default function AdminComplaintDetailPage({
                         },
                       );
                       if (res.ok) {
-                        showToast.success("Complaint accepted");
+                        toast.success("Complaint accepted");
                         fetchComplaint();
                       } else {
                         const data = await res.json();
-                        showToast.error(
-                          data.error?.message || "Failed to accept",
-                        );
+                        toast.error(data.error?.message || "Failed to accept");
                       }
                     } catch {
-                      showToast.error("Failed to accept complaint");
+                      toast.error("Failed to accept complaint");
                     } finally {
                       setActionLoading(false);
                     }

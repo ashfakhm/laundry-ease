@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion } from "framer-motion";
-import { showToast } from "@/lib/toast";
+import { useToast } from "@/components/ui/toast";
 import { Loader2, User, MapPin, Lock, Save, Sparkles } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
@@ -71,6 +71,7 @@ const profileSchema = z
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function SeekerProfilePage() {
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -128,13 +129,13 @@ export default function SeekerProfilePage() {
           confirmPassword: "",
         });
       } catch {
-        showToast.error("Could not load profile");
+        toast.error("Could not load profile");
       } finally {
         setIsLoading(false);
       }
     }
     loadProfile();
-  }, [form]);
+  }, [form, toast]);
 
   async function onSubmit(data: ProfileFormValues) {
     setIsSaving(true);
@@ -163,7 +164,7 @@ export default function SeekerProfilePage() {
         );
       }
 
-      showToast.success("Profile updated successfully");
+      toast.success("Profile updated successfully");
       // Reset password fields
       form.setValue("currentPassword", "");
       form.setValue("newPassword", "");
@@ -171,7 +172,7 @@ export default function SeekerProfilePage() {
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Failed to update profile";
-      showToast.error(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { showToast } from "@/lib/toast";
+import { useToast } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
 
 export default function VerifyPhonePage() {
@@ -11,10 +11,11 @@ export default function VerifyPhonePage() {
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
   async function handleSendOTP() {
     if (!phone || phone.length < 10) {
-      showToast.error("Please enter a valid phone number");
+      toast.error("Please enter a valid phone number");
       return;
     }
 
@@ -31,12 +32,12 @@ export default function VerifyPhonePage() {
         throw new Error(error.error || "Failed to send OTP");
       }
 
-      showToast.success("OTP sent to your phone!");
+      toast.success("OTP sent to your phone!");
       setStep("otp");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to send OTP";
-      showToast.error(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -44,7 +45,7 @@ export default function VerifyPhonePage() {
 
   async function handleVerifyOTP() {
     if (!otp || otp.length !== 6) {
-      showToast.error("Please enter a valid 6-digit OTP");
+      toast.error("Please enter a valid 6-digit OTP");
       return;
     }
 
@@ -61,13 +62,13 @@ export default function VerifyPhonePage() {
         throw new Error(error.error || "Invalid OTP");
       }
 
-      showToast.success("Phone verified successfully!");
+      toast.success("Phone verified successfully!");
       router.push("/dashboard");
       router.refresh();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Verification failed";
-      showToast.error(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

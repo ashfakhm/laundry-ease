@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { showToast } from "@/lib/toast";
+import { useToast } from "@/components/ui/toast";
 import { Loader2, Save, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { unwrapApiData } from "@/lib/client-api";
@@ -139,6 +139,7 @@ export type ProviderProfileValues = {
 
 export default function ProviderEditProfilePage() {
   const router = useRouter();
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -228,13 +229,13 @@ export default function ProviderEditProfilePage() {
           confirmPassword: "",
         });
       } catch {
-        showToast.error("Could not load profile");
+        toast.error("Could not load profile");
       } finally {
         setIsLoading(false);
       }
     }
     loadProfile();
-  }, [form]);
+  }, [form, toast]);
 
   async function onSubmit(data: ProviderProfileValues) {
     setIsSaving(true);
@@ -278,14 +279,14 @@ export default function ProviderEditProfilePage() {
         );
       }
 
-      showToast.success("Profile updated successfully");
+      toast.success("Profile updated successfully");
       router.push("/provider/profile");
       router.refresh();
     } catch (error) {
       if (error instanceof Error) {
-        showToast.error(error.message);
+        toast.error(error.message);
       } else {
-        showToast.error("An unknown error occurred");
+        toast.error("An unknown error occurred");
       }
     } finally {
       setIsSaving(false);

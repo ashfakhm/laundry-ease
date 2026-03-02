@@ -5,6 +5,7 @@
  */
 
 import { ObjectId, type Db, type ClientSession } from "mongodb";
+import type { Order } from "@/types/orders";
 import { logger } from "@/lib/logger";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 import { AppError, ErrorCode } from "@/lib/api/errors";
@@ -18,9 +19,19 @@ import { DELIVERY_OTP_TTL_MS } from "@/lib/constants";
 
 export interface DeliveryConfirmationInput {
   orderId: string;
-  /** The already-fetched order document */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  order: Record<string, any>;
+  /** The already-fetched order document (fields actually accessed by this function) */
+  order: Pick<
+    Order,
+    | "delivery_otp"
+    | "delivery_otp_expires_at"
+    | "delivery_otp_sent_at"
+    | "payment_status"
+    | "deadline_compensated_at"
+    | "razorpay_refund_id"
+    | "total_price"
+    | "deadline"
+    | "razorpay_payment_id"
+  >;
   otp: string;
   actorRole: "seeker" | "provider";
   actorId: string;
@@ -157,12 +168,10 @@ export async function executeDeliveryConfirmation(
       );
       refundId = refund.id || null;
     } catch (error) {
-      logger.error(
-        "ORDERS",
-        "Failed to refund late-delivery order",
-        error,
-        { orderId, actorRole },
-      );
+      logger.error("ORDERS", "Failed to refund late-delivery order", error, {
+        orderId,
+        actorRole,
+      });
       throw new AppError(
         ErrorCode.INTERNAL_ERROR,
         502,

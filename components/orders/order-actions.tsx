@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Star, AlertTriangle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { showToast } from "@/lib/toast";
+import { useToast } from "@/components/ui/toast";
 import { MAX_EVIDENCE_FILES } from "@/lib/constants";
 
 interface ReviewModalProps {
@@ -25,6 +25,7 @@ export function ReviewModal({
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,14 +46,14 @@ export function ReviewModal({
       });
 
       if (res.ok) {
-        showToast.success("Review submitted successfully");
+        toast.success("Review submitted successfully");
         onClose();
         router.refresh();
       } else {
-        showToast.error("Failed to submit review");
+        toast.error("Failed to submit review");
       }
     } catch {
-      showToast.error("Something went wrong");
+      toast.error("Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -147,15 +148,16 @@ export function ComplaintModal({
   const [photos, setPhotos] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (description.length < 10) {
-      showToast.error("Description must be at least 10 characters");
+      toast.error("Description must be at least 10 characters");
       return;
     }
     if (title.length < 5) {
-      showToast.error("Title must be at least 5 characters");
+      toast.error("Title must be at least 5 characters");
       return;
     }
 
@@ -175,16 +177,16 @@ export function ComplaintModal({
 
       if (res.ok) {
         const data = await res.json();
-        showToast.success("Complaint raised successfully");
+        toast.success("Complaint raised successfully");
         onClose();
         // Redirect to new Dispute Chat
         router.push(`/seeker/disputes/${data.data?._id || data._id}`);
       } else {
         const data = await res.json();
-        showToast.error(data.error?.message || "Failed to raise complaint");
+        toast.error(data.error?.message || "Failed to raise complaint");
       }
     } catch {
-      showToast.error("Something went wrong");
+      toast.error("Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -263,7 +265,11 @@ export function ComplaintModal({
             <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
               Evidence (Optional)
             </label>
-            <EvidenceUpload value={photos} onChange={setPhotos} maxFiles={MAX_EVIDENCE_FILES} />
+            <EvidenceUpload
+              value={photos}
+              onChange={setPhotos}
+              maxFiles={MAX_EVIDENCE_FILES}
+            />
           </div>
 
           <button
