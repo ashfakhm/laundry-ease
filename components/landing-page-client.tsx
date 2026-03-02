@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, MapPin, ShieldCheck, Clock } from "lucide-react";
 import { motion } from "framer-motion";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
 

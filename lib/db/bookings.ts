@@ -1,5 +1,4 @@
 import { Booking } from "@/types/bookings";
-import { Seeker, Provider } from "@/types/users";
 import { getDb } from "../mongodb";
 import { ObjectId } from "mongodb";
 import { auditBookingStateChange } from "../audit";
@@ -285,91 +284,6 @@ export async function acceptBookingWithCapacityCheck(data: {
   } finally {
     await session.endSession();
   }
-}
-
-/**
- * Get all bookings for a provider (Server Component Helper)
- */
-export async function getBookingsForProvider(email: string) {
-  const { db } = await getDb();
-
-  const provider = await db
-    .collection<Provider>("providers")
-    .findOne({ email });
-  if (!provider) return [];
-
-  const rawBookings = await db
-    .collection("bookings")
-    .aggregate([
-      {
-        $match: {
-          provider_id: provider._id,
-          bookingFeeStatus: { $in: ["paid", "applied"] },
-        },
-      },
-      {
-        $sort: { createdAt: -1 },
-      },
-      {
-        $lookup: {
-          from: "seekers",
-          localField: "seeker_id",
-          foreignField: "_id",
-          as: "seekerDetails",
-        },
-      },
-      {
-        $unwind: {
-          path: "$seekerDetails",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $project: {
-          "seekerDetails.passwordHash": 0,
-        },
-      },
-    ])
-    .toArray();
-
-  const enrichedBookings = rawBookings.map((b) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { seekerDetails, ...bookingRest } = b as Booking & {
-      seekerDetails?: Seeker;
-    };
-    const booking = bookingRest as Booking;
-    const seeker = b.seekerDetails as Seeker | undefined;
-
-    // Serialize ObjectIds to strings for Client Components
-    return {
-      ...booking,
-      _id: booking._id.toString(),
-      seeker_id: booking.seeker_id.toString(),
-      provider_id: booking.provider_id.toString(),
-      createdAt: new Date(booking.createdAt).toISOString(),
-      deadline: booking.deadline
-        ? new Date(booking.deadline).toISOString()
-        : undefined,
-      pickupSlot: booking.pickupSlot
-        ? {
-            ...booking.pickupSlot,
-            dateTime: new Date(booking.pickupSlot.dateTime).toISOString(), // Ensure ISO string
-            confirmedAt: booking.pickupSlot.confirmedAt
-              ? new Date(booking.pickupSlot.confirmedAt).toISOString()
-              : undefined,
-          }
-        : undefined,
-      seeker: seeker
-        ? {
-            ...seeker,
-            _id: seeker._id?.toString() || "",
-            createdAt: new Date(seeker.createdAt).toISOString(),
-          }
-        : undefined,
-    };
-  });
-
-  return enrichedBookings;
 }
 
 /**

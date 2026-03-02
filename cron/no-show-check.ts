@@ -4,17 +4,17 @@ import { logger } from "@/lib/logger";
 import { refundRazorpayPayment } from "@/lib/razorpay";
 
 /**
- * SIMULATED CRON JOB
- * In a real Vercel deployment, this would be a Vercel Cron Job endpoint.
- * For now, it's a script we can run or call via API to check for no-shows.
+ * No-show detection cron job.
+ *
+ * Invoked by the Vercel Cron scheduler (see vercel.json) on a scheduled interval.
+ * Also callable on-demand via the internal cron API route for manual triggering.
  *
  * Logic:
- * If pickupSlot.confirmedAt exists AND
- * Current Time > pickupSlot.dateTime + 30 minutes AND
- * status is NOT "picked_up" (Wait, status is in 'Order' usually, but 'Booking' handle pre-pickup)
- * Actually, once order is created, booking status is sort of done?
- * PRD says: "If provider does not appear... Booking is auto-cancelled"
- * So if no Order has been created yet?
+ *   - Find confirmed bookings where pickupSlot.confirmedAt is set AND
+ *     pickupSlot.dateTime + 30 min buffer has passed AND
+ *     no corresponding Order exists yet (provider never showed up / started work).
+ *   - Auto-cancel those bookings, issue a refund of the booking fee to the seeker,
+ *     and fire alert notifications to both parties.
  */
 
 export async function checkNoShows() {
@@ -61,7 +61,7 @@ export async function checkNoShows() {
               status: "rejected", // Auto-cancel basically
               noShowMarkedAt: new Date(),
             },
-          }
+          },
         );
 
         // If update didn't match, booking was already processed (idempotent - skip)
@@ -111,9 +111,13 @@ export async function checkNoShows() {
             bookingId: booking._id.toString(),
           });
         } else {
-          logger.debug("NO-SHOW", `Booking already processed (idempotent skip)`, {
-            bookingId: booking._id.toString(),
-          });
+          logger.debug(
+            "NO-SHOW",
+            `Booking already processed (idempotent skip)`,
+            {
+              bookingId: booking._id.toString(),
+            },
+          );
         }
       }
     } catch (err) {

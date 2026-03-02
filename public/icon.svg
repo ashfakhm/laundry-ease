@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#2563eb"/>
+  <rect x="96" y="80" width="320" height="352" rx="24" fill="#1d4ed8" stroke="#93c5fd" stroke-width="8"/>
+  <rect x="116" y="100" width="280" height="312" rx="16" fill="#1e40af"/>
+  <!-- Control panel top -->
+  <rect x="116" y="100" width="280" height="60" rx="16" fill="#1d4ed8"/>
+  <!-- Knob left -->
+  <circle cx="160" cy="130" r="16" fill="#93c5fd"/>
+  <circle cx="160" cy="130" r="8" fill="#2563eb"/>
+  <!-- Knob right -->
+  <circle cx="220" cy="130" r="16" fill="#93c5fd"/>
+  <circle cx="220" cy="130" r="8" fill="#2563eb"/>
+  <!-- Status indicator -->
+  <circle cx="340" cy="130" r="10" fill="#34d399"/>
+  <!-- Door outer ring -->
+  <circle cx="256" cy="300" r="110" fill="#1e3a8a" stroke="#93c5fd" stroke-width="8"/>
+  <!-- Door inner -->
+  <circle cx="256" cy="300" r="88" fill="#172554"/>
+  <!-- Drum holes pattern -->
+  <circle cx="220" cy="264" r="10" fill="#1e3a8a"/>
+  <circle cx="256" cy="260" r="10" fill="#1e3a8a"/>
+  <circle cx="292" cy="264" r="10" fill="#1e3a8a"/>
+  <circle cx="210" cy="300" r="10" fill="#1e3a8a"/>
+  <circle cx="256" cy="300" r="10" fill="#1e3a8a"/>
+  <circle cx="302" cy="300" r="10" fill="#1e3a8a"/>
+  <circle cx="220" cy="336" r="10" fill="#1e3a8a"/>
+  <circle cx="256" cy="340" r="10" fill="#1e3a8a"/>
+  <circle cx="292" cy="336" r="10" fill="#1e3a8a"/>
+  <!-- Water ripple / wash motion -->
+  <path d="M200 295 Q228 280 256 295 Q284 310 312 295" stroke="#60a5fa" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M200 310 Q228 295 256 310 Q284 325 312 310" stroke="#93c5fd" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/>
+</svg>

@@ -6,6 +6,8 @@ import { ToastProvider } from "@/components/ui/toast";
 import { GoogleMapsProvider } from "@/components/providers/google-maps-provider";
 import JsonLd from "@/components/seo/json-ld";
 import { GlobalFooter } from "@/components/ui/global-footer";
+import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const inter = Inter({
@@ -97,10 +99,6 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
-
-// ...
-
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -133,6 +131,7 @@ export default async function RootLayout({
                 >
                   <ToastProvider>{children}</ToastProvider>
                 </main>
+                <Toaster richColors position="top-right" />
                 <GlobalFooter />
               </div>
               <JsonLd />

@@ -1,0 +1,27 @@
+{
+  "name": "LaundryEase",
+  "short_name": "LaundryEase",
+  "description": "Doorstep laundry service marketplace with escrow-protected payments",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "shopping", "utilities"]
+}

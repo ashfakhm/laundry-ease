@@ -687,7 +687,7 @@ Required variables (see [`.env.example`](.env.example:1)):
 
 **Quality Snapshot (2026-03-01):**
 
-- 104 test files, 506 tests passing (100% core route coverage)
+- 104 test files, 517 tests passing (100% core route coverage)
 - 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
@@ -735,6 +735,6 @@ LaundryEase is a well-architected laundry marketplace with:
 3. **Robust State Machines** - Booking and Order lifecycles with explicit transitions
 4. **Comprehensive Dispute Resolution** - 3-way chat, split settlements, deadline tracking
 5. **Production-Ready Infrastructure** - 10 cron jobs, operational alerting with SLA/escalation, email outbox, rate limiting, structured logging, Datadog APM
-6. **Quality Assurance** - 104 test files (506 tests), 5 E2E browser specs, type safety, CI quality gates
+6. **Quality Assurance** - 104 test files (517 tests), 5 E2E browser specs, type safety, CI quality gates
 
 The codebase follows modern Next.js patterns with App Router, Server Actions, and a clear separation of concerns between frontend components and backend business logic.
