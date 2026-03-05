@@ -12,7 +12,6 @@ import {
   CheckCircle,
   Clock,
   ArrowRight,
-  ShieldCheck,
   Trash2,
   FileText,
 } from "lucide-react";
@@ -224,119 +223,6 @@ function SeekerBookingCardComponent({
         type: "error",
       });
     } finally {
-      setProcessing(false);
-    }
-  }
-
-  async function handlePayInvoice() {
-    setProcessing(true);
-
-    if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
-      toast({
-        title: "Configuration Error",
-        description: "Payment gateway key missing",
-        type: "error",
-      });
-      setProcessing(false);
-      return;
-    }
-
-    try {
-      // 1. Create Order
-      const res = await fetch(`/api/bookings/${booking._id}/pay-invoice`, {
-        method: "POST",
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          toast({
-            title: "Gateway Authentication Failed",
-            description:
-              "The payment gateway keys are invalid. Please check your configuration.",
-            type: "error",
-          });
-          throw new Error("Authentication failed");
-        }
-        throw new Error(data.error?.message || "Failed to initiate payment");
-      }
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: data.amount,
-        currency: data.currency,
-        name: "LaundryEase",
-        description: "Order Invoice Payment",
-        order_id: data.id,
-        handler: async function (response: {
-          razorpay_payment_id: string;
-          razorpay_order_id: string;
-          razorpay_signature: string;
-        }) {
-          // 2. Verify Payment
-          try {
-            const verifyRes = await fetch(
-              `/api/bookings/${booking._id}/pay-invoice`,
-              {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_signature: response.razorpay_signature,
-                }),
-              },
-            );
-
-            if (verifyRes.ok) {
-              toast({
-                title: "Payment Successful!",
-                description: "Your order is now in progress.",
-                type: "success",
-              });
-              onRefresh();
-            } else {
-              toast({
-                title: "Verification Failed",
-                description: "Could not verify payment.",
-                type: "error",
-              });
-            }
-          } catch {
-            toast({
-              title: "Error",
-              description: "Verification error",
-              type: "error",
-            });
-          }
-        },
-        modal: {
-          ondismiss: function () {
-            setProcessing(false);
-          },
-        },
-      };
-
-      interface RazorpayWindow {
-        Razorpay: new (options: Record<string, unknown>) => {
-          open: () => void;
-        };
-      }
-
-      const rzp1 = new (window as unknown as RazorpayWindow).Razorpay(
-        options as unknown as Record<string, unknown>,
-      );
-      rzp1.open();
-    } catch (e: unknown) {
-      reportError("InvoicePaymentInitError", e);
-      // Toast already shown for specific errors
-      if (e instanceof Error && e.message !== "Authentication failed") {
-        toast({
-          title: "Payment Error",
-          description: e.message || "Something went wrong",
-          type: "error",
-        });
-      }
       setProcessing(false);
     }
   }
@@ -666,29 +552,13 @@ function SeekerBookingCardComponent({
                 </div>
               </div>
 
-              <div className="pt-2 space-y-3">
+              <div className="pt-2">
                 <Link
                   href={`/seeker/bookings/${booking._id}/invoice-review`}
-                  className="w-full h-12 btn btn-outline border-2 font-bold rounded-xl transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+                  className="w-full h-12 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
                 >
-                  <FileText className="w-5 h-5" /> Review Full Invoice
+                  <FileText className="w-5 h-5" /> View Full Invoice
                 </Link>
-                <button
-                  onClick={handlePayInvoice}
-                  disabled={processing}
-                  className="w-full h-12 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
-                >
-                  {processing ? (
-                    <span className="loading loading-spinner loading-sm text-primary-foreground"></span>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-5 h-5" /> Pay Now
-                    </>
-                  )}
-                </button>
-                <p className="text-[10px] text-center mt-2 text-muted-foreground font-medium">
-                  Payment protected by LaundryEase Escrow
-                </p>
               </div>
             </motion.div>
           )}
