@@ -87,12 +87,17 @@ export default function InvoiceReviewForm({
               payPayload.error?.message || "Failed to initiate payment",
             );
 
+          console.log("🔍 Payment API Response (raw):", payPayload);
+
           const payData = unwrapApiData<{
             id: string;
             amount: number;
             currency: string;
             key: string;
           }>(payPayload);
+
+          console.log("🔍 Payment Data (unwrapped):", payData);
+          console.log("🔍 Amount being sent to Razorpay:", payData.amount);
 
           // 2. Open Razorpay
           const options = {

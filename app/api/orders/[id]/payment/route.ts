@@ -54,6 +54,13 @@ export async function POST(
     }
 
     const amountInPaise = Math.round(order.total_price * 100);
+
+    logger.info("PAYMENT", "Creating Razorpay order", {
+      orderId: id,
+      orderTotalPrice: order.total_price,
+      amountInPaise,
+    });
+
     if (amountInPaise <= 0) {
       throw new AppError(
         ErrorCode.VALIDATION_ERROR,
@@ -63,6 +70,11 @@ export async function POST(
     }
 
     const razorpayOrder = await createRazorpayOrder(amountInPaise, id);
+
+    logger.info("PAYMENT", "Razorpay order created", {
+      razorpayOrderId: razorpayOrder.id,
+      razorpayAmount: razorpayOrder.amount,
+    });
     await db.collection("orders").updateOne(
       { _id: orderId },
       {
@@ -73,12 +85,16 @@ export async function POST(
       },
     );
 
-    return successResponse({
+    const response = {
       id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
       key: env.RAZORPAY_KEY_ID,
-    });
+    };
+
+    logger.info("PAYMENT", "Sending payment response", response);
+
+    return successResponse(response);
   } catch (error) {
     logger.error("ORDERS", "Payment init error", error, { orderId: id });
     return errorResponse(error);

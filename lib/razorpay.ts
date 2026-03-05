@@ -89,17 +89,23 @@ export async function createRazorpayOrder(
   currency: string = "INR",
 ) {
   const options: RazorpayOrderOptions = {
-    amount: amount.toString(),
+    amount: amount, // Keep as number - Razorpay SDK accepts and returns number
     currency,
     receipt,
   };
 
   try {
     const order = await razorpay.orders.create(options);
+    logger.info("RAZORPAY", "Order created", {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
     return order;
   } catch (error) {
     logger.error("RAZORPAY", "Error creating Razorpay order", error, {
       receipt,
+      amount,
     });
     throw error;
   }
