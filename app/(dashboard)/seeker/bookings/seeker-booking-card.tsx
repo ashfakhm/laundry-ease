@@ -50,25 +50,29 @@ function SeekerBookingCardComponent({
       const res = await fetch(`/api/bookings/${booking._id}/pay`, {
         method: "POST",
       });
-      const data = await res.json();
+      const json = await res.json();
 
       if (!res.ok) {
         toast({
           title: "Payment failed",
-          description: data.message || "Failed to initiate payment",
+          description: json.message || "Failed to initiate payment",
           type: "error",
         });
         setProcessing(false);
         return;
       }
 
+      // successResponse wraps payload inside `data` key:
+      // { success, ok, data: { id, amount, currency } }
+      const orderData = json.data ?? json;
+
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: data.amount,
-        currency: data.currency,
+        amount: orderData.amount,
+        currency: orderData.currency,
         name: "LaundryEase",
         description: "Booking Fee",
-        order_id: data.id,
+        order_id: orderData.id,
         handler: async function (response: {
           razorpay_payment_id: string;
           razorpay_order_id: string;
@@ -94,9 +98,13 @@ function SeekerBookingCardComponent({
               });
               onRefresh();
             } else {
+              const verifyData = await verifyRes.json().catch(() => null);
               toast({
                 title: "Verification failed",
-                description: "Payment could not be verified",
+                description:
+                  verifyData?.message ||
+                  verifyData?.data?.message ||
+                  "Payment could not be verified. Please contact support.",
                 type: "error",
               });
             }
