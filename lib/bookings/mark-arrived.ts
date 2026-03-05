@@ -1,14 +1,9 @@
 import { ObjectId } from "mongodb";
-import { calculateDistance } from "@/lib/distance";
 import { getDb } from "@/lib/mongodb";
 import { logger } from "@/lib/logger";
 import { createRazorpayPayout } from "@/lib/razorpay";
 import { env } from "@/lib/env";
-import {
-  MAX_ARRIVAL_DISTANCE_METERS,
-  PAYOUT_LOCK_TTL_MS,
-  PLATFORM_COMMISSION_RATE,
-} from "@/lib/constants";
+import { PAYOUT_LOCK_TTL_MS, PLATFORM_COMMISSION_RATE } from "@/lib/constants";
 import type { Booking } from "@/types/bookings";
 
 type Coordinates = { lat: number; lng: number };
@@ -241,7 +236,7 @@ async function tryInitiateBookingPayout(
 export async function markProviderArrival(
   input: MarkArrivalInput,
 ): Promise<MarkArrivalResult> {
-  const { bookingId, providerId, coordinates } = input;
+  const { bookingId, providerId } = input;
   const { db } = await getDb();
 
   const booking = await db
