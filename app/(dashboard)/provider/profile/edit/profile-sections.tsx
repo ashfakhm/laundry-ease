@@ -1,8 +1,13 @@
 "use client";
 
-import { UseFormReturn, useFieldArray, type FieldErrors } from "react-hook-form";
+import {
+  UseFormReturn,
+  useFieldArray,
+  type FieldErrors,
+} from "react-hook-form";
 import { type ProviderProfileValues } from "./page";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import {
   Briefcase,
   MapPin,
@@ -14,6 +19,8 @@ import {
   Trash2,
   Lock,
   Check,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
@@ -386,19 +393,29 @@ export function FixedPriceListSection({ form }: FormProps) {
                         className="w-full h-9 pl-6 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                     </div>
-                    {(form.formState.errors.items as FieldErrors<ProviderProfileValues>["items"])?.[index]?.name && (
+                    {(
+                      form.formState.errors
+                        .items as FieldErrors<ProviderProfileValues>["items"]
+                    )?.[index]?.name && (
                       <p className="text-xs text-destructive">
                         {
-                          (form.formState.errors.items as FieldErrors<ProviderProfileValues>["items"])?.[index]?.name
-                            ?.message
+                          (
+                            form.formState.errors
+                              .items as FieldErrors<ProviderProfileValues>["items"]
+                          )?.[index]?.name?.message
                         }
                       </p>
                     )}
-                    {(form.formState.errors.items as FieldErrors<ProviderProfileValues>["items"])?.[index]?.price && (
+                    {(
+                      form.formState.errors
+                        .items as FieldErrors<ProviderProfileValues>["items"]
+                    )?.[index]?.price && (
                       <p className="text-xs text-destructive">
                         {
-                          (form.formState.errors.items as FieldErrors<ProviderProfileValues>["items"])?.[index]?.price
-                            ?.message
+                          (
+                            form.formState.errors
+                              .items as FieldErrors<ProviderProfileValues>["items"]
+                          )?.[index]?.price?.message
                         }
                       </p>
                     )}
@@ -489,6 +506,10 @@ export function BankDetailsSection({ form }: FormProps) {
 }
 
 export function SecuritySection({ form }: FormProps) {
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -507,12 +528,26 @@ export function SecuritySection({ form }: FormProps) {
             <label className="text-sm font-medium text-muted-foreground">
               Current Password
             </label>
-            <input
-              type="password"
-              {...form.register("currentPassword")}
-              className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-              placeholder="Enter current password"
-            />
+            <div className="relative">
+              <input
+                type={showCurrentPassword ? "text" : "password"}
+                {...form.register("currentPassword")}
+                className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                placeholder="Enter current password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Toggle current password visibility"
+              >
+                {showCurrentPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {form.formState.errors.currentPassword &&
               typeof form.formState.errors.currentPassword?.message ===
                 "string" && (
@@ -525,12 +560,26 @@ export function SecuritySection({ form }: FormProps) {
             <label className="text-sm font-medium text-muted-foreground">
               New Password
             </label>
-            <input
-              type="password"
-              {...form.register("newPassword")}
-              className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-              placeholder="Min 8 chars"
-            />
+            <div className="relative">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                {...form.register("newPassword")}
+                className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                placeholder="Min 8 chars"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Toggle new password visibility"
+              >
+                {showNewPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {form.formState.errors.newPassword &&
               typeof form.formState.errors.newPassword?.message ===
                 "string" && (
@@ -543,12 +592,26 @@ export function SecuritySection({ form }: FormProps) {
             <label className="text-sm font-medium text-muted-foreground">
               Confirm New Password
             </label>
-            <input
-              type="password"
-              {...form.register("confirmPassword")}
-              className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-              placeholder="Confirm new password"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                {...form.register("confirmPassword")}
+                className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                placeholder="Confirm new password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Toggle confirm password visibility"
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {form.formState.errors.confirmPassword &&
               typeof form.formState.errors.confirmPassword?.message ===
                 "string" && (

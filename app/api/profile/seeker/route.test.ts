@@ -3,10 +3,13 @@ import { GET, PUT } from "./route";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
 
-const { mockRequireSeeker, mockGetDb } = vi.hoisted(() => ({
-  mockRequireSeeker: vi.fn(),
-  mockGetDb: vi.fn(),
-}));
+const { mockRequireSeeker, mockGetDb, mockEnqueueEmailOutboxJob } = vi.hoisted(
+  () => ({
+    mockRequireSeeker: vi.fn(),
+    mockGetDb: vi.fn(),
+    mockEnqueueEmailOutboxJob: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/api/auth", () => ({
   requireSeeker: mockRequireSeeker,
@@ -14,6 +17,10 @@ vi.mock("@/lib/api/auth", () => ({
 
 vi.mock("@/lib/mongodb", () => ({
   getDb: mockGetDb,
+}));
+
+vi.mock("@/lib/email-outbox", () => ({
+  enqueueEmailOutboxJob: mockEnqueueEmailOutboxJob,
 }));
 
 vi.mock("bcrypt", () => ({
@@ -73,6 +80,10 @@ describe("seeker profile route", () => {
     });
     mockGetDb.mockReset();
     vi.clearAllMocks();
+    mockEnqueueEmailOutboxJob.mockResolvedValue({
+      id: "mock-job-id",
+      queuedAt: new Date().toISOString(),
+    });
   });
 
   describe("GET", () => {
@@ -131,7 +142,13 @@ describe("seeker profile route", () => {
       expect(json.data.message).toBe("Profile updated successfully");
       expect(dbMock.updateOne).toHaveBeenCalledWith(
         { _id: expect.any(ObjectId) },
-        { $set: { name: "New Name", phone: "+1234567890" } },
+        {
+          $set: expect.objectContaining({
+            name: "New Name",
+            phone: "+1234567890",
+            updatedAt: expect.any(Date),
+          }),
+        },
       );
     });
 
@@ -166,6 +183,54 @@ describe("seeker profile route", () => {
       expect(json.message).toBe(
         "Current password is required to set a new password",
       );
+    });
+
+    it("changes password successfully and sets passwordChangedAt", async () => {
+      const bcrypt = await import("bcrypt");
+      vi.mocked(bcrypt.default.compare).mockResolvedValue(true as never);
+      vi.mocked(bcrypt.default.hash).mockResolvedValue(
+        "new_hashed_password" as never,
+      );
+
+      const dbMock = makeDbMock();
+      dbMock.findOne.mockResolvedValue({
+        _id: new ObjectId(SEEKER_ID),
+        passwordHash: "old_hashed_password",
+      });
+      dbMock.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await PUT(
+        makeRequest("PUT", {
+          currentPassword: "OldPassword1!",
+          newPassword: "NewPassword1!",
+        }),
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.data.message).toBe("Profile updated successfully");
+
+      // passwordChangedAt and updatedAt must be set in the $set payload
+      expect(dbMock.updateOne).toHaveBeenCalledWith(
+        { _id: expect.any(ObjectId) },
+        {
+          $set: expect.objectContaining({
+            passwordHash: "new_hashed_password",
+            passwordChangedAt: expect.any(Date),
+            updatedAt: expect.any(Date),
+          }),
+        },
+      );
+
+      // password-changed confirmation email must be enqueued
+      expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledWith({
+        kind: "password_changed",
+        payload: {
+          to: "seeker@test.com",
+          changedAt: expect.any(String),
+        },
+      });
     });
 
     it("verifies weak password", async () => {

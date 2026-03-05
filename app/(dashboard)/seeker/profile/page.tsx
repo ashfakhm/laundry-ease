@@ -6,7 +6,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, User, MapPin, Lock, Save, Sparkles } from "lucide-react";
+import {
+  Loader2,
+  User,
+  MapPin,
+  Lock,
+  Save,
+  Sparkles,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { unwrapApiData } from "@/lib/client-api";
@@ -74,6 +83,9 @@ export default function SeekerProfilePage() {
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -368,12 +380,26 @@ export default function SeekerProfilePage() {
                 <label className="text-sm font-medium text-muted-foreground">
                   Current Password
                 </label>
-                <input
-                  type="password"
-                  {...form.register("currentPassword")}
-                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  placeholder="Enter current password"
-                />
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    {...form.register("currentPassword")}
+                    className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="Enter current password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Toggle current password visibility"
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 {form.formState.errors.currentPassword && (
                   <p className="text-xs text-destructive">
                     {form.formState.errors.currentPassword.message}
@@ -385,12 +411,26 @@ export default function SeekerProfilePage() {
                 <label className="text-sm font-medium text-muted-foreground">
                   New Password
                 </label>
-                <input
-                  type="password"
-                  {...form.register("newPassword")}
-                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  placeholder="Min 8 chars"
-                />
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    {...form.register("newPassword")}
+                    className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="Min 8 chars"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Toggle new password visibility"
+                  >
+                    {showNewPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 {form.formState.errors.newPassword && (
                   <p className="text-xs text-destructive">
                     {form.formState.errors.newPassword.message}
@@ -402,12 +442,26 @@ export default function SeekerProfilePage() {
                 <label className="text-sm font-medium text-muted-foreground">
                   Confirm New Password
                 </label>
-                <input
-                  type="password"
-                  {...form.register("confirmPassword")}
-                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  placeholder="Confirm new password"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    {...form.register("confirmPassword")}
+                    className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="Confirm new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Toggle confirm password visibility"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 {form.formState.errors.confirmPassword && (
                   <p className="text-xs text-destructive">
                     {form.formState.errors.confirmPassword.message}

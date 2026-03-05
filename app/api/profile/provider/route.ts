@@ -1,4 +1,5 @@
 import { maskBankDetails } from "@/lib/utils";
+import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 import { getDb } from "@/lib/mongodb";
 import { requireProvider } from "@/lib/api/auth";
 import { Provider } from "@/types/users";
@@ -169,6 +170,7 @@ export async function PATCH(req: Request) {
         currentPassword,
         newPassword,
       );
+      updateFields.passwordChangedAt = new Date();
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -178,6 +180,8 @@ export async function PATCH(req: Request) {
         "No fields to update",
       );
     }
+
+    updateFields.updatedAt = new Date();
 
     const result = await db
       .collection("providers")
@@ -193,6 +197,26 @@ export async function PATCH(req: Request) {
         404,
         "Provider not found",
       );
+    }
+
+    // Send "password changed" security notification email when password changes.
+    if (updateFields.passwordChangedAt) {
+      try {
+        await enqueueEmailOutboxJob({
+          kind: "password_changed",
+          payload: {
+            to: user.email,
+            changedAt: (updateFields.passwordChangedAt as Date).toISOString(),
+          },
+        });
+      } catch (emailErr) {
+        // Don't fail the profile update if the notification fails to enqueue.
+        logger.error(
+          "PROFILE",
+          "Failed to enqueue password-changed email for provider",
+          emailErr,
+        );
+      }
     }
 
     // findOneAndUpdate returns an object with 'value' containing the updated doc

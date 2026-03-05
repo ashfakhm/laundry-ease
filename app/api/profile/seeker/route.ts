@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/password-policy";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { requireSameOrigin } from "@/lib/api/security";
+import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 
 /**
  * GET /api/profile/seeker
@@ -129,11 +130,14 @@ export async function PUT(req: Request) {
 
       const { BCRYPT_SALT_ROUNDS } = await import("@/lib/constants");
       updates.passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+      updates.passwordChangedAt = new Date();
     }
 
     if (Object.keys(updates).length === 0) {
       return successResponse({ message: "No changes provided" });
     }
+
+    updates.updatedAt = new Date();
 
     const res = await db
       .collection("seekers")
@@ -141,6 +145,26 @@ export async function PUT(req: Request) {
 
     if (res.matchedCount === 0) {
       throw new AppError(ErrorCode.NOT_FOUND, 404, "Seeker not found");
+    }
+
+    // Send "password changed" security notification email when password changes.
+    if (updates.passwordChangedAt) {
+      try {
+        await enqueueEmailOutboxJob({
+          kind: "password_changed",
+          payload: {
+            to: user.email,
+            changedAt: (updates.passwordChangedAt as Date).toISOString(),
+          },
+        });
+      } catch (emailErr) {
+        // Don't fail the profile update if the notification fails to enqueue.
+        logger.error(
+          "PROFILE",
+          "Failed to enqueue password-changed email for seeker",
+          emailErr,
+        );
+      }
     }
 
     return successResponse({ message: "Profile updated successfully" });

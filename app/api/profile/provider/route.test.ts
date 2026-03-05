@@ -3,10 +3,12 @@ import { GET, PATCH } from "./route";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
 
-const { mockRequireProvider, mockGetDb } = vi.hoisted(() => ({
-  mockRequireProvider: vi.fn(),
-  mockGetDb: vi.fn(),
-}));
+const { mockRequireProvider, mockGetDb, mockEnqueueEmailOutboxJob } =
+  vi.hoisted(() => ({
+    mockRequireProvider: vi.fn(),
+    mockGetDb: vi.fn(),
+    mockEnqueueEmailOutboxJob: vi.fn(),
+  }));
 
 vi.mock("@/lib/api/auth", () => ({
   requireProvider: mockRequireProvider,
@@ -14,6 +16,10 @@ vi.mock("@/lib/api/auth", () => ({
 
 vi.mock("@/lib/mongodb", () => ({
   getDb: mockGetDb,
+}));
+
+vi.mock("@/lib/email-outbox", () => ({
+  enqueueEmailOutboxJob: mockEnqueueEmailOutboxJob,
 }));
 
 vi.mock("@/lib/razorpay", () => ({
@@ -81,6 +87,10 @@ describe("provider profile route", () => {
     });
     mockGetDb.mockReset();
     vi.clearAllMocks();
+    mockEnqueueEmailOutboxJob.mockResolvedValue({
+      id: "mock-job-id",
+      queuedAt: new Date().toISOString(),
+    });
   });
 
   describe("GET", () => {
@@ -155,6 +165,60 @@ describe("provider profile route", () => {
       if (res.status === 400) {
         expect(json.message).toBe("No fields to update");
       }
+    });
+
+    it("changes password successfully and sets passwordChangedAt", async () => {
+      const bcrypt = await import("bcrypt");
+      vi.mocked(bcrypt.default.compare).mockResolvedValue(true as never);
+      vi.mocked(bcrypt.default.hash).mockResolvedValue(
+        "new_hashed_password" as never,
+      );
+
+      const dbMock = makeDbMock();
+      // findOne used by verifyAndHashPassword to load the current passwordHash
+      dbMock.findOne.mockResolvedValue({
+        _id: new ObjectId(PROVIDER_ID),
+        passwordHash: "old_hashed_password",
+      });
+      const updatedProvider = {
+        _id: new ObjectId(PROVIDER_ID),
+        name: "Provider Name",
+      };
+      dbMock.findOneAndUpdate.mockResolvedValue({ value: updatedProvider });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await PATCH(
+        makeRequest("PATCH", {
+          currentPassword: "OldPassword1!",
+          newPassword: "NewPassword1!",
+        }),
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+
+      // passwordChangedAt and updatedAt must be included in the $set payload
+      expect(dbMock.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: expect.any(ObjectId) },
+        {
+          $set: expect.objectContaining({
+            passwordHash: "new_hashed_password",
+            passwordChangedAt: expect.any(Date),
+            updatedAt: expect.any(Date),
+          }),
+        },
+        expect.any(Object),
+      );
+
+      // password-changed confirmation email must be enqueued
+      expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledWith({
+        kind: "password_changed",
+        payload: {
+          to: "provider@test.com",
+          changedAt: expect.any(String),
+        },
+      });
     });
   });
 });
