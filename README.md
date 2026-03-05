@@ -56,7 +56,10 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
   Seekers can raise complaints within 24 hours of delivery. Escrow freezes immediately. Admin mediates through a 3-way chat system with response deadlines and commission-aware split settlement.
 
 - **Reschedule without cancellation (booking-level)**
-  Either side can request a pickup reschedule while pickup is still being negotiated. Reschedule creates an explicit booking state (not a cancellation) and routes the booking back into the propose/confirm flow.
+  Either side can request a pickup reschedule while pickup is still being negotiated. Reschedule creates an explicit booking state (`reschedule_requested`) and routes the booking back into the propose/confirm flow. The seeker dashboard shows who requested the reschedule, the reason, and the previously confirmed slot.
+
+- **Custom confirmation dialogs (no native browser dialogs)**
+  All user-facing confirmations (cancel booking, ban user, resolve complaint, settlement details) use styled in-app modals (`ConfirmDialog`, `SettlementSummaryModal`, `BanUserDialog`) instead of browser `alert()`/`confirm()`/`prompt()` calls. Keyboard accessible, dark-mode aware, animated with Framer Motion.
 
 - **Operational health monitoring & alerting**
   Platform automatically detects overdue payouts, failure spikes, and complaint backlogs. Alerts are delivered via email/webhook with SLA-driven escalation and owner routing.
@@ -248,10 +251,13 @@ requested → accepted → pickup_proposed → confirmed → invoice_created →
 
 ### Cancellation policy
 
-- **Seeker**: can cancel only before the booked slot time; same-day cancellation forfeits the booking fee
-- **Provider**: cancellation always refunds the booking fee to seeker
-- **After slot time**: seeker cannot cancel (enforced at API level)
+- **Seeker free-cancel window**: seeker can cancel within **2 hours of booking creation** (`SEEKER_FREE_CANCEL_WINDOW_MS`) and receive a full booking-fee refund
+- **Seeker after 2-hour window**: cancellation is still allowed (before slot time) but the booking fee is **forfeited**
+- **Seeker after slot time**: cannot cancel at or after the scheduled pickup time — enforced at API level
+- **Provider cancellation**: always refunds the seeker's booking fee in full
 - **Booking fee already applied**: cancellation blocked (requires admin intervention)
+- **Live countdown badge**: the seeker booking card shows a live timer during the 2-hour free-cancel window, updating every 10 seconds
+- **Policy engine**: `lib/bookings/cancellation-policy.ts` — pure function `evaluateCancellationPolicy()` is the single source of truth for refund/forfeit decisions
 
 ## 11. Order Lifecycle
 
@@ -372,18 +378,26 @@ The admin dashboard surfaces:
 
 ## 14. Cron Jobs
 
-| Endpoint                               | Schedule     | Purpose                                         |
-| -------------------------------------- | ------------ | ----------------------------------------------- |
-| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject bookings not accepted within 2 hours |
-| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows (30 min after pickup)   |
-| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine           |
-| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with dedup and escalation         |
-| `/api/cron/process-email-outbox`       | Every 2 min  | Claim-and-dispatch queued transactional emails   |
-| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency         |
-| `/api/cron/reconciliation`             | Every 30 min | Reconcile Razorpay records vs internal state     |
-| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks        |
-| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns           |
-| `/api/cron/webhook-cleanup`            | Daily 1 AM   | Purge processed webhook events older than 30 d   |
+| Endpoint                               | Schedule     | Purpose                                                      |
+| -------------------------------------- | ------------ | ------------------------------------------------------------ |
+| `/api/cron/auto-reject-bookings`       | Every 5 min  | Auto-reject bookings not accepted within 2 hours             |
+| `/api/cron/no-show`                    | Every 5 min  | Detect provider no-shows (30 min after pickup)               |
+| `/api/cron/process-payouts`            | Every 15 min | Unified escrow release + payout engine                       |
+| `/api/cron/notify-system-alerts`       | Every 15 min | Alert delivery with dedup and escalation                     |
+| `/api/cron/process-email-outbox`       | Every 2 min  | Claim-and-dispatch queued transactional emails (OTP, magic link, password reset, email verification) |
+| `/api/cron/audit-integrity`            | Every 30 min | Verify order/payment/booking consistency                     |
+| `/api/cron/reconciliation`             | Every 30 min | Reconcile Razorpay records vs internal state                 |
+| `/api/cron/monitor-operational-health` | Hourly       | Generate system alerts from health checks                    |
+| `/api/cron/monitor-abuse`              | Daily 2 AM   | Detect excessive cancellation patterns (30-day lookback)     |
+| `/api/cron/webhook-cleanup`            | Daily 1 AM   | Purge processed webhook events older than 30 days            |
+
+All 10 cron endpoints are:
+- Authenticated via `CRON_SECRET` bearer token
+- Tracked in the `cron_runs` MongoDB collection (start time, duration, status, result)
+- Listed in `lib/constants.ts::CRON_JOB_NAMES` for health-check consistency
+- Scheduled in `vercel.json`
+
+**Email outbox dev override**: Set `EMAIL_SEND_IMMEDIATE=1` to bypass the queue and send emails synchronously during local development. Use `POST /api/cron/process-email-outbox` (no auth required in non-production) to manually drain the queue during testing.
 
 All cron runs are tracked in the `cron_runs` collection with job name, start time, duration, status, and result details. Cron endpoints are secured with `CRON_SECRET` bearer token authentication.
 
@@ -429,17 +443,29 @@ Structured Pino logging with native redaction of: `password`, `passwordHash`, `t
 
 ## 16. Project Status & Direction
 
+**UI & Interaction:**
+
+All user-facing confirmation flows use custom in-app dialogs — no native browser `alert()`, `confirm()`, or `prompt()` calls remain in the codebase:
+
+| Component | File | Replaces |
+| --- | --- | --- |
+| `ConfirmDialog` + `useConfirmDialog` hook | `components/ui/confirm-dialog.tsx` | `window.confirm()` everywhere |
+| `SettlementSummaryModal` | `components/ui/settlement-summary-modal.tsx` | `alert()` dumps of settlement data in admin complaint resolution |
+| `BanUserDialog` (inline) | `app/(dashboard)/admin/user-management/page.tsx` | `window.prompt()` for ban reason |
+| Headless `handleCancelBooking` callback | `hooks/use-booking-actions.ts` | Inline `confirm()` before cancellation |
+
 **Stable:**
 
+- Custom confirmation dialog system (no native browser dialogs)
 - Role-based flows (seeker/provider/admin)
 - Location-based provider discovery with geospatial indexes (`$geoNear` + bounding-box fallback)
 - Full booking → invoicing → payment capture → delivery confirmation → escrow hold/release loop
 - Canonical payment APIs with backward-compatible legacy aliases
-- Booking reschedule requests during pickup scheduling
+- Booking reschedule requests during pickup scheduling (with who-requested context, reason, previous slot shown in seeker UI)
 - Complaint system with admin workflow (accept → add provider → resolve)
 - Complaint split-settlement support (`refund_partial`) with commission-aware allocation
 - Unified payout orchestration with concurrent batch processing
-- Booking cancellation rules with enforced refund/forfeiture policy
+- Booking cancellation rules: 2-hour free-cancel window from creation, enforced refund/forfeiture policy (`lib/bookings/cancellation-policy.ts`)
 - Geofenced provider arrival checks before booking-fee payout release
 - 24-hour complaint window enforcement at API level
 - Deadline compensation (auto full-refund on late delivery at OTP confirmation)
@@ -469,14 +495,17 @@ Structured Pino logging with native redaction of: `password`, `passwordHash`, `t
 - Local release parity: `npm run verify:gates`
 - Docs sync guardrails: `npm run check:docs-sync`
 
-**Quality Snapshot (2026-03-02):**
+**Quality Snapshot (current):**
 
-- `104` test files, `517` tests passing (100% core route coverage)
+- `104` test files, `549` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
+- TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`
 - Zero production type casts
 - Strict escrow paise precision enforced
 - System webhooks fully mutex-locked
+- Cancellation policy fully unit-tested (10 cases covering both actors, boundary conditions, and fee states)
+- Reschedule flow: atomic `$unset confirmedAt` on request, TOCTOU-safe status-guarded DB writes
 
 **Remaining Hardening Opportunities:**
 
@@ -486,6 +515,8 @@ Structured Pino logging with native redaction of: `password`, `passwordHash`, `t
 - Promote CSP from report-only to enforce mode after violation cleanup
 - Split-settlement reconciliation tooling for rare one-leg failure cases
 - Reschedule abuse prevention (caps, cooldowns, or admin escalation)
+- Real-time push (SSE/WebSocket) to replace polling in booking/order status updates
+- Playwright E2E coverage for reschedule flow and cancellation window boundary behavior
 
 ## 17. Project Structure
 
@@ -510,13 +541,13 @@ laundry-ease/
 │   │   │   ├── profile/          # Provider profile
 │   │   │   └── reviews-manage/   # Review management
 │   │   └── seeker/               # Seeker dashboard
-│   │       ├── bookings/         # Booking list and details
-│   │       ├── disputes/         # Dispute view
-│   │       ├── invoices/         # Invoice review
-│   │       ├── orders/           # Order tracking
-│   │       ├── profile/          # Seeker profile
-│   │       ├── provider/         # Provider discovery
-│   │       └── view-orders/      # Order history
+│   ├── bookings/         # Booking list (all tabs incl. Reschedule tab) and details
+│   ├── disputes/         # Dispute view
+│   ├── invoices/         # Invoice review
+│   ├── orders/           # Order tracking
+│   ├── profile/          # Seeker profile
+│   ├── provider/         # Provider discovery
+│   └── view-orders/      # Order history
 │   ├── (root)/                   # Root layout group
 │   ├── actions/                  # Server actions
 │   │   ├── booking-actions.ts    # Booking operations
@@ -591,7 +622,7 @@ laundry-ease/
 │   │   └── json-ld.tsx           # Structured data
 │   ├── ui/                       # shadcn/ui + custom components
 │   │   ├── app-header.tsx        # Application header bar
-│   │   ├── confirm-dialog.tsx    # Confirmation modal
+│   │   ├── confirm-dialog.tsx    # Custom confirmation modal + useConfirmDialog hook (replaces window.confirm)
 │   │   ├── error-boundary.tsx    # React error boundary
 │   │   ├── evidence-upload.tsx   # Complaint evidence upload
 │   │   ├── global-footer.tsx     # Site footer
@@ -601,6 +632,7 @@ laundry-ease/
 │   │   ├── location-autocomplete.tsx # Google Places autocomplete
 │   │   ├── password-input.tsx    # Password with visibility toggle
 │   │   ├── select.tsx            # Radix select wrapper
+│   │   ├── settlement-summary-modal.tsx # Settlement details modal (replaces alert dumps)
 │   │   ├── skeleton.tsx          # Loading skeleton
 │   │   ├── spotlight-card.tsx    # Animated spotlight card
 │   │   ├── text-generate-effect.tsx # Text animation
@@ -612,7 +644,8 @@ laundry-ease/
 │   └── landing-page-client.tsx   # Landing page client component
 │
 ├── hooks/                        # Custom React hooks
-│   └── use-booking-actions.ts    # Booking action handlers
+│   ├── use-booking-actions.ts    # Headless booking action handlers (accept/reject/cancel/arrive/reschedule/propose-slot)
+│   └── use-live-data.ts          # SWR-based live polling hook
 │
 ├── cron/                         # Cron job logic
 │   ├── auto-reject-bookings.ts   # Auto-reject expired bookings
@@ -653,8 +686,8 @@ laundry-ease/
 │   │   └── password-policy.ts    # Password strength rules
 │   ├── bookings/                 # Booking business logic
 │   │   ├── arrive-handler.ts     # Provider arrival request handler
-│   │   ├── cancellation-policy.ts # Cancellation rules engine
-│   │   ├── cancellation-policy.test.ts
+│   │   ├── cancellation-policy.ts # Cancellation rules engine (2-hr free window, role-aware refund/forfeit)
+│   │   ├── cancellation-policy.test.ts # 10 unit tests covering all actor/fee/time combinations
 │   │   └── mark-arrived.ts       # Arrival marking with geofence
 │   ├── complaints/               # Complaint logic
 │   │   ├── access.ts             # Complaint access control
@@ -663,7 +696,7 @@ laundry-ease/
 │   │   └── bookings.ts           # Booking queries
 │   ├── db/                       # Database operations
 │   │   ├── index.ts              # Re-exports all DB modules
-│   │   ├── bookings.ts           # Booking CRUD
+│   │   ├── bookings.ts           # Booking CRUD (updateBookingPickupSlot uses atomic status filter + $unset confirmedAt)
 │   │   ├── complaints.ts         # Complaint CRUD
 │   │   ├── escrow.ts             # Escrow hold/release with transactions
 │   │   ├── orders.ts             # Order CRUD
@@ -710,7 +743,7 @@ laundry-ease/
 │   │   └── monetary.ts           # round2, toPaise, formatInr, MONEY_EPSILON
 │   ├── webhooks/                 # Webhook handlers
 │   │   └── razorpay-handlers.ts  # Razorpay event processing
-│   ├── audit.ts                  # Audit log creation (booking, order, escrow, payment, complaint)
+│   ├── audit.ts                  # Audit log creation (booking, order, escrow, payment, complaint, reschedule)
 │   ├── client-api.ts             # Client-side API helpers
 │   ├── client-error.ts           # Client error utilities
 │   ├── cloudinary.ts             # Cloudinary upload integration
