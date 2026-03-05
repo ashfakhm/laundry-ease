@@ -10,8 +10,8 @@ LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (A
 graph LR
     A[Seeker] -->|Discovers| B[Provider Search]
     B -->|Geo-filtered| C[Book Provider]
-    C -->|₹50 Fee| D[Booking Accepted]
-    D -->|Pickup & Inspect| E[Invoice Created]
+    C -->|Rs.50 Fee| D[Booking Accepted]
+    D -->|Pickup and Inspect| E[Invoice Created]
     E -->|Pay Invoice| F[Order Active]
     F -->|Lifecycle Tracking| G[OTP Delivery]
     G -->|Escrow Hold| H[Payout Release]
@@ -352,14 +352,14 @@ Fields: order_id, seeker_id, provider_id, seeker_name, rating (1-5), comment
 flowchart TD
     Start([User Visits /auth]) --> Choice{Auth Method?}
     Choice -->|Google OAuth| G1[NextAuth Google Provider]
-    Choice -->|Email/Password| C1[Enter Credentials]
+    Choice -->|Email or Password| C1[Enter Credentials]
     Choice -->|Magic Link| M1[Enter Email]
 
     G1 --> G2[Google Callback]
     G2 --> G3{Existing User?}
     G3 -->|Yes| Dashboard[Role Dashboard]
-    G3 -->|No| ChooseRole["/choose-role"]
-    ChooseRole --> CompleteSignup["/complete-signup"]
+    G3 -->|No| ChooseRole[Choose Role Page]
+    ChooseRole --> CompleteSignup[Complete Signup Page]
     CompleteSignup --> Dashboard
 
     C1 --> C2[NextAuth Credentials Provider]
@@ -399,21 +399,21 @@ The JWT callback periodically re-checks the database to enforce session invalida
 ```mermaid
 sequenceDiagram
     participant Client
-    participant JWT Callback
+    participant JWTCallback as JWT Callback
     participant MongoDB
 
-    Client->>JWT Callback: Request with JWT
-    JWT Callback->>JWT Callback: Check _lastDbCheck age
-    alt ≥5 min since last check
-        JWT Callback->>MongoDB: getUserByEmail(token.email)
-        MongoDB-->>JWT Callback: { passwordChangedAt }
-        alt passwordChangedAt > token.iat
-            JWT Callback-->>Client: Token invalidated → sign out
+    Client->>JWTCallback: Request with JWT
+    JWTCallback->>JWTCallback: Check _lastDbCheck age
+    alt >= 5 min since last check
+        JWTCallback->>MongoDB: getUserByEmail(token.email)
+        MongoDB-->>JWTCallback: passwordChangedAt value
+        alt passwordChangedAt newer than token.iat
+            JWTCallback-->>Client: Token invalidated - sign out
         else
-            JWT Callback-->>Client: Token refreshed (role/id updated)
+            JWTCallback-->>Client: Token refreshed with updated role and id
         end
     else
-        JWT Callback-->>Client: Pass through (no DB hit)
+        JWTCallback-->>Client: Pass through - no DB hit
     end
 ```
 
@@ -442,8 +442,8 @@ A professional, secure password reset system with anti-enumeration protections:
 
 ```mermaid
 flowchart TD
-    A[User clicks 'Forgot Password'] --> B[Enter Email on /auth page]
-    B --> C[POST /api/forgot-password]
+    A[User clicks Forgot Password] --> B[Enter Email on auth page]
+    B --> C[POST api/forgot-password]
     C --> D{Rate limit OK?}
     D -->|No| E[429 Too Many Requests]
     D -->|Yes| F{User exists with password?}
@@ -456,17 +456,17 @@ flowchart TD
 
     J --> M[Email with branded HTML template]
     M --> N[User clicks reset link]
-    N --> O[/reset-password?token=xxx]
-    O --> P[Enter new password + confirm]
-    P --> Q[POST /api/reset-password]
-    Q --> R{Token valid & unexpired?}
+    N --> O[Visit Reset Password Page with token]
+    O --> P[Enter new password and confirm]
+    P --> Q[POST api/reset-password]
+    Q --> R{Token valid and unexpired?}
     R -->|No| S[Error: Invalid or expired]
     R -->|Yes| T[Hash new password with bcrypt]
-    T --> U[Update user: passwordHash + passwordChangedAt]
+    T --> U[Update user passwordHash and passwordChangedAt]
     U --> V[Invalidate all active reset tokens]
     V --> W[Enqueue password_changed notification email]
-    W --> X[Success → redirect to /auth]
-    U --> Y[JWT callback detects passwordChangedAt > iat]
+    W --> X[Success - redirect to auth]
+    U --> Y[JWT callback detects passwordChangedAt newer than iat]
     Y --> Z[All existing sessions invalidated within 5 min]
 
     style G fill:#f59e0b,color:#fff
@@ -1072,15 +1072,15 @@ The email outbox is a transactional email queue with claim-lock-dispatch pattern
 flowchart TD
     A[API Route] -->|enqueueEmailOutboxJob| B[Insert into email_outbox]
     B --> C{Inline dispatch attempt}
-    C -->|Success| D[Mark as 'sent']
-    C -->|Failure| E[Reset to 'pending']
+    C -->|Success| D[Mark as sent]
+    C -->|Failure| E[Reset to pending]
     E --> F[Cron: process-email-outbox every 2 min]
     F --> G[Claim oldest pending job]
     G --> H{Dispatch email}
-    H -->|Success| I[Mark 'sent']
+    H -->|Success| I[Mark sent]
     H -->|Failure| J{Max attempts reached?}
-    J -->|No| K[Exponential backoff → retry]
-    J -->|Yes| L[Mark 'failed' - dead letter]
+    J -->|No| K[Exponential backoff - retry]
+    J -->|Yes| L[Mark failed - dead letter]
 
     style D fill:#10b981,color:#fff
     style I fill:#10b981,color:#fff
@@ -1133,7 +1133,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph "Password Security Layers"
+    subgraph PasswordSecurity[Password Security Layers]
         A[bcrypt hashing<br/>10 salt rounds] --> B[Strong policy<br/>8+ chars, upper, num, special]
         B --> C[Secure reset tokens<br/>SHA-256, 1hr TTL]
         C --> D[Session invalidation<br/>5-min JWT re-check]
