@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { RAZORPAY_CHECKOUT_SCRIPT_URL } from "@/lib/constants";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 import type { RazorpayResponse, RazorpayError } from "@/types/razorpay";
 
 // Define strict types matching the API response
@@ -79,12 +80,19 @@ export default function InvoiceReviewForm({
           const payRes = await fetch(`/api/orders/${data.orderId}/payment`, {
             method: "POST",
           });
-          const payData = await payRes.json();
+          const payPayload = await payRes.json();
 
           if (!payRes.ok)
             throw new Error(
-              payData.error?.message || "Failed to initiate payment",
+              payPayload.error?.message || "Failed to initiate payment",
             );
+
+          const payData = unwrapApiData<{
+            id: string;
+            amount: number;
+            currency: string;
+            key: string;
+          }>(payPayload);
 
           // 2. Open Razorpay
           const options = {
@@ -113,8 +121,10 @@ export default function InvoiceReviewForm({
                 toast.success("Payment Successful!");
                 router.push(`/seeker/orders/${data.orderId}`); // Should show "Paid" status
               } else {
+                const verifyData = await verifyRes.json();
                 toast.error(
-                  "Payment Verification Failed. Please contact support.",
+                  verifyData.error?.message ||
+                    "Payment Verification Failed. Please contact support.",
                 );
                 router.push(`/seeker/orders/${data.orderId}`);
               }
