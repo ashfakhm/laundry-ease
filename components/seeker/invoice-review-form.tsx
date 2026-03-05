@@ -48,9 +48,12 @@ export default function InvoiceReviewForm({
   const displayedTotal =
     invoice.total !== undefined
       ? invoice.total
-      : invoice.items.reduce(
-          (sum, item) => sum + item.unitPrice * item.quantity,
+      : Math.max(
           0,
+          invoice.items.reduce(
+            (sum, item) => sum + item.unitPrice * item.quantity,
+            0,
+          ) - (invoice.discount ?? 0),
         );
 
   async function handleDecision(approved: boolean, reason?: string) {

@@ -153,13 +153,17 @@ export async function POST(
 
     // Calculate totals
     const subtotal =
-      invoice.subtotal ||
-      orderItems.reduce(
-        (sum: number, i: { line_total: number }) => sum + i.line_total,
-        0,
-      );
-    const discount = invoice.discount || 0;
-    const total = invoice.total || Math.max(0, subtotal - discount);
+      invoice.subtotal !== undefined
+        ? invoice.subtotal
+        : orderItems.reduce(
+            (sum: number, i: { line_total: number }) => sum + i.line_total,
+            0,
+          );
+    const discount = invoice.discount ?? 0;
+    const total =
+      invoice.total !== undefined
+        ? invoice.total
+        : Math.max(0, subtotal - discount);
 
     // Platform commission is always 5% of the pre-discount subtotal
     const platform_commission = round2(subtotal * PLATFORM_COMMISSION_RATE);
