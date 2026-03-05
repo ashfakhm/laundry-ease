@@ -171,7 +171,7 @@ The `output/` directory was empty and gitignored. Deleted in Rev 6.
 
 ### P3-5: MongoDB memory-server tests require process spawn — Accepted (Rev 9)
 
-`lib/db.test.ts` (MongoMemoryReplSet) and `app/api/admin/refund/route.integration.test.ts` (MongoMemoryServer) spawn MongoDB child processes. In sandboxed environments (e.g. Cursor IDE, restricted CI) the child exits with code 48 and tests fail. In normal terminals and GitHub Actions, all 549 tests pass.
+`lib/db.test.ts` (MongoMemoryReplSet) and `app/api/admin/refund/route.integration.test.ts` (MongoMemoryServer) spawn MongoDB child processes. In sandboxed environments (e.g. Cursor IDE, restricted CI) the child exits with code 48 and tests fail. In normal terminals and GitHub Actions, all 551 tests pass.
 
 **Verdict:** Environment constraint, not a code defect. Document in README or runbook if developers hit this. No code change required.
 
