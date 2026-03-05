@@ -501,6 +501,17 @@ throw Errors.validation("Bad input"); // 400
 | **Booking action hook**          | `hooks/use-booking-actions.ts`                              |
 | Seeker booking list + tabs       | `app/(dashboard)/seeker/bookings/seeker-booking-list.tsx`   |
 | Seeker booking card (countdown)  | `app/(dashboard)/seeker/bookings/seeker-booking-card.tsx`   |
+| **Forgot password API**          | `app/api/forgot-password/route.ts`                          |
+| **Reset password API**           | `app/api/reset-password/route.ts`                           |
+| **Reset password page (UI)**     | `app/reset-password/page.tsx`                               |
+| **Password reset email template**| `lib/password-reset-email.ts`                               |
+| **Password changed email**       | `lib/password-changed-email.ts`                             |
+| **Password policy rules**        | `lib/auth/password-policy.ts`                               |
+| **Provider password service**    | `lib/services/provider-password.ts`                         |
+| **Seeker profile (pwd change)**  | `app/api/profile/seeker/route.ts`                           |
+| **Provider profile (pwd change)**| `app/api/profile/provider/route.ts`                         |
+| **JWT session invalidation**     | `app/api/auth/[...nextauth]/route.ts` (jwt callback)        |
+| **BaseUser type (passwordChangedAt)** | `types/users.ts`                                       |
 
 ---
 
@@ -1641,7 +1652,7 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 Current quality snapshot:
 
 - `104` test files
-- `549` tests passing (100% core route coverage)
+- `551` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
@@ -1761,6 +1772,9 @@ $unset: { "pickupSlot.confirmedAt": "" }
 8. **Reschedule abuse prevention**: Caps, cooldowns, or admin escalation for excessive reschedule requests
 9. **CSP enforce mode**: Promote from report-only to enforce after cleanup
 10. **Playwright E2E for reschedule/cancel flows**: Automated browser tests for the 2-hour boundary and reschedule loop
+11. **Password reset E2E test**: Playwright test covering forgot-password → email outbox → follow link → reset → login with new password
+12. **CAPTCHA on forgot-password**: reCAPTCHA/hCaptcha for production anti-abuse hardening (rate limiting already in place)
+13. **Instant session revocation**: Stateful session store for immediate invalidation instead of ≤5 min JWT re-check delay
 
 ### Q: How would you scale this for 10x users?
 
@@ -1782,6 +1796,8 @@ $unset: { "pickupSlot.confirmedAt": "" }
 | **SSG**         | Static Site Generation - pages made at build time                        |
 | **ISR**         | Incremental Static Regeneration - static pages refreshed when needed     |
 | **JWT**         | JSON Web Token - login token without storing session                     |
+| **SHA-256**     | Secure Hash Algorithm - one-way function used for token hashing          |
+| **Anti-enumeration** | Preventing attackers from discovering valid emails via response differences |
 | **Escrow**      | Third party holds money until both sides agree                           |
 | **Webhook**     | HTTP call when something happens                                         |
 | **ACID**        | Atomicity, Consistency, Isolation, Durability (safe database operations) |
@@ -1840,7 +1856,7 @@ When a signal breaches its threshold, a `system_alerts` document is created/upda
 - **Burn rate tiers**: `stable` (<1x), `watch` (1-2x), `high` (2-4x), `critical` (>4x)
 - **MTTR**: Mean time to resolve (in hours) for alerts resolved in last 7 days
 
-### Q: How does the email outbox system work?
+### Q: How does the email outbox system work? (5 email types)
 
 **Answer**: Instead of sending emails synchronously in API routes, we use an **outbox pattern**:
 
@@ -1857,13 +1873,24 @@ When a signal breaches its threshold, a `system_alerts` document is created/upda
 5. Max attempts exceeded (default 5) → status: "failed" (dead letter)
 ```
 
-**Email types supported**: delivery OTP, password reset, magic link, general OTP code.
+**5 email types supported**:
+
+| Kind | Template | Purpose |
+| --- | --- | --- |
+| `delivery_otp` | `lib/delivery-otp-email.ts` | OTP code for delivery confirmation |
+| `password_reset` | `lib/password-reset-email.ts` | Branded reset link with 1-hour expiry notice |
+| `password_changed` | `lib/password-changed-email.ts` | Security notification after password change (reset or profile) |
+| `magic_link` | `lib/magic-link-email.ts` | Passwordless login verification link |
+| `otp_email` | `lib/otp-code-email.ts` | Email OTP code for signup verification |
+
+**Inline dispatch + cron fallback**: When an email is enqueued, the system immediately attempts to send it inline. If that fails (SMTP down, timeout, etc.), the job stays `pending` and the cron worker (`process-email-outbox`, every 2 min) picks it up with exponential backoff.
 
 **Why outbox pattern instead of direct send?**
 
 - API routes respond instantly (no email timeout blocking the user)
 - Failed emails retry automatically without user intervention
 - Dead letters are trackable for support debugging
+- Inline dispatch gives best-of-both-worlds: immediate delivery when SMTP is healthy, reliable retry when it's not
 
 ### Q: How does rate limiting work?
 
