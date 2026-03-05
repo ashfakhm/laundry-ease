@@ -64,82 +64,19 @@ export function useBookingActions(bookingId: string, onRefresh?: () => void) {
   const handleArrive = () => {
     startTransition(async () => {
       try {
-        if (!navigator.geolocation) {
-          toast({
-            title: "Location unavailable",
-            description: "Geolocation is not supported in this browser.",
-            type: "error",
-          });
-          return;
-        }
-
-        let position: GeolocationPosition | null = null;
-        let locationError: GeolocationPositionError | null = null;
-
-        try {
-          position = await new Promise<GeolocationPosition>(
-            (resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0,
-              });
-            },
-          );
-        } catch (error) {
-          if (typeof error === "object" && error !== null && "code" in error) {
-            locationError = error as GeolocationPositionError;
-          }
-        }
-
-        // Try to mark arrival with or without coordinates
+        // Location verification disabled - providers can mark arrival without GPS
         const res = await fetch(`/api/bookings/${bookingId}/arrive`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            position
-              ? {
-                  lat: position.coords.latitude,
-                  lng: position.coords.longitude,
-                }
-              : {},
-          ),
+          body: JSON.stringify({}),
         });
 
         const data = await res.json().catch(() => ({}));
 
-        // If location was required but not provided, show helpful error
-        if (!res.ok && locationError) {
-          let locationHelp =
-            "Unable to access location. Please enable location permission.";
-
-          if (locationError.code === 1) {
-            // PERMISSION_DENIED
-            locationHelp =
-              "Location permission denied. To mark arrival:\n\n1. Click the lock icon (🔒) in your browser's address bar\n2. Allow location access for this site\n3. Refresh and try again\n\nOr contact support if the issue persists.";
-          } else if (locationError.code === 2) {
-            // POSITION_UNAVAILABLE
-            locationHelp =
-              "Location unavailable. Please:\n\n1. Check your device's location services are ON\n2. Ensure you're not in an area with poor GPS signal\n3. Try moving to a window or outdoor area\n\nOr contact support for manual arrival confirmation.";
-          } else if (locationError.code === 3) {
-            // TIMEOUT
-            locationHelp =
-              "Location request timed out. Please:\n\n1. Ensure you have good GPS signal\n2. Try moving to a window or outdoor area\n3. Check your device's location settings\n\nOr contact support for assistance.";
-          }
-
-          toast({
-            title: "Failed to mark arrival",
-            description: locationHelp,
-            type: "error",
-          });
-          return;
-        }
-
         if (!res.ok) {
           toast({
             title: "Failed to mark arrival",
-            description:
-              data?.error || data?.message || "Please retry from location.",
+            description: data?.error || data?.message || "Please try again.",
             type: "error",
           });
           return;

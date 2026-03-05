@@ -275,34 +275,36 @@ export async function markProviderArrival(
     };
   }
 
-  if (booking.seeker_coordinates) {
-    if (
-      !coordinates ||
-      !Number.isFinite(coordinates.lat) ||
-      !Number.isFinite(coordinates.lng)
-    ) {
-      return {
-        status: 400,
-        body: { error: "Current location coordinates are required." },
-      };
-    }
+  // Location verification temporarily disabled to allow arrival marking without GPS
+  // TODO: Re-enable with proper fallback mechanism for poor GPS signal areas
+  // if (booking.seeker_coordinates) {
+  //   if (
+  //     !coordinates ||
+  //     !Number.isFinite(coordinates.lat) ||
+  //     !Number.isFinite(coordinates.lng)
+  //   ) {
+  //     return {
+  //       status: 400,
+  //       body: { error: "Current location coordinates are required." },
+  //     };
+  //   }
 
-    const distanceKm = calculateDistance(
-      coordinates,
-      booking.seeker_coordinates,
-    );
-    const distanceMeters = distanceKm * 1000;
-    if (distanceMeters > MAX_ARRIVAL_DISTANCE_METERS) {
-      return {
-        status: 400,
-        body: {
-          error: "Too far from location",
-          distanceMeters: Math.round(distanceMeters),
-          allowedMeters: MAX_ARRIVAL_DISTANCE_METERS,
-        },
-      };
-    }
-  }
+  //   const distanceKm = calculateDistance(
+  //     coordinates,
+  //     booking.seeker_coordinates,
+  //   );
+  //   const distanceMeters = distanceKm * 1000;
+  //   if (distanceMeters > MAX_ARRIVAL_DISTANCE_METERS) {
+  //     return {
+  //       status: 400,
+  //       body: {
+  //         error: "Too far from location",
+  //         distanceMeters: Math.round(distanceMeters),
+  //         allowedMeters: MAX_ARRIVAL_DISTANCE_METERS,
+  //       },
+  //     };
+  //   }
+  // }
 
   let alreadyArrived = Boolean(booking.arrivedAt);
   let arrivedAt =
