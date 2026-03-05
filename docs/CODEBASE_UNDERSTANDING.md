@@ -1,10 +1,10 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-03-02
+**Last Updated:** 2026-03-04
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes a full complaint/dispute resolution system with 3-way chat, commission-aware split settlements, and operational health monitoring with SLA-driven alert escalation.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes a full complaint/dispute resolution system with 3-way chat, commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, and a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase).
 
 ---
 
@@ -178,13 +178,17 @@ laundry-ease/
 │   │   └── invoice-review-form.tsx
 │   ├── seo/                      # SEO
 │   │   └── json-ld.tsx
-│   ├── ui/                       # shadcn/ui + custom components (17 files)
+│   ├── ui/                       # shadcn/ui + custom components (19 files)
+│   │   ├── confirm-dialog.tsx    # ConfirmDialog + useConfirmDialog hook (replaces window.confirm)
+│   │   ├── settlement-summary-modal.tsx # Settlement details modal (replaces alert dumps)
+│   │   └── [17 other ui components]
 │   ├── chat-interface.tsx        # Booking chat with dispute modal
 │   ├── complaint-chat.tsx        # 3-way complaint chat
 │   └── landing-page-client.tsx   # Landing page client component
 │
 ├── hooks/
-│   └── use-booking-actions.ts    # Booking action handlers
+│   ├── use-booking-actions.ts    # Headless booking action handlers (accept/reject/cancel/arrive/reschedule/propose-slot)
+│   └── use-live-data.ts          # SWR-based live polling hook
 │
 ├── cron/                         # Cron job logic
 │   ├── auto-reject-bookings.ts   # Auto-reject expired bookings
@@ -194,10 +198,14 @@ laundry-ease/
 │   ├── api/                      # API layer (auth, errors, response, schemas, security, cron-auth)
 │   ├── audit/                    # Data integrity checks
 │   ├── auth/                     # Password policy
-│   ├── bookings/                 # Booking logic (cancellation, arrival)
+│   ├── bookings/                 # Booking logic (cancellation policy, arrival)
+│   │   ├── cancellation-policy.ts  # Pure function: 2-hour free-cancel window, role-aware refund/forfeit
+│   │   └── cancellation-policy.test.ts  # 10 unit tests (both actors, boundary times, all fee states)
 │   ├── complaints/               # Complaint access control
 │   ├── data/                     # Data access helpers
 │   ├── db/                       # Database CRUD (bookings, orders, users, complaints, escrow, transaction)
+│   │   ├── bookings.ts           # updateBookingPickupSlot uses atomic status filter + $unset confirmedAt
+│   │   └── [5 other db modules]
 │   ├── ops/                      # Operational monitoring (6 modules + tests)
 │   ├── orders/                   # Order state machine, delivery confirmation, deadline compensation
 │   ├── payouts/                  # Payout calculation with decimal.js
@@ -215,6 +223,15 @@ laundry-ease/
 ├── docs/                         # Documentation (7 files)
 └── public/                       # Static assets (5 files)
 ```
+
+### Seeker Booking UI
+
+The seeker bookings page (`app/(dashboard)/seeker/bookings/`) now has:
+
+- **Four tabs**: All, Pending, Active, and **Reschedule** (new)
+- **Live countdown badge**: On booking cards within the 2-hour free-cancel window — updates every 10 seconds and changes wording/color after expiry
+- **Reschedule context**: `reschedule_requested` cards show who requested (You / Provider), the reason, the previously confirmed slot, and the reschedule count
+- **Confirm dialog**: Cancellation uses `ConfirmDialog` — wording changes dynamically based on whether the free-cancel window has expired
 
 ### Route Protection Architecture
 
@@ -389,12 +406,25 @@ Seeker                          Provider                         System
 ```
 
 **Cancellation Policy** (`lib/bookings/cancellation-policy.ts`):
-- Seeker cannot cancel after booked slot time
-- Same-day seeker cancellation → booking fee forfeited
-- Provider cancellation → booking fee refunded
-- Booking fee already `applied` → cancellation blocked
 
-**Booking Fee**: ₹50 (`BOOKING_FEE_INR`), collected upfront, released to provider on arrival, refunded on auto-reject/no-show/provider-cancel.
+The policy is a pure function `evaluateCancellationPolicy()` that returns `{ allowed, refundAction, withinFreeCancelWindow }`. It is the single source of truth — the cancel route, seeker UI badge, and all unit tests reference `SEEKER_FREE_CANCEL_WINDOW_MS` from `lib/constants.ts`.
+
+| Condition | Outcome |
+| --- | --- |
+| Seeker cancels within 2 hours of booking creation | Allowed; booking fee **refunded** |
+| Seeker cancels after 2-hour window (before slot time) | Allowed; booking fee **forfeited** |
+| Seeker cancels at or after scheduled pickup time | **Blocked** at API level |
+| Provider cancels at any point before arrival | Allowed; booking fee **refunded** to seeker |
+| Booking fee already `applied` | **Blocked** for all actors |
+| Booking fee `unpaid` (either actor) | Allowed; refund action `none` |
+
+**Booking Fee**: ₹50 (`BOOKING_FEE_INR`), collected upfront, released to provider on arrival, refunded on auto-reject/no-show/provider-cancel within the free-cancel window.
+
+**Reschedule Flow** (`app/api/bookings/[id]/reschedule/request/route.ts` + `app/api/bookings/[id]/schedule/route.ts`):
+- `reschedule/request`: sets `status: reschedule_requested`, stores `reschedule.requestedBy` / `reason` / `previousPickupSlot`, and uses `$unset: { "pickupSlot.confirmedAt": "" }` to reliably clear the previously confirmed timestamp (avoids the `$set: undefined` MongoDB anti-pattern that silently no-ops)
+- `schedule` propose path: atomic write guards `provider_id` + `{ status: { $in: ["accepted","reschedule_requested"] } }` to prevent TOCTOU races; `$unset confirmedAt`; sets `updatedAt`
+- `schedule` confirm path: atomic write guards `seeker_id` + `{ status: "pickup_proposed" }`; sets `pickupSlot.confirmedAt` and `updatedAt`
+- `updateBookingPickupSlot` in `lib/db/bookings.ts` includes atomic status filter `{ status: { $in: ["accepted","reschedule_requested"] } }` + `$unset confirmedAt` to prevent silent stale writes
 
 ### 5.2 Order Lifecycle
 
@@ -733,6 +763,7 @@ All crons:
 | --- | --- | --- |
 | `PLATFORM_COMMISSION_RATE` | 0.05 (5%) | Platform commission |
 | `BOOKING_FEE_INR` | 50 | Upfront booking fee |
+| `SEEKER_FREE_CANCEL_WINDOW_MS` | 2h | Window after creation for free seeker cancellation |
 | `BCRYPT_SALT_ROUNDS` | 10 | Password hashing cost |
 | `MAX_ARRIVAL_DISTANCE_METERS` | 200 | Geofence for provider arrival |
 | `ESCROW_RELEASE_WINDOW_MS` | 24h | Escrow hold duration |
@@ -811,13 +842,15 @@ RootLayout (app/layout.tsx)
 | `evidence-upload.tsx` | Complaint photo evidence upload |
 | `image-upload.tsx` | General image upload component |
 | `provider-booking-list.tsx` | Provider's booking list with actions |
-| `confirm-dialog.tsx` | Reusable confirmation modal |
+| `confirm-dialog.tsx` | `ConfirmDialog` component + `useConfirmDialog` hook — keyboard accessible (Escape/Enter), Framer Motion animated, dark-mode aware, 3 variants (danger/warning/info). Replaces all `window.confirm()` usage |
+| `settlement-summary-modal.tsx` | `SettlementSummaryModal` — shows provider payout and seeker refund details (UPI, bank, card) with manual-transfer warnings. Replaces `alert()` dumps in admin complaint resolution |
 | `error-boundary.tsx` | React error boundary wrapper |
 | `theme-toggle.tsx` | Dark/light mode toggle |
 | `password-input.tsx` | Password field with visibility toggle |
 | `skeleton.tsx` | Loading skeleton components |
 | `toast.tsx` | Toast notification system |
 | `json-ld.tsx` | SEO structured data |
+| `use-booking-actions.ts` (hook) | Headless booking actions — `handleCancelBooking` accepts optional `requestConfirm` callback so caller owns the confirmation UI while the hook owns the network call. `executeCancelBooking` extracted as a separate internal callback |
 | `interactive-grid.tsx` | Animated grid background |
 | `spotlight-card.tsx` | Animated spotlight card |
 | `text-generate-effect.tsx` | Character-by-character text animation |
@@ -933,12 +966,16 @@ Client-side: Razorpay checkout script (`RAZORPAY_CHECKOUT_SCRIPT_URL`) loaded dy
 
 ### Unit Tests (Vitest)
 
-- **104 test files**, **517 tests** passing
+- **104 test files**, **549 tests** passing
 - Located alongside source files as `*.test.ts`
 - In-memory MongoDB via `mongodb-memory-server`
 - Coverage areas:
   - All API route handlers
-  - Business logic modules (cancellation policy, deadline compensation, status machine, payout amounts)
+  - Business logic modules:
+    - Cancellation policy — **10 tests** (both actors, boundary 2-hour window, all `bookingFeeStatus` values)
+    - Reschedule route — atomic `$unset` and TOCTOU-safe status guard scenarios
+    - Schedule route — propose/confirm TOCTOU guards, `updatedAt` correctness
+    - Deadline compensation, status machine, payout amounts
   - Security modules (rate limiting, origin checks, CSP)
   - Ops modules (health signals, alert delivery, SLA tracking, owner routing, analytics)
   - Data integrity (audit integrity checks)
@@ -1064,11 +1101,11 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 ---
 
-## 16. Current Project Status
+## 16. Current Project Status (Rev 9)
 
-**Quality Snapshot (2026-03-02):**
+**Quality Snapshot (2026-03-04):**
 
-- 104 test files, 517 tests passing (100% core route coverage)
+- 104 test files, 549 tests passing (100% core route coverage)
 - 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
@@ -1121,7 +1158,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 ---
 
-## Summary
+## Summary (Rev 9)
 
 LaundryEase is a production-grade laundry marketplace built with:
 
@@ -1131,5 +1168,5 @@ LaundryEase is a production-grade laundry marketplace built with:
 4. **Comprehensive Dispute Resolution** — 3-way chat, commission-aware split settlements, manual fallback for failed auto-actions
 5. **Financial Precision** — decimal.js for calculations, paise integers for Razorpay, distributed locks for concurrent safety
 6. **Production-Ready Infrastructure** — 10 cron jobs, operational alerting with SLA/escalation/owner routing, email outbox with retry, MongoDB-backed rate limiting, structured logging with secret redaction, Datadog APM
-7. **Quality Assurance** — 104 test files (517 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
+7. **Quality Assurance** — 104 test files (549 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
 8. **Operational Observability** — Cron run tracking, data integrity auditing, abuse monitoring, alert analytics (trend/burn-rate/MTTR), CSP violation reporting
