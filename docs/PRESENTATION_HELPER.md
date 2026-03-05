@@ -22,6 +22,9 @@
 12. [Challenges & Solutions](#12-challenges--solutions)
 13. [Future Scope](#13-future-scope)
 14. [Quick Technical Terms Glossary](#14-quick-technical-terms-glossary)
+15. [Operational Monitoring & Reliability Questions](#15-operational-monitoring--reliability-questions)
+16. [Known Gaps vs PRD](#known-gaps-vs-prd-be-honest)
+17. [Key Features Implemented](#key-features-implemented-full-system--2026-03-04)
 
 ---
 
@@ -55,6 +58,8 @@
 2. **Location matching**: Only providers who serve the seeker's exact area are shown
 3. **Proper complaint system**: 3-way chat between Admin, Seeker, and Provider to solve problems fairly
 4. **Full record keeping**: Every change is saved for openness and trust
+5. **Custom UI throughout**: No native browser `alert()`/`confirm()`/`prompt()` — all confirmations use designed in-app modals that match the app's look and work on keyboard
+6. **2-hour cancellation window**: Seekers get a clear, timed free-cancel window; a live countdown badge on the booking card tells them exactly how long they have
 
 ---
 
@@ -90,7 +95,7 @@
 | **Payments**       | Razorpay + RazorpayX         | Indian payment system, escrow payouts         |
 | **Maps**           | Google Maps APIs             | Location, address to coordinates, places      |
 | **SMS OTP**        | Twilio                       | Dependable SMS sending                        |
-| **Email**          | Nodemailer + Email Outbox    | Queued email delivery with retry/backoff      |
+| **Email**          | Nodemailer + Email Outbox    | Queued email delivery with retry/backoff. `EMAIL_SEND_IMMEDIATE=1` bypasses queue in dev |
 | **Image Upload**   | Cloudinary                   | Fast image storage with CDN                   |
 | **Validation**     | Zod 4                        | Check data types while app runs               |
 | **Forms**          | React Hook Form              | Fast form handling                            |
@@ -174,7 +179,7 @@
 
 **Answer**:
 
-1. **Repository Pattern** (`lib/db.ts`): One place for all database work, keeping MongoDB code separate from business logic
+1. **Repository Pattern** (`lib/db/`): One place for all database work, keeping MongoDB code separate from business logic
 
 2. **Factory Pattern** (`lib/api/errors.ts`): Error creation functions like `Errors.notFound()`, `Errors.validation()`
 
@@ -182,9 +187,13 @@
 
 4. **Observer Pattern** (Webhooks): Razorpay webhooks watch for payment events and update order status
 
-5. **State Machine** (Booking/Order lifecycle): Clear state changes with checking
+5. **State Machine** (Booking/Order lifecycle): Clear state changes with checking in `lib/orders/status-machine.ts`
 
 6. **Audit Trail Pattern** (`lib/audit.ts`): Save all changes in the background for record keeping
+
+7. **Policy Pattern** (`lib/bookings/cancellation-policy.ts`): A pure function `evaluateCancellationPolicy()` is the single source of truth for all cancellation/refund decisions — no if-else logic scattered across routes
+
+8. **Headless Component Pattern** (`hooks/use-booking-actions.ts`): The action hook owns network calls; the UI component owns the confirmation dialog. The hook accepts an optional `requestConfirm` callback so the caller decides what the confirm UI looks like
 
 ### Q: How do you handle separation of concerns?
 
@@ -444,45 +453,54 @@ throw Errors.validation("Bad input"); // 400
 
 ### Q: Quick Reference - "Where is X?"
 
-| Feature                   | File Location                             |
-| ------------------------- | ----------------------------------------- |
-| MongoDB connection        | `lib/mongodb.ts`                          |
-| Database operations       | `lib/db/` (bookings, orders, users, etc.) |
-| API routes                | `app/api/**/*.ts`                         |
-| Frontend pages            | `app/(dashboard)/**/*.tsx`                |
-| UI components             | `components/**/*.tsx`                     |
-| Authentication config     | `app/api/auth/[...nextauth]/route.ts`     |
-| Auth helpers              | `lib/api/auth.ts`                         |
-| Payment integration       | `lib/razorpay.ts`                         |
-| Payment API               | `app/api/orders/[id]/payment/route.ts`    |
-| DB index bootstrap        | `lib/db-indexes.ts`                       |
-| Webhooks                  | `app/api/webhooks/razorpay/route.ts`      |
-| OTP logic                 | `lib/otp.ts`                              |
-| Location/Maps             | `lib/geocoding.ts`                        |
-| Distance calculation      | `lib/distance.ts`                         |
-| Type definitions          | `types/*.ts`                              |
-| Environment validation    | `lib/env.ts`                              |
-| Business constants        | `lib/constants.ts`                        |
-| Error handling            | `lib/api/errors.ts`                       |
-| Request validation        | `lib/api/schemas.ts`                      |
-| Rate limiting             | `lib/api/security.ts`                     |
-| Same-origin protection    | `lib/security/origin.ts`                  |
-| CSP headers               | `lib/security/csp.ts`                     |
-| Escrow payout engine      | `lib/payouts.ts`                          |
-| Cron job logic            | `cron/*.ts`                               |
-| Cron API endpoints        | `app/api/cron/*.ts`                       |
-| Cron run tracking         | `lib/cron-tracking.ts`                    |
-| Audit logging             | `lib/audit.ts`                            |
-| Structured logging (Pino) | `lib/logger.ts`                           |
-| Email outbox              | `lib/email-outbox.ts`                     |
-| Health monitoring         | `lib/ops/health.ts`                       |
-| Alert delivery            | `lib/ops/alert-delivery.ts`               |
-| Alert channels            | `lib/ops/alert-channels.ts`               |
-| Alert SLA tracking        | `lib/ops/ack-sla.ts`                      |
-| Alert owner routing       | `lib/ops/owner-routing.ts`                |
-| Alert analytics           | `lib/ops/alerts-analytics.ts`             |
-| Cloudinary upload         | `lib/cloudinary.ts`                       |
-| Payout calculations       | `lib/payouts/` (commission, split math)   |
+| Feature                          | File Location                                               |
+| -------------------------------- | ----------------------------------------------------------- |
+| MongoDB connection               | `lib/mongodb.ts`                                            |
+| Database operations              | `lib/db/` (bookings, orders, users, complaints, escrow)     |
+| API routes                       | `app/api/**/*.ts`                                           |
+| Frontend pages                   | `app/(dashboard)/**/*.tsx`                                  |
+| UI components                    | `components/**/*.tsx`                                       |
+| Authentication config            | `app/api/auth/[...nextauth]/route.ts`                       |
+| Auth helpers                     | `lib/api/auth.ts`                                           |
+| Payment integration              | `lib/razorpay.ts`                                           |
+| Payment API                      | `app/api/orders/[id]/payment/route.ts`                      |
+| DB index bootstrap               | `lib/db-indexes.ts`                                         |
+| Webhooks                         | `app/api/webhooks/razorpay/route.ts`                        |
+| OTP logic                        | `lib/otp.ts`                                                |
+| Location/Maps                    | `lib/geocoding.ts`                                          |
+| Distance calculation             | `lib/distance.ts`                                           |
+| Type definitions                 | `types/*.ts`                                                |
+| Environment validation           | `lib/env.ts`                                                |
+| Business constants               | `lib/constants.ts`                                          |
+| Error handling                   | `lib/api/errors.ts`                                         |
+| Request validation               | `lib/api/schemas.ts`                                        |
+| Rate limiting                    | `lib/api/security.ts`                                       |
+| Same-origin protection           | `lib/security/origin.ts`                                    |
+| CSP headers                      | `lib/security/csp.ts`                                       |
+| Escrow payout engine             | `lib/payouts.ts`                                            |
+| Cron job logic                   | `cron/*.ts`                                                 |
+| Cron API endpoints               | `app/api/cron/*.ts`                                         |
+| Cron run tracking                | `lib/cron-tracking.ts`                                      |
+| Audit logging                    | `lib/audit.ts`                                              |
+| Structured logging (Pino)        | `lib/logger.ts`                                             |
+| Email outbox                     | `lib/email-outbox.ts`                                       |
+| Health monitoring                | `lib/ops/health.ts`                                         |
+| Alert delivery                   | `lib/ops/alert-delivery.ts`                                 |
+| Alert channels                   | `lib/ops/alert-channels.ts`                                 |
+| Alert SLA tracking               | `lib/ops/ack-sla.ts`                                        |
+| Alert owner routing              | `lib/ops/owner-routing.ts`                                  |
+| Alert analytics                  | `lib/ops/alerts-analytics.ts`                               |
+| Cloudinary upload                | `lib/cloudinary.ts`                                         |
+| Payout calculations              | `lib/payouts/amounts.ts` (decimal.js commission/split math) |
+| **Cancellation policy engine**   | `lib/bookings/cancellation-policy.ts`                       |
+| **Reschedule request route**     | `app/api/bookings/[id]/reschedule/request/route.ts`         |
+| **Pickup schedule route**        | `app/api/bookings/[id]/schedule/route.ts`                   |
+| **Confirmation dialog**          | `components/ui/confirm-dialog.tsx`                          |
+| **useConfirmDialog hook**        | `components/ui/confirm-dialog.tsx` (exported from same file)|
+| **Settlement summary modal**     | `components/ui/settlement-summary-modal.tsx`                |
+| **Booking action hook**          | `hooks/use-booking-actions.ts`                              |
+| Seeker booking list + tabs       | `app/(dashboard)/seeker/bookings/seeker-booking-list.tsx`   |
+| Seeker booking card (countdown)  | `app/(dashboard)/seeker/bookings/seeker-booking-card.tsx`   |
 
 ---
 
@@ -1075,18 +1093,29 @@ await db
 
 ```
 requested → accepted → pickup_proposed → confirmed → invoice_created
-    ↓           ↓             ↓              ↓
- rejected    cancelled   reschedule    converted to Order
+    ↓           ↓             ↓               ↓             ↓
+ rejected   cancelled   reschedule_requested  ↩          Order created
+                             ↓
+                     (back to propose/confirm loop)
 ```
 
 **What each state means**:
 
 - `requested`: Seeker asked for a booking
-- `accepted`: Provider said yes
-- `pickup_proposed`: Provider suggested a pickup time
-- `confirmed`: Both agreed on time
-- `invoice_created`: Provider made invoice after pickup
-- `reschedule_requested`: Someone wants a new time
+- `accepted`: Provider said yes, booking fee collected
+- `pickup_proposed`: Provider suggested a pickup time slot
+- `reschedule_requested`: Either side asked for a new time (stores who asked, reason, previous slot)
+- `confirmed`: Both agreed on pickup time
+- `invoice_created`: Provider made invoice after arrival and inspection
+- `completed`: Invoice paid, order created
+
+**Cancellation Policy** (2-hour free-cancel window):
+
+- Seeker cancels **within 2 hours** of booking creation → booking fee **refunded**
+- Seeker cancels **after 2 hours** (before slot time) → booking fee **forfeited**
+- Seeker tries to cancel **at or after the slot time** → **blocked** at API level
+- Provider cancels → **always** refunds booking fee to seeker
+- A **live countdown badge** on the seeker's booking card ticks every 10 seconds so they know exactly how long they have left
 
 **Invoice Review Flow**:
 
@@ -1094,6 +1123,13 @@ requested → accepted → pickup_proposed → confirmed → invoice_created
 - Seeker can approve invoice and pay → Order created
 - Seeker can reject invoice with reason → Items returned to provider
 - Past invoices viewable in read-only mode from payment history
+
+**Reschedule flow details**:
+
+- Either party calls `POST /api/bookings/[id]/reschedule/request`
+- Status becomes `reschedule_requested`; the system stores `reschedule.requestedBy`, `reason`, and `previousPickupSlot` and **clears** `pickupSlot.confirmedAt` using MongoDB `$unset` (not `$set: undefined`)
+- Provider then proposes a new slot via `POST .../schedule` (propose path); seeker confirms via the same route (confirm path)
+- Both propose and confirm DB writes are **atomic with status guards** to prevent race conditions
 
 ### Q: Explain the order lifecycle
 
@@ -1152,6 +1188,12 @@ Escrow action done (release, partial split, or seeker full distributable award)
 ```
 
 Note: The 24-hour complaint window is enforced in `POST /api/complaints` using delivery timestamps (`otp_confirmed_at` / `escrow_started_at`).
+
+**Settlement details modal**: When admin resolves a complaint, instead of an ugly browser `alert()`, the UI shows a `SettlementSummaryModal` with:
+- Provider payout card: name, UPI ID, bank account/IFSC, email
+- Seeker refund card: name, payment method, VPA/bank/wallet/card details
+- **Manual transfer warning** banner if Razorpay auto-transfer failed (shown in amber)
+- Auto vs Manual badge on each party card
 
 Operational detail from current code:
 
@@ -1276,6 +1318,58 @@ if (!result.success) {
 ---
 
 ## 9. Frontend & UI Questions
+
+### Q: Why did you replace browser alert/confirm/prompt with custom dialogs?
+
+**Answer**: Native browser dialogs (`window.alert`, `window.confirm`, `window.prompt`) have several problems for a professional app:
+
+1. **Ugly and unstyled**: They look different on every browser and OS — nothing like the rest of the app
+2. **Blocking**: They freeze the entire browser tab
+3. **No dark mode**: They ignore your theme completely
+4. **No customization**: Can't add icons, colors, warnings, or loading states
+5. **Accessibility**: Limited keyboard support, no focus trapping
+
+**What we built instead:**
+
+| Old (removed) | New replacement | File |
+| --- | --- | --- |
+| `window.confirm("Cancel booking?")` | `ConfirmDialog` (animated, themed, keyboard-aware) | `components/ui/confirm-dialog.tsx` |
+| `alert("Settlement details: ...")` | `SettlementSummaryModal` (structured cards with bank/UPI info) | `components/ui/settlement-summary-modal.tsx` |
+| `window.prompt("Enter ban reason:")` | Inline `BanUserDialog` with a real text input | `app/(dashboard)/admin/user-management/page.tsx` |
+
+**`ConfirmDialog` features**:
+- 3 variants: `danger` (red), `warning` (amber), `info` (blue)
+- `Escape` key closes, `Enter` key confirms
+- Loading spinner while the async action runs
+- Framer Motion enter/exit animations
+- Fully dark-mode aware using Tailwind CSS design tokens
+
+**`useConfirmDialog` hook** lets any component trigger a dialog without managing open/close state manually:
+
+```typescript
+const { showConfirm, closeDialog, dialogProps } = useConfirmDialog();
+
+// To show:
+showConfirm({
+  title: "Cancel Booking?",
+  message: "Your booking fee will be forfeited.",
+  variant: "danger",
+  confirmText: "Yes, Cancel",
+  onConfirm: async () => { await cancelBooking(); },
+});
+
+// In JSX:
+<ConfirmDialog {...dialogProps} />
+```
+
+**`useBookingActions` headless pattern**: The hook owns the network call; the component owns the dialog UI. The hook's `handleCancelBooking` accepts an optional callback:
+
+```typescript
+// Provider component calls with a confirmation callback
+handleCancelBooking((onConfirmed) => {
+  showConfirm({ title: "Cancel?", onConfirm: onConfirmed });
+});
+```
 
 ### Q: What UI framework do you use?
 
@@ -1427,22 +1521,29 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 
 **Answer**:
 
-1. **TypeScript**: Checks types when building
-2. **ESLint**: Makes sure code style is consistent
-3. **Zod checking**: Checks data while app runs
+1. **TypeScript**: Checks types when building — zero errors, zero `as any`, zero `@ts-ignore`
+2. **ESLint**: Makes sure code style is consistent — zero warnings
+3. **Zod checking**: Checks data while app runs (30+ schemas in `lib/api/schemas.ts`)
 4. **Error boundaries**: Handles errors nicely without crashing
-5. **Automated tests**: Vitest suite covers critical payment, complaint, escrow, webhook, security, ops, and rate-limiting paths
+5. **Automated tests**: Vitest suite covers critical payment, complaint, escrow, webhook, security, ops, rate-limiting, cancellation policy, reschedule flow, and dialog behavior paths
 6. **Financial precision**: All monetary calculations use `decimal.js` to prevent floating-point bugs
 7. **CI pipeline**: GitHub Actions `Quality Gates` workflow runs typecheck → lint → test → build → smoke E2E on every push
 
-Current quality snapshot (2026-03-01):
+Current quality snapshot:
 
 - `104` test files
-- `506` tests passing
+- `549` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
-- Zero production type casts
+- Zero production type casts, zero `as any`, zero `@ts-ignore`
 - One-shot local verification: `npm run verify:gates`
+
+Key test coverage highlights:
+
+- **Cancellation policy**: 10 unit tests — both actors, boundary (exactly 2h), before/after window, all `bookingFeeStatus` values
+- **Reschedule route**: tests for `$unset confirmedAt`, TOCTOU-safe atomic status filter
+- **Schedule route**: propose/confirm TOCTOU guards, `updatedAt` correctness
+- **Dialog/hook behavior**: `useConfirmDialog`, headless `handleCancelBooking` callback
 
 E2E execution note:
 
@@ -1469,11 +1570,11 @@ GitHub CI workflows:
 
 ### Q: What was the biggest technical challenge?
 
-**Answer**: **Stopping race conditions in bookings**
+**Answer**: **Stopping race conditions in bookings and scheduling**
 
-**Problem**: Many seekers could book the same provider at the same time, going past the limit.
+**Problem 1 — Booking capacity**: Many seekers could book the same provider at the same time, going past the limit.
 
-**Fix**: MongoDB transactions that check capacity at the same time:
+**Fix**: MongoDB transactions that check capacity atomically:
 
 ```typescript
 await session.withTransaction(async () => {
@@ -1486,6 +1587,33 @@ await session.withTransaction(async () => {
 
   await db.collection("bookings").insertOne(booking, { session });
 });
+```
+
+**Problem 2 — Reschedule TOCTOU race**: The schedule route previously wrote pickup slot data without checking the booking status in the same query. So if a booking transitioned (e.g. accepted → cancelled) between the read and the write, the write would silently succeed on a stale document.
+
+**Fix**: Atomic writes with status guards in the query filter itself:
+
+```typescript
+// Propose path — only succeeds if still accepted or reschedule_requested
+await db.collection("bookings").updateOne(
+  {
+    _id: bookingId,
+    provider_id: session.user.id,
+    status: { $in: ["accepted", "reschedule_requested"] },
+  },
+  {
+    $set: { "pickupSlot.date": ..., status: "pickup_proposed", updatedAt: new Date() },
+    $unset: { "pickupSlot.confirmedAt": "" },
+  },
+);
+```
+
+**Problem 3 — `$set: undefined` silent no-op**: When requesting a reschedule, the code originally tried to clear `confirmedAt` with `$set: { "pickupSlot.confirmedAt": undefined }`. MongoDB **ignores** `$set` with `undefined` values — the field stays set. This meant a reschedule could show an old `confirmedAt` timestamp.
+
+**Fix**: Use `$unset` which is the correct MongoDB operator to remove a field:
+
+```typescript
+$unset: { "pickupSlot.confirmedAt": "" }
 ```
 
 ### Q: How do you handle idempotency in payments?
@@ -1514,13 +1642,16 @@ await session.withTransaction(async () => {
 
 **Answer**:
 
-1. **Real-time updates**: WebSocket/SSE for instant messages
+1. **Real-time updates**: WebSocket/SSE for instant booking/order status updates instead of polling
 2. **Mobile app**: React Native for Android/iOS
 3. **Provider dashboard**: Earnings view, order charts
 4. **Monthly plans**: Unlimited laundry subscriptions
 5. **More languages**: Hindi, regional languages
 6. **Pickup calendar**: Visual time slot picker
 7. **Rewards program**: Points and discounts for regular users
+8. **Reschedule abuse prevention**: Caps, cooldowns, or admin escalation for excessive reschedule requests
+9. **CSP enforce mode**: Promote from report-only to enforce after cleanup
+10. **Playwright E2E for reschedule/cancel flows**: Automated browser tests for the 2-hour boundary and reschedule loop
 
 ### Q: How would you scale this for 10x users?
 
@@ -1704,8 +1835,10 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Team calendar integration**: Alert owner routing uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`); real on-call scheduling requires external calendar integration.
 - **Reschedule abuse prevention**: No caps or cooldowns on reschedule requests — theoretically either party could loop indefinitely. Policy needed (caps, cooldowns, or admin escalation).
 - **Split-settlement reconciliation**: If one financial leg succeeds and the other fails, admin has `manual_transfer_details` but no automated reconciliation tooling.
+- **Real-time push**: Booking/order status updates rely on polling (SWR). WebSocket or SSE would give instant updates.
+- **CSP enforce mode**: Currently Report-Only — needs violation cleanup before switching to full enforce mode.
 
-## Key Features Implemented (Full System — 2026-03-02)
+## Key Features Implemented (Full System — 2026-03-04)
 
 ### Core Workflow
 - **Full booking lifecycle**: requested → accepted → pickup_proposed → reschedule_requested → confirmed → invoice_created → completed/cancelled/rejected
@@ -1714,24 +1847,34 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Invoice finalization**: Atomic order creation with MongoDB transaction + compensating-write fallback for non-replica-set environments (`lib/services/invoice-finalization.ts`)
 - **Delivery OTP**: 6-digit bcrypt-hashed OTP with 10-minute TTL, sent via email outbox, verifiable by both seeker and provider
 - **Deadline compensation**: Automatic full Razorpay refund on late delivery at OTP confirmation — idempotent (checks `deadline_compensated_at`, `razorpay_refund_id`, and payment status)
-- **Booking reschedule**: Either side can request reschedule during pickup negotiation; explicit `reschedule_requested` state with metadata tracking
+- **Booking reschedule (hardened)**: Either side can request reschedule; explicit `reschedule_requested` state stores `requestedBy`, `reason`, `previousPickupSlot`; `pickupSlot.confirmedAt` cleared via MongoDB `$unset` (not `$set: undefined`); propose/confirm writes TOCTOU-safe with atomic status guards
+- **Cancellation policy engine** (`lib/bookings/cancellation-policy.ts`): Pure function `evaluateCancellationPolicy()` is single source of truth — seeker free-cancel window = **2 hours from booking creation** (`SEEKER_FREE_CANCEL_WINDOW_MS`); after window, fee forfeited; provider cancel always refunds; fully unit-tested (10 cases)
 
 ### Financial System
 - **Escrow**: 24-hour hold after delivery; complaint blocks release; transactional release with audit log
 - **Payout orchestration**: Concurrent batch processing with distributed payout locks, stale-lock recovery, and `decimal.js` precision
 - **Platform commission**: 5% deducted from subtotal (or total if no subtotal) using `decimal.js` — commission preserved even on complaint resolution
 - **Delivery charges**: Distance-based (Haversine), free within provider's free radius, per-km rate applied beyond
-- **Booking fee**: ₹50 upfront, refunded on provider cancel/auto-reject/no-show, forfeited on same-day seeker cancel or invoice rejection, applied on arrival
+- **Booking fee**: ₹50 upfront, refunded on provider cancel/auto-reject/no-show or seeker cancel within 2-hour window, forfeited on late seeker cancel or invoice rejection, applied on arrival
 - **Distributed refund locks**: `lib/services/refund-lock.ts` prevents concurrent double-refunds with stale-lock timeout (5 min) and diagnostic recovery
 - **Financial precision**: `decimal.js` for payout calculations, paise-based Razorpay amounts, `round2()`, `toPaise()`, `formatInr()` helpers
 
 ### Complaint & Dispute Resolution
 - **Complaint split settlement**: Admin can split distributable amount between seeker refund and provider payout (`refund_partial`) with commission preserved
 - **4 resolution outcomes**: `refund_full`, `refund_partial`, `release_payout`, `reject` — each with appropriate financial actions
-- **Manual fallback**: When Razorpay auto-refund or auto-payout fails, admin UI shows counterparty bank/payment details for manual transfer
+- **Settlement summary modal**: Admin sees a styled `SettlementSummaryModal` (not a browser `alert()`) showing provider UPI/bank details and seeker refund method, with amber "Manual" warning badge when Razorpay auto-transfer fails
 - **Complaint revert**: If settlement fails mid-way, `buildComplaintRevertUpdate()` restores complaint to previous state
 - **Complaint window extension**: Admin can extend the 24-hour filing window via `POST /api/admin/orders/[id]/extend-complaint`
 - **3-way chat**: Seeker, provider (after admin grants access), and admin exchange TEXT/IMAGE/SYSTEM messages; auto-archived after resolution
+
+### UI & Interaction
+- **No native browser dialogs**: Zero `alert()`/`confirm()`/`prompt()` in the codebase — all replaced with styled in-app components
+- **`ConfirmDialog` + `useConfirmDialog` hook** (`components/ui/confirm-dialog.tsx`): 3 variants (danger/warning/info), Escape/Enter keyboard support, Framer Motion animations, loading spinner, dark-mode aware
+- **`SettlementSummaryModal`** (`components/ui/settlement-summary-modal.tsx`): Structured provider payout + seeker refund cards with UPI/bank/card details, manual-transfer amber warning banner, auto vs manual badge
+- **Inline `BanUserDialog`**: Replaces `window.prompt()` for ban reason in admin user management
+- **Headless `useBookingActions`** (`hooks/use-booking-actions.ts`): `handleCancelBooking` accepts optional `requestConfirm` callback — hook owns network call, component owns dialog UI
+- **Seeker booking list tabs**: All / Pending / Active / **Reschedule** (new tab)
+- **Live countdown badge**: Free-cancel window timer on booking card, updates every 10 seconds, wording/color changes after expiry
 
 ### Security & Hardening
 - **CSP pipeline**: Content-Security-Policy in Report-Only mode with violation capture endpoint; enforce via `CSP_ENFORCE=true`
@@ -1756,11 +1899,13 @@ Use these points if you are asked about differences between the PRD and what is 
 
 ### Email & Communication
 - **Email outbox**: 4 email types (delivery_otp, password_reset, magic_link, otp_email) queued through claim-lock-dispatch pattern with exponential backoff (base 30s, max 30min), max 5 attempts, dead-letter tracking
+- **`EMAIL_SEND_IMMEDIATE=1` dev flag**: Bypasses outbox queue and sends emails synchronously during local development; `POST /api/cron/process-email-outbox` (no auth in non-prod) lets you manually drain the queue
 - **Structured logging**: Pino with native secret redaction (password, token, otp, apiKey, secret, etc.), pretty-printing in dev, JSON in production
 - **APM**: Datadog dd-trace (service: `laundryease-web`) + DogStatsD metrics via hot-shots (prefix: `laundryease.`)
 
 ### Testing & CI
-- **104 test files, 517 unit tests** passing (Vitest + mongodb-memory-server)
+- **104 test files, 549 unit tests** passing (Vitest + mongodb-memory-server)
+- **New test coverage (Rev 9)**: cancellation policy — 10 tests (both actors, 2h boundary, all fee states); reschedule `$unset`/TOCTOU; schedule route atomic guards; `useConfirmDialog` hook; headless `handleCancelBooking` callback
 - **5 Playwright E2E specs**: smoke-role-journeys, complaint-chat-journey, settlement-chain-journey, booking-lifecycle-journey, booking-negative-journeys
 - **3 GitHub CI workflows**: Quality Gates (typecheck → lint → test → build → E2E), Real Gateway Smoke (live Razorpay), Governance Audit (branch protection)
 - **Local release parity**: `npm run verify:gates`
@@ -1781,15 +1926,15 @@ Use these points if you are asked about differences between the PRD and what is 
 - `public/manifest.json` — PWA manifest
 - `public/og-image.png` — Open Graph image
 
-## Quick Presentation Tips
+## Quick Presentation Tips (Updated 2026-03-04)
 
 1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
 3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
-4. **Show what's special**: Escrow system, 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation
-5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation"
-6. **Mention production quality**: "104 test files, 517 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing"
+4. **Show what's special**: Escrow system, 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown
+5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes"
+6. **Mention production quality**: "104 test files, 549 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
-8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 104 test files
+8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 104 test files, 549 tests
 
 **Good luck with your presentation! 🚀**
