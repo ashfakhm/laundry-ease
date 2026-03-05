@@ -1,10 +1,23 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-03-05
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes a full complaint/dispute resolution system with 3-way chat, commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, and a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase).
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes a full complaint/dispute resolution system with 3-way chat, commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase), and a professional password management system with secure token-based reset, session invalidation on password change, and branded security notification emails.
+
+```mermaid
+graph LR
+    A[Seeker] -->|Discovers| B[Provider Search]
+    B -->|Geo-filtered| C[Book Provider]
+    C -->|₹50 Fee| D[Booking Accepted]
+    D -->|Pickup & Inspect| E[Invoice Created]
+    E -->|Pay Invoice| F[Order Active]
+    F -->|Lifecycle Tracking| G[OTP Delivery]
+    G -->|Escrow Hold| H[Payout Release]
+    style A fill:#10b981,color:#fff
+    style H fill:#059669,color:#fff
+```
 
 ---
 
@@ -335,6 +348,33 @@ Fields: order_id, seeker_id, provider_id, seeker_name, rating (1-5), comment
 3. **Magic Link**: Email-based passwordless login via token
 4. **Session**: JWT token stored in cookie, 7-day max age
 
+```mermaid
+flowchart TD
+    Start([User Visits /auth]) --> Choice{Auth Method?}
+    Choice -->|Google OAuth| G1[NextAuth Google Provider]
+    Choice -->|Email/Password| C1[Enter Credentials]
+    Choice -->|Magic Link| M1[Enter Email]
+
+    G1 --> G2[Google Callback]
+    G2 --> G3{Existing User?}
+    G3 -->|Yes| Dashboard[Role Dashboard]
+    G3 -->|No| ChooseRole[/choose-role]
+    ChooseRole --> CompleteSignup[/complete-signup]
+    CompleteSignup --> Dashboard
+
+    C1 --> C2[NextAuth Credentials Provider]
+    C2 --> C3{Valid?}
+    C3 -->|Yes| Dashboard
+    C3 -->|No| C4[Error Message]
+
+    M1 --> M2[JWT Token Email]
+    M2 --> M3[Verify Token]
+    M3 --> Dashboard
+
+    style Dashboard fill:#059669,color:#fff
+    style C4 fill:#ef4444,color:#fff
+```
+
 ### Post-Auth Flow
 
 - New OAuth users → `/choose-role` → role selection → `/complete-signup/{seeker|provider}` → profile completion
@@ -346,6 +386,36 @@ Fields: order_id, seeker_id, provider_id, seeker_name, rating (1-5), comment
 - Session includes: `id`, `email`, `name`, `role`
 - `SESSION_MAX_AGE_SECONDS` = 7 days
 - Role resolved from DB if session data incomplete (`isLikelyDbObjectId` check)
+- **Periodic DB re-check** (every 5 minutes via `JWT_DB_RECHECK_INTERVAL_S`) to detect password changes and invalidate stale tokens
+
+### Session Invalidation After Password Change
+
+The JWT callback periodically re-checks the database to enforce session invalidation when a user changes their password (via forgot-password reset or in-app profile change):
+
+1. Every 5 minutes, the JWT callback queries the user document for `passwordChangedAt`
+2. If `passwordChangedAt` is later than the token's `iat` (issued-at), the token is invalidated
+3. NextAuth reports `unauthenticated`, forcing re-sign-in on the client
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant JWT Callback
+    participant MongoDB
+
+    Client->>JWT Callback: Request with JWT
+    JWT Callback->>JWT Callback: Check _lastDbCheck age
+    alt ≥5 min since last check
+        JWT Callback->>MongoDB: getUserByEmail(token.email)
+        MongoDB-->>JWT Callback: { passwordChangedAt }
+        alt passwordChangedAt > token.iat
+            JWT Callback-->>Client: Token invalidated → sign out
+        else
+            JWT Callback-->>Client: Token refreshed (role/id updated)
+        end
+    else
+        JWT Callback-->>Client: Pass through (no DB hit)
+    end
+```
 
 ### Authorization Middleware (`lib/api/auth.ts`)
 
@@ -365,6 +435,79 @@ Fields: order_id, seeker_id, provider_id, seeker_name, rating (1-5), comment
 - At least one number
 - At least one special character
 - Enforced on signup, profile update, and password reset
+
+### Password Reset Flow (Forgot Password)
+
+A professional, secure password reset system with anti-enumeration protections:
+
+```mermaid
+flowchart TD
+    A[User clicks 'Forgot Password'] --> B[Enter Email on /auth page]
+    B --> C[POST /api/forgot-password]
+    C --> D{Rate limit OK?}
+    D -->|No| E[429 Too Many Requests]
+    D -->|Yes| F{User exists with password?}
+    F -->|No| G[Return generic success - anti-enumeration]
+    F -->|Yes| H[Generate randomBytes 32 token]
+    H --> I[Store SHA-256 hash in password_reset_tokens]
+    I --> J[Enqueue password_reset email via outbox]
+    J --> K[Return generic success]
+    K --> L[60-second cooldown on resend button]
+
+    J --> M[Email with branded HTML template]
+    M --> N[User clicks reset link]
+    N --> O[/reset-password?token=xxx]
+    O --> P[Enter new password + confirm]
+    P --> Q[POST /api/reset-password]
+    Q --> R{Token valid & unexpired?}
+    R -->|No| S[Error: Invalid or expired]
+    R -->|Yes| T[Hash new password with bcrypt]
+    T --> U[Update user: passwordHash + passwordChangedAt]
+    U --> V[Invalidate all active reset tokens]
+    V --> W[Enqueue password_changed notification email]
+    W --> X[Success → redirect to /auth]
+    U --> Y[JWT callback detects passwordChangedAt > iat]
+    Y --> Z[All existing sessions invalidated within 5 min]
+
+    style G fill:#f59e0b,color:#fff
+    style K fill:#10b981,color:#fff
+    style X fill:#10b981,color:#fff
+    style Z fill:#ef4444,color:#fff
+```
+
+**Security measures:**
+- **Token storage**: Only SHA-256 hash stored in DB; raw token never persisted
+- **Token expiry**: 1-hour TTL with MongoDB TTL index auto-cleanup
+- **Anti-enumeration**: Generic "If an account exists, a reset link has been sent" response regardless of email existence
+- **Rate limiting**: Per-IP (10/15min) and per-email (4/hour) buckets
+- **Same-origin enforcement**: `requireSameOrigin()` on all unsafe methods
+- **Zod validation**: Input validated via `forgotPasswordSchema` / `resetPasswordSchema`
+- **Session invalidation**: `passwordChangedAt` written on reset triggers JWT invalidation within 5 minutes
+- **Token invalidation**: All active reset tokens for the user are marked used on successful reset
+- **Notification email**: Branded "password changed" security alert sent to user after both reset and profile-driven changes
+
+### In-App Password Change (Profile)
+
+Both seeker (`PUT /api/profile/seeker`) and provider (`PATCH /api/profile/provider`) support changing password while signed in:
+
+1. User provides `currentPassword` + `newPassword`
+2. Current password verified against stored bcrypt hash
+3. New password validated against password policy
+4. `passwordHash`, `passwordChangedAt`, and `updatedAt` updated atomically
+5. `password_changed` notification email enqueued via outbox
+6. All existing sessions invalidated within 5 minutes (JWT re-check detects `passwordChangedAt`)
+
+```mermaid
+flowchart LR
+    A[Profile Page] --> B[Enter Current + New Password]
+    B --> C[API validates current password]
+    C --> D[bcrypt hash new password]
+    D --> E[Set passwordHash + passwordChangedAt]
+    E --> F[Enqueue password_changed email]
+    E --> G[JWT re-check invalidates old sessions]
+    style F fill:#3b82f6,color:#fff
+    style G fill:#ef4444,color:#fff
+```
 
 ---
 
@@ -904,7 +1047,40 @@ Client-side: Razorpay checkout script (`RAZORPAY_CHECKOUT_SCRIPT_URL`) loaded dy
 
 - SMTP email transport
 - Used by email outbox dispatch functions
-- Templates for: delivery OTP, password reset, magic link, OTP code
+- Templates for: delivery OTP, password reset, password changed notification, magic link, OTP code
+
+### Email Outbox System (`lib/email-outbox.ts`)
+
+The email outbox is a transactional email queue with claim-lock-dispatch pattern:
+
+```mermaid
+flowchart TD
+    A[API Route] -->|enqueueEmailOutboxJob| B[Insert into email_outbox]
+    B --> C{Inline dispatch attempt}
+    C -->|Success| D[Mark as 'sent']
+    C -->|Failure| E[Reset to 'pending']
+    E --> F[Cron: process-email-outbox every 2 min]
+    F --> G[Claim oldest pending job]
+    G --> H{Dispatch email}
+    H -->|Success| I[Mark 'sent']
+    H -->|Failure| J{Max attempts reached?}
+    J -->|No| K[Exponential backoff → retry]
+    J -->|Yes| L[Mark 'failed' - dead letter]
+
+    style D fill:#10b981,color:#fff
+    style I fill:#10b981,color:#fff
+    style L fill:#ef4444,color:#fff
+```
+
+**5 email types supported:**
+
+| Kind | Template File | Purpose |
+| --- | --- | --- |
+| `delivery_otp` | `lib/delivery-otp-email.ts` | OTP code for delivery confirmation |
+| `password_reset` | `lib/password-reset-email.ts` | Branded reset link with 1-hour expiry notice |
+| `password_changed` | `lib/password-changed-email.ts` | Security notification after password change |
+| `magic_link` | `lib/magic-link-email.ts` | Passwordless login verification link |
+| `otp_email` | `lib/otp-code-email.ts` | Email OTP code for signup verification |
 
 ---
 
@@ -935,6 +1111,22 @@ Client-side: Razorpay checkout script (`RAZORPAY_CHECKOUT_SCRIPT_URL`) loaded dy
 - Strong password policy enforced on all password-setting endpoints
 - JWT session tokens with 7-day expiry
 - Google OAuth as alternative auth flow
+- **Secure password reset**: Token-based with SHA-256 hashing (raw token never stored), 1-hour expiry, TTL auto-cleanup
+- **Session invalidation on password change**: JWT callback re-checks `passwordChangedAt` every 5 minutes; stale tokens invalidated automatically
+- **Anti-enumeration**: Forgot-password endpoint returns generic responses regardless of email existence
+- **Password change notifications**: Branded security emails sent on both reset and profile-driven password changes
+
+```mermaid
+flowchart LR
+    subgraph "Password Security Layers"
+        A[bcrypt hashing<br/>10 salt rounds] --> B[Strong policy<br/>8+ chars, upper, num, special]
+        B --> C[Secure reset tokens<br/>SHA-256, 1hr TTL]
+        C --> D[Session invalidation<br/>5-min JWT re-check]
+        D --> E[Change notification<br/>branded email alert]
+    end
+    style A fill:#059669,color:#fff
+    style E fill:#3b82f6,color:#fff
+```
 
 ### Payment Security
 
@@ -954,6 +1146,18 @@ Client-side: Razorpay checkout script (`RAZORPAY_CHECKOUT_SCRIPT_URL`) loaded dy
 - Client IP extraction with proxy trust model
 - Duplicate-key retry handling for burst traffic
 
+```mermaid
+flowchart LR
+    A[Request] --> B{Check IP bucket}
+    B -->|Under limit| C{Check per-actor bucket}
+    C -->|Under limit| D[Allow request]
+    B -->|Over limit| E[429 Rate Limited]
+    C -->|Over limit| E
+    D --> F[Increment counter]
+    style D fill:#10b981,color:#fff
+    style E fill:#ef4444,color:#fff
+```
+
 ### Logging Security (`lib/logger.ts`)
 
 - Pino native redaction paths: `password`, `passwordHash`, `token`, `secret`, `apiKey`, `otp`, `code`, `codeHash`, `authToken`, `accessToken`
@@ -966,7 +1170,7 @@ Client-side: Razorpay checkout script (`RAZORPAY_CHECKOUT_SCRIPT_URL`) loaded dy
 
 ### Unit Tests (Vitest)
 
-- **104 test files**, **549 tests** passing
+- **104 test files**, **551 tests** passing
 - Located alongside source files as `*.test.ts`
 - In-memory MongoDB via `mongodb-memory-server`
 - Coverage areas:
@@ -982,6 +1186,8 @@ Client-side: Razorpay checkout script (`RAZORPAY_CHECKOUT_SCRIPT_URL`) loaded dy
   - Email outbox (dispatch, retry, backoff, dead-letter)
   - Database indexes (creation, failure handling)
   - Schema contracts (Zod schema validation)
+  - **Password management**: `passwordChangedAt` set on profile password change (seeker + provider), password-changed email enqueued
+  - **Forgot/reset password**: Token generation, validation, expiry, rate limiting, anti-enumeration
 
 ### E2E Tests (Playwright)
 
@@ -1050,13 +1256,13 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 | `lib/logger.ts` | Structured Pino logging with secret redaction |
 | `lib/payouts.ts` | Payout orchestration engine (batch + lock) |
 | `lib/razorpay.ts` | Razorpay SDK wrapper (payments, refunds, payouts, contacts, fund accounts) |
-| `lib/email-outbox.ts` | Queued email system (4 types, claim-lock-dispatch, backoff) |
+| `lib/email-outbox.ts` | Queued email system (5 types, claim-lock-dispatch, inline + cron, backoff) |
 | `lib/cron-tracking.ts` | Cron job run observability |
 | `lib/db-indexes.ts` | 30+ database index bootstrap with failure alerting |
 | `lib/audit.ts` | Audit log creation (booking, order, escrow, payment, complaint) |
 | `lib/telemetry.ts` | DogStatsD metrics client |
 | `instrumentation.ts` | Datadog APM init hook (dd-trace) |
-| `lib/api/auth.ts` | Role-based auth guards |
+| `lib/api/auth.ts` | Role-based auth guards + JWT session invalidation |
 | `lib/api/errors.ts` | AppError class + 20+ error codes |
 | `lib/api/response.ts` | Standardized API response helpers |
 | `lib/api/schemas.ts` | 30+ centralized Zod validation schemas |
@@ -1073,7 +1279,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 | `lib/services/invoice-finalization.ts` | Transaction + compensating-write order creation |
 | `lib/services/provider-search.ts` | Geo search engine ($geoNear + bounding-box fallback) |
 | `lib/services/provider-bank-sync.ts` | Razorpay contact/fund account sync |
-| `lib/services/provider-password.ts` | Secure password change |
+| `lib/services/provider-password.ts` | Secure provider password change (verify + hash) |
 | `lib/services/admin-stats.ts` | Admin dashboard statistics (alerts, complaints, escrow, providers, orders) |
 | `lib/services/refund-lock.ts` | Distributed refund lock |
 | `lib/services/system-alerts.ts` | System alert trigger helpers |
@@ -1091,9 +1297,14 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 | `lib/ops/owner-routing.ts` | SLA-based alert owner assignment with load balancing |
 | `lib/audit/integrity.ts` | Order/payment/booking consistency checks |
 | `lib/auth/password-policy.ts` | Password strength rules |
+| `lib/password-reset-email.ts` | Branded password reset email template (HTML + plain text) |
+| `lib/password-changed-email.ts` | Security notification email for password changes |
 | `lib/db/escrow.ts` | Escrow hold/release with transactions |
 | `lib/db/transaction.ts` | MongoDB transaction wrapper |
 | `lib/webhooks/razorpay-handlers.ts` | Razorpay event processing |
+| `app/api/forgot-password/route.ts` | Token-based password reset request with anti-enumeration |
+| `app/api/reset-password/route.ts` | Password reset execution with session invalidation |
+| `app/reset-password/page.tsx` | Client-side reset form with show/hide toggle |
 | `cron/auto-reject-bookings.ts` | Auto-reject expired bookings logic |
 | `cron/no-show-check.ts` | No-show detection + refund logic |
 | `next.config.ts` | Next.js config (React Compiler, CSP headers, HSTS) |
@@ -1101,11 +1312,11 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 ---
 
-## 16. Current Project Status (Rev 9)
+## 16. Current Project Status (Rev 10)
 
-**Quality Snapshot (2026-03-04):**
+**Quality Snapshot (2026-03-05):**
 
-- 104 test files, 549 tests passing (100% core route coverage)
+- 104 test files, 551 tests passing (100% core route coverage)
 - 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
@@ -1135,7 +1346,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Alert delivery + escalation with email/webhook/PagerDuty fan-out
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
-- Email outbox with retry/backoff (delivery OTP, password reset, magic link, email OTP)
+- Email outbox with retry/backoff (delivery OTP, password reset, password changed, magic link, email OTP) — 5 email types
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
 - Financial precision with decimal.js and paise integers
@@ -1146,11 +1357,15 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Distributed refund locks with stale-lock recovery
 - Datadog APM + DogStatsD telemetry (optional)
 - GitHub CI: Quality Gates, Real Gateway Smoke, Governance Audit
+- **Professional password reset flow**: Secure token-based (SHA-256, 1hr TTL), branded email templates, anti-enumeration, rate-limited
+- **Session invalidation on password change**: JWT re-check every 5 min detects `passwordChangedAt` and forces re-auth
+- **Password change notifications**: Branded security emails on both reset and profile-driven password changes
+- **Password show/hide toggles**: On reset page and both seeker/provider profile pages
 
 **Remaining Hardening Opportunities:**
 
 - Promote CSP from report-only to enforce mode after violation cleanup
-- Password-recovery anti-abuse hardening (captcha strategy)
+- Password-recovery anti-abuse hardening (captcha strategy for production)
 - Team calendar/on-call integration for dynamic owner pools
 - Split-settlement reconciliation tooling for rare one-leg failures
 - Webhook payload archival policy
@@ -1158,7 +1373,234 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 ---
 
-## Summary (Rev 9)
+## 17. Architecture Diagrams
+
+### High-Level System Architecture
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        S[Seeker Dashboard]
+        P[Provider Dashboard]
+        A[Admin Dashboard]
+    end
+
+    subgraph "Next.js App Router"
+        Pages[Pages & Layouts]
+        API[API Routes]
+        Auth[NextAuth v4]
+        Cron[10 Cron Jobs]
+    end
+
+    subgraph "Business Logic"
+        BK[Bookings Engine]
+        OR[Orders & State Machine]
+        PY[Payout Orchestration]
+        CR[Complaint Resolution]
+        PW[Password Management]
+    end
+
+    subgraph "Data & Services"
+        DB[(MongoDB)]
+        RZ[Razorpay + RazorpayX]
+        EM[Email Outbox + SMTP]
+        GM[Google Maps]
+        TW[Twilio SMS]
+        CL[Cloudinary CDN]
+    end
+
+    S --> Pages
+    P --> Pages
+    A --> Pages
+    Pages --> API
+    API --> Auth
+    API --> BK
+    API --> OR
+    API --> PY
+    API --> CR
+    API --> PW
+    Cron --> BK
+    Cron --> PY
+    Cron --> EM
+    BK --> DB
+    OR --> DB
+    PY --> RZ
+    PY --> DB
+    CR --> DB
+    PW --> DB
+    PW --> EM
+    EM --> DB
+    BK --> RZ
+
+    style DB fill:#059669,color:#fff
+    style RZ fill:#3b82f6,color:#fff
+```
+
+### Booking → Order → Settlement Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> requested: Seeker books
+    requested --> accepted: Provider accepts
+    requested --> rejected: Provider rejects
+    requested --> cancelled: Seeker cancels (free window)
+    accepted --> pickup_proposed: Provider proposes slot
+    accepted --> reschedule_requested: Either side requests
+    reschedule_requested --> pickup_proposed: New slot proposed
+    pickup_proposed --> confirmed: Seeker confirms
+    confirmed --> arrived: Provider arrives (geofence)
+    arrived --> invoice_created: Provider creates invoice
+    invoice_created --> completed: Seeker pays invoice
+
+    state "Order Lifecycle" as order {
+        [*] --> invoiced
+        invoiced --> processing
+        processing --> washing
+        washing --> ironing
+        ironing --> ready
+        ready --> out_for_delivery
+        out_for_delivery --> delivered: OTP verified
+    }
+
+    completed --> order
+
+    state "Settlement" as settle {
+        [*] --> held: 24hr escrow hold
+        held --> released: No complaint
+        held --> frozen: Complaint filed
+        frozen --> split: Admin resolves
+        frozen --> refunded: Full refund
+        frozen --> released: Complaint rejected
+    }
+
+    order --> settle
+```
+
+### Data Flow: Payment & Escrow
+
+```mermaid
+flowchart TD
+    A[Seeker pays invoice] --> B[Razorpay order created server-side]
+    B --> C[Client opens Razorpay Checkout]
+    C --> D[Payment captured]
+    D --> E{Signature valid?}
+    E -->|No| F[Payment rejected]
+    E -->|Yes| G[payment_status: paid]
+    G --> H[Order lifecycle tracking]
+    H --> I[Delivery OTP verification]
+    I --> J[payment_status: held]
+    J --> K[24hr escrow window]
+    K --> L{Complaint filed?}
+    L -->|No| M[Cron: process-payouts]
+    L -->|Yes| N[Escrow frozen]
+    N --> O[Admin resolution]
+    O --> P{Outcome}
+    P -->|refund_full| Q[Full Razorpay refund]
+    P -->|refund_partial| R[Split: partial refund + partial payout]
+    P -->|release_payout| S[Full provider payout]
+    P -->|reject| S
+    M --> T[RazorpayX payout to provider]
+
+    style G fill:#10b981,color:#fff
+    style J fill:#f59e0b,color:#fff
+    style N fill:#ef4444,color:#fff
+    style T fill:#059669,color:#fff
+```
+
+### Cron Job Schedule Map
+
+```mermaid
+gantt
+    title Cron Job Frequency (per hour)
+    dateFormat X
+    axisFormat %M min
+
+    section Every 2 min
+    process-email-outbox :0, 2
+
+    section Every 5 min
+    auto-reject-bookings :0, 5
+    no-show :0, 5
+
+    section Every 15 min
+    process-payouts :0, 15
+    notify-system-alerts :0, 15
+
+    section Every 30 min
+    audit-integrity :0, 30
+    reconciliation :0, 30
+
+    section Hourly
+    monitor-operational-health :0, 60
+
+    section Daily
+    monitor-abuse (2 AM) :0, 60
+    webhook-cleanup (1 AM) :0, 60
+```
+
+### Database Collection Relationships
+
+```mermaid
+erDiagram
+    seekers ||--o{ bookings : "creates"
+    providers ||--o{ bookings : "receives"
+    bookings ||--o| orders : "produces"
+    orders ||--o| complaints : "may trigger"
+    complaints ||--o{ complaint_messages : "contains"
+    orders ||--o| reviews : "may receive"
+    seekers ||--o{ reviews : "writes"
+    providers ||--o{ reviews : "receives"
+
+    seekers {
+        ObjectId _id
+        string email
+        string passwordHash
+        date passwordChangedAt
+        object coordinates
+    }
+    providers {
+        ObjectId _id
+        string email
+        string passwordHash
+        date passwordChangedAt
+        object locationGeoJSON
+        object bankDetails
+    }
+    bookings {
+        ObjectId _id
+        string status
+        string bookingFeeStatus
+        string razorpay_order_id
+    }
+    orders {
+        ObjectId _id
+        string process_status
+        string payment_status
+        string payout_status
+    }
+    complaints {
+        ObjectId _id
+        string status
+        string outcome
+    }
+
+    password_reset_tokens {
+        ObjectId _id
+        string tokenHash
+        ObjectId userId
+        date expiresAt
+    }
+    email_outbox {
+        ObjectId _id
+        string kind
+        string status
+        int attempts
+    }
+```
+
+---
+
+## Summary (Rev 10)
 
 LaundryEase is a production-grade laundry marketplace built with:
 
@@ -1167,6 +1609,7 @@ LaundryEase is a production-grade laundry marketplace built with:
 3. **Robust State Machines** — Booking (10 states) and Order (7 process states × 5 payment states) with explicit, enforced transitions
 4. **Comprehensive Dispute Resolution** — 3-way chat, commission-aware split settlements, manual fallback for failed auto-actions
 5. **Financial Precision** — decimal.js for calculations, paise integers for Razorpay, distributed locks for concurrent safety
-6. **Production-Ready Infrastructure** — 10 cron jobs, operational alerting with SLA/escalation/owner routing, email outbox with retry, MongoDB-backed rate limiting, structured logging with secret redaction, Datadog APM
-7. **Quality Assurance** — 104 test files (549 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
-8. **Operational Observability** — Cron run tracking, data integrity auditing, abuse monitoring, alert analytics (trend/burn-rate/MTTR), CSP violation reporting
+6. **Production-Ready Infrastructure** — 10 cron jobs, operational alerting with SLA/escalation/owner routing, email outbox with retry (5 types), MongoDB-backed rate limiting, structured logging with secret redaction, Datadog APM
+7. **Professional Password Management** — Secure token-based reset (SHA-256, 1hr TTL), anti-enumeration, branded email notifications, JWT session invalidation on password change (5-min re-check), password show/hide UX
+8. **Quality Assurance** — 104 test files (551 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
+9. **Operational Observability** — Cron run tracking, data integrity auditing, abuse monitoring, alert analytics (trend/burn-rate/MTTR), CSP violation reporting
