@@ -191,10 +191,10 @@ laundry-ease/
 │   │   └── invoice-review-form.tsx
 │   ├── seo/                      # SEO
 │   │   └── json-ld.tsx
-│   ├── ui/                       # shadcn/ui + custom components (19 files)
+│   ├── ui/                       # shadcn/ui + custom components (18 files)
 │   │   ├── confirm-dialog.tsx    # ConfirmDialog + useConfirmDialog hook (replaces window.confirm)
 │   │   ├── settlement-summary-modal.tsx # Settlement details modal (replaces alert dumps)
-│   │   └── [17 other ui components]
+│   │   └── [16 other ui components]
 │   ├── chat-interface.tsx        # Booking chat with dispute modal
 │   ├── complaint-chat.tsx        # 3-way complaint chat
 │   └── landing-page-client.tsx   # Landing page client component
