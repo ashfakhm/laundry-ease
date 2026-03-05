@@ -92,17 +92,16 @@ export default function SeekerSignupPage() {
     setFieldErrors(errors);
   }
   const [emailOtpSent, setEmailOtpSent] = useState<string | null>(null);
-  const [phoneOtpSent, setPhoneOtpSent] = useState<string | null>(null);
+
   const [emailCode, setEmailCode] = useState("");
-  const [phoneCode, setPhoneCode] = useState("");
+
   const [emailVerified, setEmailVerified] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSending, startEmailSend] = useTransition();
-  const [phoneSending, startPhoneSend] = useTransition();
+
   const [emailVerifying, startEmailVerify] = useTransition();
-  const [phoneVerifying, startPhoneVerify] = useTransition();
 
   // Normalize phone to E.164
   function normalizePhone(input: string) {
@@ -133,17 +132,7 @@ export default function SeekerSignupPage() {
       setEmailOtpSent("OTP sent to your email");
     });
   }
-  function sendPhoneOtp() {
-    startPhoneSend(async () => {
-      setError(null);
-      const { ok, data } = await postJSON("/api/otp/request", {
-        target: normalizePhone(form.phone),
-        type: "phone",
-      });
-      if (!ok) return setError(extractError(data, "Failed to send phone OTP"));
-      setPhoneOtpSent("OTP sent via SMS");
-    });
-  }
+
   function verifyEmail() {
     startEmailVerify(async () => {
       setError(null);
@@ -156,20 +145,6 @@ export default function SeekerSignupPage() {
       });
       if (!ok) return setError(extractError(data, "Invalid code"));
       setEmailVerified(true);
-    });
-  }
-  function verifyPhone() {
-    startPhoneVerify(async () => {
-      setError(null);
-      if (!form.phone) return setError("Please enter your phone number first");
-      if (!phoneCode) return setError("Please enter the verification code");
-      const { ok, data } = await postJSON("/api/otp/verify", {
-        target: normalizePhone(form.phone),
-        type: "phone",
-        code: phoneCode,
-      });
-      if (!ok) return setError(extractError(data, "Invalid code"));
-      setPhoneVerified(true);
     });
   }
 
@@ -196,8 +171,7 @@ export default function SeekerSignupPage() {
       !addr.postalCode
     )
       return setError("All address fields are required");
-    if (!emailVerified || !phoneVerified)
-      return setError("Please verify both email and phone number");
+    if (!emailVerified) return setError("Please verify your email address");
     setLoading(true);
     const { ok, data } = await postJSON("/api/signup/seeker", {
       ...form,
@@ -511,11 +485,11 @@ export default function SeekerSignupPage() {
                     Verify Identity
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Required to ensure platform safety.
+                    Verify your email to ensure platform safety.
                   </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div>
                   {/* Email Verify */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
@@ -566,58 +540,6 @@ export default function SeekerSignupPage() {
                       </p>
                     )}
                   </div>
-
-                  {/* Phone Verify */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <label className="text-sm font-medium flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-muted-foreground" />{" "}
-                        Phone
-                      </label>
-                      {phoneVerified && (
-                        <span className="text-xs font-bold text-primary flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Verified
-                        </span>
-                      )}
-                    </div>
-                    {!phoneVerified && (
-                      <div className="flex gap-2">
-                        {!phoneOtpSent ? (
-                          <button
-                            type="button"
-                            onClick={sendPhoneOtp}
-                            disabled={!form.phone || phoneSending}
-                            className="flex-1 h-10 bg-primary/10 text-primary border border-primary/20 text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50"
-                          >
-                            {phoneSending ? "Sending..." : "Send Code"}
-                          </button>
-                        ) : (
-                          <>
-                            <input
-                              className="flex-1 h-10 rounded-lg border border-input px-3 text-xs bg-background"
-                              placeholder="XXXXXX"
-                              maxLength={6}
-                              value={phoneCode}
-                              onChange={(e) => setPhoneCode(e.target.value)}
-                            />
-                            <button
-                              type="button"
-                              onClick={verifyPhone}
-                              disabled={phoneVerifying}
-                              className="px-4 h-10 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50"
-                            >
-                              Verify
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                    {phoneOtpSent && !phoneVerified && (
-                      <p className="text-[10px] text-green-600 font-medium">
-                        OTP Sent to {form.phone}
-                      </p>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -631,7 +553,7 @@ export default function SeekerSignupPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || !emailVerified || !phoneVerified}
+                  disabled={loading || !emailVerified}
                   className="w-full h-12 bg-primary text-primary-foreground font-bold text-base rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
                 >
                   {loading && <Loader2 className="w-5 h-5 animate-spin" />}

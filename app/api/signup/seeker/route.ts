@@ -27,15 +27,14 @@ export async function POST(req: NextRequest) {
     const { name, email, password, phone, address, coordinates } = parsed.data;
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Require verified OTPs for email and phone
+    // Require verified OTP for email
     const emailOk = await isOtpVerifiedRecently(normalizedEmail, "email");
-    const phoneOk = await isOtpVerifiedRecently(phone, "phone");
-    if (!emailOk || !phoneOk) {
+    if (!emailOk) {
       return errorResponse(
         new AppError(
           ErrorCode.VALIDATION_ERROR,
           400,
-          "Email and phone must be verified via OTP",
+          "Email must be verified via OTP",
         ),
       );
     }
