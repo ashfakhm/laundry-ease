@@ -9,6 +9,15 @@ import { useToast } from "@/components/ui/toast";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
 import { formatInr, round2 } from "@/lib/utils/monetary";
+import {
+  ConfirmDialog,
+  useConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import {
+  SettlementSummaryModal,
+  type SettlementProviderDetails,
+  type SettlementSeekerDetails,
+} from "@/components/ui/settlement-summary-modal";
 
 type Params = Promise<{ id: string }>;
 
@@ -75,6 +84,22 @@ export default function AdminComplaintDetailPage({
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [seekerRefundAmount, setSeekerRefundAmount] = useState(0);
+  const { showConfirm, closeDialog, dialogProps } = useConfirmDialog();
+  const [settlementModal, setSettlementModal] = useState<{
+    isOpen: boolean;
+    providerDetails: SettlementProviderDetails | null;
+    seekerDetails: SettlementSeekerDetails | null;
+    providerAmount: number;
+    seekerAmount: number;
+    hasManualTransfers: boolean;
+  }>({
+    isOpen: false,
+    providerDetails: null,
+    seekerDetails: null,
+    providerAmount: 0,
+    seekerAmount: 0,
+    hasManualTransfers: false,
+  });
 
   const fetchComplaint = useCallback(async () => {
     try {
@@ -121,13 +146,24 @@ export default function AdminComplaintDetailPage({
     }
   }
 
-  async function handleResolve(
+  function handleResolve(
     outcome: ResolveOutcome,
     seekerRefundOverride?: number,
   ) {
-    if (!confirm(`Are you sure you want to ${outcome.replace(/_/g, " ")}?`))
-      return;
+    showConfirm({
+      title: "Confirm Action",
+      message: `Are you sure you want to ${outcome.replace(/_/g, " ")}? This cannot be undone.`,
+      confirmText: "Yes, proceed",
+      cancelText: "Cancel",
+      variant: outcome === "reject" ? "danger" : "warning",
+      onConfirm: () => executeResolve(outcome, seekerRefundOverride),
+    });
+  }
 
+  async function executeResolve(
+    outcome: ResolveOutcome,
+    seekerRefundOverride?: number,
+  ) {
     setActionLoading(true);
     try {
       const payload: {
@@ -195,73 +231,27 @@ export default function AdminComplaintDetailPage({
           toast.success("Complaint resolved successfully");
         }
 
-        // Always show settlement summary with party details for whoever receives money
+        // Show settlement summary modal with party details
         const party = data?.settlementPartyDetails;
         if (party && (party.provider || party.seeker)) {
           const seekerAmt = Number(settlement?.seeker_refund_amount || 0);
           const providerAmt = Number(settlement?.provider_payout_amount || 0);
-          const hasManual =
-            data?.payoutPendingManual || data?.refundPendingManual;
+          const hasManual = !!(
+            data?.payoutPendingManual || data?.refundPendingManual
+          );
 
-          const lines: string[] = [];
-          lines.push("═══ SETTLEMENT SUMMARY ═══\n");
-
-          if (hasManual) {
-            lines.push(
-              "⚠️ Some transfers require manual action (marked below)\n",
-            );
-          }
-
-          // Show provider details only when provider receives money
-          if (party.provider && providerAmt > 0.01) {
-            const p = party.provider;
-            const manual = p.manualTransferRequired
-              ? " ⚠️ MANUAL TRANSFER"
-              : " ✅ Auto";
-            lines.push(
-              `── Provider Payout: ${formatInr(providerAmt)}${manual} ──`,
-            );
-            lines.push(`Name: ${p.name}`);
-            if (p.upiId) lines.push(`UPI: ${p.upiId}`);
-            if (p.accountNumber) lines.push(`Account: ${p.accountNumber}`);
-            if (p.ifsc) lines.push(`IFSC: ${p.ifsc}`);
-            if (p.accountHolderName)
-              lines.push(`Holder: ${p.accountHolderName}`);
-            if (p.email) lines.push(`Email: ${p.email}`);
-            if (p.phone) lines.push(`Phone: ${p.phone}`);
-            lines.push("");
-          }
-
-          // Show seeker details only when seeker receives money
-          if (party.seeker && seekerAmt > 0.01) {
-            const s = party.seeker;
-            const manual = s.manualTransferRequired
-              ? " ⚠️ MANUAL TRANSFER"
-              : " ✅ Auto";
-            lines.push(`── Seeker Refund: ${formatInr(seekerAmt)}${manual} ──`);
-            lines.push(`Name: ${s.name}`);
-            if (s.paymentMethod)
-              lines.push(`Payment Method: ${s.paymentMethod.toUpperCase()}`);
-            if (s.vpa) lines.push(`UPI: ${s.vpa}`);
-            if (s.bank) lines.push(`Bank: ${s.bank}`);
-            if (s.wallet) lines.push(`Wallet: ${s.wallet}`);
-            if (s.card)
-              lines.push(
-                `Card: ${s.card.network || ""} ****${s.card.last4 || ""}${s.card.issuer ? ` (${s.card.issuer})` : ""}`,
-              );
-            if (s.email) lines.push(`Email: ${s.email}`);
-            if (s.phone) lines.push(`Phone: ${s.phone}`);
-            lines.push("");
-          }
-
-          if (hasManual) {
-            lines.push(
-              "Please transfer ⚠️ marked amounts manually via UPI/bank.",
-            );
-          }
-          alert(lines.join("\n"));
+          setSettlementModal({
+            isOpen: true,
+            providerDetails: party.provider ?? null,
+            seekerDetails: party.seeker ?? null,
+            providerAmount: providerAmt,
+            seekerAmount: seekerAmt,
+            hasManualTransfers: hasManual,
+          });
+          // Navigation will happen when the modal is closed (via onClose)
+        } else {
+          router.push("/admin/complaints");
         }
-        router.push("/admin/complaints");
       } else {
         toast.error(
           getApiErrorMessage(responsePayload, "Failed to resolve complaint"),
@@ -344,6 +334,23 @@ export default function AdminComplaintDetailPage({
 
   return (
     <div className="min-h-screen bg-background p-6">
+      {/* Custom confirm dialog — replaces browser confirm() */}
+      <ConfirmDialog {...dialogProps} />
+
+      {/* Settlement summary modal — replaces browser alert() */}
+      <SettlementSummaryModal
+        isOpen={settlementModal.isOpen}
+        onClose={() => {
+          setSettlementModal((prev) => ({ ...prev, isOpen: false }));
+          router.push("/admin/complaints");
+        }}
+        providerDetails={settlementModal.providerDetails}
+        seekerDetails={settlementModal.seekerDetails}
+        providerAmount={settlementModal.providerAmount}
+        seekerAmount={settlementModal.seekerAmount}
+        hasManualTransfers={settlementModal.hasManualTransfers}
+      />
+
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">

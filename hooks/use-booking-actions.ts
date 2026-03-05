@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition, useState, useCallback } from "react";
 import { useToast } from "@/components/ui/toast";
 import {
   updateBookingStatus,
@@ -137,14 +137,7 @@ export function useBookingActions(bookingId: string, onRefresh?: () => void) {
     });
   };
 
-  const handleCancelBooking = () => {
-    if (
-      !confirm(
-        "Cancel this booking? If booking fee was paid, it will be refunded to the seeker.",
-      )
-    )
-      return;
-
+  const executeCancelBooking = useCallback(() => {
     startTransition(async () => {
       try {
         const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
@@ -179,7 +172,25 @@ export function useBookingActions(bookingId: string, onRefresh?: () => void) {
         });
       }
     });
-  };
+  }, [bookingId, startTransition, toast, onRefresh]);
+
+  /**
+   * handleCancelBooking now accepts an optional `requestConfirm` callback.
+   * When provided, the caller is responsible for showing a confirmation UI
+   * (e.g. a custom dialog) and calling the passed `onConfirmed` function when
+   * the user approves.  When omitted the action executes immediately (used in
+   * contexts where confirmation is handled upstream).
+   */
+  const handleCancelBooking = useCallback(
+    (requestConfirm?: (onConfirmed: () => void) => void) => {
+      if (requestConfirm) {
+        requestConfirm(executeCancelBooking);
+      } else {
+        executeCancelBooking();
+      }
+    },
+    [executeCancelBooking],
+  );
 
   return {
     isPending,

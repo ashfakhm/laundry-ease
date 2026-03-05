@@ -10,9 +10,15 @@ import {
   Mail,
   Phone,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
+import {
+  ConfirmDialog,
+  useConfirmDialog,
+} from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 
 type User = {
   _id: string;
@@ -31,6 +37,16 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "seeker" | "provider">("all");
+  const { showConfirm, dialogProps } = useConfirmDialog();
+  const { toast } = useToast();
+
+  // Ban dialog state
+  const [banDialog, setBanDialog] = useState<{
+    isOpen: boolean;
+    user: User | null;
+    days: string;
+    submitting: boolean;
+  }>({ isOpen: false, user: null, days: "7", submitting: false });
 
   useEffect(() => {
     fetchUsers();
@@ -77,39 +93,182 @@ export default function UserManagementPage() {
     );
   }
 
-  async function banUser(user: User) {
-    const days = prompt("Ban for how many days? (Enter number)", "7");
-    if (!days || isNaN(Number(days))) return;
+  function banUser(user: User) {
+    setBanDialog({ isOpen: true, user, days: "7", submitting: false });
+  }
+
+  async function executeBan() {
+    const { user, days } = banDialog;
+    if (!user || !days || isNaN(Number(days)) || Number(days) <= 0) return;
+    setBanDialog((prev) => ({ ...prev, submitting: true }));
     const until = new Date(
       Date.now() + Number(days) * 24 * 60 * 60 * 1000,
     ).toISOString();
-    const res = await fetch(`/api/admin/users/${user._id}/ban`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blocked_until: until, role: user.role }),
-    });
-    if (res.ok) fetchUsers();
-    else alert("Failed to ban user");
+    try {
+      const res = await fetch(`/api/admin/users/${user._id}/ban`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blocked_until: until, role: user.role }),
+      });
+      if (res.ok) {
+        toast({
+          title: "User banned",
+          description: `${user.name} has been banned for ${days} day(s).`,
+          type: "success",
+        });
+        fetchUsers();
+      } else {
+        toast({
+          title: "Failed to ban user",
+          description: "Please try again.",
+          type: "error",
+        });
+      }
+    } catch {
+      toast({
+        title: "Failed to ban user",
+        description: "Network error.",
+        type: "error",
+      });
+    } finally {
+      setBanDialog({ isOpen: false, user: null, days: "7", submitting: false });
+    }
   }
 
-  async function deleteUser(user: User) {
-    if (
-      !confirm(
-        `Delete user ${user.name} (${user.email})? This cannot be undone!`,
-      )
-    )
-      return;
-    const res = await fetch(`/api/admin/users/${user._id}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: user.role }),
+  function deleteUser(user: User) {
+    showConfirm({
+      title: "Delete User",
+      message: `Delete user ${user.name} (${user.email})? This cannot be undone.`,
+      confirmText: "Yes, Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+      onConfirm: async () => {
+        const res = await fetch(`/api/admin/users/${user._id}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: user.role }),
+        });
+        if (res.ok) {
+          toast({
+            title: "User deleted",
+            description: `${user.name} has been removed.`,
+            type: "success",
+          });
+          fetchUsers();
+        } else {
+          toast({
+            title: "Failed to delete user",
+            description: "Please try again.",
+            type: "error",
+          });
+        }
+      },
     });
-    if (res.ok) fetchUsers();
-    else alert("Failed to delete user");
   }
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background">
+      {/* Custom confirm dialog — replaces browser confirm() */}
+      <ConfirmDialog {...dialogProps} />
+
+      {/* Ban User Dialog — replaces browser prompt() */}
+      {banDialog.isOpen && banDialog.user && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            onClick={() =>
+              !banDialog.submitting &&
+              setBanDialog({
+                isOpen: false,
+                user: null,
+                days: "7",
+                submitting: false,
+              })
+            }
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="relative w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Icon */}
+              <div className="mb-4 inline-flex rounded-full bg-red-100 p-3 dark:bg-red-900/20">
+                <ShieldAlert className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="mb-1 text-lg font-bold">Ban User</h3>
+              <p className="mb-5 text-sm text-muted-foreground">
+                How many days should{" "}
+                <span className="font-semibold text-foreground">
+                  {banDialog.user.name}
+                </span>{" "}
+                be banned?
+              </p>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                Ban Duration (days)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={banDialog.days}
+                onChange={(e) =>
+                  setBanDialog((prev) => ({ ...prev, days: e.target.value }))
+                }
+                disabled={banDialog.submitting}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 transition-all mb-5 disabled:opacity-50"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !banDialog.submitting) executeBan();
+                  if (e.key === "Escape")
+                    setBanDialog({
+                      isOpen: false,
+                      user: null,
+                      days: "7",
+                      submitting: false,
+                    });
+                }}
+              />
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() =>
+                    setBanDialog({
+                      isOpen: false,
+                      user: null,
+                      days: "7",
+                      submitting: false,
+                    })
+                  }
+                  disabled={banDialog.submitting}
+                  className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeBan}
+                  disabled={
+                    banDialog.submitting ||
+                    !banDialog.days ||
+                    isNaN(Number(banDialog.days)) ||
+                    Number(banDialog.days) <= 0
+                  }
+                  className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {banDialog.submitting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Banning...
+                    </span>
+                  ) : (
+                    "Ban User"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="mx-auto max-w-7xl px-4 py-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">User Management</h1>
@@ -296,7 +455,6 @@ export default function UserManagementPage() {
                 )}
 
               {/* Action Buttons */}
-              {/* Action Buttons */}
               <div className="flex gap-3 mt-auto pt-4 border-t border-border/50">
                 <button
                   className="flex-1 rounded-xl border border-red-200 bg-red-50/80 text-red-700 px-3 py-2.5 text-sm font-semibold hover:bg-red-100 hover:border-red-300 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/40 dark:hover:border-red-500/50 dark:hover:shadow-[0_0_15px_-3px_rgba(239,68,68,0.15)] transition-all duration-200 flex items-center justify-center gap-2 group/btn"
@@ -306,9 +464,10 @@ export default function UserManagementPage() {
                   Ban User
                 </button>
                 <button
-                  className="flex-1 rounded-xl border border-transparent bg-transparent text-muted-foreground px-3 py-2.5 text-sm font-semibold hover:bg-muted/50 hover:text-foreground hover:border-border/50 dark:hover:bg-slate-800/50 dark:hover:text-slate-200 transition-all duration-200"
+                  className="flex-1 rounded-xl border border-transparent bg-transparent text-muted-foreground px-3 py-2.5 text-sm font-semibold hover:bg-muted/50 hover:text-foreground hover:border-border/50 dark:hover:bg-slate-800/50 dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center gap-2 group/btn2"
                   onClick={() => deleteUser(user)}
                 >
+                  <Trash2 className="w-4 h-4 transition-transform group-hover/btn2:scale-110" />
                   Delete
                 </button>
               </div>
