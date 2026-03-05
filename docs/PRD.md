@@ -96,6 +96,12 @@ All users (Seeker and Provider) must complete a verified registration:
 - Phone SMS OTP verification
 - Both must be verified before account creation
 
+**Authentication Methods:**
+
+- **Email/Password**: Signup with OTP verification → bcrypt password hash → NextAuth credentials provider
+- **Google OAuth**: NextAuth Google provider → callback → role selection → profile completion
+- **Magic Link**: Email-based passwordless login via JWT token (24-hour expiry)
+
 **Password Policy:**
 
 - Minimum 8 characters
@@ -104,6 +110,33 @@ All users (Seeker and Provider) must complete a verified registration:
 - At least one special character
 - Password confirmation must match
 - Real-time validation feedback during entry
+- Enforced on signup, profile update, and password reset
+
+**Password Reset (Forgot Password):**
+
+- Secure token-based reset: `randomBytes(32)` for token, SHA-256 hash stored in DB (raw token never persisted)
+- Token expires after 1 hour with MongoDB TTL index auto-cleanup
+- Anti-enumeration: generic "If an account exists, a reset link has been sent" response regardless of email existence
+- Rate limiting: per-IP (10 requests/15min) and per-email (4 requests/hour) buckets
+- Branded HTML + plain text email template with reset link, expiry notice, and security warnings
+- Client-side: 60-second cooldown on resend button, generic error messages, special 429 handling
+- On successful reset: `passwordChangedAt` timestamp set, all active reset tokens invalidated, "password changed" notification email sent
+
+**In-App Password Change:**
+
+- Both seeker and provider can change password via profile settings
+- Requires current password verification (bcrypt compare)
+- New password validated against password policy
+- Sets `passwordChangedAt` and `updatedAt` atomically
+- Enqueues "password changed" security notification email
+
+**Session Invalidation After Password Change:**
+
+- JWT callback periodically re-checks the database (every 5 minutes)
+- Compares `passwordChangedAt` against token's `iat` (issued-at timestamp)
+- If password was changed after token issuance, token is invalidated
+- NextAuth reports `unauthenticated`, forcing re-sign-in on the client
+- Applies to both forgot-password reset and in-app profile password changes
 
 **Email Format:**
 
@@ -281,6 +314,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
   - Password strength indicators during entry
   - Clear error messages displayed inline
   - Validation on blur to avoid premature errors
+  - Password show/hide toggles on all password inputs (reset page, profile pages)
 
 - **Financial precision**
   All monetary calculations must use paise-level integer arithmetic or `decimal.js` to prevent floating-point drift.
@@ -290,6 +324,12 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 
 - **Cron observability**
   Every cron job run must be tracked in `cron_runs` collection with start time, duration, status, and result for operational auditing.
+
+- **Email delivery reliability**
+  Transactional emails must be queued through an outbox pattern with retry/backoff. Five email types supported: delivery OTP, password reset, password changed notification, magic link, and email OTP. Inline dispatch attempted on enqueue with cron fallback.
+
+- **Session security after credential changes**
+  Password changes (via reset or profile) must write a `passwordChangedAt` timestamp. JWT sessions must be periodically re-validated against this timestamp to ensure stale sessions are invalidated.
 
 ## 6. State Management & Lifecycle
 
@@ -424,13 +464,25 @@ Alert rules:
   The system should hide full address details until a booking reaches a state where fulfillment requires them.
 
 - **Rate limiting on sensitive endpoints**
-  Admin actions, signup, password reset, and OTP endpoints enforce per-IP rate limits via MongoDB-backed counters with automatic TTL cleanup.
+  Admin actions, signup, password reset, and OTP endpoints enforce per-IP rate limits via MongoDB-backed counters with automatic TTL cleanup. Forgot-password has per-IP (10/15min) and per-email (4/hour) buckets. Reset-password has per-IP (15/15min) and per-token (6/hour) buckets.
 
 - **Structured log redaction**
   Pino logger natively redacts sensitive fields (password, token, OTP, apiKey, etc.) from all log output before serialization.
 
 - **Proxy trust model**
   IP extraction for rate limiting respects `x-vercel-forwarded-for`, `x-real-ip`, and `cf-connecting-ip` headers with configurable `TRUST_PROXY` flag.
+
+- **Secure password reset tokens**
+  Reset tokens use `randomBytes(32)` for generation; only SHA-256 hash is stored in database. Raw token never persisted. Tokens auto-expire after 1 hour via MongoDB TTL index. All active tokens invalidated on successful reset.
+
+- **Anti-enumeration on password reset**
+  Forgot-password endpoint returns the same generic success message whether or not the email exists in the system. Timing-attack mitigation ensures consistent response times.
+
+- **Session invalidation on password change**
+  `passwordChangedAt` timestamp written on every password change (reset or profile). JWT callback re-checks the database every 5 minutes and invalidates tokens issued before the password change.
+
+- **Password change notifications**
+  Branded security email sent to the user on every password change (both forgot-password reset and in-app profile change) with timestamp, account reference, and instructions for unauthorized changes.
 
 ## 9. Observability & Failure Strategy
 
@@ -574,13 +626,17 @@ See `README.md` for detailed setup instructions.
 - **Team calendar / on-call integration**
   Alert owner routing currently uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`). Real dynamic on-call scheduling requires external calendar integration.
 
-## 14. Implementation Alignment Matrix (2026-03-02)
+## 14. Implementation Alignment Matrix (2026-03-05)
 
 | PRD Requirement                  | Expected Behavior                                                                                                                | Current System Status                                                                                                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Verified signup                  | Email + phone OTP required before account creation                                                                               | Implemented (OTP required in signup APIs; created users now persist as verified)                                                                                         |
-| Password policy                  | 8+ chars, uppercase, number, special char                                                                                        | Implemented in signup and reset-password APIs                                                                                                                            |
-| Password reset                   | Reset must update real auth credential store                                                                                     | Implemented (reset now updates `passwordHash` in seeker/provider/admin collections)                                                                                      |
+| Password policy                  | 8+ chars, uppercase, number, special char                                                                                        | Implemented in signup, reset-password, and profile update APIs                                                                                                           |
+| Password reset                   | Reset must update real auth credential store and invalidate sessions                                                             | Implemented (reset updates `passwordHash` + `passwordChangedAt` in seeker/provider/admin collections; JWT re-check invalidates stale sessions within 5 min)              |
+| Password reset security          | Secure token storage, anti-enumeration, rate limiting, branded emails                                                            | Implemented (SHA-256 token hash, generic responses, per-IP + per-email rate limits, branded HTML templates, 1hr TTL, all tokens invalidated on success)                  |
+| Password change notification     | User must be notified when password changes                                                                                      | Implemented (`password_changed` security email enqueued on both reset and profile-driven password changes)                                                                |
+| Session invalidation             | Password change must invalidate existing sessions                                                                                | Implemented (JWT callback re-checks `passwordChangedAt` every 5 min; tokens issued before change are invalidated)                                                        |
+| In-app password change           | Users can change password from profile with current password verification                                                        | Implemented (both seeker PUT and provider PATCH profile routes support `currentPassword` + `newPassword` with bcrypt verification)                                        |
 | Discovery coverage               | Show only providers whose radius covers seeker coordinate                                                                        | Implemented (strict provider-radius filtering; optional seeker-side radius cap)                                                                                          |
 | Booking fee gate                 | Provider cannot accept unpaid booking                                                                                            | Implemented                                                                                                                                                              |
 | Booking cancellation policy      | Seeker can cancel only before slot time; seeker cancellation within 2 hours of booking creation gets full refund; after 2-hour window, booking fee forfeited; provider cancellation always refunds fee | Implemented — `evaluateCancellationPolicy()` in `lib/bookings/cancellation-policy.ts` is the single source of truth; `SEEKER_FREE_CANCEL_WINDOW_MS = 2h` in `lib/constants.ts`; cancel route passes `booking.createdAt`; seeker booking card shows live countdown badge during free-cancel window |
@@ -638,8 +694,10 @@ See `README.md` for detailed setup instructions.
 1. Add alerting/monitoring dashboards for index creation failures caused by pre-existing duplicate historical data.
 2. Add staging smoke coverage for live gateway paths (CI remains deterministic with fake-payments mode for reliability).
 3. Add archival policy for old webhook payloads to control long-term storage growth.
-4. Add abuse hardening on password-recovery endpoints (rate limits/captcha strategy).
+4. Add CAPTCHA (e.g., reCAPTCHA/hCaptcha) to forgot-password form for production anti-abuse hardening (rate limiting already in place).
 5. Promote CSP from report-only to enforced mode after violation cleanup.
 6. Integrate real team calendar/on-call system for dynamic owner pool routing.
 7. Add split-settlement reconciliation tooling for rare one-leg failure cases.
 8. Add reschedule abuse prevention (caps, cooldowns, or admin escalation).
+9. Consider stateful session management for instant session revocation (current approach has ≤5 min delay via JWT re-check).
+10. Add Playwright E2E test covering forgot-password → email outbox → follow link → reset → login with new password.
