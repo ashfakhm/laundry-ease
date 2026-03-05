@@ -34,47 +34,80 @@ export async function requestOtp(
   target: string,
   type: OtpType,
   ttlMinutes = 10,
-) {
+): Promise<{ ok: boolean; error?: string }> {
   const normalizedTarget = normalizeTarget(target, type);
   logger.info("OTP", `Request initiated for ${type}`, {
     target: normalizedTarget.substring(0, 4) + "***",
   });
-  const { db } = await getDb();
-  const col = db.collection<OtpRecord>("otp_codes");
 
-  // Rate limiting: Check requests in last hour
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const recentRequests = await col.countDocuments({
-    target: normalizedTarget,
-    type,
-    createdAt: { $gte: oneHourAgo },
-  });
-
-  if (recentRequests >= MAX_OTP_REQUESTS_PER_HOUR) {
-    logger.warn("OTP", `Rate limit exceeded for ${type}`, {
+  let db: Awaited<ReturnType<typeof getDb>>["db"];
+  try {
+    ({ db } = await getDb());
+  } catch (error) {
+    logger.error("OTP", "Database connection failed", error, {
       target: normalizedTarget.substring(0, 4) + "***",
-      count: recentRequests,
     });
     return {
       ok: false,
-      error: "Too many OTP requests. Please try again later.",
+      error: "Service temporarily unavailable. Please try again.",
+    };
+  }
+
+  const col = db.collection<OtpRecord>("otp_codes");
+
+  try {
+    // Rate limiting: Check requests in last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentRequests = await col.countDocuments({
+      target: normalizedTarget,
+      type,
+      createdAt: { $gte: oneHourAgo },
+    });
+
+    if (recentRequests >= MAX_OTP_REQUESTS_PER_HOUR) {
+      logger.warn("OTP", `Rate limit exceeded for ${type}`, {
+        target: normalizedTarget.substring(0, 4) + "***",
+        count: recentRequests,
+      });
+      return {
+        ok: false,
+        error: "Too many OTP requests. Please try again later.",
+      };
+    }
+  } catch (error) {
+    logger.error("OTP", "Failed to check OTP rate limit", error, {
+      target: normalizedTarget.substring(0, 4) + "***",
+    });
+    return {
+      ok: false,
+      error: "Service temporarily unavailable. Please try again.",
     };
   }
 
   const code = generateCode();
-  const hash = await bcrypt.hash(code, BCRYPT_SALT_ROUNDS);
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
 
-  const inserted = await col.insertOne({
-    target: normalizedTarget,
-    type,
-    codeHash: hash,
-    createdAt: now,
-    expiresAt,
-    attempts: 0,
-    verified: false,
-  });
+  let insertedId;
+  try {
+    const hash = await bcrypt.hash(code, BCRYPT_SALT_ROUNDS);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000);
+
+    const inserted = await col.insertOne({
+      target: normalizedTarget,
+      type,
+      codeHash: hash,
+      createdAt: now,
+      expiresAt,
+      attempts: 0,
+      verified: false,
+    });
+    insertedId = inserted.insertedId;
+  } catch (error) {
+    logger.error("OTP", "Failed to store OTP record", error, {
+      target: normalizedTarget.substring(0, 4) + "***",
+    });
+    return { ok: false, error: "Failed to generate OTP. Please try again." };
+  }
 
   try {
     if (type === "email") {
@@ -103,7 +136,7 @@ export async function requestOtp(
       });
     }
   } catch (error) {
-    await col.deleteOne({ _id: inserted.insertedId }).catch((cleanupError) => {
+    await col.deleteOne({ _id: insertedId }).catch((cleanupError) => {
       logger.error("OTP", "Failed to cleanup unsent OTP record", cleanupError, {
         target: normalizedTarget.substring(0, 4) + "***",
       });
@@ -111,7 +144,13 @@ export async function requestOtp(
     logger.error("OTP", `Failed to send OTP`, error, {
       target: normalizedTarget.substring(0, 4) + "***",
     });
-    return { ok: false, error: "Failed to send OTP" };
+    return {
+      ok: false,
+      error:
+        type === "email"
+          ? "Failed to send OTP email. Please check your email address and try again."
+          : "Failed to send OTP SMS. Please check your phone number and try again.",
+    };
   }
 
   logger.info("OTP", `Request completed for ${type}`, {
