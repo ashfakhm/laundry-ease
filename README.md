@@ -97,11 +97,11 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 | **Styling**        | Tailwind CSS 4 + shadcn/ui   | Utility-first CSS + accessible components     |
 | **Animations**     | Framer Motion                | Smooth page and element animations            |
 | **Database**       | MongoDB 6.21 (native driver) | Flexible documents + geospatial queries       |
-| **Auth**           | NextAuth v4                  | Google OAuth + email/password credentials     |
+| **Auth**           | NextAuth v4                  | Google OAuth + email/password + magic link     |
 | **Payments**       | Razorpay + RazorpayX         | Payment capture, escrow, and provider payouts |
 | **Maps**           | Google Maps APIs             | Places, Geocoding, Maps JavaScript            |
 | **SMS**            | Twilio                       | OTP delivery via SMS                          |
-| **Email**          | Nodemailer + Email Outbox    | Queued email delivery with retry/backoff      |
+| **Email**          | Nodemailer + Email Outbox    | Queued email delivery with retry/backoff (5 types) |
 | **Images**         | Cloudinary                   | CDN-backed image uploads                      |
 | **Validation**     | Zod 4                        | Runtime schema validation                     |
 | **Forms**          | React Hook Form              | Performant form handling                      |
@@ -414,11 +414,23 @@ All cron runs are tracked in the `cron_runs` collection with job name, start tim
 
 ### Authentication & Authorization
 
-- Google OAuth + email/password credentials via NextAuth v4
+- Google OAuth + email/password credentials + magic link via NextAuth v4
 - Session-based JWT tokens (7-day max age)
 - Role-based API guards: `requireSeeker()`, `requireProvider()`, `requireAdmin()`, `requireAdminWithDbCheck()`
 - Same-origin enforcement on unsafe HTTP methods
 - Password policy: 8+ chars, uppercase, number, special character
+- **Session invalidation on password change**: JWT callback re-checks DB every 5 minutes; tokens issued before a password change are automatically invalidated
+
+### Password Management
+
+- **Forgot password**: Secure token-based reset — `randomBytes(32)` token, only SHA-256 hash stored in DB, 1-hour TTL with auto-cleanup
+- **Anti-enumeration**: Generic "If an account exists, a reset link has been sent" response regardless of email existence
+- **Rate limiting**: Per-IP (10/15min) and per-email (4/hour) buckets on forgot-password; per-IP (15/15min) and per-token (6/hour) on reset-password
+- **Branded email templates**: Professional HTML + plain text for both reset link and password-changed security notification
+- **In-app password change**: Both seeker and provider can change password via profile (requires current password verification)
+- **Password change notifications**: Branded security email sent on every password change (reset or profile-driven)
+- **Session invalidation**: `passwordChangedAt` timestamp written on every password change; JWT re-check detects and invalidates stale sessions within 5 minutes
+- **Password show/hide toggles**: On reset page and profile pages for all password inputs
 
 ### Rate Limiting
 
@@ -476,7 +488,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Alert delivery + escalation with email/webhook/PagerDuty fan-out
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
-- Email outbox with retry/backoff for all transactional emails (delivery OTP, password reset, magic link, email OTP)
+- Email outbox with retry/backoff for all transactional emails — 5 types: delivery OTP, password reset, password changed, magic link, email OTP
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
 - `decimal.js` financial precision for payout calculations
@@ -488,6 +500,11 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Invoice finalization with transaction + compensating-write fallback
 - Distributed refund locks with stale-lock recovery
 - React Compiler enabled for automatic optimizations
+- **Professional password reset flow**: Secure token-based (SHA-256 hash, 1hr TTL), branded email templates, anti-enumeration, per-IP + per-email rate limiting
+- **Session invalidation on password change**: JWT re-check every 5 min detects `passwordChangedAt` and forces re-auth for all stale sessions
+- **Password change notifications**: Branded security emails on both reset and profile-driven password changes
+- **In-app password change**: Both seeker and provider can change password via profile with current password verification
+- **Password show/hide toggles**: On reset page and both seeker/provider profile pages
 - GitHub CI workflows:
   - `Quality Gates`: typecheck → lint → test → build → smoke E2E
   - `Real Gateway Smoke`: scheduled/manual live Razorpay connectivity
@@ -497,7 +514,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 
 **Quality Snapshot (current):**
 
-- `104` test files, `549` tests passing (100% core route coverage)
+- `104` test files, `551` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
 - TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`
@@ -506,12 +523,13 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - System webhooks fully mutex-locked
 - Cancellation policy fully unit-tested (10 cases covering both actors, boundary conditions, and fee states)
 - Reschedule flow: atomic `$unset confirmedAt` on request, TOCTOU-safe status-guarded DB writes
+- Password management: `passwordChangedAt` tested on both seeker/provider profile routes, password-changed email enqueuing verified
 
 **Remaining Hardening Opportunities:**
 
 - Archival policy for old webhook payloads to control storage growth
 - Team calendar/on-call integration for dynamic owner pools
-- Password-recovery anti-abuse hardening (captcha strategy)
+- Password-recovery anti-abuse hardening (captcha strategy for production)
 - Promote CSP from report-only to enforce mode after violation cleanup
 - Split-settlement reconciliation tooling for rare one-leg failure cases
 - Reschedule abuse prevention (caps, cooldowns, or admin escalation)
