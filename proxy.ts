@@ -29,7 +29,7 @@ const ROLE_ROUTE_MAP: Record<string, Role> = {
 const DASHBOARD_PREFIXES = Object.keys(ROLE_ROUTE_MAP);
 
 /** Public pages that authenticated users should be redirected away from. */
-const AUTH_PAGES = ["/auth", "/signup", "/choose-role"];
+const AUTH_PAGES = ["/", "/auth", "/signup", "/choose-role"];
 
 /** Role → default dashboard landing. */
 const ROLE_DASHBOARDS: Record<Role, string> = {
@@ -207,12 +207,14 @@ export const config = {
   matcher: [
     /*
      * Match:
+     *   /                      — landing page (redirect if logged in)
      *   /seeker, /seeker/*     — seeker dashboard
      *   /provider, /provider/* — provider dashboard
      *   /admin, /admin/*       — admin dashboard + admin API routes
      *   /api/admin/*           — admin API endpoints (IP allowlist)
      *   /auth, /signup, etc.   — auth pages (redirect if logged in)
      */
+    "/",
     "/seeker/:path*",
     "/provider/:path*",
     "/admin/:path*",
