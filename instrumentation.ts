@@ -12,6 +12,12 @@ import { logger } from "@/lib/logger";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Force public DNS servers so SRV lookups for mongodb+srv:// URIs
+    // succeed on networks whose local DNS doesn't support SRV queries.
+    if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) {
+      const dns = await import("node:dns");
+      dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4", "1.0.0.1"]);
+    }
     // Initialize server-side APM here
     if (process.env.DATADOG_API_KEY || process.env.DD_API_KEY) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
