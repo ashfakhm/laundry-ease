@@ -68,10 +68,12 @@ export default function InvoiceReviewForm({
         body: JSON.stringify({ approved, reason: reason || "" }),
       });
 
-      const data = await res.json();
+      const raw = await res.json();
 
-      if (!res.ok)
-        throw new Error(data.error?.message || "Failed to submit decision");
+      if (!raw.ok)
+        throw new Error(raw.error?.message || "Failed to submit decision");
+
+      const data = unwrapApiData<{ orderId?: string; status?: string }>(raw);
 
       if (approved && data.orderId) {
         // Success: Initiate Payment Flow logic

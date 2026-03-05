@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { RAZORPAY_CHECKOUT_SCRIPT_URL } from "@/lib/constants";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 import type { RazorpayResponse, RazorpayError } from "@/types/razorpay";
 
 interface PaymentButtonProps {
@@ -36,10 +37,17 @@ export function PaymentButton({
       const res = await fetch(`/api/orders/${orderId}/payment`, {
         method: "POST",
       });
-      const data = await res.json();
+      const raw = await res.json();
 
       if (!res.ok)
-        throw new Error(data.error?.message || "Failed to initiate payment");
+        throw new Error(raw.error?.message || "Failed to initiate payment");
+
+      const data = unwrapApiData<{
+        id: string;
+        amount: number;
+        currency: string;
+        key: string;
+      }>(raw);
 
       // 2. Open Razorpay
       const options = {
