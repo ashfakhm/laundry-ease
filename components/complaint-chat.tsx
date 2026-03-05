@@ -150,7 +150,8 @@ export default function ComplaintChat({
         const sortByTime = (msgs: ChatMessage[]) =>
           msgs.sort(
             (a, b) =>
-              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
+              new Date(a.createdAt).getTime() -
+                new Date(b.createdAt).getTime() ||
               (a._id ?? "").localeCompare(b._id ?? ""),
           );
 
@@ -160,7 +161,9 @@ export default function ComplaintChat({
             setMessages((prev) => {
               const seen = new Set(prev.map((msg) => String(msg._id)));
               const appended = data.filter((msg) => !seen.has(String(msg._id)));
-              return appended.length > 0 ? sortByTime([...prev, ...appended]) : prev;
+              return appended.length > 0
+                ? sortByTime([...prev, ...appended])
+                : prev;
             });
             setShouldAutoScroll(true);
           }
@@ -335,7 +338,10 @@ export default function ComplaintChat({
   // Auto-scroll only when user sends a message
   useEffect(() => {
     if (shouldAutoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      messagesEndRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
       setShouldAutoScroll(false);
     }
   }, [messages, shouldAutoScroll]);
@@ -420,9 +426,11 @@ export default function ComplaintChat({
                     <div
                       className={`text-[10px] mt-1 text-right opacity-60 leading-none`}
                     >
-                      {new Date(msg.createdAt).toLocaleTimeString([], {
+                      {new Date(msg.createdAt).toLocaleTimeString("en-IN", {
                         hour: "2-digit",
                         minute: "2-digit",
+                        hour12: true,
+                        timeZone: "Asia/Kolkata",
                       })}
                     </div>
                   )}

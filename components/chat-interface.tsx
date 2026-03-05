@@ -170,7 +170,10 @@ export default function BookingChat({
 
   useEffect(() => {
     if (shouldAutoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      messagesEndRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
       setShouldAutoScroll(false);
     }
   }, [messages, shouldAutoScroll]);
@@ -205,9 +208,11 @@ export default function BookingChat({
               <div
                 className={`text-[10px] mt-1 text-right opacity-60 leading-none`}
               >
-                {new Date(msg.createdAt).toLocaleTimeString([], {
+                {new Date(msg.createdAt).toLocaleTimeString("en-IN", {
                   hour: "2-digit",
                   minute: "2-digit",
+                  hour12: true,
+                  timeZone: "Asia/Kolkata",
                 })}
               </div>
             </div>
