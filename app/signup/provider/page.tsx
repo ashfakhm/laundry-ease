@@ -272,7 +272,7 @@ export default function ProviderSignupPage() {
       email: form.email,
       password: form.password,
       redirect: true,
-      callbackUrl: "/",
+      callbackUrl: "/provider",
     });
   }
 
