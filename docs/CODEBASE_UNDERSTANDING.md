@@ -1394,31 +1394,31 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 ```mermaid
 graph TB
-    subgraph "Client Layer"
+    subgraph ClientLayer[Client Layer]
         S[Seeker Dashboard]
         P[Provider Dashboard]
         A[Admin Dashboard]
     end
 
-    subgraph "Next.js App Router"
-        Pages[Pages & Layouts]
+    subgraph AppRouter[Next.js App Router]
+        Pages[Pages and Layouts]
         API[API Routes]
         Auth[NextAuth v4]
         Cron[10 Cron Jobs]
     end
 
-    subgraph "Business Logic"
+    subgraph BusinessLogic[Business Logic]
         BK[Bookings Engine]
-        OR[Orders & State Machine]
+        OR[Orders and State Machine]
         PY[Payout Orchestration]
         CR[Complaint Resolution]
         PW[Password Management]
     end
 
-    subgraph "Data & Services"
+    subgraph DataServices[Data and Services]
         DB[(MongoDB)]
-        RZ[Razorpay + RazorpayX]
-        EM[Email Outbox + SMTP]
+        RZ[Razorpay and RazorpayX]
+        EM[Email Outbox and SMTP]
         GM[Google Maps]
         TW[Twilio SMS]
         CL[Cloudinary CDN]
