@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import twilio from "twilio";
 import { env } from "./env";
 import { logger } from "./logger";
-import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
+import { sendOtpCodeEmailNow } from "@/lib/otp-code-email";
 import { BCRYPT_SALT_ROUNDS } from "./constants";
 
 type OtpType = "email" | "phone";
@@ -78,18 +78,15 @@ export async function requestOtp(
 
   try {
     if (type === "email") {
-      logger.debug("OTP", `Queueing OTP email`, {
+      logger.debug("OTP", `Sending OTP email directly`, {
         target: normalizedTarget.substring(0, 4) + "***",
       });
-      await enqueueEmailOutboxJob({
-        kind: "otp_email",
-        payload: {
-          to: normalizedTarget,
-          code,
-          ttlMinutes,
-        },
+      await sendOtpCodeEmailNow({
+        to: normalizedTarget,
+        code,
+        ttlMinutes,
       });
-      logger.info("OTP", `Email queued successfully`, {
+      logger.info("OTP", `Email sent successfully`, {
         target: normalizedTarget.substring(0, 4) + "***",
       });
     } else if (type === "phone") {

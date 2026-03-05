@@ -17,6 +17,23 @@ async function postJSON(url: string, body: Record<string, unknown>) {
   return { ok: res.ok, data } as const;
 }
 
+/** Extract a human-readable error string from the standardised API envelope. */
+function extractError(data: Record<string, unknown>, fallback: string): string {
+  // API returns { error: { code, message }, message }
+  const err = data?.error;
+  if (typeof err === "string") return err;
+  if (
+    err &&
+    typeof err === "object" &&
+    "message" in err &&
+    typeof (err as Record<string, unknown>).message === "string"
+  ) {
+    return (err as Record<string, unknown>).message as string;
+  }
+  if (typeof data?.message === "string" && data.message) return data.message;
+  return fallback;
+}
+
 export default function SeekerSignupPage() {
   const [form, setForm] = useState({
     name: "",
@@ -112,7 +129,7 @@ export default function SeekerSignupPage() {
         target: form.email,
         type: "email",
       });
-      if (!ok) return setError(data?.error || "Failed to send email OTP");
+      if (!ok) return setError(extractError(data, "Failed to send email OTP"));
       setEmailOtpSent("OTP sent to your email");
     });
   }
@@ -123,7 +140,7 @@ export default function SeekerSignupPage() {
         target: normalizePhone(form.phone),
         type: "phone",
       });
-      if (!ok) return setError(data?.error || "Failed to send phone OTP");
+      if (!ok) return setError(extractError(data, "Failed to send phone OTP"));
       setPhoneOtpSent("OTP sent via SMS");
     });
   }
@@ -137,7 +154,7 @@ export default function SeekerSignupPage() {
         type: "email",
         code: emailCode,
       });
-      if (!ok) return setError(data?.error || "Invalid code");
+      if (!ok) return setError(extractError(data, "Invalid code"));
       setEmailVerified(true);
     });
   }
@@ -151,7 +168,7 @@ export default function SeekerSignupPage() {
         type: "phone",
         code: phoneCode,
       });
-      if (!ok) return setError(data?.error || "Invalid code");
+      if (!ok) return setError(extractError(data, "Invalid code"));
       setPhoneVerified(true);
     });
   }
@@ -193,7 +210,7 @@ export default function SeekerSignupPage() {
         const first = Object.values(data.details.fieldErrors)[0];
         if (Array.isArray(first) && first.length > 0) return setError(first[0]);
       }
-      return setError(data?.error || "Signup failed");
+      return setError(extractError(data, "Signup failed"));
     }
     await signIn("credentials", {
       email: form.email,
