@@ -1,7 +1,7 @@
 "use client";
 
 // re-compile trigger
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import {
   ConfirmDialog,
   useConfirmDialog,
@@ -24,6 +24,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { reportError } from "@/lib/client-error";
+import { SEEKER_FREE_CANCEL_WINDOW_MS } from "@/lib/constants";
 
 interface SeekerBookingCardProps {
   booking: PopulatedSeekerBooking;
@@ -37,6 +38,30 @@ function SeekerBookingCardComponent({
   const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
   const { showConfirm, dialogProps } = useConfirmDialog();
+
+  // ── Cancel-window countdown ────────────────────────────────────────────────
+  // Recompute every 10 s so the badge stays fresh without hammering the browser.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const bookingCreatedMs = booking.createdAt
+    ? new Date(booking.createdAt as string | Date).getTime()
+    : 0;
+  const elapsedMs = bookingCreatedMs > 0 ? now - bookingCreatedMs : Infinity;
+  const remainingMs = SEEKER_FREE_CANCEL_WINDOW_MS - elapsedMs;
+  const withinFreeWindow = remainingMs > 0;
+
+  /** Human-readable "Xh Ym" or "Xm" remaining string. */
+  function formatRemaining(ms: number): string {
+    const totalMinutes = Math.max(0, Math.ceil(ms / 60_000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  }
 
   async function handlePayBookingFee() {
     setProcessing(true);
@@ -575,52 +600,98 @@ function SeekerBookingCardComponent({
               </motion.div>
             )}
             {/* Cancel / Delete Actions */}
-            <div className="mt-4 flex justify-end gap-3">
+            <div className="mt-4 space-y-3">
               {(booking.status === "requested" ||
                 booking.status === "pickup_proposed") && (
-                <button
-                  onClick={() => {
-                    showConfirm({
-                      title: "Cancel Booking",
-                      message:
-                        "Are you sure you want to cancel this booking? This action cannot be undone.",
-                      confirmText: "Yes, Cancel",
-                      cancelText: "Keep Booking",
-                      variant: "danger",
-                      onConfirm: async () => {
-                        setProcessing(true);
-                        try {
-                          const res = await fetch(
-                            `/api/bookings/${booking._id}/cancel`,
-                            { method: "POST" },
-                          );
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data.message);
-                          toast({
-                            title: "Booking Cancelled",
-                            type: "success",
-                          });
-                          onRefresh();
-                        } catch (e: unknown) {
-                          toast({
-                            title: "Error",
-                            description:
-                              e instanceof Error
-                                ? e.message
-                                : "Please try again",
-                            type: "error",
-                          });
-                        } finally {
-                          setProcessing(false);
-                        }
-                      },
-                    });
-                  }}
-                  disabled={processing}
-                  className="text-xs font-bold text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
-                >
-                  {processing ? "Cancelling..." : "Cancel Request"}
-                </button>
+                <div className="flex flex-col gap-2">
+                  {/* Cancel-window policy badge */}
+                  {booking.bookingFeeStatus === "paid" &&
+                    (withinFreeWindow ? (
+                      <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 dark:bg-emerald-950/20 dark:border-emerald-800/50">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                          Free cancel window:{" "}
+                          <span className="font-bold">
+                            {formatRemaining(remainingMs)} remaining
+                          </span>{" "}
+                          — booking fee will be refunded if cancelled now.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 dark:bg-amber-950/20 dark:border-amber-700/50">
+                        <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                          Free cancel window expired — your{" "}
+                          <span className="font-bold">
+                            ₹{booking.bookingFee ?? 50} booking fee will be
+                            forfeited
+                          </span>{" "}
+                          if you cancel now.
+                        </p>
+                      </div>
+                    ))}
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        const feeWarning =
+                          booking.bookingFeeStatus === "paid" &&
+                          !withinFreeWindow
+                            ? ` Your ₹${booking.bookingFee ?? 50} booking fee will be forfeited — the 2-hour free-cancel window has passed.`
+                            : booking.bookingFeeStatus === "paid"
+                              ? " Your booking fee will be refunded."
+                              : "";
+                        showConfirm({
+                          title: "Cancel Booking",
+                          message: `Are you sure you want to cancel this booking?${feeWarning}`,
+                          confirmText:
+                            withinFreeWindow ||
+                            booking.bookingFeeStatus !== "paid"
+                              ? "Yes, Cancel & Refund"
+                              : "Yes, Cancel (fee forfeited)",
+                          cancelText: "Keep Booking",
+                          variant: "danger",
+                          onConfirm: async () => {
+                            setProcessing(true);
+                            try {
+                              const res = await fetch(
+                                `/api/bookings/${booking._id}/cancel`,
+                                { method: "POST" },
+                              );
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.message);
+                              toast({
+                                title: "Booking Cancelled",
+                                description:
+                                  booking.bookingFeeStatus === "paid" &&
+                                  withinFreeWindow
+                                    ? "Your booking fee will be refunded shortly."
+                                    : undefined,
+                                type: "success",
+                              });
+                              onRefresh();
+                            } catch (e: unknown) {
+                              toast({
+                                title: "Error",
+                                description:
+                                  e instanceof Error
+                                    ? e.message
+                                    : "Please try again",
+                                type: "error",
+                              });
+                            } finally {
+                              setProcessing(false);
+                            }
+                          },
+                        });
+                      }}
+                      disabled={processing}
+                      className="text-xs font-bold text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      {processing ? "Cancelling..." : "Cancel Request"}
+                    </button>
+                  </div>
+                </div>
               )}
 
               {(booking.status === "cancelled" ||

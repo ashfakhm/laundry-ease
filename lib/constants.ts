@@ -64,6 +64,9 @@ export const HIGH_ALERT_PERSISTENT_ROUTE_MS = 4 * 60 * 60 * 1000; // 4 hours
 /** Minimum advance notice for pickup scheduling (ms). */
 export const MIN_PICKUP_ADVANCE_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+/** Window after booking creation during which a seeker can cancel and get a full refund (ms). */
+export const SEEKER_FREE_CANCEL_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 /** Canonical laundry service categories shown in provider flows. */
 export const LAUNDRY_SERVICES = [
   "Wash",

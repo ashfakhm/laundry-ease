@@ -37,23 +37,31 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
-      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     if (!ObjectId.isValid(id)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"),
+      );
     }
     const booking_id = new ObjectId(id);
 
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
+      );
     }
 
     if (booking.status === "cancelled") {
-      return successResponse({ message: "Booking already cancelled",
-        idempotent: true });
+      return successResponse({
+        message: "Booking already cancelled",
+        idempotent: true,
+      });
     }
 
     const body = await req.json().catch(() => null);
@@ -72,11 +80,19 @@ export async function POST(
 
     if (isProvider) {
       if (booking.provider_id.toString() !== user.id) {
-        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
+        return errorResponse(
+          new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+        );
       }
 
       if (booking.arrivedAt) {
-        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Provider cannot cancel after marking arrival"));
+        return errorResponse(
+          new AppError(
+            ErrorCode.CONFLICT,
+            409,
+            "Provider cannot cancel after marking arrival",
+          ),
+        );
       }
 
       cancelledBy = "provider";
@@ -89,7 +105,9 @@ export async function POST(
       ];
     } else {
       if (booking.seeker_id.toString() !== user.id) {
-        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
+        return errorResponse(
+          new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+        );
       }
       cancelledBy = "seeker";
       allowedStatuses = [
@@ -101,23 +119,46 @@ export async function POST(
       ];
 
       if (pickupSlotTime && now >= pickupSlotTime) {
-        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Seeker can cancel only before the booked slot time."));
+        return errorResponse(
+          new AppError(
+            ErrorCode.CONFLICT,
+            409,
+            "Seeker can cancel only before the booked slot time.",
+          ),
+        );
       }
     }
 
     if (!allowedStatuses.includes(booking.status)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, `Cannot cancel booking with status: ${booking.status}. Contact support.`));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          `Cannot cancel booking with status: ${booking.status}. Contact support.`,
+        ),
+      );
     }
+
+    const bookingCreatedAt = booking.createdAt
+      ? new Date(booking.createdAt as string | Date)
+      : now;
 
     const policy = evaluateCancellationPolicy({
       actor: isProvider ? "provider" : "seeker",
       bookingFeeStatus: booking.bookingFeeStatus,
+      bookingCreatedAt,
       pickupSlotTime,
       now,
     });
 
     if (!policy.allowed) {
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, policy.message || "Cancellation is not allowed."));
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          policy.message || "Cancellation is not allowed.",
+        ),
+      );
     }
 
     const shouldAttemptRefund = policy.refundAction === "refund";
@@ -127,7 +168,13 @@ export async function POST(
     let shouldMarkRefunded = false;
     if (shouldAttemptRefund) {
       if (!booking.razorpay_payment_id) {
-        return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot cancel with refund: payment reference missing. Please contact support."));
+        return errorResponse(
+          new AppError(
+            ErrorCode.CONFLICT,
+            409,
+            "Cannot cancel with refund: payment reference missing. Please contact support.",
+          ),
+        );
       }
 
       const lockAcquired = await acquireBookingRefundLock(
@@ -174,7 +221,13 @@ export async function POST(
             cancelledBy,
           },
         );
-        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 502, "Refund could not be processed right now, so booking was not cancelled. Please retry."));
+        return errorResponse(
+          new AppError(
+            ErrorCode.INTERNAL_ERROR,
+            502,
+            "Refund could not be processed right now, so booking was not cancelled. Please retry.",
+          ),
+        );
       }
     }
 
@@ -209,11 +262,13 @@ export async function POST(
     );
 
     if (result.modifiedCount === 1) {
-      return successResponse({ message: shouldMarkRefunded
+      return successResponse({
+        message: shouldMarkRefunded
           ? "Booking cancelled and booking fee refunded"
           : shouldForfeitFee
-            ? "Booking cancelled. Same-day cancellation is non-refundable."
-            : "Booking cancelled successfully" });
+            ? "Booking cancelled. The 2-hour free-cancel window has passed — booking fee is non-refundable."
+            : "Booking cancelled successfully",
+      });
     }
 
     const latest = await db.collection("bookings").findOne({ _id: booking_id });
@@ -254,17 +309,23 @@ export async function POST(
       .collection("bookings")
       .findOne({ _id: booking_id });
     if (latestAfter?.status === "cancelled") {
-      return successResponse({ message: "Booking already cancelled",
-        idempotent: true });
+      return successResponse({
+        message: "Booking already cancelled",
+        idempotent: true,
+      });
     }
 
-    return errorResponse(new AppError(ErrorCode.CONFLICT, 409,
-      shouldMarkRefunded
-        ? "Booking status changed. Refund has been processed; please refresh and retry."
-        : shouldForfeitFee
-          ? "Booking status changed. Same-day cancellation is non-refundable; please refresh and retry."
-          : "Booking status changed. Please refresh and retry."
-    ));
+    return errorResponse(
+      new AppError(
+        ErrorCode.CONFLICT,
+        409,
+        shouldMarkRefunded
+          ? "Booking status changed. Refund has been processed; please refresh and retry."
+          : shouldForfeitFee
+            ? "Booking status changed. The 2-hour free-cancel window has passed; booking fee is non-refundable. Please refresh and retry."
+            : "Booking status changed. Please refresh and retry.",
+      ),
+    );
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
@@ -273,6 +334,8 @@ export async function POST(
     logger.error("BOOKINGS", "Error cancelling booking", error, {
       bookingId: id,
     });
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
+    );
   }
 }

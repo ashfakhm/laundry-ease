@@ -53,6 +53,15 @@ const BOOKING_ID = "507f1f77bcf86cd799439012";
 const SEEKER_ID = "507f1f77bcf86cd799439013";
 const PROVIDER_ID = "507f1f77bcf86cd799439014";
 
+// "now" in all tests: 2024-01-01T10:00:00Z
+const NOW = new Date("2024-01-01T10:00:00Z");
+
+/** Created 30 minutes ago — seeker is inside the 2-hour free-cancel window. */
+const CREATED_WITHIN_WINDOW = new Date(NOW.getTime() - 30 * 60 * 1000);
+
+/** Created 3 hours ago — seeker is outside the 2-hour free-cancel window. */
+const CREATED_OUTSIDE_WINDOW = new Date(NOW.getTime() - 3 * 60 * 60 * 1000);
+
 function makeDbMock() {
   const bookingUpdateOne = vi.fn();
   const bookingFindOne = vi.fn();
@@ -108,12 +117,14 @@ describe("POST /api/bookings/[id]/cancel", () => {
       retryAfterSeconds: 60,
     });
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-01-01T10:00:00Z"));
+    vi.setSystemTime(NOW);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
+
+  // ─── Auth & basic guards ──────────────────────────────────────────────────
 
   it("returns 401 when not authenticated", async () => {
     mockRequireAuth.mockRejectedValue(
@@ -141,7 +152,9 @@ describe("POST /api/bookings/[id]/cancel", () => {
     expect(res.status).toBe(404);
   });
 
-  it("cancels booking with refund for seeker when cancelled ahead of time", async () => {
+  // ─── Seeker: within 2-hour free-cancel window → refund ───────────────────
+
+  it("refunds booking fee when seeker cancels within 2-hour window", async () => {
     mockRequireAuth.mockResolvedValue({
       user: {
         id: SEEKER_ID,
@@ -150,7 +163,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       },
     });
 
-    const tomorrow = new Date();
+    const tomorrow = new Date(NOW);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     vi.mocked(getBookingById).mockResolvedValue({
@@ -160,6 +173,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       status: "requested",
       bookingFeeStatus: "paid",
       razorpay_payment_id: "pay_1",
+      createdAt: CREATED_WITHIN_WINDOW,
       pickupSlot: { dateTime: tomorrow },
     } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
@@ -187,7 +201,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
     );
   });
 
-  it("cancels booking with forfeit for seeker when cancelled on the same day", async () => {
+  it("refunds booking fee when seeker cancels within window and no pickup slot yet", async () => {
     mockRequireAuth.mockResolvedValue({
       user: {
         id: SEEKER_ID,
@@ -196,8 +210,52 @@ describe("POST /api/bookings/[id]/cancel", () => {
       },
     });
 
-    const tonight = new Date();
-    tonight.setHours(23, 0, 0, 0);
+    vi.mocked(getBookingById).mockResolvedValue({
+      _id: new ObjectId(BOOKING_ID),
+      seeker_id: new ObjectId(SEEKER_ID),
+      provider_id: new ObjectId(PROVIDER_ID),
+      status: "requested",
+      bookingFeeStatus: "paid",
+      razorpay_payment_id: "pay_1",
+      createdAt: CREATED_WITHIN_WINDOW,
+      pickupSlot: undefined,
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
+
+    const dbMock = makeDbMock();
+    dbMock.bookingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    mockRefundRazorpayPayment.mockResolvedValue({ id: "refund_2" });
+
+    const res = await POST(makeRequest(), {
+      params: Promise.resolve({ id: BOOKING_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockRefundRazorpayPayment).toHaveBeenCalled();
+    expect(dbMock.bookingUpdateOne).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "cancelled",
+          bookingFeeStatus: "refunded",
+        }),
+      }),
+    );
+  });
+
+  // ─── Seeker: outside 2-hour window → forfeit ─────────────────────────────
+
+  it("forfeits booking fee when seeker cancels after 2-hour window", async () => {
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: SEEKER_ID,
+        role: Role.SEEKER,
+        email: "seeker@test.com",
+      },
+    });
+
+    const tomorrow = new Date(NOW);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     vi.mocked(getBookingById).mockResolvedValue({
       _id: new ObjectId(BOOKING_ID),
@@ -206,7 +264,8 @@ describe("POST /api/bookings/[id]/cancel", () => {
       status: "requested",
       bookingFeeStatus: "paid",
       razorpay_payment_id: "pay_1",
-      pickupSlot: { dateTime: tonight },
+      createdAt: CREATED_OUTSIDE_WINDOW,
+      pickupSlot: { dateTime: tomorrow },
     } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
     const dbMock = makeDbMock();
@@ -232,6 +291,51 @@ describe("POST /api/bookings/[id]/cancel", () => {
     );
   });
 
+  it("forfeits booking fee when seeker cancels after window with no pickup slot", async () => {
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: SEEKER_ID,
+        role: Role.SEEKER,
+        email: "seeker@test.com",
+      },
+    });
+
+    vi.mocked(getBookingById).mockResolvedValue({
+      _id: new ObjectId(BOOKING_ID),
+      seeker_id: new ObjectId(SEEKER_ID),
+      provider_id: new ObjectId(PROVIDER_ID),
+      status: "requested",
+      bookingFeeStatus: "paid",
+      razorpay_payment_id: "pay_1",
+      createdAt: CREATED_OUTSIDE_WINDOW,
+      pickupSlot: undefined,
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
+
+    const dbMock = makeDbMock();
+    dbMock.bookingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+    const res = await POST(makeRequest(), {
+      params: Promise.resolve({ id: BOOKING_ID }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.data.message).toContain("non-refundable");
+    expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
+    expect(dbMock.bookingUpdateOne).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "cancelled",
+          bookingFeeStatus: "forfeited",
+        }),
+      }),
+    );
+  });
+
+  // ─── Seeker: blocked after pickup slot time ───────────────────────────────
+
   it("blocks seeker cancellation after the pickup slot time", async () => {
     mockRequireAuth.mockResolvedValue({
       user: {
@@ -241,7 +345,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       },
     });
 
-    const past = new Date();
+    const past = new Date(NOW);
     past.setHours(past.getHours() - 1);
 
     vi.mocked(getBookingById).mockResolvedValue({
@@ -250,6 +354,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       provider_id: new ObjectId(PROVIDER_ID),
       status: "requested",
       bookingFeeStatus: "paid",
+      createdAt: CREATED_WITHIN_WINDOW,
       pickupSlot: { dateTime: past },
     } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
@@ -262,7 +367,9 @@ describe("POST /api/bookings/[id]/cancel", () => {
     });
   });
 
-  it("allows provider cancellation anytime before arrival", async () => {
+  // ─── Provider: always refunds seeker ─────────────────────────────────────
+
+  it("refunds seeker booking fee when provider cancels (before arrival)", async () => {
     mockRequireAuth.mockResolvedValue({
       user: {
         id: PROVIDER_ID,
@@ -278,6 +385,9 @@ describe("POST /api/bookings/[id]/cancel", () => {
       status: "confirmed",
       bookingFeeStatus: "paid",
       razorpay_payment_id: "pay_1",
+      // booking created 3 days ago — well outside the seeker free window,
+      // but provider cancellation should still trigger a full refund
+      createdAt: new Date(NOW.getTime() - 3 * 24 * 60 * 60 * 1000),
     } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
     const dbMock = makeDbMock();
@@ -285,9 +395,136 @@ describe("POST /api/bookings/[id]/cancel", () => {
     mockGetDb.mockResolvedValue({ db: dbMock.db });
     mockRefundRazorpayPayment.mockResolvedValue({ id: "refund_1" });
 
-    const res = await POST(makeRequest({ reason: "Emergency" }), {
+    const res = await POST(
+      makeRequest({ reason: "Cannot fulfil within deadline" }),
+      {
+        params: Promise.resolve({ id: BOOKING_ID }),
+      },
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(mockRefundRazorpayPayment).toHaveBeenCalled();
+    expect(dbMock.bookingUpdateOne).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "cancelled",
+          cancelledBy: "provider",
+          bookingFeeStatus: "refunded",
+        }),
+      }),
+    );
+  });
+
+  it("refunds seeker booking fee when provider cancels an early-stage booking", async () => {
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: PROVIDER_ID,
+        role: Role.PROVIDER,
+        email: "provider@test.com",
+      },
+    });
+
+    vi.mocked(getBookingById).mockResolvedValue({
+      _id: new ObjectId(BOOKING_ID),
+      seeker_id: new ObjectId(SEEKER_ID),
+      provider_id: new ObjectId(PROVIDER_ID),
+      status: "accepted",
+      bookingFeeStatus: "paid",
+      razorpay_payment_id: "pay_2",
+      createdAt: CREATED_WITHIN_WINDOW,
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
+
+    const dbMock = makeDbMock();
+    dbMock.bookingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    mockRefundRazorpayPayment.mockResolvedValue({ id: "refund_2" });
+
+    const res = await POST(makeRequest({ reason: "Too busy" }), {
       params: Promise.resolve({ id: BOOKING_ID }),
     });
+
     expect(res.status).toBe(200);
+    expect(mockRefundRazorpayPayment).toHaveBeenCalled();
+    expect(dbMock.bookingUpdateOne).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "cancelled",
+          cancelledBy: "provider",
+          bookingFeeStatus: "refunded",
+        }),
+      }),
+    );
+  });
+
+  it("blocks provider from cancelling after marking arrival", async () => {
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: PROVIDER_ID,
+        role: Role.PROVIDER,
+        email: "provider@test.com",
+      },
+    });
+
+    vi.mocked(getBookingById).mockResolvedValue({
+      _id: new ObjectId(BOOKING_ID),
+      seeker_id: new ObjectId(SEEKER_ID),
+      provider_id: new ObjectId(PROVIDER_ID),
+      status: "confirmed",
+      bookingFeeStatus: "paid",
+      razorpay_payment_id: "pay_1",
+      createdAt: CREATED_OUTSIDE_WINDOW,
+      arrivedAt: new Date(NOW.getTime() - 15 * 60 * 1000), // arrived 15 min ago
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
+
+    const res = await POST(makeRequest(), {
+      params: Promise.resolve({ id: BOOKING_ID }),
+    });
+    expect(res.status).toBe(409);
+    const data = await res.json();
+    expect(data.message).toContain("after marking arrival");
+  });
+
+  // ─── No fee paid — no refund needed ──────────────────────────────────────
+
+  it("cancels booking cleanly when no booking fee was paid", async () => {
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: SEEKER_ID,
+        role: Role.SEEKER,
+        email: "seeker@test.com",
+      },
+    });
+
+    vi.mocked(getBookingById).mockResolvedValue({
+      _id: new ObjectId(BOOKING_ID),
+      seeker_id: new ObjectId(SEEKER_ID),
+      provider_id: new ObjectId(PROVIDER_ID),
+      status: "requested",
+      bookingFeeStatus: "pending",
+      createdAt: CREATED_WITHIN_WINDOW,
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
+
+    const dbMock = makeDbMock();
+    dbMock.bookingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+    const res = await POST(makeRequest(), {
+      params: Promise.resolve({ id: BOOKING_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
+    expect(dbMock.bookingUpdateOne).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          status: "cancelled",
+        }),
+      }),
+    );
   });
 });
