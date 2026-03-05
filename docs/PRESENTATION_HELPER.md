@@ -1,4 +1,4 @@
-# LaundryEase — Presentation Q&A Helper
+# LaundryEase — Presentation Q&A Helper (Rev 10)
 
 > **Purpose**: This document helps you answer any question your HODs and teachers may ask about your project. Read it fully before your mock presentation.
 
@@ -605,19 +605,36 @@ This stops race conditions where many bookings could go past the provider's limi
 
 ### Q: How does authentication work?
 
-**Answer**: NextAuth v4 with two ways to sign in:
+**Answer**: NextAuth v4 with three ways to sign in:
 
 1. **Google OAuth**: Sign in with Google accounts
 2. **Credentials**: Email/password with bcrypt password hashing
+3. **Magic Link**: Email-based passwordless login via JWT token (24-hour expiry)
 
-```typescript
-// How it works
-User clicks "Sign in with Google"
-  → Google OAuth runs
-  → Check if user is in database
-  → If new user: go to /choose-role
-  → If existing user: create JWT session (login token)
+```mermaid
+flowchart TD
+    Start([User Visits /auth]) --> Choice{Auth Method?}
+    Choice -->|Google OAuth| G1[NextAuth Google Provider]
+    Choice -->|Email/Password| C1[Enter Credentials]
+    Choice -->|Magic Link| M1[Enter Email]
+
+    G1 --> G2{Existing User?}
+    G2 -->|Yes| Dashboard[Role Dashboard]
+    G2 -->|No| ChooseRole[/choose-role → /complete-signup]
+    ChooseRole --> Dashboard
+
+    C1 --> C2{Valid?}
+    C2 -->|Yes| Dashboard
+    C2 -->|No| C3[Error Message]
+
+    M1 --> M2[JWT Token Email → Verify]
+    M2 --> Dashboard
+
+    style Dashboard fill:#059669,color:#fff
+    style C3 fill:#ef4444,color:#fff
 ```
+
+**Session management**: JWT tokens with 7-day max age. JWT callback periodically re-checks the database (every 5 minutes) for role changes or password invalidation.
 
 ### Q: How do you protect routes?
 
@@ -643,17 +660,105 @@ export const POST = withErrorHandling(async (req: Request) => {
 - **Bcrypt hashing**: Passwords are scrambled with bcrypt (10 rounds)
 - **No plain text storage**: Only the hash is saved
 - **Safe comparison**: Uses timing-safe check to prevent attacks
-- **Password confirmation**: Users must type password twice during signup
+- **Password confirmation**: Users must type password twice during signup and reset
 - **Strength requirements**: Enforced client-side and server-side:
   - Minimum 8 characters
   - At least one uppercase letter
   - At least one number
   - At least one special character
 - **Real-time validation**: Users see password strength indicators as they type
+- **Password show/hide toggles**: On reset page, signup, and profile pages
 
 ```typescript
 const isValid = await bcrypt.compare(password, user.passwordHash);
 ```
+
+### Q: How does the forgot password / password reset flow work?
+
+**Answer**: A professional, modern forgot-password system with multiple security layers:
+
+```mermaid
+flowchart TD
+    A[User clicks Forgot Password] --> B[Enter email on /auth page]
+    B --> C[POST /api/forgot-password]
+    C --> D{Rate limit OK?}
+    D -->|No| E[429 Too Many Requests]
+    D -->|Yes| F{User exists with password?}
+    F -->|No| G[Return generic success — anti-enumeration]
+    F -->|Yes| H[Generate randomBytes 32 token]
+    H --> I[Store SHA-256 hash in DB — raw token NEVER stored]
+    I --> J[Enqueue password_reset email via outbox]
+    J --> K[Branded HTML email with reset link]
+    K --> L[User clicks link → /reset-password?token=xxx]
+    L --> M[Enter new password + confirm]
+    M --> N[POST /api/reset-password]
+    N --> O{Token valid & unexpired?}
+    O -->|No| P[Error: Invalid or expired]
+    O -->|Yes| Q[bcrypt hash new password]
+    Q --> R[Update user: passwordHash + passwordChangedAt]
+    R --> S[Invalidate ALL active reset tokens]
+    S --> T[Enqueue password_changed notification email]
+    T --> U[Success → redirect to /auth]
+    R --> V[JWT callback detects passwordChangedAt > iat]
+    V --> W[All existing sessions invalidated ≤5 min]
+
+    style G fill:#f59e0b,color:#fff
+    style U fill:#10b981,color:#fff
+    style W fill:#ef4444,color:#fff
+```
+
+**Key security features**:
+
+| Feature | Implementation |
+| --- | --- |
+| **Token security** | `randomBytes(32)` for token; only SHA-256 hash stored in DB |
+| **Token expiry** | 1-hour TTL with MongoDB TTL index auto-cleanup |
+| **Anti-enumeration** | Same generic "If an account exists..." response for existing and non-existing emails |
+| **Rate limiting** | Per-IP (10/15min) + per-email (4/hour) on forgot; per-IP (15/15min) + per-token (6/hour) on reset |
+| **Session invalidation** | `passwordChangedAt` written → JWT re-check every 5 min invalidates stale tokens |
+| **Token invalidation** | All active tokens for user marked used on successful reset |
+| **Notification** | Branded "password changed" security email sent after every change |
+| **Client-side** | 60-second cooldown on resend, generic messages, 429 special handling |
+
+> "We never store the raw reset token — only its SHA-256 hash. So even if someone gets database access, they can't use the tokens. The raw token only exists in the email link."
+
+### Q: How does session invalidation work after a password change?
+
+**Answer**: We use periodic JWT re-checking:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant JWT Callback
+    participant MongoDB
+
+    Note over User: Changes password (reset or profile)
+    User->>MongoDB: Set passwordChangedAt = now()
+
+    Note over User: 0-5 min later, any request...
+    User->>JWT Callback: Request with old JWT
+    JWT Callback->>JWT Callback: Check: has 5 min passed since last DB check?
+    JWT Callback->>MongoDB: getUserByEmail(token.email)
+    MongoDB-->>JWT Callback: { passwordChangedAt: <after token.iat> }
+    JWT Callback-->>User: Token invalidated → forced sign-out
+    Note over User: Must re-authenticate with new password
+```
+
+The JWT callback checks `_lastDbCheck` timestamp. If ≥5 minutes have passed, it queries MongoDB for the user's `passwordChangedAt`. If that timestamp is newer than the token's `iat` (issued-at), the token is wiped — NextAuth reports `unauthenticated` and the user is redirected to sign in.
+
+**Trade-off**: This is not instant (up to 5-minute delay) but avoids the complexity and DB load of a stateful session store. For a payment platform, this is an acceptable balance.
+
+### Q: Can users change their password while signed in?
+
+**Answer**: Yes — both seekers and providers can change passwords from their profile page:
+
+1. Enter current password (verified via `bcrypt.compare`)
+2. Enter new password (validated against password policy)
+3. System sets `passwordHash`, `passwordChangedAt`, and `updatedAt` atomically
+4. Sends "password changed" security notification email via outbox
+5. JWT re-check invalidates old sessions within 5 minutes
+
+For providers, the password verification logic is extracted into `lib/services/provider-password.ts` as a reusable service.
 
 ### Q: How do you prevent common security problems?
 
@@ -661,13 +766,17 @@ const isValid = await bcrypt.compare(password, user.passwordHash);
 
 | Problem             | How We Prevent It                                                                 |
 | ------------------- | --------------------------------------------------------------------------------- |
-| **SQL Injection**   | Not possible (MongoDB), but we clean all inputs                                   |
+| **SQL Injection**   | Not possible (MongoDB), but we clean all inputs with Zod                          |
 | **XSS**             | React escapes output by default                                                   |
 | **CSRF-like abuse** | Same-origin guard (`requireSameOrigin`) on unsafe API methods                     |
 | **CSP hardening**   | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint           |
 | **Timing Attacks**  | `crypto.timingSafeEqual()` for checking signatures                                |
 | **Fake Webhooks**   | HMAC signature check                                                              |
 | **Wrong Access**    | Role checks on every protected route                                              |
+| **User Enumeration**| Forgot-password returns generic response regardless of email existence             |
+| **Token Theft**     | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL                |
+| **Stale Sessions**  | JWT re-check every 5 min invalidates tokens after password change                 |
+| **Brute Force**     | MongoDB-backed rate limiting (per-IP + per-email/token buckets)                   |
 
 ### Q: How do you check webhook signatures?
 
@@ -1831,14 +1940,15 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Historical data cleanup**: 30+ unique indexes enforce integrity, but old duplicate data can still block index creation until cleaned. The app triggers a `system_alert` for each index failure and refuses startup in production unless `ALLOW_START_WITH_INDEX_ERRORS=1` is set.
 - **Webhook payload retention**: Archive policy for old `webhook_events` payloads is still a backlog item. The `webhook-cleanup` cron purges events older than 30 days, but no long-term archive exists.
 - **CSP rollout**: CSP is currently in Report-Only mode; enforcement requires violation cleanup. Switch to enforce mode via `CSP_ENFORCE=true`.
-- **Password-recovery abuse hardening**: Forgot-password flow has rate limiting, but needs dedicated anti-abuse strategy (captcha policy).
+- **Password-recovery CAPTCHA**: Forgot-password flow has per-IP + per-email rate limiting, but production should add CAPTCHA (reCAPTCHA/hCaptcha) for additional anti-abuse hardening.
+- **Session invalidation delay**: Password change invalidation has ≤5 minute delay (periodic JWT re-check). Instant revocation would require stateful session management.
 - **Team calendar integration**: Alert owner routing uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`); real on-call scheduling requires external calendar integration.
 - **Reschedule abuse prevention**: No caps or cooldowns on reschedule requests — theoretically either party could loop indefinitely. Policy needed (caps, cooldowns, or admin escalation).
 - **Split-settlement reconciliation**: If one financial leg succeeds and the other fails, admin has `manual_transfer_details` but no automated reconciliation tooling.
 - **Real-time push**: Booking/order status updates rely on polling (SWR). WebSocket or SSE would give instant updates.
-- **CSP enforce mode**: Currently Report-Only — needs violation cleanup before switching to full enforce mode.
+- **E2E test for password reset**: No Playwright test covering full forgot-password → email outbox → follow link → reset → login flow yet.
 
-## Key Features Implemented (Full System — 2026-03-04)
+## Key Features Implemented (Full System — 2026-03-05)
 
 ### Core Workflow
 - **Full booking lifecycle**: requested → accepted → pickup_proposed → reschedule_requested → confirmed → invoice_created → completed/cancelled/rejected
@@ -1882,6 +1992,9 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Rate limiting**: MongoDB-backed per-IP with 3 tiers (default 1 min, strict 5 min, auth 15 min) and TTL auto-cleanup
 - **Same-origin enforcement**: `requireSameOrigin()` validates Origin/Referer on unsafe HTTP methods
 - **Password policy**: 8+ chars, uppercase, number, special char — enforced on signup, profile update, reset
+- **Secure password reset**: Token-based (SHA-256 hash stored, raw never persisted), 1hr TTL, anti-enumeration, per-IP + per-email rate limiting, all tokens invalidated on success
+- **Session invalidation on password change**: JWT re-check every 5 min detects `passwordChangedAt` > token `iat`, forces re-authentication
+- **Password change notifications**: Branded security emails on both reset and profile-driven changes
 - **Webhook security**: Razorpay HMAC-SHA256 signature verification + idempotent event processing via unique `event_id` index
 - **DB index bootstrap**: 30+ indexes (integrity, query, TTL) created on startup; critical failures block production startup
 - **Proxy trust model**: Secure IP extraction respecting Vercel/CF/standard proxy headers with `TRUST_PROXY` flag
@@ -1898,14 +2011,16 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Data integrity auditing**: 30-minute cron verifies order/payment/booking consistency → system alerts on mismatch
 
 ### Email & Communication
-- **Email outbox**: 4 email types (delivery_otp, password_reset, magic_link, otp_email) queued through claim-lock-dispatch pattern with exponential backoff (base 30s, max 30min), max 5 attempts, dead-letter tracking
-- **`EMAIL_SEND_IMMEDIATE=1` dev flag**: Bypasses outbox queue and sends emails synchronously during local development; `POST /api/cron/process-email-outbox` (no auth in non-prod) lets you manually drain the queue
+- **Email outbox**: 5 email types (delivery_otp, password_reset, password_changed, magic_link, otp_email) queued through claim-lock-dispatch pattern with inline dispatch attempt + cron fallback, exponential backoff (base 30s, max 30min), max 5 attempts, dead-letter tracking
+- **Password reset email**: Branded HTML + plain text template with masked email, 1-hour expiry notice, fallback URL, security warning for unauthorized requests
+- **Password changed email**: Branded HTML security notification with UTC timestamp, sign-in CTA, unauthorized-change warning
 - **Structured logging**: Pino with native secret redaction (password, token, otp, apiKey, secret, etc.), pretty-printing in dev, JSON in production
 - **APM**: Datadog dd-trace (service: `laundryease-web`) + DogStatsD metrics via hot-shots (prefix: `laundryease.`)
 
 ### Testing & CI
-- **104 test files, 549 unit tests** passing (Vitest + mongodb-memory-server)
-- **New test coverage (Rev 9)**: cancellation policy — 10 tests (both actors, 2h boundary, all fee states); reschedule `$unset`/TOCTOU; schedule route atomic guards; `useConfirmDialog` hook; headless `handleCancelBooking` callback
+- **104 test files, 551 unit tests** passing (Vitest + mongodb-memory-server)
+- **New test coverage (Rev 10)**: `passwordChangedAt` set on profile password change (seeker + provider), password-changed email enqueuing verified
+- **Retained from Rev 9**: cancellation policy — 10 tests (both actors, 2h boundary, all fee states); reschedule `$unset`/TOCTOU; schedule route atomic guards; `useConfirmDialog` hook; headless `handleCancelBooking` callback
 - **5 Playwright E2E specs**: smoke-role-journeys, complaint-chat-journey, settlement-chain-journey, booking-lifecycle-journey, booking-negative-journeys
 - **3 GitHub CI workflows**: Quality Gates (typecheck → lint → test → build → E2E), Real Gateway Smoke (live Razorpay), Governance Audit (branch protection)
 - **Local release parity**: `npm run verify:gates`
@@ -1926,15 +2041,16 @@ Use these points if you are asked about differences between the PRD and what is 
 - `public/manifest.json` — PWA manifest
 - `public/og-image.png` — Open Graph image
 
-## Quick Presentation Tips (Updated 2026-03-04)
+## Quick Presentation Tips (Updated 2026-03-05)
 
 1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
 3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
-4. **Show what's special**: Escrow system, 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown
-5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes"
-6. **Mention production quality**: "104 test files, 549 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs"
+4. **Show what's special**: Escrow system, 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, secure password management with session invalidation
+5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes, SHA-256 token hashing for password resets, JWT session invalidation on password change"
+6. **Mention production quality**: "104 test files, 551 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
-8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 104 test files, 549 tests
+8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 1hr reset token TTL, 5-min session re-check, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 5 email types, 104 test files, 551 tests
+9. **Password security talking point**: "We never store raw reset tokens — only SHA-256 hashes. Even if the database is compromised, the tokens are useless. And when a password changes, all existing sessions are invalidated within 5 minutes automatically."
 
 **Good luck with your presentation! 🚀**
