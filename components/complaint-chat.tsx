@@ -328,7 +328,7 @@ export default function ComplaintChat({
   // Auto-scroll only when user sends a message
   useEffect(() => {
     if (shouldAutoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       setShouldAutoScroll(false);
     }
   }, [messages, shouldAutoScroll]);
