@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PopulatedSeekerBooking, BookingStatus } from "@/types/bookings";
 import { SeekerBookingCard } from "./seeker-booking-card";
 import { cn } from "@/lib/utils";
@@ -23,13 +23,30 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
 
   const bookings = initialBookings;
 
+  // Auto-refresh when there are bookings waiting for provider response
+  useEffect(() => {
+    const hasWaitingBookings = bookings.some(
+      (b) =>
+        b.status === "reschedule_requested" || b.status === "pickup_proposed",
+    );
+
+    if (!hasWaitingBookings) return;
+
+    // Poll every 10 seconds for updates
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [bookings, router]);
+
   const filteredBookings = useMemo(() => {
     if (filter === "all") return bookings;
     if (filter === "active")
       return bookings.filter((b) =>
         ["requested", "accepted", "pickup_proposed", "confirmed"].includes(
-          b.status
-        )
+          b.status,
+        ),
       );
     return bookings.filter((booking) => booking.status === filter);
   }, [bookings, filter]);
@@ -53,10 +70,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
   return (
     <div className="space-y-6">
       {/* Load Razorpay Script */}
-      <Script
-        src={RAZORPAY_CHECKOUT_SCRIPT_URL}
-        strategy="lazyOnload"
-      />
+      <Script src={RAZORPAY_CHECKOUT_SCRIPT_URL} strategy="lazyOnload" />
 
       {/* Filters/Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border pb-1 overflow-x-auto">
@@ -68,7 +82,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
               "group relative rounded-t-lg px-4 py-3 text-sm font-medium transition-all focus:z-10 whitespace-nowrap",
               filter === tab.id
                 ? "text-primary border-b-2 border-primary bg-background"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
             )}
           >
             <span className="flex items-center gap-2">
@@ -79,7 +93,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
                     "ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors",
                     filter === tab.id
                       ? "bg-primary/10 text-primary"
-                      : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                      : "bg-muted text-muted-foreground group-hover:bg-muted/80",
                   )}
                 >
                   {counts[tab.id]}
