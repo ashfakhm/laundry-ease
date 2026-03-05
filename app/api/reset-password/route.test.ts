@@ -9,11 +9,13 @@ const {
   mockBcryptHash,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
+  mockEnqueueEmailOutboxJob,
 } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockBcryptHash: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
+  mockEnqueueEmailOutboxJob: vi.fn(),
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -38,6 +40,10 @@ vi.mock("@/lib/logger", () => ({
     error: vi.fn(),
     debug: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/email-outbox", () => ({
+  enqueueEmailOutboxJob: mockEnqueueEmailOutboxJob,
 }));
 
 import { POST } from "./route";
@@ -105,6 +111,10 @@ describe("POST /api/reset-password", () => {
       retryAfterSeconds: 60,
     });
     mockBcryptHash.mockResolvedValue("hashed_password");
+    mockEnqueueEmailOutboxJob.mockResolvedValue({
+      id: "mock-job-id",
+      queuedAt: new Date().toISOString(),
+    });
   });
 
   it("returns 400 for invalid payload", async () => {
@@ -161,6 +171,7 @@ describe("POST /api/reset-password", () => {
     const userId = new ObjectId();
     dbMock.tokenFindOne.mockResolvedValue({
       _id: new ObjectId(),
+      email: "user@laundryease.test",
       tokenHash,
       userId,
       role: Role.SEEKER,
@@ -192,5 +203,14 @@ describe("POST /api/reset-password", () => {
     expect(dbMock.seekerUpdateOne).toHaveBeenCalledOnce();
     expect(dbMock.tokenUpdateOne).toHaveBeenCalledOnce();
     expect(dbMock.tokenUpdateMany).toHaveBeenCalledOnce();
+
+    // Verify password-changed confirmation email was enqueued
+    expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledWith({
+      kind: "password_changed",
+      payload: {
+        to: "user@laundryease.test",
+        changedAt: expect.any(String),
+      },
+    });
   });
 });

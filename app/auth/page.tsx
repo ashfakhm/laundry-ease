@@ -31,6 +31,7 @@ function AuthPageContent() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotCooldown, setForgotCooldown] = useState(0);
   // removed const router = useRouter();
 
   useEffect(() => {
@@ -97,9 +98,19 @@ function AuthPageContent() {
     setLoading(false);
   }
 
+  // Cooldown countdown effect
+  useEffect(() => {
+    if (forgotCooldown <= 0) return;
+    const timer = setTimeout(() => setForgotCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [forgotCooldown]);
+
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (forgotCooldown > 0) return;
+
     setForgotLoading(true);
 
     try {
@@ -109,20 +120,18 @@ function AuthPageContent() {
         body: JSON.stringify({ email: forgotEmail }),
       });
 
-      const data = await res.json();
-
+      // Always show generic success on 2xx to prevent user enumeration.
+      // On non-2xx, show a generic error — never expose backend error details.
       if (res.ok) {
         setForgotSuccess(true);
         setForgotEmail("");
-        setTimeout(() => {
-          setShowForgotPassword(false);
-          setForgotSuccess(false);
-        }, 3000);
-      } else {
+        setForgotCooldown(60);
+      } else if (res.status === 429) {
         setError(
-          (typeof data?.error === "string" && data.error) ||
-            "Failed to send reset email",
+          "Too many requests. Please wait a few minutes before trying again.",
         );
+      } else {
+        setError("Something went wrong. Please try again later.");
       }
     } catch {
       setError("An error occurred. Please try again.");
@@ -344,7 +353,8 @@ function AuthPageContent() {
                     {forgotSuccess && (
                       <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-600 flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4" />
-                        Check email for instructions.
+                        If an account exists with that email, you&apos;ll
+                        receive reset instructions shortly.
                       </div>
                     )}
                     {error && (
@@ -354,13 +364,17 @@ function AuthPageContent() {
                     )}
                     <button
                       type="submit"
-                      disabled={forgotLoading}
+                      disabled={forgotLoading || forgotCooldown > 0}
                       className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {forgotLoading && (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       )}
-                      {forgotLoading ? "Sending..." : "Send Reset Link"}
+                      {forgotLoading
+                        ? "Sending..."
+                        : forgotCooldown > 0
+                          ? `Resend available in ${forgotCooldown}s`
+                          : "Send Reset Link"}
                     </button>
                   </form>
                 </>

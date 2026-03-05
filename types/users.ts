@@ -9,6 +9,7 @@ export interface BaseUser {
   emailVerified?: boolean;
   phoneVerified?: boolean;
   passwordHash?: string | null;
+  passwordChangedAt?: Date | null;
   createdAt: Date;
 }
 

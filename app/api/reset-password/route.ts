@@ -14,9 +14,11 @@ import {
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { resetPasswordSchema } from "@/lib/api/schemas";
+import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 
 type PasswordResetTokenDoc = {
   _id: ObjectId;
+  email: string;
   tokenHash: string;
   userId: ObjectId;
   role: Role;
@@ -42,7 +44,13 @@ export async function POST(req: NextRequest) {
     const payload = await req.json();
     const parsed = resetPasswordSchema.safeParse(payload);
     if (!parsed.success) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Token and password are required"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Token and password are required",
+        ),
+      );
     }
 
     const { token, password } = parsed.data;
@@ -56,7 +64,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (!isStrongPassword(password)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, PASSWORD_POLICY_MESSAGE));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, PASSWORD_POLICY_MESSAGE),
+      );
     }
 
     const { db } = await getDb();
@@ -70,7 +80,13 @@ export async function POST(req: NextRequest) {
       });
 
     if (!resetDoc) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid or expired reset link"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid or expired reset link",
+        ),
+      );
     }
 
     const collection = roleToCollection(resetDoc.role);
@@ -83,13 +99,20 @@ export async function POST(req: NextRequest) {
       {
         $set: {
           passwordHash,
+          passwordChangedAt: now,
           updatedAt: now,
         },
       },
     );
 
     if (userUpdate.modifiedCount === 0) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Could not update password"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Could not update password",
+        ),
+      );
     }
 
     await db.collection("password_reset_tokens").updateOne(
@@ -112,6 +135,35 @@ export async function POST(req: NextRequest) {
       },
     );
 
+    // Send "password changed" security notification email.
+    // Fetch the user's email from the token doc (already stored there).
+    const userEmail =
+      resetDoc.email ??
+      (
+        await db
+          .collection(collection)
+          .findOne({ _id: resetDoc.userId }, { projection: { email: 1 } })
+      )?.email;
+
+    if (userEmail) {
+      try {
+        await enqueueEmailOutboxJob({
+          kind: "password_changed",
+          payload: {
+            to: userEmail,
+            changedAt: now.toISOString(),
+          },
+        });
+      } catch (emailErr) {
+        // Don't fail the reset if the notification email fails to enqueue.
+        logger.error(
+          "AUTH",
+          "Failed to enqueue password-changed email",
+          emailErr,
+        );
+      }
+    }
+
     return successResponse({ message: "Password reset successful" });
   } catch (error) {
     if (error instanceof AppError) {
@@ -119,6 +171,12 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error("AUTH", "Reset password error", error);
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "An error occurred. Please try again later."));
+    return errorResponse(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        500,
+        "An error occurred. Please try again later.",
+      ),
+    );
   }
 }

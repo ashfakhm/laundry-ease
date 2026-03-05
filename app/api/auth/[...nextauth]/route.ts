@@ -8,6 +8,13 @@ import bcrypt from "bcrypt";
 import { env } from "@/lib/env";
 import { Role } from "@/types/enums";
 
+/**
+ * How often (in seconds) the JWT callback re-checks the DB to detect
+ * password changes. Keeps DB load low while ensuring invalidation
+ * happens within a reasonable window after a password reset.
+ */
+const JWT_DB_RECHECK_INTERVAL_S = 5 * 60; // 5 minutes
+
 export const authOptions: NextAuthOptions = {
   providers: [
     Google({
@@ -95,6 +102,7 @@ export const authOptions: NextAuthOptions = {
         // User is available on sign-in
         token.role = user.role;
         token.id = user.id;
+        token._lastDbCheck = Math.floor(Date.now() / 1000);
       }
 
       // Keep id/role canonical even for OAuth refresh flows.
@@ -103,12 +111,53 @@ export const authOptions: NextAuthOptions = {
         if (dbUser?._id && dbUser.role) {
           token.id = dbUser._id.toString();
           token.role = dbUser.role;
+          token._lastDbCheck = Math.floor(Date.now() / 1000);
         }
       }
+
+      // --- Session invalidation after password reset ---
+      // Periodically re-check the DB to see if the user's password was
+      // changed after this JWT was issued. If so, force re-authentication
+      // by returning an empty token (NextAuth treats it as signed-out).
+      const nowS = Math.floor(Date.now() / 1000);
+      const lastCheck = (token._lastDbCheck as number) || 0;
+
+      if (token.email && nowS - lastCheck >= JWT_DB_RECHECK_INTERVAL_S) {
+        token._lastDbCheck = nowS;
+
+        const dbUser = await getUserByEmail(token.email);
+
+        if (dbUser?.passwordChangedAt) {
+          const changedAtS = Math.floor(
+            new Date(dbUser.passwordChangedAt).getTime() / 1000,
+          );
+          const issuedAtS = (token.iat as number) || 0;
+
+          if (changedAtS > issuedAtS) {
+            // Password was changed after this token was issued.
+            // Wipe the token to force sign-out on next session check.
+            return { _invalidated: true } as JWT;
+          }
+        }
+
+        // Refresh role/id in case they changed in the DB.
+        if (dbUser?._id && dbUser.role) {
+          token.id = dbUser._id.toString();
+          token.role = dbUser.role;
+        }
+      }
+
       return token;
     },
 
     async session({ session, token }: { session: Session; token: JWT }) {
+      // If the token was invalidated (password changed), clear the
+      // session so the client sees an unauthenticated state.
+      if (token._invalidated) {
+        session.user = undefined as never;
+        return session;
+      }
+
       if (session.user) {
         // Safe assignment using Role definition
         session.user.role = (token.role as Role) ?? null;

@@ -10,6 +10,10 @@ import {
   type PasswordResetEmailPayload,
 } from "@/lib/password-reset-email";
 import {
+  sendPasswordChangedEmailNow,
+  type PasswordChangedEmailPayload,
+} from "@/lib/password-changed-email";
+import {
   sendMagicLinkEmailNow,
   type MagicLinkEmailPayload,
 } from "@/lib/magic-link-email";
@@ -21,12 +25,14 @@ import {
 export type EmailOutboxKind =
   | "delivery_otp"
   | "password_reset"
+  | "password_changed"
   | "magic_link"
   | "otp_email";
 
 type EmailOutboxPayloadMap = {
   delivery_otp: DeliveryOtpEmailPayload;
   password_reset: PasswordResetEmailPayload;
+  password_changed: PasswordChangedEmailPayload;
   magic_link: MagicLinkEmailPayload;
   otp_email: OtpCodeEmailPayload;
 };
@@ -57,6 +63,11 @@ type PasswordResetOutboxJob = EmailOutboxJobBase & {
   payload: PasswordResetEmailPayload;
 };
 
+type PasswordChangedOutboxJob = EmailOutboxJobBase & {
+  kind: "password_changed";
+  payload: PasswordChangedEmailPayload;
+};
+
 type MagicLinkOutboxJob = EmailOutboxJobBase & {
   kind: "magic_link";
   payload: MagicLinkEmailPayload;
@@ -70,6 +81,7 @@ type OtpEmailOutboxJob = EmailOutboxJobBase & {
 type EmailOutboxJob =
   | DeliveryOtpOutboxJob
   | PasswordResetOutboxJob
+  | PasswordChangedOutboxJob
   | MagicLinkOutboxJob
   | OtpEmailOutboxJob;
 
@@ -126,6 +138,11 @@ async function dispatchEmailJob(job: EmailOutboxJob) {
     return;
   }
 
+  if (job.kind === "password_changed") {
+    await sendPasswordChangedEmailNow(job.payload);
+    return;
+  }
+
   if (job.kind === "magic_link") {
     await sendMagicLinkEmailNow(job.payload);
     return;
@@ -170,6 +187,12 @@ export async function enqueueEmailOutboxJob<K extends EmailOutboxKind>(
       ...baseFields,
       kind: "password_reset",
       payload: input.payload as PasswordResetEmailPayload,
+    };
+  } else if (input.kind === "password_changed") {
+    doc = {
+      ...baseFields,
+      kind: "password_changed",
+      payload: input.payload as PasswordChangedEmailPayload,
     };
   } else if (input.kind === "magic_link") {
     doc = {
