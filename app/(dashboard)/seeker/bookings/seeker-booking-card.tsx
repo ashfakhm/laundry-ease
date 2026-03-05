@@ -14,10 +14,12 @@ import {
   ArrowRight,
   ShieldCheck,
   Trash2,
+  FileText,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import { reportError } from "@/lib/client-error";
 
 interface SeekerBookingCardProps {
@@ -664,7 +666,13 @@ function SeekerBookingCardComponent({
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 space-y-3">
+                <Link
+                  href={`/seeker/bookings/${booking._id}/invoice-review`}
+                  className="w-full h-12 btn btn-outline border-2 font-bold rounded-xl transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-5 h-5" /> Review Full Invoice
+                </Link>
                 <button
                   onClick={handlePayInvoice}
                   disabled={processing}
@@ -674,11 +682,11 @@ function SeekerBookingCardComponent({
                     <span className="loading loading-spinner loading-sm text-primary-foreground"></span>
                   ) : (
                     <>
-                      <ShieldCheck className="w-5 h-5" /> Pay & Start Order
+                      <ShieldCheck className="w-5 h-5" /> Pay Now
                     </>
                   )}
                 </button>
-                <p className="text-[10px] text-center mt-3 text-muted-foreground font-medium">
+                <p className="text-[10px] text-center mt-2 text-muted-foreground font-medium">
                   Payment protected by LaundryEase Escrow
                 </p>
               </div>

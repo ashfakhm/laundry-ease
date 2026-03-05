@@ -308,6 +308,16 @@ export default function InvoiceReviewForm({
             </button>
           </div>
 
+          <div className="pt-4">
+            <button
+              onClick={() => router.back()}
+              disabled={loading}
+              className="btn btn-outline w-full h-12 rounded-xl font-medium border-2 transition-all disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+
           <p className="text-xs text-center text-muted-foreground mt-4">
             By approving, you agree to the total amount and condition of items
             shown.
