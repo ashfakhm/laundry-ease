@@ -10,13 +10,18 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { errorResponse, successResponse } from "@/lib/api/response";
-import { MONEY_EPSILON as EPSILON, round2, formatInr } from "@/lib/utils/monetary";
+import {
+  MONEY_EPSILON as EPSILON,
+  round2,
+  formatInr,
+} from "@/lib/utils/monetary";
 import {
   normalizeRefundAmount,
   resolveDbOutcome,
   buildComplaintRevertUpdate,
   executeSettlementActions,
   fetchManualTransferDetails,
+  fetchSettlementPartyDetails,
 } from "@/lib/services/complaint-resolution";
 
 export async function POST(
@@ -38,11 +43,20 @@ export async function POST(
     const parsed = adminComplaintResolveSchema.safeParse(body);
 
     if (!parsed.success) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid resolution data", parsed));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid resolution data",
+          parsed,
+        ),
+      );
     }
 
     if (!ObjectId.isValid(id)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint id"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint id"),
+      );
     }
 
     const { outcome, seeker_refund_amount } = parsed.data;
@@ -57,13 +71,21 @@ export async function POST(
     }
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Complaint has already been finalized"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Complaint has already been finalized",
+        ),
+      );
     }
 
     const orderId = complaint.order_id;
     const order = await getOrderById(orderId);
     if (!order) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order Not Found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Order Not Found"),
+      );
     }
 
     const { providerPayoutAmountPaise, platformCommissionPaise } =
@@ -78,7 +100,13 @@ export async function POST(
       outcome !== "release_payout" &&
       outcome !== "reject"
     ) {
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Order has no distributable amount remaining for complaint settlement."));
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Order has no distributable amount remaining for complaint settlement.",
+        ),
+      );
     }
 
     let settlement;
@@ -91,7 +119,9 @@ export async function POST(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Invalid settlement amount";
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, message));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, message),
+      );
     }
 
     const seekerRefundAmount = settlement.seekerRefundAmount;
@@ -176,16 +206,19 @@ export async function POST(
         createdAt: new Date(),
       });
 
-      return errorResponse(new AppError(
-        ErrorCode.INTERNAL_ERROR,
-        500,
-        !financialResult?.payoutApplied && !financialResult?.refundApplied
-          ? "Financial Action Failed"
-          : "Financial Action Partially Applied"
-      ));
+      return errorResponse(
+        new AppError(
+          ErrorCode.INTERNAL_ERROR,
+          500,
+          !financialResult?.payoutApplied && !financialResult?.refundApplied
+            ? "Financial Action Failed"
+            : "Financial Action Partially Applied",
+        ),
+      );
     }
 
-    const { refund, payoutPendingManual, refundPendingManual } = financialResult;
+    const { refund, payoutPendingManual, refundPendingManual } =
+      financialResult;
 
     const orderSetFields: Record<string, unknown> = {
       platform_commission: round2(platformCommission),
@@ -245,24 +278,33 @@ export async function POST(
 
     await db.collection("complaint_messages").insertOne(systemMsg);
 
-    const manualTransferDetails = await fetchManualTransferDetails(
+    const manualTransferDetails = await fetchManualTransferDetails(db, order, {
+      payoutPendingManual,
+      refundPendingManual,
+    });
+
+    const settlementPartyDetails = await fetchSettlementPartyDetails(
       db,
       order,
+      { seekerRefundAmount, providerPayoutAmount },
       { payoutPendingManual, refundPendingManual },
     );
 
-    return successResponse({ outcome: resolved.dbOutcome,
+    return successResponse({
+      outcome: resolved.dbOutcome,
       status: resolved.dbStatus,
       payoutPendingManual,
       refundPendingManual,
       manualTransferDetails,
+      settlementPartyDetails,
 
       settlement: {
         seeker_refund_amount: seekerRefundAmount,
         provider_payout_amount: providerPayoutAmount,
         platform_commission: round2(platformCommission),
         distributable_amount: normalizedDistributableAmount,
-      } });
+      },
+    });
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
@@ -271,6 +313,8 @@ export async function POST(
     logger.error("ADMIN_COMPLAINTS", "Error resolving dispute", error, {
       complaintId: id,
     });
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"),
+    );
   }
 }

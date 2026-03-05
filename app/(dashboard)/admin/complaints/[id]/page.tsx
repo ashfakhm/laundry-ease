@@ -153,25 +153,28 @@ export default function AdminComplaintDetailPage({
           settlement?: {
             seeker_refund_amount?: number;
             provider_payout_amount?: number;
+            platform_commission?: number;
           };
           payoutPendingManual?: boolean;
           refundPendingManual?: boolean;
-          manualTransferDetails?: {
+          manualTransferDetails?: Record<string, unknown>;
+          settlementPartyDetails?: {
             provider?: {
               name?: string;
-              upiId?: string;
-              accountNumber?: string;
-              ifsc?: string;
-              accountHolderName?: string;
+              upiId?: string | null;
+              accountNumber?: string | null;
+              ifsc?: string | null;
+              accountHolderName?: string | null;
               email?: string;
               phone?: string;
+              manualTransferRequired?: boolean;
             };
             seeker?: {
               name?: string;
-              paymentMethod?: string;
-              vpa?: string;
-              bank?: string;
-              wallet?: string;
+              paymentMethod?: string | null;
+              vpa?: string | null;
+              bank?: string | null;
+              wallet?: string | null;
               card?: {
                 network?: string;
                 last4?: string;
@@ -179,6 +182,7 @@ export default function AdminComplaintDetailPage({
               } | null;
               email?: string;
               phone?: string;
+              manualTransferRequired?: boolean;
             };
           };
         }>(responsePayload);
@@ -190,14 +194,32 @@ export default function AdminComplaintDetailPage({
         } else {
           toast.success("Complaint resolved successfully");
         }
-        if (data?.payoutPendingManual || data?.refundPendingManual) {
-          const details = data.manualTransferDetails || {};
-          const lines: string[] = ["⚠️ MANUAL TRANSFER REQUIRED\n"];
 
-          if (data?.payoutPendingManual && details.provider) {
-            const p = details.provider;
+        // Always show settlement summary with party details for whoever receives money
+        const party = data?.settlementPartyDetails;
+        if (party && (party.provider || party.seeker)) {
+          const seekerAmt = Number(settlement?.seeker_refund_amount || 0);
+          const providerAmt = Number(settlement?.provider_payout_amount || 0);
+          const hasManual =
+            data?.payoutPendingManual || data?.refundPendingManual;
+
+          const lines: string[] = [];
+          lines.push("═══ SETTLEMENT SUMMARY ═══\n");
+
+          if (hasManual) {
             lines.push(
-              `── Provider Payout: ${formatInr(Number(settlement?.provider_payout_amount || 0))} ──`,
+              "⚠️ Some transfers require manual action (marked below)\n",
+            );
+          }
+
+          // Show provider details only when provider receives money
+          if (party.provider && providerAmt > 0.01) {
+            const p = party.provider;
+            const manual = p.manualTransferRequired
+              ? " ⚠️ MANUAL TRANSFER"
+              : " ✅ Auto";
+            lines.push(
+              `── Provider Payout: ${formatInr(providerAmt)}${manual} ──`,
             );
             lines.push(`Name: ${p.name}`);
             if (p.upiId) lines.push(`UPI: ${p.upiId}`);
@@ -210,11 +232,13 @@ export default function AdminComplaintDetailPage({
             lines.push("");
           }
 
-          if (data?.refundPendingManual && details.seeker) {
-            const s = details.seeker;
-            lines.push(
-              `── Seeker Refund: ${formatInr(Number(settlement?.seeker_refund_amount || 0))} ──`,
-            );
+          // Show seeker details only when seeker receives money
+          if (party.seeker && seekerAmt > 0.01) {
+            const s = party.seeker;
+            const manual = s.manualTransferRequired
+              ? " ⚠️ MANUAL TRANSFER"
+              : " ✅ Auto";
+            lines.push(`── Seeker Refund: ${formatInr(seekerAmt)}${manual} ──`);
             lines.push(`Name: ${s.name}`);
             if (s.paymentMethod)
               lines.push(`Payment Method: ${s.paymentMethod.toUpperCase()}`);
@@ -230,7 +254,11 @@ export default function AdminComplaintDetailPage({
             lines.push("");
           }
 
-          lines.push("Please transfer the amounts manually via UPI/bank.");
+          if (hasManual) {
+            lines.push(
+              "Please transfer ⚠️ marked amounts manually via UPI/bank.",
+            );
+          }
           alert(lines.join("\n"));
         }
         router.push("/admin/complaints");

@@ -14,7 +14,11 @@ import {
 } from "@/lib/razorpay";
 import { initiateOrderPayout } from "@/lib/payouts";
 import { logger } from "@/lib/logger";
-import { MONEY_EPSILON as EPSILON, round2, toPaise } from "@/lib/utils/monetary";
+import {
+  MONEY_EPSILON as EPSILON,
+  round2,
+  toPaise,
+} from "@/lib/utils/monetary";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -70,7 +74,10 @@ export function normalizeRefundAmount(
   }
 
   const normalizedAmount = round2(seekerRefundAmountInput);
-  if (normalizedAmount < 0 || normalizedAmount - distributableAmount > EPSILON) {
+  if (
+    normalizedAmount < 0 ||
+    normalizedAmount - distributableAmount > EPSILON
+  ) {
     throw new Error(
       `seeker_refund_amount must be within 0 and ${distributableAmount.toFixed(2)}.`,
     );
@@ -135,9 +142,7 @@ export function resolveDbOutcome(
 
 // ─── Complaint revert on failure ─────────────────────────────────────
 
-export function buildComplaintRevertUpdate(
-  complaint: Record<string, unknown>,
-) {
+export function buildComplaintRevertUpdate(complaint: Record<string, unknown>) {
   const setFields: Record<string, unknown> = {
     status: complaint.status,
   };
@@ -292,14 +297,148 @@ export async function executeSettlementActions(
   };
 }
 
-// ─── Manual transfer detail fetching ─────────────────────────────────
+// ─── Settlement party detail fetching ────────────────────────────────
+
+/**
+ * Fetches bank/payment details for ALL parties receiving money in the
+ * settlement, regardless of whether the transfer is manual or automatic.
+ *
+ * Rules:
+ * - Provider gets 100%  → provider details only
+ * - Seeker gets 100%    → seeker details only
+ * - Partial split       → both parties' details
+ */
+export async function fetchSettlementPartyDetails(
+  db: Db,
+  order: {
+    provider_id?: ObjectId;
+    seeker_id?: ObjectId;
+    razorpay_payment_id?: string;
+  },
+  amounts: {
+    seekerRefundAmount: number;
+    providerPayoutAmount: number;
+  },
+  manualFlags: {
+    payoutPendingManual: boolean;
+    refundPendingManual: boolean;
+  },
+): Promise<
+  | {
+      provider?: {
+        name: string;
+        email?: string;
+        phone?: string;
+        upiId?: string | null;
+        accountNumber?: string | null;
+        ifsc?: string | null;
+        accountHolderName?: string | null;
+        manualTransferRequired: boolean;
+      };
+      seeker?: {
+        name: string;
+        email?: string;
+        phone?: string;
+        paymentMethod?: string | null;
+        vpa?: string | null;
+        bank?: string | null;
+        wallet?: string | null;
+        card?: {
+          network?: string;
+          last4?: string;
+          issuer?: string;
+        } | null;
+        manualTransferRequired: boolean;
+      };
+    }
+  | undefined
+> {
+  const providerGets = amounts.providerPayoutAmount > EPSILON;
+  const seekerGets = amounts.seekerRefundAmount > EPSILON;
+
+  if (!providerGets && !seekerGets) return undefined;
+
+  const details: Record<string, unknown> = {};
+
+  if (providerGets && order.provider_id) {
+    const provider = await db.collection("providers").findOne(
+      { _id: order.provider_id },
+      {
+        projection: {
+          name: 1,
+          businessName: 1,
+          email: 1,
+          phone: 1,
+          bankDetails: 1,
+        },
+      },
+    );
+    if (provider) {
+      details.provider = {
+        name: provider.businessName || provider.name || "Provider",
+        email: provider.email,
+        phone: provider.phone,
+        upiId: provider.bankDetails?.upiId || null,
+        accountNumber: provider.bankDetails?.accountNumber || null,
+        ifsc: provider.bankDetails?.ifsc || null,
+        accountHolderName: provider.bankDetails?.accountHolderName || null,
+        manualTransferRequired: manualFlags.payoutPendingManual,
+      };
+    }
+  }
+
+  if (seekerGets && order.seeker_id) {
+    const seeker = await db
+      .collection("seekers")
+      .findOne(
+        { _id: order.seeker_id },
+        { projection: { name: 1, email: 1, phone: 1 } },
+      );
+
+    let paymentDetails = null;
+    if (order.razorpay_payment_id) {
+      try {
+        paymentDetails = await fetchRazorpayPaymentDetails(
+          order.razorpay_payment_id,
+        );
+      } catch {
+        // Non-critical: we still have seeker profile info
+      }
+    }
+
+    if (seeker) {
+      details.seeker = {
+        name: seeker.name || "Seeker",
+        email: paymentDetails?.email || seeker.email,
+        phone: paymentDetails?.contact || seeker.phone,
+        paymentMethod: paymentDetails?.method || null,
+        vpa: paymentDetails?.vpa || null,
+        bank: paymentDetails?.bank || null,
+        card: paymentDetails?.card || null,
+        wallet: paymentDetails?.wallet || null,
+        manualTransferRequired: manualFlags.refundPendingManual,
+      };
+    }
+  }
+
+  return Object.keys(details).length > 0
+    ? (details as Awaited<ReturnType<typeof fetchSettlementPartyDetails>>)
+    : undefined;
+}
+
+// ─── Legacy manual transfer detail fetching ──────────────────────────
 
 export async function fetchManualTransferDetails(
   db: Db,
-  order: { provider_id?: ObjectId; seeker_id?: ObjectId; razorpay_payment_id?: string },
+  order: {
+    provider_id?: ObjectId;
+    seeker_id?: ObjectId;
+    razorpay_payment_id?: string;
+  },
   flags: { payoutPendingManual: boolean; refundPendingManual: boolean },
 ): Promise<Record<string, unknown> | undefined> {
-  if (!flags.payoutPendingManual && !flags.refundPendingManual) return undefined;
+  if (!flags.payoutPendingManual && !flags.refundPendingManual)
+    return undefined;
 
   const details: Record<string, unknown> = {};
 
