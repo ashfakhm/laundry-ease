@@ -50,7 +50,7 @@ export async function GET(
     const messages = await db
       .collection("chats")
       .find({ booking_id: bookingId })
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: 1, _id: 1 })
       .toArray();
     return successResponse(messages);
   } catch (error) {

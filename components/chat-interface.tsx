@@ -63,7 +63,14 @@ export default function BookingChat({
   const fetcher = (url: string) =>
     fetch(url, { cache: "no-store" }).then((r) => {
       if (!r.ok) throw new Error("Failed to load");
-      return r.json().then((payload) => unwrapApiArray<ChatMessage>(payload));
+      return r.json().then((payload) => {
+        const msgs = unwrapApiArray<ChatMessage>(payload);
+        return msgs.sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
+            (a._id ?? "").localeCompare(b._id ?? ""),
+        );
+      });
     });
 
   const { data: messages = [], mutate } = useSWR<ChatMessage[]>(
