@@ -31,9 +31,13 @@ export const authOptions: NextAuthOptions = {
         try {
           // Check seekers → providers → admins collections in order
           user = await getUserByEmail(email);
-        } catch {
+        } catch (err) {
           // DB connection failures (e.g. IP not whitelisted in Atlas, DNS issues)
           // must not leak infrastructure details to the client.
+          console.error(
+            "[AUTH] Database connection failed during sign-in:",
+            err instanceof Error ? err.message : err,
+          );
           throw new Error("SERVICE_UNAVAILABLE");
         }
 
