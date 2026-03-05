@@ -111,7 +111,6 @@ export const POST = withErrorHandling(
       {
         $set: {
           status: "reschedule_requested",
-          "pickupSlot.confirmedAt": undefined,
           reschedule: {
             requestedBy,
             requestedAt: now,
@@ -121,6 +120,11 @@ export const POST = withErrorHandling(
           },
           updatedAt: now,
         },
+        // Explicitly unset confirmedAt so a previously-confirmed slot is no
+        // longer treated as confirmed after a reschedule request is raised.
+        // $set: { field: undefined } is silently ignored by the MongoDB driver
+        // and would leave the old confirmedAt timestamp in place.
+        $unset: { "pickupSlot.confirmedAt": "" },
       },
     );
 

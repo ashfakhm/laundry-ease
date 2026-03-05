@@ -60,6 +60,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
     { id: "requested", label: "Pending" },
     { id: "accepted", label: "Accepted" },
     { id: "pickup_proposed", label: "Review" },
+    { id: "reschedule_requested", label: "Reschedule" },
     { id: "confirmed", label: "Scheduled" },
   ];
 

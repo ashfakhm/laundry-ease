@@ -475,17 +475,47 @@ function SeekerBookingCardComponent({
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
-                className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5"
+                className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 space-y-3"
               >
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-amber-700 flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
-                      Reschedule in progress
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full bg-amber-600 animate-pulse mt-2 shrink-0" />
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-amber-700">
+                      {booking.reschedule?.requestedBy === "seeker"
+                        ? "You requested a reschedule"
+                        : "Provider requested a reschedule"}
                     </h4>
                     <p className="text-sm text-foreground/80">
-                      Waiting for the provider to propose a new pickup time.
+                      {booking.reschedule?.requestedBy === "seeker"
+                        ? "Waiting for the provider to propose a new pickup time."
+                        : "The provider needs to change the pickup time. A new slot will be proposed shortly."}
                     </p>
+                    {booking.reschedule?.reason && (
+                      <p className="text-xs text-muted-foreground italic mt-1">
+                        Reason:{" "}
+                        <span className="font-medium not-italic text-foreground/70">
+                          {booking.reschedule.reason}
+                        </span>
+                      </p>
+                    )}
+                    {booking.reschedule?.previousPickupSlot?.dateTime && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Previous slot:{" "}
+                        <span className="font-medium text-foreground/70">
+                          {new Date(
+                            booking.reschedule.previousPickupSlot.dateTime,
+                          ).toLocaleString([], {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                      </p>
+                    )}
+                    {(booking.reschedule?.count ?? 0) > 1 && (
+                      <p className="text-xs text-amber-600/80 font-medium mt-1">
+                        Reschedule #{booking.reschedule?.count}
+                      </p>
+                    )}
                   </div>
                 </div>
               </motion.div>

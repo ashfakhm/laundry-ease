@@ -394,6 +394,10 @@ export async function updateBookingToRefundedOnly(
 
 /**
  * Update the pickup slot for an accepted or rescheduled booking.
+ *
+ * The query intentionally includes a status filter so the write is atomic with
+ * the state check — if the booking was concurrently transitioned to a different
+ * state the update will match 0 documents and the caller can detect the race.
  */
 export async function updateBookingPickupSlot(
   booking_id: ObjectId | string,
@@ -403,17 +407,20 @@ export async function updateBookingPickupSlot(
   const queryId =
     typeof booking_id === "string" ? new ObjectId(booking_id) : booking_id;
   const res = await db.collection<Booking>("bookings").updateOne(
-    { _id: queryId },
+    // Only update if booking is still in a state where a slot can be proposed.
+    { _id: queryId, status: { $in: ["accepted", "reschedule_requested"] } },
     {
       $set: {
         status: "pickup_proposed",
         pickupSlot: {
           proposedBy: "provider",
           dateTime: slotTime,
-          confirmedAt: undefined,
         },
         updatedAt: new Date(),
       },
+      // Remove any previously-confirmed slot timestamp so the seeker is
+      // required to confirm the new time.
+      $unset: { "pickupSlot.confirmedAt": "" },
     },
   );
   return res.modifiedCount > 0;

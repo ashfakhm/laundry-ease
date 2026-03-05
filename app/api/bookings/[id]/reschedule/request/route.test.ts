@@ -66,14 +66,17 @@ function makeDbMock() {
 }
 
 function makeRequest(body: unknown = {}) {
-  return new Request("https://laundryease.test/api/bookings/id/reschedule/request", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      origin: "https://laundryease.test",
+  return new Request(
+    "https://laundryease.test/api/bookings/id/reschedule/request",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        origin: "https://laundryease.test",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+  );
 }
 
 describe("POST /api/bookings/[id]/reschedule/request", () => {
@@ -152,7 +155,9 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
 
       expect(res.status).toBe(403);
       const data = await res.json();
-      expect(data.error.message).toBe("You are not allowed to reschedule this booking");
+      expect(data.error.message).toBe(
+        "You are not allowed to reschedule this booking",
+      );
     });
   });
 
@@ -319,7 +324,9 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
 
       expect(res.status).toBe(422);
       const data = await res.json();
-      expect(data.error.message).toContain("Reschedule is not allowed after provider has arrived");
+      expect(data.error.message).toContain(
+        "Reschedule is not allowed after provider has arrived",
+      );
     });
   });
 
@@ -349,7 +356,10 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
         },
       });
 
-      dbMock.bookingUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+      dbMock.bookingUpdateOne.mockResolvedValue({
+        matchedCount: 1,
+        modifiedCount: 1,
+      });
 
       const res = await POST(
         makeRequest({
@@ -377,7 +387,53 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
               count: 1,
             }),
           }),
+          // Must use $unset (not $set: undefined) to actually clear confirmedAt
+          $unset: expect.objectContaining({
+            "pickupSlot.confirmedAt": "",
+          }),
         }),
+      );
+    });
+
+    it("clears pickupSlot.confirmedAt via $unset when previously confirmed slot exists", async () => {
+      const bookingId = new ObjectId(BOOKING_ID);
+      const seekerId = new ObjectId(SEEKER_ID);
+      const providerId = new ObjectId(PROVIDER_ID);
+      const confirmedAt = new Date("2026-01-01T10:00:00Z");
+
+      dbMock.bookingFindOne.mockResolvedValue({
+        _id: bookingId,
+        seeker_id: seekerId,
+        provider_id: providerId,
+        status: "confirmed",
+        pickupSlot: {
+          dateTime: new Date("2026-01-02T09:00:00Z"),
+          confirmedAt,
+        },
+      });
+
+      dbMock.bookingUpdateOne.mockResolvedValue({
+        matchedCount: 1,
+        modifiedCount: 1,
+      });
+
+      const res = await POST(
+        makeRequest({ reason: "Cannot make it at that time" }),
+        { params: Promise.resolve({ id: BOOKING_ID }) },
+      );
+
+      expect(res.status).toBe(200);
+
+      const updateCall = dbMock.bookingUpdateOne.mock.calls[0];
+      const updateOp = updateCall[1];
+
+      // $set must NOT contain "pickupSlot.confirmedAt" — that would silently
+      // no-op in the MongoDB driver instead of removing the field.
+      expect(updateOp.$set).not.toHaveProperty("pickupSlot.confirmedAt");
+
+      // $unset must be present and target the correct field path.
+      expect(updateOp.$unset).toEqual(
+        expect.objectContaining({ "pickupSlot.confirmedAt": "" }),
       );
     });
 
@@ -400,7 +456,10 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
         status: "accepted",
       });
 
-      dbMock.bookingUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+      dbMock.bookingUpdateOne.mockResolvedValue({
+        matchedCount: 1,
+        modifiedCount: 1,
+      });
 
       const res = await POST(
         makeRequest({
@@ -446,7 +505,10 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
         },
       });
 
-      dbMock.bookingUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+      dbMock.bookingUpdateOne.mockResolvedValue({
+        matchedCount: 1,
+        modifiedCount: 1,
+      });
 
       const res = await POST(makeRequest(), {
         params: Promise.resolve({ id: BOOKING_ID }),
@@ -480,7 +542,10 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
         status: "pickup_proposed",
       });
 
-      dbMock.bookingUpdateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
+      dbMock.bookingUpdateOne.mockResolvedValue({
+        matchedCount: 1,
+        modifiedCount: 1,
+      });
 
       const res = await POST(makeRequest(), {
         params: Promise.resolve({ id: BOOKING_ID }),
@@ -509,7 +574,10 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
       });
 
       // Simulate concurrent modification - no documents matched the query
-      dbMock.bookingUpdateOne.mockResolvedValue({ matchedCount: 0, modifiedCount: 0 });
+      dbMock.bookingUpdateOne.mockResolvedValue({
+        matchedCount: 0,
+        modifiedCount: 0,
+      });
 
       const res = await POST(makeRequest(), {
         params: Promise.resolve({ id: BOOKING_ID }),
@@ -517,7 +585,9 @@ describe("POST /api/bookings/[id]/reschedule/request", () => {
 
       expect(res.status).toBe(422);
       const data = await res.json();
-      expect(data.error.message).toBe("Booking was not in a reschedulable state");
+      expect(data.error.message).toBe(
+        "Booking was not in a reschedulable state",
+      );
     });
   });
 
