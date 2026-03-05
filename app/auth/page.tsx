@@ -87,8 +87,11 @@ function AuthPageContent() {
         );
       } else if (res?.error === "INVALID_CREDENTIALS") {
         setError("Invalid email or password.");
+      } else if (res?.error === "SERVICE_UNAVAILABLE") {
+        setError("Unable to connect to the server. Please try again later.");
       } else {
-        setError(res?.error || "An unknown error occurred");
+        // Never display raw error strings — they may contain infrastructure details.
+        setError("Something went wrong. Please try again.");
       }
     }
     setLoading(false);

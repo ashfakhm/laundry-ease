@@ -54,15 +54,14 @@ export async function POST(req: NextRequest) {
     } = parsed.data;
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Require verified OTPs for email and phone
+    // Require verified OTP for email
     const emailOk = await isOtpVerifiedRecently(normalizedEmail, "email");
-    const phoneOk = await isOtpVerifiedRecently(phone, "phone");
-    if (!emailOk || !phoneOk) {
+    if (!emailOk) {
       return errorResponse(
         new AppError(
           ErrorCode.VALIDATION_ERROR,
           400,
-          "Email and phone must be verified via OTP",
+          "Email must be verified via OTP",
         ),
       );
     }
@@ -150,9 +149,14 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch (error) {
-      logger.error("SIGNUP", "Error syncing with Razorpay during signup", error, {
-        email: normalizedEmail,
-      });
+      logger.error(
+        "SIGNUP",
+        "Error syncing with Razorpay during signup",
+        error,
+        {
+          email: normalizedEmail,
+        },
+      );
       // Keep signup successful even if Razorpay sync fails.
     }
   } catch (error) {

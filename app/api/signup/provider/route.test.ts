@@ -107,10 +107,12 @@ describe("POST /api/signup/provider", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 when OTP is not verified", async () => {
+  it("returns 400 when email OTP is not verified", async () => {
     mockIsOtpVerifiedRecently.mockResolvedValue(false);
     const res = await POST(makeReq(validPayload) as never);
+    const body = await res.json();
     expect(res.status).toBe(400);
+    expect(body.error.message).toBe("Email must be verified via OTP");
   });
 
   it("returns 409 when email already exists", async () => {

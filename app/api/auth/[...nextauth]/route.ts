@@ -27,8 +27,15 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.trim().toLowerCase();
         const { password } = credentials;
 
-        // Check seekers → providers → admins collections in order
-        const user = await getUserByEmail(email);
+        let user;
+        try {
+          // Check seekers → providers → admins collections in order
+          user = await getUserByEmail(email);
+        } catch {
+          // DB connection failures (e.g. IP not whitelisted in Atlas, DNS issues)
+          // must not leak infrastructure details to the client.
+          throw new Error("SERVICE_UNAVAILABLE");
+        }
 
         if (!user) {
           throw new Error("NO_ACCOUNT");
