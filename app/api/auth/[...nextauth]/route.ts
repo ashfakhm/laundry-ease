@@ -151,11 +151,11 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }: { session: Session; token: JWT }) {
-      // If the token was invalidated (password changed), clear the
-      // session so the client sees an unauthenticated state.
+      // If the token was invalidated (password changed after this JWT was
+      // issued), return null so NextAuth reports status "unauthenticated"
+      // and the client redirects to the sign-in page automatically.
       if (token._invalidated) {
-        session.user = undefined as never;
-        return session;
+        return null as unknown as Session;
       }
 
       if (session.user) {
