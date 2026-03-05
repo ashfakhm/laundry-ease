@@ -73,7 +73,9 @@ type EmailOutboxJob =
   | MagicLinkOutboxJob
   | OtpEmailOutboxJob;
 
-export type EnqueueEmailOutboxInput<K extends EmailOutboxKind = EmailOutboxKind> = {
+export type EnqueueEmailOutboxInput<
+  K extends EmailOutboxKind = EmailOutboxKind,
+> = {
   kind: K;
   payload: EmailOutboxPayloadMap[K];
   maxAttempts?: number;
@@ -102,7 +104,10 @@ function clampBatchLimit(limit?: number) {
 }
 
 function computeBackoffMs(attempt: number) {
-  return Math.min(BASE_BACKOFF_MS * 2 ** Math.max(0, attempt - 1), MAX_BACKOFF_MS);
+  return Math.min(
+    BASE_BACKOFF_MS * 2 ** Math.max(0, attempt - 1),
+    MAX_BACKOFF_MS,
+  );
 }
 
 function getErrorMessage(error: unknown): string {
@@ -142,7 +147,10 @@ export async function enqueueEmailOutboxJob<K extends EmailOutboxKind>(
   const baseFields: EmailOutboxJobBase = {
     status: "pending",
     attempts: 0,
-    maxAttempts: Math.max(1, Math.floor(input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS)),
+    maxAttempts: Math.max(
+      1,
+      Math.floor(input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS),
+    ),
     nextAttemptAt: now,
     createdAt: now,
     updatedAt: now,
@@ -177,9 +185,72 @@ export async function enqueueEmailOutboxJob<K extends EmailOutboxKind>(
     };
   }
 
-  const result = await db.collection<EmailOutboxJob>("email_outbox").insertOne(doc);
+  const result = await db
+    .collection<EmailOutboxJob>("email_outbox")
+    .insertOne(doc);
+  const jobId = result.insertedId;
+
+  // Attempt immediate inline dispatch so the email is sent without
+  // waiting for the cron worker. If it fails the job stays "pending"
+  // and the periodic cron will retry it.
+  try {
+    const collection = db.collection<EmailOutboxJob>("email_outbox");
+    const claimed = await collection.findOneAndUpdate(
+      { _id: jobId, status: "pending" },
+      {
+        $set: {
+          status: "processing" as EmailOutboxStatus,
+          lockedAt: now,
+          lockedBy: "inline-dispatch",
+          updatedAt: now,
+        },
+      },
+      { returnDocument: "after" },
+    );
+    if (claimed) {
+      await dispatchEmailJob(claimed);
+      await collection.updateOne(
+        { _id: jobId, status: "processing" },
+        {
+          $set: {
+            status: "sent" as EmailOutboxStatus,
+            sentAt: new Date(),
+            updatedAt: new Date(),
+            lockedAt: null,
+            lockedBy: null,
+            lastError: null,
+          },
+        },
+      );
+    }
+  } catch (err) {
+    // Reset to pending so the cron worker picks it up later.
+    const errMsg = err instanceof Error ? err.message : String(err);
+    await db.collection<EmailOutboxJob>("email_outbox").updateOne(
+      { _id: jobId },
+      {
+        $set: {
+          status: "pending" as EmailOutboxStatus,
+          lockedAt: null,
+          lockedBy: null,
+          lastError: errMsg.slice(0, 500),
+          updatedAt: new Date(),
+        },
+      },
+    );
+    logger.warn(
+      "EMAIL_OUTBOX",
+      "Inline dispatch failed, will be retried by cron",
+      {
+        jobId: jobId.toString(),
+        kind: input.kind,
+        error: errMsg.slice(0, 200),
+      },
+    );
+  }
+
   return {
-    id: result.insertedId.toString(),
+    id: jobId.toString(),
     queuedAt: now.toISOString(),
   };
 }
