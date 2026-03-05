@@ -93,13 +93,13 @@ export async function GET(
     // Fetch Messages
     const messageQuery: {
       complaint_id: ObjectId;
-      createdAt?: { $gt: Date };
+      createdAt?: { $gte: Date };
       message_type?: { $ne: string };
     } = {
       complaint_id: complaintId,
     };
     if (since) {
-      messageQuery.createdAt = { $gt: since };
+      messageQuery.createdAt = { $gte: since };
     }
     // Hide internal system messages (error logs, financial details) from non-admin users
     if (user.role !== "admin") {
@@ -109,7 +109,7 @@ export async function GET(
     const messages = await db
       .collection("complaint_messages")
       .find(messageQuery)
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
       .toArray();
 

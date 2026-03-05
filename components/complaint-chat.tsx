@@ -147,18 +147,25 @@ export default function ComplaintChat({
         const payload = await res.json();
         const data = unwrapApiArray<ChatMessage>(payload);
 
+        const sortByTime = (msgs: ChatMessage[]) =>
+          msgs.sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
+              (a._id ?? "").localeCompare(b._id ?? ""),
+          );
+
         if (incremental && latestMessageAtRef.current) {
           if (data.length > 0) {
             latestMessageAtRef.current = data[data.length - 1].createdAt;
             setMessages((prev) => {
               const seen = new Set(prev.map((msg) => String(msg._id)));
               const appended = data.filter((msg) => !seen.has(String(msg._id)));
-              return appended.length > 0 ? [...prev, ...appended] : prev;
+              return appended.length > 0 ? sortByTime([...prev, ...appended]) : prev;
             });
             setShouldAutoScroll(true);
           }
         } else {
-          setMessages(data);
+          setMessages(sortByTime(data));
           latestMessageAtRef.current =
             data.length > 0 ? data[data.length - 1].createdAt : null;
           setShouldAutoScroll(true);
@@ -311,7 +318,7 @@ export default function ComplaintChat({
       setInput("");
       setPendingAttachments([]);
       setShouldAutoScroll(true); // Always scroll to bottom after sending
-      await fetchMessages(true);
+      await fetchMessages(false);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not send message";
