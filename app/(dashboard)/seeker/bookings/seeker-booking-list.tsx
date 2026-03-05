@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { PopulatedSeekerBooking, BookingStatus } from "@/types/bookings";
 import { SeekerBookingCard } from "./seeker-booking-card";
 import { cn } from "@/lib/utils";
 import { Inbox, ArrowRight, Search } from "lucide-react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
 import { motion, AnimatePresence } from "framer-motion";
 import { RAZORPAY_CHECKOUT_SCRIPT_URL } from "@/lib/constants";
+import { useLiveData } from "@/hooks/use-live-data";
 
 interface SeekerBookingListProps {
   initialBookings: PopulatedSeekerBooking[];
@@ -17,37 +17,33 @@ interface SeekerBookingListProps {
 
 type FilterType = "all" | BookingStatus | "active";
 
+const ACTIVE_STATUSES = new Set([
+  "requested",
+  "accepted",
+  "pickup_proposed",
+  "confirmed",
+  "reschedule_requested",
+]);
+
+function hasActiveBookings(bookings: PopulatedSeekerBooking[]): boolean {
+  return bookings.some((b) => ACTIVE_STATUSES.has(b.status));
+}
+
 export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
   const [filter, setFilter] = useState<FilterType>("all");
-  const router = useRouter();
 
-  const bookings = initialBookings;
-
-  // Auto-refresh when there are bookings waiting for provider response
-  useEffect(() => {
-    const hasWaitingBookings = bookings.some(
-      (b) =>
-        b.status === "reschedule_requested" || b.status === "pickup_proposed",
-    );
-
-    if (!hasWaitingBookings) return;
-
-    // Poll every 10 seconds for updates
-    const interval = setInterval(() => {
-      router.refresh();
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [bookings, router]);
+  const { data: bookings, refresh } = useLiveData<PopulatedSeekerBooking>({
+    url: "/api/bookings/seeker",
+    initialData: initialBookings,
+    activeIntervalMs: 8_000,
+    idleIntervalMs: 30_000,
+    isActive: hasActiveBookings,
+  });
 
   const filteredBookings = useMemo(() => {
     if (filter === "all") return bookings;
     if (filter === "active")
-      return bookings.filter((b) =>
-        ["requested", "accepted", "pickup_proposed", "confirmed"].includes(
-          b.status,
-        ),
-      );
+      return bookings.filter((b) => ACTIVE_STATUSES.has(b.status));
     return bookings.filter((booking) => booking.status === filter);
   }, [bookings, filter]);
 
@@ -151,7 +147,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
               <SeekerBookingCard
                 key={booking._id.toString()}
                 booking={booking}
-                onRefresh={() => router.refresh()}
+                onRefresh={refresh}
               />
             ))}
           </AnimatePresence>

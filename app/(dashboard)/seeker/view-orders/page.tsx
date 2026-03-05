@@ -63,6 +63,14 @@ export default function ViewOrdersPage() {
   );
 
   useEffect(() => {
+    if (status === "loading") return;
+    if (!session) {
+      setLoading(false);
+      return;
+    }
+
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
     async function fetchOrders() {
       try {
         const response = await fetch("/api/orders/seeker", {
@@ -82,13 +90,43 @@ export default function ViewOrdersPage() {
       }
     }
 
-    if (status === "loading") return;
+    function scheduleNext(currentOrders: Order[]) {
+      if (timerId) clearTimeout(timerId);
+      if (document.hidden) return;
 
-    if (session) {
-      fetchOrders();
-    } else {
-      setLoading(false);
+      // Poll faster when orders are in active/changing states
+      const hasActiveOrders = currentOrders.some(
+        (o) =>
+          !o.cancellation_status &&
+          o.process_status !== "delivered" &&
+          o.payment_status !== "released" &&
+          o.payment_status !== "refunded",
+      );
+      const interval = hasActiveOrders ? 8_000 : 30_000;
+
+      timerId = setTimeout(async () => {
+        await fetchOrders();
+        scheduleNext(orders);
+      }, interval);
     }
+
+    // Initial fetch then start polling
+    fetchOrders().then(() => scheduleNext(orders));
+
+    function handleVisibilityChange() {
+      if (!document.hidden) {
+        if (timerId) clearTimeout(timerId);
+        fetchOrders().then(() => scheduleNext(orders));
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status]);
 
   function getStatusBadge(order: Order) {

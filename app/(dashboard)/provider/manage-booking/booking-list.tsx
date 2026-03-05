@@ -5,14 +5,26 @@ import { PopulatedBooking, BookingStatus } from "@/types/bookings";
 import { BookingCard } from "./booking-card";
 import { cn } from "@/lib/utils";
 import { Inbox, Search, Filter } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLiveData } from "@/hooks/use-live-data";
 
 interface BookingListProps {
   initialBookings: PopulatedBooking[];
 }
 
 type FilterType = "all" | BookingStatus | "active";
+
+const ACTIVE_STATUSES = new Set([
+  "requested",
+  "accepted",
+  "pickup_proposed",
+  "confirmed",
+  "reschedule_requested",
+]);
+
+function hasActiveBookings(bookings: PopulatedBooking[]): boolean {
+  return bookings.some((b) => ACTIVE_STATUSES.has(b.status));
+}
 
 const TABS: { id: FilterType; label: string; description: string }[] = [
   { id: "requested", label: "Pending", description: "Awaiting your response" },
@@ -30,9 +42,14 @@ const TABS: { id: FilterType; label: string; description: string }[] = [
 export function BookingList({ initialBookings }: BookingListProps) {
   const [filter, setFilter] = useState<FilterType>("requested");
   const [searchQuery, setSearchQuery] = useState("");
-  const router = useRouter();
 
-  const bookings = initialBookings;
+  const { data: bookings, refresh } = useLiveData<PopulatedBooking>({
+    url: "/api/bookings/provider",
+    initialData: initialBookings,
+    activeIntervalMs: 8_000,
+    idleIntervalMs: 30_000,
+    isActive: hasActiveBookings,
+  });
 
   const filteredBookings = useMemo(() => {
     let filtered = bookings;
@@ -40,11 +57,7 @@ export function BookingList({ initialBookings }: BookingListProps) {
     // Apply status filter
     if (filter !== "all") {
       if (filter === "active") {
-        filtered = bookings.filter((b) =>
-          ["requested", "accepted", "pickup_proposed", "confirmed"].includes(
-            b.status,
-          ),
-        );
+        filtered = bookings.filter((b) => ACTIVE_STATUSES.has(b.status));
       } else {
         filtered = bookings.filter((booking) => booking.status === filter);
       }
@@ -139,7 +152,7 @@ export function BookingList({ initialBookings }: BookingListProps) {
               <BookingCard
                 key={booking._id.toString()}
                 booking={booking}
-                onRefresh={() => router.refresh()}
+                onRefresh={refresh}
               />
             ))}
           </AnimatePresence>

@@ -364,9 +364,44 @@ export default function OrderStatusPage() {
       return;
     }
 
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 20000); // Poll every 20s
-    return () => clearInterval(interval);
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    function scheduleNext(currentOrders: OrderWithProcessStatus[]) {
+      if (timerId) clearTimeout(timerId);
+      if (document.hidden) return;
+
+      // Poll faster when there are orders actively being processed
+      const hasActiveOrders = currentOrders.some(
+        (o) =>
+          !o.cancellation_status &&
+          o.process_status !== "delivered" &&
+          o.payment_status !== "released" &&
+          o.payment_status !== "refunded",
+      );
+      const interval = hasActiveOrders ? 8_000 : 30_000;
+
+      timerId = setTimeout(async () => {
+        await fetchOrders();
+        scheduleNext(orders);
+      }, interval);
+    }
+
+    fetchOrders().then(() => scheduleNext(orders));
+
+    function handleVisibilityChange() {
+      if (!document.hidden) {
+        if (timerId) clearTimeout(timerId);
+        fetchOrders().then(() => scheduleNext(orders));
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status]);
 
   function getStatusBadge(order: Order) {
