@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { reportError } from "@/lib/client-error";
+import { unwrapApiData } from "@/lib/client-api";
 
 export interface InvoiceItem {
   itemType: string;
@@ -41,7 +42,10 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
       try {
         const res = await fetch("/api/profile/provider");
         if (res.ok) {
-          const data = await res.json();
+          const payload = await res.json();
+          const data = unwrapApiData<{
+            pricingRates?: Record<string, number>;
+          }>(payload);
           setPricingRates(data.pricingRates || {});
         }
       } catch (e) {
