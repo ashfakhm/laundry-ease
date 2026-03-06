@@ -1,4 +1,13 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+/**
+ * Custom Node.js server for LaundryEase.
+ *
+ * Attaches a Socket.IO server to the same HTTP server as Next.js.
+ * Handles JWT auth, room join/leave authorization, typing indicator relay,
+ * and per-socket rate limiting.
+ *
+ * @module server
+ */
 const dns = require("node:dns");
 const { createServer } = require("node:http");
 
@@ -14,6 +23,15 @@ const {
   resolveRealtimeUserFromToken,
 } = require("./lib/realtime/socket-auth");
 
+/* ------------------------------------------------------------------ */
+/*  CLI helpers                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Parse a CLI argument value by flag name.
+ * @param {string[]} flagNames
+ * @returns {string | undefined}
+ */
 function getCliArgValue(flagNames) {
   for (let index = 0; index < process.argv.length; index += 1) {
     const arg = process.argv[index];
@@ -41,6 +59,11 @@ if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) {
   dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4", "1.0.0.1"]);
 }
 
+/* ------------------------------------------------------------------ */
+/*  MongoDB helpers                                                    */
+/* ------------------------------------------------------------------ */
+
+/** @type {Promise<import('mongodb').MongoClient> | null} */
 let mongoClientPromise;
 
 function getMongoClient() {
@@ -65,6 +88,11 @@ async function getRealtimeDb() {
   return client.db(process.env.MONGODB_DB || "laundryease");
 }
 
+/**
+ * Resolve a user record from email across seeker/provider/admin collections.
+ * @param {string} email
+ * @returns {Promise<{_id: string, email: string, role: string} | null>}
+ */
 async function findUserByEmail(email) {
   const db = await getRealtimeDb();
   const normalizedEmail = email.trim().toLowerCase();
@@ -91,6 +119,10 @@ async function findUserByEmail(email) {
   return null;
 }
 
+/**
+ * Fetch booking participant IDs.
+ * @param {string} bookingId
+ */
 async function findBookingById(bookingId) {
   const db = await getRealtimeDb();
   const booking = await db.collection("bookings").findOne(
@@ -105,6 +137,10 @@ async function findBookingById(bookingId) {
   };
 }
 
+/**
+ * Fetch complaint details for room authorization.
+ * @param {string} complaintId
+ */
 async function findComplaintById(complaintId) {
   const db = await getRealtimeDb();
   const complaint = await db.collection("complaints").findOne(
@@ -128,6 +164,42 @@ async function findComplaintById(complaintId) {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/*  Per-socket rate limiting                                           */
+/* ------------------------------------------------------------------ */
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_JOINS = 20;
+
+/**
+ * Returns `true` if the socket has exceeded the join-event rate limit.
+ * Tracks timestamps on `socket.data._joinTimestamps`.
+ * @param {import('socket.io').Socket} socket
+ * @returns {boolean}
+ */
+function isRateLimited(socket) {
+  const now = Date.now();
+  if (!socket.data._joinTimestamps) {
+    socket.data._joinTimestamps = [];
+  }
+
+  // Prune old timestamps outside the window.
+  socket.data._joinTimestamps = socket.data._joinTimestamps.filter(
+    /** @param {number} ts */ (ts) => now - ts < RATE_LIMIT_WINDOW_MS,
+  );
+
+  if (socket.data._joinTimestamps.length >= RATE_LIMIT_MAX_JOINS) {
+    return true;
+  }
+
+  socket.data._joinTimestamps.push(now);
+  return false;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bootstrap                                                          */
+/* ------------------------------------------------------------------ */
+
 async function bootstrap() {
   const app = next({ dev, hostname, port });
   const handle = app.getRequestHandler();
@@ -147,6 +219,8 @@ async function bootstrap() {
   });
 
   globalThis._socketIoServer = io;
+
+  /* ---------- Auth middleware ---------- */
 
   io.use(async (socket, nextMiddleware) => {
     try {
@@ -172,10 +246,20 @@ async function bootstrap() {
     }
   });
 
+  /* ---------- Connection handler ---------- */
+
   io.on("connection", (socket) => {
+    const userId = socket.data.user?._id || "unknown";
+
+    /* ---- Booking room join ---- */
     socket.on(
       realtimeContracts.CLIENT_EVENTS.BOOKING_JOIN,
       async (payload, acknowledge) => {
+        if (isRateLimited(socket)) {
+          acknowledge?.({ ok: false, error: "rate_limited" });
+          return;
+        }
+
         const result = await authorizeBookingRoom(
           {
             bookingId: payload?.bookingId,
@@ -194,9 +278,15 @@ async function bootstrap() {
       },
     );
 
+    /* ---- Complaint room join ---- */
     socket.on(
       realtimeContracts.CLIENT_EVENTS.COMPLAINT_JOIN,
       async (payload, acknowledge) => {
+        if (isRateLimited(socket)) {
+          acknowledge?.({ ok: false, error: "rate_limited" });
+          return;
+        }
+
         const result = await authorizeComplaintRoom(
           {
             complaintId: payload?.complaintId,
@@ -215,12 +305,38 @@ async function bootstrap() {
       },
     );
 
+    /* ---- Room leave ---- */
     socket.on(realtimeContracts.CLIENT_EVENTS.ROOM_LEAVE, async (payload) => {
       if (typeof payload?.room !== "string" || payload.room.trim().length === 0) {
         return;
       }
 
       await socket.leave(payload.room);
+    });
+
+    /* ---- Typing indicator relay ---- */
+    socket.on(realtimeContracts.CLIENT_EVENTS.TYPING_START, (payload) => {
+      if (typeof payload?.room !== "string" || !payload.room) return;
+      socket.to(payload.room).emit(realtimeContracts.SERVER_EVENTS.TYPING_START, {
+        userId,
+        userName: socket.data.user?.name || "Someone",
+        room: payload.room,
+      });
+    });
+
+    socket.on(realtimeContracts.CLIENT_EVENTS.TYPING_STOP, (payload) => {
+      if (typeof payload?.room !== "string" || !payload.room) return;
+      socket.to(payload.room).emit(realtimeContracts.SERVER_EVENTS.TYPING_STOP, {
+        userId,
+        room: payload.room,
+      });
+    });
+
+    /* ---- Disconnect logging ---- */
+    socket.on("disconnect", (reason) => {
+      if (dev) {
+        console.log(`[socket.io] User ${userId} disconnected: ${reason}`);
+      }
     });
   });
 

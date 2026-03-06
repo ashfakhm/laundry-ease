@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-const { describe, expect, it } = require("vitest");
-const {
+import { describe, expect, it } from "vitest";
+import {
   authorizeBookingRoom,
   authorizeComplaintRoom,
   resolveRealtimeUserFromToken,
-} = require("./socket-auth");
+} from "./socket-auth";
 
 describe("socket auth helpers", () => {
   it("uses the token id and role when already canonical", async () => {

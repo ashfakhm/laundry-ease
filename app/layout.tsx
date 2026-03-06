@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
+import { SocketProvider } from "@/components/providers/socket-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { GoogleMapsProvider } from "@/components/providers/google-maps-provider";
 import JsonLd from "@/components/seo/json-ld";
@@ -110,7 +111,8 @@ export default async function RootLayout({
         className={`min-h-screen w-full antialiased ${inter.variable} overflow-x-hidden selection:bg-primary/20 selection:text-primary`}
       >
         <SessionProvider>
-          <GoogleMapsProvider>
+          <SocketProvider>
+            <GoogleMapsProvider>
             <ThemeProvider
               attribute="class"
               defaultTheme="dark"
@@ -137,6 +139,7 @@ export default async function RootLayout({
               <JsonLd />
             </ThemeProvider>
           </GoogleMapsProvider>
+          </SocketProvider>
         </SessionProvider>
       </body>
     </html>

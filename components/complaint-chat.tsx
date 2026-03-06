@@ -1,13 +1,14 @@
 "use client";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Send, Lock, Paperclip, X, Loader2 } from "lucide-react";
+import { Send, Lock, Paperclip, X, Loader2, WifiOff } from "lucide-react";
 import Image from "next/image";
-import { io, type Socket } from "socket.io-client";
+import { useSocket } from "@/components/providers/socket-provider";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 import realtimeContracts, {
   type ComplaintMessageDto,
   type ComplaintStateUpdateDto,
+  type TypingStartDto,
 } from "@/lib/realtime/contracts";
 import {
   appendUniqueSortedMessages,
@@ -26,6 +27,8 @@ type ComplaintParticipants = {
 };
 
 type SenderRole = "seeker" | "provider" | "admin" | "system";
+
+const TYPING_DEBOUNCE_MS = 2000;
 
 function getProviderParticipantName(
   provider?: {
@@ -102,6 +105,7 @@ export default function ComplaintChat({
   complaintId: string;
   selfRole: "seeker" | "provider" | "admin";
 }) {
+  const { socket, isConnected, isReconnecting } = useSocket();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
@@ -118,6 +122,11 @@ export default function ComplaintChat({
     providerName: "Provider",
   });
   const hasSocketConnectedRef = useRef(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
+  const [peerTyping, setPeerTyping] = useState<string | null>(null);
+
+  const room = realtimeContracts.getComplaintRoom(complaintId);
 
   const fetchMessages = useCallback(
     async () => {
@@ -200,12 +209,9 @@ export default function ComplaintChat({
     void Promise.all([fetchComplaintMeta(), fetchMessages()]);
   }, [fetchComplaintMeta, fetchMessages]);
 
+  /* ---- Socket.IO lifecycle ---- */
   useEffect(() => {
-    const socket: Socket = io({
-      path: "/socket.io",
-      withCredentials: true,
-    });
-    const room = realtimeContracts.getComplaintRoom(complaintId);
+    if (!socket) return;
 
     const handleConnect = () => {
       socket.emit(
@@ -241,6 +247,16 @@ export default function ComplaintChat({
       setError(nextUiState.error);
     };
 
+    const handleTypingStart = (data: TypingStartDto) => {
+      if (data.room === room) {
+        setPeerTyping(data.userName || "Someone");
+      }
+    };
+
+    const handleTypingStop = () => {
+      setPeerTyping(null);
+    };
+
     socket.on("connect", handleConnect);
     socket.on(
       SERVER_EVENTS.COMPLAINT_MESSAGE_CREATED,
@@ -250,6 +266,13 @@ export default function ComplaintChat({
       SERVER_EVENTS.COMPLAINT_STATE_UPDATED,
       handleComplaintStateUpdate,
     );
+    socket.on(SERVER_EVENTS.TYPING_START, handleTypingStart);
+    socket.on(SERVER_EVENTS.TYPING_STOP, handleTypingStop);
+
+    // If already connected when this effect runs, join immediately.
+    if (socket.connected) {
+      handleConnect();
+    }
 
     return () => {
       socket.emit(CLIENT_EVENTS.ROOM_LEAVE, { room });
@@ -262,9 +285,32 @@ export default function ComplaintChat({
         SERVER_EVENTS.COMPLAINT_STATE_UPDATED,
         handleComplaintStateUpdate,
       );
-      socket.disconnect();
+      socket.off(SERVER_EVENTS.TYPING_START, handleTypingStart);
+      socket.off(SERVER_EVENTS.TYPING_STOP, handleTypingStop);
     };
-  }, [complaintId, fetchComplaintMeta, fetchMessages, selfRole]);
+  }, [socket, complaintId, room, fetchComplaintMeta, fetchMessages, selfRole]);
+
+  /* ---- Typing indicator ---- */
+  const emitTypingStart = useCallback(() => {
+    if (!socket || !isConnected) return;
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      socket.emit(CLIENT_EVENTS.TYPING_START, { room });
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      socket.emit(CLIENT_EVENTS.TYPING_STOP, { room });
+    }, TYPING_DEBOUNCE_MS);
+  }, [socket, isConnected, room]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+    if (e.target.value.trim()) {
+      emitTypingStart();
+    }
+  };
 
   const uploadAttachments = useCallback(
     async (fileList: FileList | null) => {
@@ -334,6 +380,14 @@ export default function ComplaintChat({
     }
     setLoading(true);
     setError(null);
+
+    // Stop typing indicator on send.
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (isTypingRef.current && socket) {
+      isTypingRef.current = false;
+      socket.emit(CLIENT_EVENTS.TYPING_STOP, { room });
+    }
+
     try {
       const res = await fetch(`/api/complaints/${complaintId}/messages`, {
         method: "POST",
@@ -395,6 +449,14 @@ export default function ComplaintChat({
 
   return (
     <div className="flex flex-col h-full bg-background/50 relative rounded-2xl overflow-hidden border border-border/50">
+      {/* Disconnect banner */}
+      {!isConnected && hasSocketConnectedRef.current && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium px-3 py-2 animate-pulse">
+          <WifiOff className="w-3.5 h-3.5" />
+          {isReconnecting ? "Reconnecting..." : "Connection lost"}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent min-h-100">
         {messages.length === 0 && !loading && !error && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 space-y-2">
@@ -486,6 +548,16 @@ export default function ComplaintChat({
             </div>
           );
         })}
+
+        {/* Typing indicator */}
+        {peerTyping && (
+          <div className="flex justify-start">
+            <div className="rounded-2xl px-4 py-2.5 bg-muted/60 text-muted-foreground text-xs italic animate-pulse rounded-bl-sm">
+              {peerTyping} is typing…
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -556,7 +628,7 @@ export default function ComplaintChat({
             <input
               className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               placeholder="Type a message..."
               disabled={loading}
             />
