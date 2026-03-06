@@ -1,4 +1,4 @@
-# LaundryEase — Presentation Q&A Helper (Rev 10)
+# LaundryEase — Presentation Q&A Helper (Rev 11)
 
 > **Purpose**: This document helps you answer any question your HODs and teachers may ask about your project. Read it fully before your mock presentation.
 
@@ -60,6 +60,8 @@
 4. **Full record keeping**: Every change is saved for openness and trust
 5. **Custom UI throughout**: No native browser `alert()`/`confirm()`/`prompt()` — all confirmations use designed in-app modals that match the app's look and work on keyboard
 6. **2-hour cancellation window**: Seekers get a clear, timed free-cancel window; a live countdown badge on the booking card tells them exactly how long they have
+7. **Cancel at invoice stage**: Even after the provider has created an invoice, seekers can still cancel using "Cancel & Reject Invoice" — the booking fee is forfeited (provider did physical work), but the seeker is never trapped
+8. **Real-time chat**: Booking and complaint conversations update instantly via Socket.IO — no page refresh needed
 
 ---
 
@@ -1212,10 +1214,10 @@ await db
 **Answer**:
 
 ```
-requested → accepted → pickup_proposed → confirmed → invoice_created
-    ↓           ↓             ↓               ↓             ↓
- rejected   cancelled   reschedule_requested  ↩          Order created
-                             ↓
+requested → accepted → pickup_proposed → confirmed → invoice_created → completed
+    ↓           ↓             ↓               ↓             ↓ ↓
+ rejected   cancelled   reschedule_requested  ↩         cancelled  Order created
+                             ↓                          (fee forfeited)
                      (back to propose/confirm loop)
 ```
 
@@ -1234,14 +1236,16 @@ requested → accepted → pickup_proposed → confirmed → invoice_created
 - Seeker cancels **within 2 hours** of booking creation → booking fee **refunded**
 - Seeker cancels **after 2 hours** (before slot time) → booking fee **forfeited**
 - Seeker tries to cancel **at or after the slot time** → **blocked** at API level
+- **Seeker cancels at `invoice_created` stage** → **always allowed; fee always forfeited** — the slot time guard is bypassed because the provider has already physically collected and inspected the items; the button label changes to **"Cancel & Reject Invoice"** and a fee-forfeit warning appears in the confirm dialog
 - Provider cancels → **always** refunds booking fee to seeker
 - A **live countdown badge** on the seeker's booking card ticks every 10 seconds so they know exactly how long they have left
 
 **Invoice Review Flow**:
 
 - Seeker can view invoice details (items, photos, pricing)
-- Seeker can approve invoice and pay → Order created
-- Seeker can reject invoice with reason → Items returned to provider
+- Seeker can **approve** invoice and pay → Order created
+- Seeker can **reject** invoice with reason → Items returned to provider (fee forfeited)
+- Seeker can **cancel & reject invoice** (new) → Booking cancelled, fee forfeited — for when the seeker wants to walk away entirely after seeing the invoice
 - Past invoices viewable in read-only mode from payment history
 
 **Reschedule flow details**:
@@ -1320,6 +1324,47 @@ Operational detail from current code:
 - Seeker/provider complaint menus show only ongoing cases (`open`, `accepted`, `in_review`).
 - Provider sees complaint navigation only after admin grants provider access.
 - After `resolved`/`rejected`, seeker/provider chat input is locked and the thread is archived in UI.
+
+---
+
+### Q: How does real-time chat work?
+
+**Answer**: LaundryEase uses **Socket.IO** for live message delivery in booking chat and complaint chat. Here's how it works end-to-end:
+
+**Server side** (`server.js`):
+
+```
+HTTP Server (Node.js)
+  ├── Next.js request handler  (all normal pages + API routes)
+  └── Socket.IO Server         (WebSocket upgrades on /socket.io)
+        ├── Auth middleware: getToken() from next-auth/jwt on every connection
+        ├── booking:join    → authorizeBookingRoom() → DB check → join room
+        ├── complaint:join  → authorizeComplaintRoom() → DB check + access gate → join room
+        ├── typing:start/stop → relay to room
+        └── disconnect
+```
+
+**Client side** (`components/providers/socket-provider.tsx`):
+- `SocketProvider` wraps the dashboard layout and creates one Socket.IO connection per authenticated session
+- `useSocket()` hook gives any component access to `{ socket, isConnected, isReconnecting }`
+- When a message is sent via REST API (`POST /api/bookings/[id]/chat`), the route handler calls `emitBookingMessage()` from `lib/realtime/emitter.ts` which pushes the `booking:message:created` event to the room
+
+**Security**:
+- Every socket connection is authenticated via NextAuth JWT — no connection without a valid session
+- Room joins are verified against MongoDB — you can only join a room for a booking/complaint you participate in
+- Provider can only join a complaint room after an admin explicitly grants access (`provider_access_granted = true`)
+- Per-socket rate limiting: 20 join events per 60 seconds per connection
+
+**Events** (defined in `lib/realtime/contracts.js`):
+
+| Direction | Event | Purpose |
+| --- | --- | --- |
+| Client → Server | `booking:join` / `complaint:join` | Enter a chat room |
+| Client → Server | `room:leave` | Leave a room |
+| Client → Server | `typing:start` / `typing:stop` | Typing indicator |
+| Server → Client | `booking:message:created` | New booking chat message pushed live |
+| Server → Client | `complaint:message:created` | New complaint chat message pushed live |
+| Server → Client | `complaint:state:updated` | Complaint status change (e.g., provider added) |
 
 ---
 
@@ -1651,8 +1696,8 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 
 Current quality snapshot:
 
-- `104` test files
-- `551` tests passing (100% core route coverage)
+- `108` test files
+- `565` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
@@ -1660,7 +1705,8 @@ Current quality snapshot:
 
 Key test coverage highlights:
 
-- **Cancellation policy**: 10 unit tests — both actors, boundary (exactly 2h), before/after window, all `bookingFeeStatus` values
+- **Cancellation policy**: 11 unit tests — both actors, boundary (exactly 2h), before/after window, all `bookingFeeStatus` values, `invoice_created` forced-forfeit case
+- **Realtime modules** (`lib/realtime/`): socket-auth room authorization, emitter dispatch, chat-state serialization
 - **Reschedule route**: tests for `$unset confirmedAt`, TOCTOU-safe atomic status filter
 - **Schedule route**: propose/confirm TOCTOU guards, `updatedAt` correctness
 - **Dialog/hook behavior**: `useConfirmDialog`, headless `handleCancelBooking` callback
@@ -1966,16 +2012,18 @@ Use these points if you are asked about differences between the PRD and what is 
 
 - **Historical data cleanup**: 30+ unique indexes enforce integrity, but old duplicate data can still block index creation until cleaned. The app triggers a `system_alert` for each index failure and refuses startup in production unless `ALLOW_START_WITH_INDEX_ERRORS=1` is set.
 - **Webhook payload retention**: Archive policy for old `webhook_events` payloads is still a backlog item. The `webhook-cleanup` cron purges events older than 30 days, but no long-term archive exists.
-- **CSP rollout**: CSP is currently in Report-Only mode; enforcement requires violation cleanup. Switch to enforce mode via `CSP_ENFORCE=true`.
+- **CSP rollout**: CSP is currently in Report-Only mode; enforcement requires violation cleanup. Switch to enforce mode via `CSP_ENFORCE=true`. Also, `connect-src` uses broad `wss:` — should be tightened to `wss://<domain>` in production.
 - **Password-recovery CAPTCHA**: Forgot-password flow has per-IP + per-email rate limiting, but production should add CAPTCHA (reCAPTCHA/hCaptcha) for additional anti-abuse hardening.
 - **Session invalidation delay**: Password change invalidation has ≤5 minute delay (periodic JWT re-check). Instant revocation would require stateful session management.
 - **Team calendar integration**: Alert owner routing uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`); real on-call scheduling requires external calendar integration.
 - **Reschedule abuse prevention**: No caps or cooldowns on reschedule requests — theoretically either party could loop indefinitely. Policy needed (caps, cooldowns, or admin escalation).
 - **Split-settlement reconciliation**: If one financial leg succeeds and the other fails, admin has `manual_transfer_details` but no automated reconciliation tooling.
-- **Real-time push**: Booking/order status updates rely on polling (SWR). WebSocket or SSE would give instant updates.
+- **Real-time push for order status**: Order status updates (not chat) still rely on polling (SWR). Socket.IO covers chat; order status push via WebSocket/SSE is a future enhancement.
 - **E2E test for password reset**: No Playwright test covering full forgot-password → email outbox → follow link → reset → login flow yet.
+- **E2E test for Socket.IO chat and cancel-at-invoice**: No Playwright E2E coverage for real-time chat flows or the cancel-at-invoice-stage scenario yet.
+- **DEMO_MODE in .env**: `DEMO_MODE=1` is set in the local `.env` for development — must be removed before any public deployment (demo cron panel bypasses external scheduler auth).
 
-## Key Features Implemented (Full System — 2026-03-05)
+## Key Features Implemented (Full System — 2026-03-06 Rev 11)
 
 ### Core Workflow
 - **Full booking lifecycle**: requested → accepted → pickup_proposed → reschedule_requested → confirmed → invoice_created → completed/cancelled/rejected
@@ -1985,7 +2033,8 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Delivery OTP**: 6-digit bcrypt-hashed OTP with 10-minute TTL, sent via email outbox, verifiable by both seeker and provider
 - **Deadline compensation**: Automatic full Razorpay refund on late delivery at OTP confirmation — idempotent (checks `deadline_compensated_at`, `razorpay_refund_id`, and payment status)
 - **Booking reschedule (hardened)**: Either side can request reschedule; explicit `reschedule_requested` state stores `requestedBy`, `reason`, `previousPickupSlot`; `pickupSlot.confirmedAt` cleared via MongoDB `$unset` (not `$set: undefined`); propose/confirm writes TOCTOU-safe with atomic status guards
-- **Cancellation policy engine** (`lib/bookings/cancellation-policy.ts`): Pure function `evaluateCancellationPolicy()` is single source of truth — seeker free-cancel window = **2 hours from booking creation** (`SEEKER_FREE_CANCEL_WINDOW_MS`); after window, fee forfeited; provider cancel always refunds; fully unit-tested (10 cases)
+- **Cancellation policy engine** (`lib/bookings/cancellation-policy.ts`): Pure function `evaluateCancellationPolicy()` is single source of truth — seeker free-cancel window = **2 hours from booking creation** (`SEEKER_FREE_CANCEL_WINDOW_MS`); after window, fee forfeited; provider cancel always refunds; fully unit-tested (11 cases)
+- **Cancel at `invoice_created` stage**: Seekers can cancel after provider has created an invoice — the slot-time guard is bypassed and the booking fee is **always forfeited** (provider did physical work). UI shows "Cancel & Reject Invoice" button with a fee-forfeit warning in the confirm dialog. Policy engine, API, and UI all updated consistently.
 
 ### Financial System
 - **Escrow**: 24-hour hold after delivery; complaint blocks release; transactional release with audit log
@@ -2010,8 +2059,20 @@ Use these points if you are asked about differences between the PRD and what is 
 - **`SettlementSummaryModal`** (`components/ui/settlement-summary-modal.tsx`): Structured provider payout + seeker refund cards with UPI/bank/card details, manual-transfer amber warning banner, auto vs manual badge
 - **Inline `BanUserDialog`**: Replaces `window.prompt()` for ban reason in admin user management
 - **Headless `useBookingActions`** (`hooks/use-booking-actions.ts`): `handleCancelBooking` accepts optional `requestConfirm` callback — hook owns network call, component owns dialog UI
-- **Seeker booking list tabs**: All / Pending / Active / **Reschedule** (new tab)
+- **Seeker booking list tabs**: All / Pending / Active / **Reschedule** tab
 - **Live countdown badge**: Free-cancel window timer on booking card, updates every 10 seconds, wording/color changes after expiry
+- **"Cancel & Reject Invoice" button**: At `invoice_created` stage the cancel button changes label and shows a fee-forfeit warning in the confirm dialog — no accidental cancellations after provider has collected items
+
+### Real-Time Chat (Socket.IO)
+- **Custom Node.js server** (`server.js`): Attaches a Socket.IO `Server` to the same HTTP server as Next.js — single port, no separate process
+- **JWT auth on every connection**: `getToken()` from `next-auth/jwt` validates the NextAuth session cookie; unauthenticated connections rejected before any room join
+- **Room authorization** (`lib/realtime/socket-auth.js`): DB-verified participant check for booking rooms; DB-verified participant + `provider_access_granted` gate for complaint rooms
+- **Per-socket rate limiting**: 20 join events per 60-second window; excess returns `{ ok: false, error: "rate_limited" }` — prevents join-event floods
+- **`SocketProvider`** (`components/providers/socket-provider.tsx`): React context maintaining one Socket.IO connection per authenticated session; exposes `{ socket, isConnected, isReconnecting }` via `useSocket()` hook
+- **Server-side emitter** (`lib/realtime/emitter.ts`): API route handlers call `emitBookingMessage()` / `emitComplaintMessage()` / `emitComplaintStateUpdate()` which push events to rooms via `globalThis._socketIoServer`
+- **Shared contracts** (`lib/realtime/contracts.js`): Event name constants + room name helpers + message serializers — CommonJS module used by both `server.js` and TypeScript code
+- **CSP WebSocket support**: `connect-src` includes `ws:` and `wss:`; `upgrade-insecure-requests` is production-only so Socket.IO polling works over plain HTTP on localhost
+- **All realtime modules unit-tested**: `socket-auth.test.ts`, `emitter.test.ts`, `chat-state.test.ts`
 
 ### Security & Hardening
 - **CSP pipeline**: Content-Security-Policy in Report-Only mode with violation capture endpoint; enforce via `CSP_ENFORCE=true`
@@ -2044,10 +2105,17 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Structured logging**: Pino with native secret redaction (password, token, otp, apiKey, secret, etc.), pretty-printing in dev, JSON in production
 - **APM**: Datadog dd-trace (service: `laundryease-web`) + DogStatsD metrics via hot-shots (prefix: `laundryease.`)
 
+### Demo & Local Development
+- **Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`): `DEMO_MODE=1` in `.env` enables in-process invocation of all 10 cron handlers from the admin demo panel — no external scheduler required for local testing or demos
+- Each dispatch creates a fully authorized `NextRequest` with `CRON_SECRET` bearer token and calls the handler directly in-process
+- Results (status, duration, payload) returned to the admin UI for inspection
+- **Must be disabled in production** — set `DEMO_MODE=0` or remove the env var before any public deployment
+
 ### Testing & CI
-- **104 test files, 551 unit tests** passing (Vitest + mongodb-memory-server)
-- **New test coverage (Rev 10)**: `passwordChangedAt` set on profile password change (seeker + provider), password-changed email enqueuing verified
-- **Retained from Rev 9**: cancellation policy — 10 tests (both actors, 2h boundary, all fee states); reschedule `$unset`/TOCTOU; schedule route atomic guards; `useConfirmDialog` hook; headless `handleCancelBooking` callback
+- **108 test files, 565 unit tests** passing (Vitest + mongodb-memory-server)
+- **New test coverage (Rev 11)**: realtime socket-auth room authorization, emitter dispatch, chat-state serialization, cancellation policy `invoice_created` forced-forfeit case (+1 → 11 total)
+- **Retained from Rev 10**: `passwordChangedAt` on profile password change (seeker + provider), password-changed email enqueuing verified
+- **Retained from Rev 9**: cancellation policy — 11 tests (both actors, 2h boundary, `invoice_created` stage, all fee states); reschedule `$unset`/TOCTOU; schedule route atomic guards; `useConfirmDialog` hook; headless `handleCancelBooking` callback
 - **5 Playwright E2E specs**: smoke-role-journeys, complaint-chat-journey, settlement-chain-journey, booking-lifecycle-journey, booking-negative-journeys
 - **3 GitHub CI workflows**: Quality Gates (typecheck → lint → test → build → E2E), Real Gateway Smoke (live Razorpay), Governance Audit (branch protection)
 - **Local release parity**: `npm run verify:gates`
@@ -2068,16 +2136,18 @@ Use these points if you are asked about differences between the PRD and what is 
 - `public/manifest.json` — PWA manifest
 - `public/og-image.png` — Open Graph image
 
-## Quick Presentation Tips (Updated 2026-03-05)
+## Quick Presentation Tips (Updated 2026-03-06 Rev 11)
 
 1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
 3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
-4. **Show what's special**: Escrow system, 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, secure password management with session invalidation
-5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes, SHA-256 token hashing for password resets, JWT session invalidation on password change"
-6. **Mention production quality**: "104 test files, 551 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
+4. **Show what's special**: Escrow system, 3-way real-time Socket.IO complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with session invalidation
+5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO co-hosted with Next.js for real-time chat, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes, SHA-256 token hashing for password resets, JWT session invalidation on password change"
+6. **Mention production quality**: "108 test files, 565 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
-8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 1hr reset token TTL, 5-min session re-check, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 5 email types, 104 test files, 551 tests
+8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 1hr reset token TTL, 5-min session re-check, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 5 email types, 108 test files, 565 tests
 9. **Password security talking point**: "We never store raw reset tokens — only SHA-256 hashes. Even if the database is compromised, the tokens are useless. And when a password changes, all existing sessions are invalidated within 5 minutes automatically."
+10. **Real-time talking point**: "Booking chat and complaint chat are powered by Socket.IO running on the same server as Next.js. Every connection is JWT-authenticated and room access is verified against MongoDB — seekers can only join rooms for their own bookings."
+11. **Cancel-at-invoice talking point**: "We respect both sides. Even after a provider has collected the items and created an invoice, the seeker can still cancel — they just forfeit the ₹50 booking fee as fair compensation for the provider's physical work. The policy engine, the API, and the UI all enforce this consistently."
 
 **Good luck with your presentation! 🚀**
