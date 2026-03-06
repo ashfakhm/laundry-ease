@@ -1,10 +1,10 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-03-06 (Rev 11)
+**Last Updated:** 2026-03-07 (Rev 12)
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes a full complaint/dispute resolution system with 3-way real-time chat (Socket.IO), commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase), and a professional password management system with secure token-based reset, session invalidation on password change, and branded security notification emails.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes real-time Socket.IO messaging for both **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin), commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase), and a professional password management system with secure token-based reset, session invalidation on password change, and branded security notification emails.
 
 ```mermaid
 graph LR
@@ -195,8 +195,8 @@ laundry-ease/
 │   │   ├── confirm-dialog.tsx    # ConfirmDialog + useConfirmDialog hook (replaces window.confirm)
 │   │   ├── settlement-summary-modal.tsx # Settlement details modal (replaces alert dumps)
 │   │   └── [16 other ui components]
-│   ├── chat-interface.tsx        # Booking chat with dispute modal
-│   ├── complaint-chat.tsx        # 3-way complaint chat
+│   ├── order-chat.tsx            # Real-time order chat (Socket.IO)
+│   ├── complaint-chat.tsx        # 3-way complaint chat (Socket.IO)
 │   └── landing-page-client.tsx   # Landing page client component
 │
 ├── hooks/
@@ -738,7 +738,7 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 | `/api/bookings/[id]/schedule`           | POST     | Propose/confirm pickup slot    |
 | `/api/bookings/[id]/reschedule/request` | POST     | Request reschedule             |
 | `/api/bookings/[id]/dispute`            | POST     | File dispute on booking        |
-| `/api/bookings/[id]/chat`               | GET/POST | Booking chat messages          |
+| `/api/bookings/[id]/chat`               | GET/POST | Booking chat messages (legacy) |
 | `/api/bookings/[id]/invoice`            | POST     | Create invoice                 |
 | `/api/bookings/[id]/pay`                | POST     | Pay booking fee                |
 | `/api/bookings/[id]/pay-invoice`        | POST     | Pay invoice amount             |
@@ -749,19 +749,20 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 
 **Order API:**
 
-| Route                                | Method | Purpose                         |
-| ------------------------------------ | ------ | ------------------------------- |
-| `/api/orders`                        | GET    | List orders                     |
-| `/api/orders/[id]/status`            | PATCH  | Update order process status     |
-| `/api/orders/[id]/payment`           | POST   | Initialize/verify order payment |
-| `/api/orders/[id]/pay`               | POST   | Legacy payment alias            |
-| `/api/orders/[id]/confirm-delivery`  | POST   | Seeker confirms delivery (OTP)  |
-| `/api/orders/[id]/otp`               | POST   | Generate/resend delivery OTP    |
-| `/api/orders/[id]/otp/verify`        | POST   | Provider verifies delivery OTP  |
-| `/api/orders/[id]/schedule-delivery` | POST   | Propose/confirm delivery slot   |
-| `/api/orders/[id]/cancel`            | POST   | Cancel order                    |
-| `/api/orders/provider`               | GET    | Provider's orders               |
-| `/api/orders/seeker`                 | GET    | Seeker's orders                 |
+| Route                                | Method   | Purpose                         |
+| ------------------------------------ | -------- | ------------------------------- |
+| `/api/orders`                        | GET      | List orders                     |
+| `/api/orders/[id]/chat`              | GET/POST | Order chat messages (real-time) |
+| `/api/orders/[id]/status`            | PATCH    | Update order process status     |
+| `/api/orders/[id]/payment`           | POST     | Initialize/verify order payment |
+| `/api/orders/[id]/pay`               | POST     | Legacy payment alias            |
+| `/api/orders/[id]/confirm-delivery`  | POST     | Seeker confirms delivery (OTP)  |
+| `/api/orders/[id]/otp`               | POST     | Generate/resend delivery OTP    |
+| `/api/orders/[id]/otp/verify`        | POST     | Provider verifies delivery OTP  |
+| `/api/orders/[id]/schedule-delivery` | POST     | Propose/confirm delivery slot   |
+| `/api/orders/[id]/cancel`            | POST     | Cancel order                    |
+| `/api/orders/provider`               | GET      | Provider's orders               |
+| `/api/orders/seeker`                 | GET      | Seeker's orders                 |
 
 **Admin API:**
 
@@ -875,8 +876,9 @@ All crons:
 | `admins`                | Admin accounts                           | Admin type                                |
 | `bookings`              | Booking lifecycle records                | Booking type                              |
 | `orders`                | Order lifecycle with financials          | Order type                                |
+| `order_chats`           | Order chat messages (seeker ↔ provider)  | OrderChatMessage documents                |
 | `complaints`            | Dispute records                          | Complaint type                            |
-| `complaint_messages`    | Chat messages                            | ComplaintMessage type                     |
+| `complaint_messages`    | Complaint chat messages                  | ComplaintMessage type                     |
 | `reviews`               | Seeker reviews of providers              | Review type                               |
 | `audit_logs`            | State change audit trail                 | AuditLogEntry type (TTL: 30 days)         |
 | `system_alerts`         | Operational health alerts                | Alert documents                           |
@@ -888,6 +890,7 @@ All crons:
 | `webhook_events`        | Razorpay webhook events                  | Event documents                           |
 | `payments`              | Payment records                          | Payment documents                         |
 | `refunds`               | Refund records                           | Refund documents                          |
+| `chats`                 | Legacy booking chat messages (deprecated)| Chat documents                            |
 
 ### Key Indexes (`lib/db-indexes.ts`)
 
@@ -1010,7 +1013,7 @@ RootLayout (app/layout.tsx)
 | Component                       | Purpose                                                                                                                                                                                                                               |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `landing-page-client.tsx`       | Animated landing with spotlight cards, text-generate effect                                                                                                                                                                           |
-| `chat-interface.tsx`            | Real-time booking chat with dispute filing modal — uses `useSocket()` for live message push                                                                                                                                           |
+| `order-chat.tsx`                | Real-time order chat (seeker ↔ provider) — uses `useSocket()` for live message push via `order:message:created` events, typing indicators, disconnect banner                                                                         |
 | `complaint-chat.tsx`            | 3-way complaint chat (seeker/provider/admin) — uses `useSocket()` for live message push and complaint state updates                                                                                                                   |
 | `socket-provider.tsx`           | `SocketProvider` context + `useSocket()` hook — maintains one Socket.IO connection per authenticated session, exposes `{ socket, isConnected, isReconnecting }`                                                                      |
 | `invoice-form.tsx`              | Provider invoice creation with line items and photos                                                                                                                                                                                  |
@@ -1211,7 +1214,7 @@ flowchart LR
 
 ### Unit Tests (Vitest)
 
-- **108 test files**, **565 tests** passing
+- **108 test files**, **571 tests** passing
 - Located alongside source files as `*.test.ts`
 - In-memory MongoDB via `mongodb-memory-server`
 - Coverage areas:
@@ -1292,6 +1295,16 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 | File                                   | Purpose                                                                    |
 | -------------------------------------- | -------------------------------------------------------------------------- |
+| `server.js`                            | Custom Node.js server — HTTP + Socket.IO + Next.js                         |
+| `lib/realtime/contracts.js`            | Shared event names, room helpers, message serializers (CommonJS)           |
+| `lib/realtime/contracts.d.ts`          | TypeScript declarations for contracts                                      |
+| `lib/realtime/socket-auth.js`          | `authorizeBookingRoom()`, `authorizeComplaintRoom()`, `authorizeOrderRoom()`, `resolveRealtimeUserFromToken()` |
+| `lib/realtime/emitter.ts`             | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()` — API route → Socket.IO bridge |
+| `lib/realtime/chat-state.ts`          | Chat message state helpers (sort, dedup, archive detection)                |
+| `components/order-chat.tsx`           | Real-time order chat component (Socket.IO push)                            |
+| `components/complaint-chat.tsx`       | 3-way complaint chat component (Socket.IO push)                            |
+| `components/providers/socket-provider.tsx` | `SocketProvider` context + `useSocket()` hook                          |
+| `app/api/orders/[id]/chat/route.ts`   | Order chat REST endpoint (GET history + POST message)                      |
 | `lib/mongodb.ts`                       | Database connection + index bootstrap                                      |
 | `lib/env.ts`                           | Zod environment validation (lazy singleton)                                |
 | `lib/constants.ts`                     | All business constants and thresholds                                      |
@@ -1325,40 +1338,40 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 | `lib/services/admin-stats.ts`          | Admin dashboard statistics (alerts, complaints, escrow, providers, orders) |
 | `lib/services/refund-lock.ts`          | Distributed refund lock                                                    |
 | `lib/services/system-alerts.ts`        | System alert trigger helpers                                               |
-| `lib/payouts/amounts.ts`               | Commission/payout calculation with decimal.js                              |
-| `lib/utils/monetary.ts`                | round2, toPaise, formatInr, MONEY_EPSILON                                  |
+| `lib/payouts/amounts.ts`              | Commission/payout calculation with decimal.js                              |
+| `lib/utils/monetary.ts`               | round2, toPaise, formatInr, MONEY_EPSILON                                  |
 | `lib/utils/delivery-charge.ts`         | Distance-based delivery fee calculation                                    |
 | `lib/security/csp.ts`                  | CSP policy builder                                                         |
-| `lib/security/origin.ts`               | Origin validation helpers                                                  |
+| `lib/security/origin.ts`              | Origin validation helpers                                                  |
 | `lib/ops/health.ts`                    | Operational signal evaluation                                              |
-| `lib/ops/alert-delivery.ts`            | Delivery plan builder (notify + escalate)                                  |
-| `lib/ops/alert-channels.ts`            | Email/webhook/PagerDuty delivery                                           |
-| `lib/ops/alert-lifecycle.ts`           | Alert state management                                                     |
-| `lib/ops/alerts-analytics.ts`          | 7-day trend, burn-rate, MTTR                                               |
-| `lib/ops/ack-sla.ts`                   | Alert acknowledgement SLA tracking                                         |
-| `lib/ops/owner-routing.ts`             | SLA-based alert owner assignment with load balancing                       |
-| `lib/audit/integrity.ts`               | Order/payment/booking consistency checks                                   |
-| `lib/auth/password-policy.ts`          | Password strength rules                                                    |
-| `lib/password-reset-email.ts`          | Branded password reset email template (HTML + plain text)                  |
-| `lib/password-changed-email.ts`        | Security notification email for password changes                           |
-| `lib/db/escrow.ts`                     | Escrow hold/release with transactions                                      |
-| `lib/db/transaction.ts`                | MongoDB transaction wrapper                                                |
-| `lib/webhooks/razorpay-handlers.ts`    | Razorpay event processing                                                  |
-| `app/api/forgot-password/route.ts`     | Token-based password reset request with anti-enumeration                   |
-| `app/api/reset-password/route.ts`      | Password reset execution with session invalidation                         |
-| `app/reset-password/page.tsx`          | Client-side reset form with show/hide toggle                               |
-| `cron/auto-reject-bookings.ts`         | Auto-reject expired bookings logic                                         |
-| `cron/no-show-check.ts`                | No-show detection + refund logic                                           |
-| `next.config.ts`                       | Next.js config (React Compiler, CSP headers, HSTS)                         |
-| `vercel.json`                          | Vercel config + 10 cron schedules                                          |
+| `lib/ops/alert-delivery.ts`           | Delivery plan builder (notify + escalate)                                  |
+| `lib/ops/alert-channels.ts`           | Email/webhook/PagerDuty delivery                                           |
+| `lib/ops/alert-lifecycle.ts`          | Alert state management                                                     |
+| `lib/ops/alerts-analytics.ts`         | 7-day trend, burn-rate, MTTR                                               |
+| `lib/ops/ack-sla.ts`                  | Alert acknowledgement SLA tracking                                         |
+| `lib/ops/owner-routing.ts`            | SLA-based alert owner assignment with load balancing                       |
+| `lib/audit/integrity.ts`             | Order/payment/booking consistency checks                                   |
+| `lib/auth/password-policy.ts`         | Password strength rules                                                    |
+| `lib/password-reset-email.ts`         | Branded password reset email template (HTML + plain text)                  |
+| `lib/password-changed-email.ts`       | Security notification email for password changes                           |
+| `lib/db/escrow.ts`                    | Escrow hold/release with transactions                                      |
+| `lib/db/transaction.ts`              | MongoDB transaction wrapper                                                |
+| `lib/webhooks/razorpay-handlers.ts`  | Razorpay event processing                                                  |
+| `app/api/forgot-password/route.ts`   | Token-based password reset request with anti-enumeration                   |
+| `app/api/reset-password/route.ts`    | Password reset execution with session invalidation                         |
+| `app/reset-password/page.tsx`        | Client-side reset form with show/hide toggle                               |
+| `cron/auto-reject-bookings.ts`       | Auto-reject expired bookings logic                                         |
+| `cron/no-show-check.ts`             | No-show detection + refund logic                                           |
+| `next.config.ts`                     | Next.js config (React Compiler, CSP headers, HSTS)                         |
+| `vercel.json`                        | Vercel config + 10 cron schedules                                          |
 
 ---
 
-## 16. Current Project Status (Rev 11)
+## 16. Current Project Status (Rev 12)
 
-**Quality Snapshot (2026-03-06):**
+**Quality Snapshot (2026-03-07):**
 
-- 108 test files, 565 tests passing (100% core route coverage)
+- 108 test files, 571 tests passing (100% core route coverage)
 - 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
@@ -1389,7 +1402,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
 - Email outbox with retry/backoff (delivery OTP, password reset, password changed, magic link, email OTP) — 5 email types
-- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` maintains one authenticated connection per session; booking and complaint rooms with JWT auth and per-socket rate limiting (20 joins/min)
+- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` maintains one authenticated connection per session; **order chat** and **complaint chat** rooms with JWT auth and per-socket rate limiting (20 joins/min); order chat replaced the previous booking-scoped chat system
 - **Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`) — `DEMO_MODE=1` enables in-process cron invocation for local testing without external scheduler
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
@@ -1598,6 +1611,7 @@ erDiagram
     seekers ||--o{ bookings : "creates"
     providers ||--o{ bookings : "receives"
     bookings ||--o| orders : "produces"
+    orders ||--o{ order_chats : "contains"
     orders ||--o| complaints : "may trigger"
     complaints ||--o{ complaint_messages : "contains"
     orders ||--o| reviews : "may receive"
@@ -1631,6 +1645,14 @@ erDiagram
         string payment_status
         string payout_status
     }
+    order_chats {
+        ObjectId _id
+        ObjectId order_id
+        string sender_id
+        string sender_role
+        string message
+        date createdAt
+    }
     complaints {
         ObjectId _id
         string status
@@ -1653,17 +1675,17 @@ erDiagram
 
 ---
 
-## Summary (Rev 11)
+## Summary (Rev 12)
 
 LaundryEase is a production-grade laundry marketplace built with:
 
 1. **Trust-First Design** — Escrow payments, OTP-verified delivery, tracked state transitions
 2. **Clear Role Separation** — Seeker, Provider, Admin with distinct workflows and dashboards
 3. **Robust State Machines** — Booking (10 states, including cancel-at-invoice) and Order (7 process states × 5 payment states) with explicit, enforced transitions
-4. **Comprehensive Dispute Resolution** — 3-way real-time Socket.IO chat, commission-aware split settlements, manual fallback for failed auto-actions
+4. **Comprehensive Dispute Resolution** — 3-way real-time Socket.IO complaint chat, commission-aware split settlements, manual fallback for failed auto-actions
 5. **Financial Precision** — decimal.js for calculations, paise integers for Razorpay, distributed locks for concurrent safety
 6. **Production-Ready Infrastructure** — 10 cron jobs (+ in-process demo runner), operational alerting with SLA/escalation/owner routing, email outbox with retry (5 types), MongoDB-backed rate limiting, structured logging with secret redaction, Datadog APM
 7. **Professional Password Management** — Secure token-based reset (SHA-256, 1hr TTL), anti-enumeration, branded email notifications, JWT session invalidation on password change (5-min re-check), password show/hide UX
-8. **Quality Assurance** — 108 test files (565 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
+8. **Quality Assurance** — 108 test files (571 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
 9. **Operational Observability** — Cron run tracking, data integrity auditing, abuse monitoring, alert analytics (trend/burn-rate/MTTR), CSP violation reporting
-10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
+10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
