@@ -116,9 +116,16 @@ export async function POST(
         "pickup_proposed",
         "reschedule_requested",
         "confirmed",
+        "invoice_created",
       ];
 
-      if (pickupSlotTime && now >= pickupSlotTime) {
+      // At invoice_created the provider has already arrived (pickup slot is in the past by definition).
+      // Allow cancellation here — the seeker forfeits the booking fee as compensation.
+      if (
+        booking.status !== "invoice_created" &&
+        pickupSlotTime &&
+        now >= pickupSlotTime
+      ) {
         return errorResponse(
           new AppError(
             ErrorCode.CONFLICT,
@@ -149,6 +156,7 @@ export async function POST(
       bookingCreatedAt,
       pickupSlotTime,
       now,
+      bookingStatus: booking.status,
     });
 
     if (!policy.allowed) {

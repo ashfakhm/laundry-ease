@@ -12,6 +12,8 @@ export type CancellationPolicyInput = {
   bookingCreatedAt: Date;
   pickupSlotTime: Date | null;
   now: Date;
+  /** Current booking status — used to force fee forfeiture at invoice_created stage. */
+  bookingStatus?: string;
 };
 
 export type CancellationPolicyDecision = {
@@ -35,8 +37,14 @@ export type CancellationPolicyDecision = {
 export function evaluateCancellationPolicy(
   input: CancellationPolicyInput,
 ): CancellationPolicyDecision {
-  const { actor, bookingFeeStatus, bookingCreatedAt, pickupSlotTime, now } =
-    input;
+  const {
+    actor,
+    bookingFeeStatus,
+    bookingCreatedAt,
+    pickupSlotTime,
+    now,
+    bookingStatus,
+  } = input;
 
   // Block seeker if the pickup slot has already started / passed.
   if (actor === "seeker" && pickupSlotTime && now >= pickupSlotTime) {
@@ -70,6 +78,11 @@ export function evaluateCancellationPolicy(
     if (actor === "provider") {
       // Provider-initiated cancellation always refunds the seeker in full.
       refundAction = "refund";
+    } else if (bookingStatus === "invoice_created") {
+      // Seeker cancels after provider has already collected items and created an invoice.
+      // The booking fee is always forfeited regardless of the time window —
+      // the provider has done significant physical work at this point.
+      refundAction = "forfeit";
     } else if (withinFreeCancelWindow) {
       // Seeker cancels within the 2-hour grace window — full refund.
       refundAction = "refund";

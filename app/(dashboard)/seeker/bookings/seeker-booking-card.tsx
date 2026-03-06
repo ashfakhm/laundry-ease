@@ -58,13 +58,17 @@ function SeekerBookingCardComponent({
     : NaN;
   const beforePickupSlot = Number.isNaN(pickupSlotMs) || now < pickupSlotMs;
   const canCancelRequest =
-    [
+    // invoice_created: provider already collected items — always cancellable
+    // (pickup slot has passed by definition, so bypass the beforePickupSlot guard)
+    booking.status === "invoice_created" ||
+    ([
       "requested",
       "accepted",
       "pickup_proposed",
       "reschedule_requested",
       "confirmed",
-    ].includes(booking.status) && beforePickupSlot;
+    ].includes(booking.status) &&
+      beforePickupSlot);
 
   /** Human-readable "Xh Ym" or "Xm" remaining string. */
   function formatRemaining(ms: number): string {
@@ -647,7 +651,20 @@ function SeekerBookingCardComponent({
                 <div className="flex flex-col gap-2">
                   {/* Cancel-window policy badge */}
                   {booking.bookingFeeStatus === "paid" &&
-                    (withinFreeWindow ? (
+                    (booking.status === "invoice_created" ? (
+                      <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-3 py-2 dark:bg-red-950/20 dark:border-red-800/50">
+                        <Clock className="h-3.5 w-3.5 text-red-600 dark:text-red-400 shrink-0" />
+                        <p className="text-xs font-semibold text-red-700 dark:text-red-300">
+                          The provider has collected your items and created an
+                          invoice.{" "}
+                          <span className="font-bold">
+                            Your ₹{booking.bookingFee ?? 50} booking fee will be
+                            forfeited
+                          </span>{" "}
+                          as compensation if you cancel now.
+                        </p>
+                      </div>
+                    ) : withinFreeWindow ? (
                       <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 dark:bg-emerald-950/20 dark:border-emerald-800/50">
                         <Clock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
@@ -675,21 +692,30 @@ function SeekerBookingCardComponent({
                   <div className="flex justify-end">
                     <button
                       onClick={() => {
+                        const isInvoiceStage =
+                          booking.status === "invoice_created";
                         const feeWarning =
-                          booking.bookingFeeStatus === "paid" &&
-                          !withinFreeWindow
-                            ? ` Your ₹${booking.bookingFee ?? 50} booking fee will be forfeited — the 2-hour free-cancel window has passed.`
-                            : booking.bookingFeeStatus === "paid"
-                              ? " Your booking fee will be refunded."
-                              : "";
+                          booking.bookingFeeStatus === "paid"
+                            ? isInvoiceStage
+                              ? ` The provider has already collected your items and created an invoice. Your ₹${booking.bookingFee ?? 50} booking fee will be forfeited as compensation for their work.`
+                              : !withinFreeWindow
+                                ? ` Your ₹${booking.bookingFee ?? 50} booking fee will be forfeited — the 2-hour free-cancel window has passed.`
+                                : " Your booking fee will be refunded."
+                            : "";
                         showConfirm({
-                          title: "Cancel Booking",
+                          title: isInvoiceStage
+                            ? "Cancel & Reject Invoice"
+                            : "Cancel Booking",
                           message: `Are you sure you want to cancel this booking?${feeWarning}`,
                           confirmText:
-                            withinFreeWindow ||
+                            isInvoiceStage ||
                             booking.bookingFeeStatus !== "paid"
-                              ? "Yes, Cancel & Refund"
-                              : "Yes, Cancel (fee forfeited)",
+                              ? isInvoiceStage
+                                ? "Yes, Cancel (fee forfeited)"
+                                : "Yes, Cancel"
+                              : withinFreeWindow
+                                ? "Yes, Cancel & Refund"
+                                : "Yes, Cancel (fee forfeited)",
                           cancelText: "Keep Booking",
                           variant: "danger",
                           onConfirm: async () => {
@@ -702,12 +728,20 @@ function SeekerBookingCardComponent({
                               const data = await res.json();
                               if (!res.ok) throw new Error(data.message);
                               toast({
-                                title: "Booking Cancelled",
+                                title:
+                                  booking.status === "invoice_created"
+                                    ? "Booking Cancelled & Invoice Rejected"
+                                    : "Booking Cancelled",
                                 description:
                                   booking.bookingFeeStatus === "paid" &&
+                                  booking.status !== "invoice_created" &&
                                   withinFreeWindow
                                     ? "Your booking fee will be refunded shortly."
-                                    : undefined,
+                                    : booking.bookingFeeStatus === "paid" &&
+                                        (booking.status === "invoice_created" ||
+                                          !withinFreeWindow)
+                                      ? `Your ₹${booking.bookingFee ?? 50} booking fee has been forfeited as compensation.`
+                                      : undefined,
                                 type: "success",
                               });
                               onRefresh();
@@ -729,7 +763,11 @@ function SeekerBookingCardComponent({
                       disabled={processing}
                       className="text-xs font-bold text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
                     >
-                      {processing ? "Cancelling..." : "Cancel Request"}
+                      {processing
+                        ? "Cancelling..."
+                        : booking.status === "invoice_created"
+                          ? "Cancel & Reject Invoice"
+                          : "Cancel Request"}
                     </button>
                   </div>
                 </div>
