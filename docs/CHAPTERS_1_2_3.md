@@ -247,9 +247,11 @@ The proposed system, LaundryEase, is a full-stack web application that digitizes
 
 6. **Complaint and Dispute Resolution:** Customers can file complaints within 24 hours of delivery, immediately freezing the escrow. Administrators triage complaints through a state machine (open → accepted → in_review → resolved/rejected) with a 3-party chat system. Resolution options include full payout release, full refund of the distributable amount, partial split settlement, or complaint rejection—all commission-aware.
 
-7. **Automated Payouts:** Provider bank accounts are linked and verified through Razorpay. Upon escrow release, payouts are initiated automatically via RazorpayX with idempotent processing, failure tracking, and admin manual intervention capability.
+7. **Real-Time Order Chat:** Once an order is created (after invoice payment), seekers and providers can exchange messages in real time via Socket.IO. The chat operates on `order:<id>` rooms with JWT-authenticated connections and DB-verified participant authorization. Messages are persisted in the `order_chats` MongoDB collection and pushed live to all connected participants — no polling required. The provider messages inbox, order-status page, and seeker order detail page all embed the order chat interface.
 
-8. **Automated Background Operations:** Cron jobs handle stale booking auto-rejection (2-hour timeout), no-show detection (30 minutes past confirmed pickup), and email outbox processing with exponential backoff retry.
+8. **Automated Payouts:** Provider bank accounts are linked and verified through Razorpay. Upon escrow release, payouts are initiated automatically via RazorpayX with idempotent processing, failure tracking, and admin manual intervention capability.
+
+9. **Automated Background Operations:** Cron jobs handle stale booking auto-rejection (2-hour timeout), no-show detection (30 minutes past confirmed pickup), and email outbox processing with exponential backoff retry.
 
 ### 3.4 Requirement Specification
 
@@ -271,6 +273,7 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 - **Automated Payouts:** RazorpayX-based provider payouts with 5% platform commission, idempotent processing, failure tracking, and admin manual intervention.
 - **Review System:** Post-delivery star ratings (1–5) with optional text comments, aggregated to provider profile.
 - **Cancellation Policies:** Seeker cancels within 2 hours of booking creation → full refund of booking fee. Seeker cancels after 2-hour window (statuses: accepted, pickup_proposed, reschedule_requested, confirmed) → booking fee forfeited as compensation to provider. Seeker cancels at `invoice_created` stage (before paying the invoice) → booking fee always forfeited regardless of time window, because the provider has already physically collected and catalogued items. Provider cancellation at any pre-arrival stage → full refund to seeker. Post-pickup-slot-time cancellation blocked for seekers except at `invoice_created` stage (where the slot is necessarily in the past). Once an invoice is paid and an order is created, cancellation is permanently blocked for both parties.
+- **Real-Time Order Chat:** Seekers and providers can exchange messages on active orders in real time via Socket.IO (`order:<id>` rooms). Messages are persisted in the `order_chats` MongoDB collection and pushed live to connected participants. The provider messages inbox aggregates recent order chats. The provider order-status page and seeker order detail page embed inline chat panels.
 - **Notification System:** Email notifications for booking updates, invoice creation, payment confirmations, delivery OTP, and complaint status changes via email outbox with retry.
 - **Admin Operations:** User management (suspend, flag, block), complaint triage, manual payout intervention, and operational health monitoring with automated alerts.
 - **Cron Automation:** Auto-rejection of stale bookings (2-hour timeout), no-show detection (30 minutes past pickup), and email outbox batch processing.
@@ -372,7 +375,7 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 | **Image CDN**      | Cloudinary                   | Upload, transform, and serve images for invoices, profiles, and complaint evidence |
 | **Schema Validation** | Zod 4                     | Runtime type validation for API inputs and data integrity |
 | **Form Management**| React Hook Form              | Performant, declarative form state handling     |
-| **Real-Time Messaging** | Socket.IO 4.8.3 (server + client) | Bidirectional WebSocket communication for live complaint chat and typing indicators |
+| **Real-Time Messaging** | Socket.IO 4.8.3 (server + client) | Bidirectional WebSocket communication for live order chat and complaint chat with typing indicators |
 | **Client Caching** | SWR                          | Stale-while-revalidate data fetching with automatic cache invalidation |
 | **Financial Math** | Decimal.js                   | Arbitrary-precision decimal arithmetic for monetary calculations |
 | **Logging**        | Pino                         | Structured JSON logging with secret redaction   |
