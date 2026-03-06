@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
+import { CRON_JOB_NAMES, type CronJobName } from "@/lib/constants";
 
 interface ActiveComplaintPreview {
   _id: string;
@@ -66,6 +67,12 @@ interface AdminStats {
   recentSystemAlerts: SystemAlertPreview[];
 }
 
+type DemoCronResponse = {
+  job: CronJobName;
+  durationMs: number;
+  payload: unknown;
+};
+
 function getComplaintStatusLabel(status: string) {
   if (status === "in_review") return "In Review";
   if (status === "accepted") return "Accepted";
@@ -119,6 +126,11 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ackInFlight, setAckInFlight] = useState<string | null>(null);
+  const [demoCronRunning, setDemoCronRunning] = useState<CronJobName | null>(null);
+  const [demoCronResult, setDemoCronResult] = useState<DemoCronResponse | null>(
+    null,
+  );
+  const [demoCronError, setDemoCronError] = useState<string | null>(null);
 
   async function fetchStats(showLoader = false) {
     if (showLoader) {
@@ -178,6 +190,40 @@ export default function AdminDashboardPage() {
       reportError("AlertAcknowledgeError", error);
     } finally {
       setAckInFlight(null);
+    }
+  }
+
+  async function runDemoCron(job: CronJobName) {
+    setDemoCronRunning(job);
+    setDemoCronError(null);
+
+    try {
+      const response = await fetch("/api/admin/demo/cron", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ job }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          payload?.error?.message ||
+            payload?.message ||
+            "Failed to run demo cron job",
+        );
+      }
+
+      setDemoCronResult(unwrapApiData<DemoCronResponse>(payload));
+      await fetchStats(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to run demo cron job";
+      setDemoCronError(message);
+      reportError("DemoCronRunError", error);
+    } finally {
+      setDemoCronRunning(null);
     }
   }
 
@@ -329,6 +375,57 @@ export default function AdminDashboardPage() {
                   ? `${utilizationPct}% of ${totalProviders} providers active in last 7 days`
                   : "No providers onboarded yet"}
               </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border bg-card/50 p-8 shadow-sm backdrop-blur-md">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2 lg:max-w-xl">
+              <h2 className="text-lg font-bold text-foreground">
+                Local Demo Tools
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Run cron-backed flows from localhost during the presentation.
+                This panel works only when <code>DEMO_MODE=1</code>.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {CRON_JOB_NAMES.map((job) => (
+                  <button
+                    key={job}
+                    type="button"
+                    onClick={() => runDemoCron(job)}
+                    disabled={demoCronRunning !== null}
+                    className="rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {demoCronRunning === job ? "Running..." : job}
+                  </button>
+                ))}
+              </div>
+              {demoCronError && (
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-700">
+                  {demoCronError}
+                </div>
+              )}
+            </div>
+
+            <div className="w-full max-w-2xl rounded-2xl border border-border/60 bg-background/60 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Latest Demo Run
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {demoCronResult
+                      ? `${demoCronResult.job} in ${demoCronResult.durationMs}ms`
+                      : "No demo cron job has been run yet."}
+                  </p>
+                </div>
+              </div>
+
+              <pre className="mt-4 max-h-80 overflow-auto rounded-xl bg-muted/40 p-3 text-xs leading-5 text-foreground">
+                {JSON.stringify(demoCronResult?.payload ?? {}, null, 2)}
+              </pre>
             </div>
           </div>
         </section>

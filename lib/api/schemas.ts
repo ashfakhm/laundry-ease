@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CRON_JOB_NAMES } from "@/lib/constants";
 
 /**
  * Centralized validation schemas for API requests
@@ -417,6 +418,10 @@ export const complaintMessageSchema = z.object({
 
 export const bookingChatMessageSchema = z.object({
   message: z.string().min(1).max(2000),
+});
+
+export const demoCronJobSchema = z.object({
+  job: z.enum(CRON_JOB_NAMES),
 });
 
 export const bookingDisputeSchema = z.object({

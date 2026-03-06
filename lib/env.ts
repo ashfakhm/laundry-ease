@@ -62,6 +62,7 @@ const envSchema = z.object({
 
   // Feature Flags / Development
   E2E_FAKE_PAYMENTS: z.enum(["0", "1"]).optional().default("0"),
+  DEMO_MODE: z.enum(["0", "1"]).optional().default("0"),
   PROVIDER_SEARCH_DEBUG: z.enum(["true", "false"]).optional().default("false"),
   ALLOW_BASE64_UPLOAD_FALLBACK: z.enum(["0", "1"]).optional().default("0"),
   ALLOW_START_WITH_INDEX_ERRORS: z.enum(["0", "1"]).optional().default("0"),
