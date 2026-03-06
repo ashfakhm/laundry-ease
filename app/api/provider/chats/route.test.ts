@@ -44,18 +44,20 @@ describe("GET /api/provider/chats", () => {
   it("returns mapped chat summaries for provider", async () => {
     const providerId = new ObjectId();
     const senderId = new ObjectId();
-    const bookingId = new ObjectId();
+    const orderId = new ObjectId();
     const createdAt = new Date("2026-02-19T12:00:00.000Z");
 
-    mockRequireProvider.mockResolvedValue({ user: { id: providerId.toString() } });
+    mockRequireProvider.mockResolvedValue({
+      user: { id: providerId.toString() },
+    });
 
     const chatsToArray = vi.fn().mockResolvedValue([
       {
-        _id: bookingId,
-        booking_status: "confirmed",
+        _id: orderId,
+        process_status: "washing",
+        payment_status: "paid",
         createdAt,
         seeker: { name: "Naseeb", email: "naseeb@example.com" },
-        order: { process_status: "washing" },
         lastMessage: {
           message: "On the way",
           sender_id: senderId,

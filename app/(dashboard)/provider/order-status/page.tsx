@@ -13,10 +13,12 @@ import {
   TruckIcon,
   ShieldCheck,
   Send,
+  MessageSquare,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
+import OrderChat from "@/components/order-chat";
 import {
   Select,
   SelectContent,
@@ -126,6 +128,7 @@ export default function OrderStatusPage() {
     "all" | "active" | "completed" | "cancelled"
   >("active");
   const [updating, setUpdating] = useState<string | null>(null);
+  const [openChatId, setOpenChatId] = useState<string | null>(null);
 
   // OTP Modal State
   const [otpModalOpen, setOtpModalOpen] = useState(false);
@@ -690,8 +693,34 @@ export default function OrderStatusPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Chat toggle button */}
+                    <button
+                      onClick={() =>
+                        setOpenChatId((prev) =>
+                          prev === order._id ? null : order._id,
+                        )
+                      }
+                      className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+                        openChatId === order._id
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-muted border-border"
+                      }`}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      {openChatId === order._id ? "Close Chat" : "Chat"}
+                    </button>
                   </div>
                 </div>
+
+                {/* Expandable Chat Panel */}
+                {openChatId === order._id && (
+                  <div className="mt-4 border-t pt-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="h-96 rounded-2xl border border-border/50 overflow-hidden bg-card">
+                      <OrderChat orderId={order._id} selfRole="provider" />
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

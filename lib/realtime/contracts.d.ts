@@ -18,6 +18,15 @@ export type ComplaintMessageDto = {
   createdAt: string;
 };
 
+export type OrderChatMessageDto = {
+  _id: string;
+  order_id: string;
+  sender_id: string;
+  sender_role: string;
+  message: string;
+  createdAt: string;
+};
+
 export type ComplaintStateUpdateDto = {
   complaintId: string;
   status: string;
@@ -40,6 +49,7 @@ declare const realtimeContracts: {
   CLIENT_EVENTS: {
     BOOKING_JOIN: "booking:join";
     COMPLAINT_JOIN: "complaint:join";
+    ORDER_JOIN: "order:join";
     ROOM_LEAVE: "room:leave";
     TYPING_START: "typing:start";
     TYPING_STOP: "typing:stop";
@@ -48,16 +58,25 @@ declare const realtimeContracts: {
     BOOKING_MESSAGE_CREATED: "booking:message:created";
     COMPLAINT_MESSAGE_CREATED: "complaint:message:created";
     COMPLAINT_STATE_UPDATED: "complaint:state:updated";
+    ORDER_MESSAGE_CREATED: "order:message:created";
     TYPING_START: "typing:start";
     TYPING_STOP: "typing:stop";
   };
   getBookingRoom(bookingId: string): string;
   getComplaintRoom(complaintId: string): string;
-  serializeBookingChatMessage(message: Record<string, unknown>): BookingChatMessageDto;
-  serializeComplaintMessage(message: Record<string, unknown>): ComplaintMessageDto;
+  getOrderRoom(orderId: string): string;
+  serializeBookingChatMessage(
+    message: Record<string, unknown>,
+  ): BookingChatMessageDto;
+  serializeComplaintMessage(
+    message: Record<string, unknown>,
+  ): ComplaintMessageDto;
   serializeComplaintStateUpdate(
     input: Record<string, unknown>,
   ): ComplaintStateUpdateDto;
+  serializeOrderChatMessage(
+    message: Record<string, unknown>,
+  ): OrderChatMessageDto;
 };
 
 export default realtimeContracts;

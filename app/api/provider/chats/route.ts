@@ -9,31 +9,29 @@ export async function GET() {
   try {
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     const { db } = await getDb();
     const providerId = new ObjectId(user.id);
 
-    // 1. Find all active bookings for this provider
-    // 2. Lookup messages for each booking
-    // 3. Filter out bookings with no messages
+    // Aggregate orders that have order_chats messages for this provider
     const chats = await db
-      .collection("bookings")
+      .collection("orders")
       .aggregate([
         {
           $match: {
             provider_id: providerId,
-            // status: { $ne: "cancelled" } // Optional: Keep cancelled chats if history needed?
-            // Usually valid to see history even if cancelled. Let's keep filters minimal.
           },
         },
-        // Join with Chats collection
+        // Join with order_chats collection
         {
           $lookup: {
-            from: "chats",
+            from: "order_chats",
             localField: "_id",
-            foreignField: "booking_id",
+            foreignField: "order_id",
             as: "messages",
           },
         },
@@ -53,59 +51,45 @@ export async function GET() {
           },
         },
         { $unwind: "$seeker" },
-        // Join with Orders (optional, for status context)
-        {
-          $lookup: {
-            from: "orders",
-            localField: "_id",
-            foreignField: "booking_id",
-            as: "order",
-          },
-        },
         // Project strict structure for frontend
         {
           $project: {
-            _id: 1, // booking_id
-            booking_status: "$status",
+            _id: 1, // order_id
+            process_status: 1,
+            payment_status: 1,
             createdAt: 1,
             seeker: {
               name: 1,
               email: 1,
               phone: 1,
             },
-            order: { $arrayElemAt: ["$order", 0] },
-            // Get last message efficiently from the looked-up array
-            // Note: Chats lookup might return unsorted, so we should sort messages
-            messages: 1, // Need to sort this array first?
+            messages: 1,
           },
         },
-        // Add fields for sorting
+        // Derive last message and message count
         {
-           $addFields: {
-              lastMessage: { 
-                 $arrayElemAt: [
-                    {
-                       $filter: {
-                          input: { 
-                              $sortArray: { input: "$messages", sortBy: { createdAt: -1 } } 
-                          },
-                          as: "m",
-                          cond: true // just take the sorted array
-                       }
-                    }, 
-                    0
-                 ] 
-              },
-              messageCount: { $size: "$messages" }
-           }
+          $addFields: {
+            lastMessage: {
+              $arrayElemAt: [
+                {
+                  $sortArray: {
+                    input: "$messages",
+                    sortBy: { createdAt: -1 },
+                  },
+                },
+                0,
+              ],
+            },
+            messageCount: { $size: "$messages" },
+          },
         },
-        // Cleanup: We don't need the full messages array anymore
+        // Drop the full messages array
         {
-           $project: {
-              messages: 0 
-           }
+          $project: {
+            messages: 0,
+          },
         },
-        // Sort entire conversation list by latest message
+        // Sort conversation list by latest message
         {
           $sort: {
             "lastMessage.createdAt": -1,
@@ -114,18 +98,20 @@ export async function GET() {
       ])
       .toArray();
 
-    // Transform to match frontend types if needed
-    const formattedChats = chats.map(chat => ({
-        _id: chat._id,
-        status: chat.order?.process_status || chat.booking_status, // Use order status if available
-        createdAt: chat.createdAt,
-        seeker: chat.seeker,
-        lastMessage: chat.lastMessage ? {
+    // Transform to match frontend ChatPreview type
+    const formattedChats = chats.map((chat) => ({
+      _id: chat._id,
+      status: chat.process_status || "invoiced",
+      createdAt: chat.createdAt,
+      seeker: chat.seeker,
+      lastMessage: chat.lastMessage
+        ? {
             text: chat.lastMessage.message,
-            sender: chat.lastMessage.sender_id.toString(),
-            timestamp: chat.lastMessage.createdAt
-        } : null,
-        messageCount: chat.messageCount
+            sender: chat.lastMessage.sender_id?.toString?.() || "",
+            timestamp: chat.lastMessage.createdAt,
+          }
+        : null,
+      messageCount: chat.messageCount,
     }));
 
     return successResponse(formattedChats);
@@ -135,6 +121,8 @@ export async function GET() {
     }
 
     logger.error("PROVIDER", "Error fetching provider chats", error);
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
+    );
   }
 }

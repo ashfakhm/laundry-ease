@@ -1,12 +1,10 @@
 "use client";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Send, AlertTriangle, WifiOff } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Send, WifiOff } from "lucide-react";
 import { useSocket } from "@/components/providers/socket-provider";
-import { EvidenceUpload } from "@/components/ui/evidence-upload";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 import realtimeContracts, {
-  type BookingChatMessageDto,
+  type OrderChatMessageDto,
   type TypingStartDto,
 } from "@/lib/realtime/contracts";
 import {
@@ -16,40 +14,19 @@ import {
   sortMessages,
 } from "@/lib/realtime/chat-state";
 
-interface DisputeState {
-  open: boolean;
-  title: string;
-  reason: string;
-  details: string;
-  photos: string[];
-  loading: boolean;
-  error: string | null;
-  success: string | null;
-}
-
-type ChatMessage = BookingChatMessageDto & {
+type ChatMessage = OrderChatMessageDto & {
   sender_role: "seeker" | "provider";
 };
 
-const COMPLAINT_TYPES = [
-  { value: "late_delivery", label: "Late Delivery" },
-  { value: "damaged_item", label: "Damaged Item" },
-  { value: "missing_item", label: "Missing Item" },
-  { value: "quality_issue", label: "Quality Issue" },
-  { value: "partial_service", label: "Partial Service" },
-  { value: "other", label: "Other" },
-];
-
 const TYPING_DEBOUNCE_MS = 2000;
 
-export default function BookingChat({
-  bookingId,
+export default function OrderChat({
+  orderId,
   selfRole,
 }: {
-  bookingId: string;
+  orderId: string;
   selfRole: "seeker" | "provider";
 }) {
-  const router = useRouter();
   const { socket, isConnected, isReconnecting } = useSocket();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,22 +40,12 @@ export default function BookingChat({
   const isTypingRef = useRef(false);
   const [peerTyping, setPeerTyping] = useState<string | null>(null);
 
-  const [dispute, setDispute] = useState<DisputeState>({
-    open: false,
-    title: "",
-    reason: "late_delivery",
-    details: "",
-    photos: [],
-    loading: false,
-    error: null,
-    success: null,
-  });
+  const room = realtimeContracts.getOrderRoom(orderId);
 
-  const room = realtimeContracts.getBookingRoom(bookingId);
-
+  /* ---- Fetch messages from REST API ---- */
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch(`/api/bookings/${bookingId}/chat`, {
+      const res = await fetch(`/api/orders/${orderId}/chat`, {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to load");
@@ -93,8 +60,9 @@ export default function BookingChat({
     } finally {
       setLoadingMessages(false);
     }
-  }, [bookingId]);
+  }, [orderId]);
 
+  /* ---- Initial fetch ---- */
   useEffect(() => {
     setLoadingMessages(true);
     setMessages([]);
@@ -108,14 +76,15 @@ export default function BookingChat({
 
     const handleConnect = () => {
       socket.emit(
-        CLIENT_EVENTS.BOOKING_JOIN,
-        { bookingId },
+        CLIENT_EVENTS.ORDER_JOIN,
+        { orderId },
         (result?: { ok?: boolean; error?: string }) => {
           if (result?.ok === false) {
             setError(result.error || "Could not join realtime chat");
             return;
           }
 
+          // On reconnect, re-fetch to pick up any messages missed during disconnect
           if (hasSocketConnectedRef.current) {
             void fetchMessages();
           } else {
@@ -144,7 +113,7 @@ export default function BookingChat({
 
     socket.on("connect", handleConnect);
     socket.on(
-      SERVER_EVENTS.BOOKING_MESSAGE_CREATED,
+      SERVER_EVENTS.ORDER_MESSAGE_CREATED,
       handleRealtimeMessage,
     );
     socket.on(SERVER_EVENTS.TYPING_START, handleTypingStart);
@@ -159,13 +128,13 @@ export default function BookingChat({
       socket.emit(CLIENT_EVENTS.ROOM_LEAVE, { room });
       socket.off("connect", handleConnect);
       socket.off(
-        SERVER_EVENTS.BOOKING_MESSAGE_CREATED,
+        SERVER_EVENTS.ORDER_MESSAGE_CREATED,
         handleRealtimeMessage,
       );
       socket.off(SERVER_EVENTS.TYPING_START, handleTypingStart);
       socket.off(SERVER_EVENTS.TYPING_STOP, handleTypingStop);
     };
-  }, [socket, bookingId, room, fetchMessages]);
+  }, [socket, orderId, room, fetchMessages]);
 
   /* ---- Typing indicator ---- */
   const emitTypingStart = useCallback(() => {
@@ -189,13 +158,14 @@ export default function BookingChat({
     }
   };
 
+  /* ---- Send message ---- */
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
     setLoading(true);
     setError(null);
 
-    // Stop typing indicator on send.
+    // Stop typing indicator on send
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     if (isTypingRef.current && socket) {
       isTypingRef.current = false;
@@ -203,7 +173,7 @@ export default function BookingChat({
     }
 
     try {
-      const res = await fetch(`/api/bookings/${bookingId}/chat`, {
+      const res = await fetch(`/api/orders/${orderId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: input }),
@@ -223,55 +193,7 @@ export default function BookingChat({
     }
   }
 
-  async function handleDisputeSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setDispute((d) => ({ ...d, loading: true, error: null, success: null }));
-    try {
-      // Use new API: POST /api/complaints
-      const res = await fetch(`/api/complaints`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          booking_id: bookingId, // Pass bookingId, API resolves order
-          title: dispute.title,
-          complaint_type: dispute.reason,
-          description: dispute.details,
-          photos: dispute.photos,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error?.message || "Failed to raise dispute");
-      }
-
-      const payload = await res.json();
-      const data = unwrapApiData<{ _id?: string }>(payload);
-      const complaintId = data?._id;
-      if (!complaintId) {
-        throw new Error("Complaint created but ID is missing");
-      }
-
-      setDispute((d) => ({
-        ...d,
-        loading: false,
-        success: "Dispute raised! Redirecting...",
-      }));
-
-      setTimeout(() => {
-        router.push(`/seeker/disputes/${complaintId}`);
-      }, 1000);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Could not raise dispute";
-      setDispute((d) => ({
-        ...d,
-        loading: false,
-        error: message,
-      }));
-    }
-  }
-
+  /* ---- Auto-scroll ---- */
   useEffect(() => {
     if (shouldAutoScroll) {
       messagesEndRef.current?.scrollIntoView({
@@ -292,6 +214,7 @@ export default function BookingChat({
         </div>
       )}
 
+      {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
         {messages.length === 0 && !loadingMessages && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 space-y-2">
@@ -299,6 +222,12 @@ export default function BookingChat({
               <Send className="w-5 h-5" />
             </div>
             <p className="text-sm font-medium">Start the conversation</p>
+          </div>
+        )}
+
+        {loadingMessages && messages.length === 0 && (
+          <div className="flex items-center justify-center h-full">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         )}
 
@@ -317,9 +246,7 @@ export default function BookingChat({
               }`}
             >
               <p>{msg.message}</p>
-              <div
-                className={`text-[10px] mt-1 text-right opacity-60 leading-none`}
-              >
+              <div className="text-[10px] mt-1 text-right opacity-60 leading-none">
                 {new Date(msg.createdAt).toLocaleTimeString("en-IN", {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -348,14 +275,6 @@ export default function BookingChat({
         onSubmit={sendMessage}
         className="flex gap-2 p-3 border-t bg-card/80 backdrop-blur-sm"
       >
-        <button
-          type="button"
-          className="p-2.5 text-amber-500 hover:bg-amber-500/10 rounded-full transition-colors"
-          title="Raise Dispute"
-          onClick={() => setDispute((d) => ({ ...d, open: true }))}
-        >
-          <AlertTriangle className="w-5 h-5" />
-        </button>
         <input
           className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
           value={input}
@@ -375,117 +294,6 @@ export default function BookingChat({
       {error && (
         <div className="text-destructive text-xs p-2 text-center bg-destructive/5 font-medium">
           {error}
-        </div>
-      )}
-
-      {/* Dispute Modal */}
-      {dispute.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-card rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200 border border-border my-auto">
-            <h2 className="text-xl font-heading font-bold mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" /> Report an
-              Issue
-            </h2>
-            <form onSubmit={handleDisputeSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
-                  Issue Title
-                </label>
-                <input
-                  type="text"
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                  value={dispute.title}
-                  onChange={(e) =>
-                    setDispute((d) => ({ ...d, title: e.target.value }))
-                  }
-                  required
-                  placeholder="Summarize the problem"
-                  minLength={5}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
-                  Category
-                </label>
-                <select
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                  value={dispute.reason}
-                  onChange={(e) =>
-                    setDispute((d) => ({ ...d, reason: e.target.value }))
-                  }
-                  required
-                >
-                  {COMPLAINT_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
-                  Description
-                </label>
-                <textarea
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-25 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                  value={dispute.details}
-                  onChange={(e) =>
-                    setDispute((d) => ({ ...d, details: e.target.value }))
-                  }
-                  required
-                  placeholder="Describe the issue in detail..."
-                  minLength={10}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
-                  Evidence (Optional)
-                </label>
-                <EvidenceUpload
-                  value={dispute.photos}
-                  onChange={(urls) =>
-                    setDispute((d) => ({ ...d, photos: urls }))
-                  }
-                />
-              </div>
-
-              {(dispute.error || dispute.success) && (
-                <div
-                  className={`p-3 rounded-xl text-sm font-medium ${dispute.error ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600"}`}
-                >
-                  {dispute.error || dispute.success}
-                </div>
-              )}
-
-              <div className="flex gap-3 justify-end pt-2">
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
-                  onClick={() =>
-                    setDispute((d) => ({
-                      ...d,
-                      open: false,
-                      error: null,
-                      success: null,
-                    }))
-                  }
-                  disabled={dispute.loading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-amber-500/20"
-                  disabled={dispute.loading}
-                >
-                  {dispute.loading ? "Submitting..." : "Submit Report"}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>

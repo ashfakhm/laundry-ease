@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger";
 
 type BookingMessageRecord = Record<string, unknown>;
 type ComplaintMessageRecord = Record<string, unknown>;
+type OrderMessageRecord = Record<string, unknown>;
 
 function getIo() {
   return globalThis._socketIoServer;
@@ -50,6 +51,19 @@ export function emitComplaintMessageCreated(message: ComplaintMessageRecord) {
     { message: serialized },
     {
       complaintId: serialized.complaint_id,
+      messageId: serialized._id,
+    },
+  );
+}
+
+export function emitOrderMessageCreated(message: OrderMessageRecord) {
+  const serialized = realtimeContracts.serializeOrderChatMessage(message);
+  emitToRoom(
+    realtimeContracts.getOrderRoom(serialized.order_id),
+    realtimeContracts.SERVER_EVENTS.ORDER_MESSAGE_CREATED,
+    { message: serialized },
+    {
+      orderId: serialized.order_id,
       messageId: serialized._id,
     },
   );

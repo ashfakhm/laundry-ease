@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { InvoiceForm } from "@/components/providers/invoice-form";
-import BookingChat from "@/components/chat-interface";
+import OrderChat from "@/components/order-chat";
 import { requireProvider } from "@/lib/api/auth";
 
 export default async function CreateInvoicePage({
@@ -27,7 +27,9 @@ export default async function CreateInvoicePage({
   const { db } = await getDb();
 
   // Get provider
-  const provider = await db.collection("providers").findOne({ _id: providerId });
+  const provider = await db
+    .collection("providers")
+    .findOne({ _id: providerId });
 
   if (!provider) {
     redirect("/provider/profile");
@@ -47,6 +49,13 @@ export default async function CreateInvoicePage({
     .collection("seekers")
     .findOne({ _id: new ObjectId(booking.seeker_id) });
 
+  // Look up order by booking_id — chat is only available after order is created
+  const order = await db
+    .collection("orders")
+    .findOne({ booking_id: new ObjectId(id) }, { projection: { _id: 1 } });
+
+  const orderId = order?._id?.toString() ?? null;
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <header className="mb-8">
@@ -59,13 +68,20 @@ export default async function CreateInvoicePage({
       </header>
       <div className="bg-card border border-border rounded-2xl p-6 mb-8">
         <InvoiceForm bookingId={id} />
-        <p className="text-sm text-muted-foreground mt-2">
-          Booking ID: {id}
-        </p>
+        <p className="text-sm text-muted-foreground mt-2">Booking ID: {id}</p>
       </div>
       <div className="mt-8">
         <h2 className="font-semibold text-lg mb-2">Chat with Seeker</h2>
-        <BookingChat bookingId={id} selfRole="provider" />
+        {orderId ? (
+          <OrderChat orderId={orderId} selfRole="provider" />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Chat will be available after the invoice is created and the order
+              is generated.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

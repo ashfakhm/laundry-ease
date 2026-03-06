@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { PaymentButton } from "@/components/orders/payment-button";
 import Link from "next/link";
-import BookingChat from "@/components/chat-interface";
+import OrderChat from "@/components/order-chat";
 import { PostDeliveryActions } from "@/components/orders/post-delivery-actions";
 import { LiveStatusRefresh } from "@/components/orders/live-status-refresh";
 import { cn } from "@/lib/utils";
@@ -91,7 +91,7 @@ export default async function OrderDetailsPage({
   const processStatus = order.process_status || "invoiced";
   // Any post-payment escrow state should still be treated as “paid” in the UI.
   const isPaid = ["paid", "held", "released", "refunded"].includes(
-    order.payment_status
+    order.payment_status,
   );
   const isDelivered = !!order.otp_confirmed_at || processStatus === "delivered";
   const isTrackingActive = !isCancelled && !isDelivered;
@@ -151,7 +151,7 @@ export default async function OrderDetailsPage({
                   "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border shadow-sm",
                   isPaid
                     ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                    : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                    : "bg-amber-500/10 text-amber-600 border-amber-500/20",
                 )}
               >
                 {isPaid ? "Paid" : "Payment Pending"}
@@ -202,7 +202,7 @@ export default async function OrderDetailsPage({
                             <div
                               className={cn(
                                 "md:hidden absolute left-4.25 top-10 -bottom-6 w-0.5 z-0",
-                                isCompleted ? "bg-primary" : "bg-muted"
+                                isCompleted ? "bg-primary" : "bg-muted",
                               )}
                             />
                           )}
@@ -212,7 +212,7 @@ export default async function OrderDetailsPage({
                               "w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-bold border-4 transition-all duration-500 relative z-10",
                               isCompleted
                                 ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/25 scale-110"
-                                : "bg-card border-muted text-muted-foreground"
+                                : "bg-card border-muted text-muted-foreground",
                             )}
                           >
                             {isCompleted ? (
@@ -228,8 +228,8 @@ export default async function OrderDetailsPage({
                                 isCurrent
                                   ? "text-primary"
                                   : isCompleted
-                                  ? "text-foreground"
-                                  : "text-muted-foreground"
+                                    ? "text-foreground"
+                                    : "text-muted-foreground",
                               )}
                             >
                               {step.label}
@@ -322,10 +322,7 @@ export default async function OrderDetailsPage({
                     instructions.
                   </p>
                   <div className="h-125 border border-border/50 rounded-3xl overflow-hidden shadow-xl shadow-black/5 bg-card">
-                    <BookingChat
-                      bookingId={order.booking_id.toString()}
-                      selfRole="seeker"
-                    />
+                    <OrderChat orderId={id} selfRole="seeker" />
                   </div>
                 </div>
               )}

@@ -20,6 +20,7 @@ const realtimeContracts = require("./lib/realtime/contracts");
 const {
   authorizeBookingRoom,
   authorizeComplaintRoom,
+  authorizeOrderRoom,
   resolveRealtimeUserFromToken,
 } = require("./lib/realtime/socket-auth");
 
@@ -103,10 +104,12 @@ async function findUserByEmail(email) {
   ];
 
   for (const [collectionName, role] of collections) {
-    const user = await db.collection(collectionName).findOne(
-      { email: normalizedEmail },
-      { projection: { _id: 1, email: 1 } },
-    );
+    const user = await db
+      .collection(collectionName)
+      .findOne(
+        { email: normalizedEmail },
+        { projection: { _id: 1, email: 1 } },
+      );
     if (user?._id) {
       return {
         _id: user._id.toString(),
@@ -125,10 +128,12 @@ async function findUserByEmail(email) {
  */
 async function findBookingById(bookingId) {
   const db = await getRealtimeDb();
-  const booking = await db.collection("bookings").findOne(
-    { _id: new ObjectId(bookingId) },
-    { projection: { seeker_id: 1, provider_id: 1 } },
-  );
+  const booking = await db
+    .collection("bookings")
+    .findOne(
+      { _id: new ObjectId(bookingId) },
+      { projection: { seeker_id: 1, provider_id: 1 } },
+    );
   if (!booking) return null;
 
   return {
@@ -161,6 +166,26 @@ async function findComplaintById(complaintId) {
     providerId: complaint.provider_id?.toString?.() || "",
     providerAccessGranted: Boolean(complaint.provider_access_granted),
     status: typeof complaint.status === "string" ? complaint.status : "open",
+  };
+}
+
+/**
+ * Fetch order participant IDs.
+ * @param {string} orderId
+ */
+async function findOrderById(orderId) {
+  const db = await getRealtimeDb();
+  const order = await db
+    .collection("orders")
+    .findOne(
+      { _id: new ObjectId(orderId) },
+      { projection: { seeker_id: 1, provider_id: 1 } },
+    );
+  if (!order) return null;
+
+  return {
+    seeker_id: order.seeker_id?.toString?.() || "",
+    provider_id: order.provider_id?.toString?.() || "",
   };
 }
 
@@ -278,6 +303,33 @@ async function bootstrap() {
       },
     );
 
+    /* ---- Order room join ---- */
+    socket.on(
+      realtimeContracts.CLIENT_EVENTS.ORDER_JOIN,
+      async (payload, acknowledge) => {
+        if (isRateLimited(socket)) {
+          acknowledge?.({ ok: false, error: "rate_limited" });
+          return;
+        }
+
+        const result = await authorizeOrderRoom(
+          {
+            orderId: payload?.orderId,
+            user: socket.data.user,
+          },
+          { findOrderById },
+        );
+
+        if (!result.ok) {
+          acknowledge?.(result);
+          return;
+        }
+
+        await socket.join(result.room);
+        acknowledge?.(result);
+      },
+    );
+
     /* ---- Complaint room join ---- */
     socket.on(
       realtimeContracts.CLIENT_EVENTS.COMPLAINT_JOIN,
@@ -307,7 +359,10 @@ async function bootstrap() {
 
     /* ---- Room leave ---- */
     socket.on(realtimeContracts.CLIENT_EVENTS.ROOM_LEAVE, async (payload) => {
-      if (typeof payload?.room !== "string" || payload.room.trim().length === 0) {
+      if (
+        typeof payload?.room !== "string" ||
+        payload.room.trim().length === 0
+      ) {
         return;
       }
 
@@ -317,19 +372,23 @@ async function bootstrap() {
     /* ---- Typing indicator relay ---- */
     socket.on(realtimeContracts.CLIENT_EVENTS.TYPING_START, (payload) => {
       if (typeof payload?.room !== "string" || !payload.room) return;
-      socket.to(payload.room).emit(realtimeContracts.SERVER_EVENTS.TYPING_START, {
-        userId,
-        userName: socket.data.user?.name || "Someone",
-        room: payload.room,
-      });
+      socket
+        .to(payload.room)
+        .emit(realtimeContracts.SERVER_EVENTS.TYPING_START, {
+          userId,
+          userName: socket.data.user?.name || "Someone",
+          room: payload.room,
+        });
     });
 
     socket.on(realtimeContracts.CLIENT_EVENTS.TYPING_STOP, (payload) => {
       if (typeof payload?.room !== "string" || !payload.room) return;
-      socket.to(payload.room).emit(realtimeContracts.SERVER_EVENTS.TYPING_STOP, {
-        userId,
-        room: payload.room,
-      });
+      socket
+        .to(payload.room)
+        .emit(realtimeContracts.SERVER_EVENTS.TYPING_STOP, {
+          userId,
+          room: payload.room,
+        });
     });
 
     /* ---- Disconnect logging ---- */

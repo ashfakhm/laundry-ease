@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import BookingChat from "@/components/chat-interface";
+import OrderChat from "@/components/order-chat";
 import {
   MessageSquare,
   Search,
@@ -17,7 +17,7 @@ import { formatDistanceToNow } from "date-fns";
 import { unwrapApiArray } from "@/lib/client-api";
 
 type ChatPreview = {
-  _id: string; // booking_id
+  _id: string; // order_id
   status: string;
   createdAt: string;
   seeker: {
@@ -261,7 +261,7 @@ export default function ProviderMessagesPage() {
                     {activeChat.seeker.name}
                   </h2>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    Booking #{activeChat._id.slice(-6).toUpperCase()}
+                    Order #{activeChat._id.slice(-6).toUpperCase()}
                     <span className="w-1 h-1 rounded-full bg-border" />
                     <span className="text-green-600 font-medium">Online</span>
                   </p>
@@ -285,7 +285,7 @@ export default function ProviderMessagesPage() {
 
             {/* Content using existing Chat Component */}
             <div className="flex-1 overflow-hidden relative">
-              <BookingChat bookingId={activeChat._id} selfRole="provider" />
+              <OrderChat orderId={activeChat._id} selfRole="provider" />
             </div>
           </>
         ) : (
