@@ -1,6 +1,6 @@
 # PRODUCTION_READINESS_REVIEW.md
 
-Last reviewed: 2026-03-05 (Rev 10)
+Last reviewed: 2026-03-06 (Rev 11)
 
 ## Summary
 
@@ -19,7 +19,7 @@ Production readiness is tracked through:
 | TypeScript | `npx tsc --noEmit` | ✅ 0 errors |
 | TypeScript strict | `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` | ✅ 0 errors |
 | ESLint | `npx eslint . --max-warnings=0` | ✅ 0 warnings |
-| Unit tests | `npx vitest run` | ✅ 104 files, 551 tests, 0 failures |
+| Unit tests | `npx vitest run` | ✅ 108 files, 565 tests, 0 failures |
 | Production build | `npm run build` | ✅ Passes cleanly |
 | E2E smoke | `npm run test:e2e` | ✅ 5 specs passing |
 | One-shot gate | `npm run verify:gates` | ✅ All passing |
@@ -30,6 +30,18 @@ Production readiness is tracked through:
 - Keep payment, complaint, and settlement journeys covered by smoke E2E.
 - Keep documentation synced for high-impact changes.
 - Keep password management flow (forgot/reset/profile change/session invalidation) tested and secure.
+- Remove `DEMO_MODE=1` and `ALLOW_START_WITH_INDEX_ERRORS=1` from `.env` before any public deployment.
+- Tighten CSP `connect-src` from broad `wss:` to `wss://<production-domain>` for defence-in-depth.
+
+## What Changed in Rev 11
+
+| Area | Change |
+| --- | --- |
+| **Cancel at `invoice_created` stage** | Seekers can now cancel after the provider has created an invoice. Cancel button changes to "Cancel & Reject Invoice" with a fee-forfeit warning in the confirm dialog. `cancel/route.ts` adds `invoice_created` to seeker allowed statuses and bypasses the slot-time guard for this stage. Cancellation policy engine always returns `refundAction: "forfeit"` when `bookingStatus === "invoice_created"`. |
+| **Real-time Socket.IO** | `server.js` custom Node.js server co-hosts Socket.IO with Next.js. JWT auth middleware on every connection. Booking + complaint rooms with DB-verified authorization. Provider access gate on complaint rooms. Per-socket rate limiting (20 joins/min). `SocketProvider` + `useSocket()` hook. `lib/realtime/` module with contracts, socket-auth, emitter, chat-state. |
+| **CSP WebSocket support** | `connect-src` gains `ws:` + `wss:` in `lib/security/csp.ts`. `upgrade-insecure-requests` moved to production-only (`NODE_ENV === "production"`) so Socket.IO polling works over plain HTTP on localhost. |
+| **Demo cron dispatcher** | `lib/demo/cron-dispatch.ts` — in-process runner for all 10 cron handlers. Enabled by `DEMO_MODE=1` in `.env`. Admin demo panel invokes handlers with `CRON_SECRET`-signed requests. Must be disabled (`DEMO_MODE=0`) in production. |
+| **Tests** | +14 tests (551 → **565**): realtime socket-auth, emitter, chat-state (new test files), cancellation policy `invoice_created` case (+1 → 11 total). 104 → **108** test files. |
 
 ## What Changed in Rev 10
 
@@ -43,7 +55,7 @@ Production readiness is tracked through:
 | **Email outbox** | Expanded from 4 → 5 email types (`password_changed` added); inline dispatch attempt on enqueue (send immediately, fall back to cron on failure) |
 | **Reset page** | `/reset-password` page with password + confirm inputs, show/hide toggles, error/success states, auto-redirect to sign-in |
 | **BaseUser type** | Added `passwordChangedAt?: Date \| null` to `types/users.ts` |
-| **Tests** | +2 tests (549 → 551): `passwordChangedAt` set on profile password change (seeker + provider), password-changed email enqueuing verified |
+| **Tests** | +2 tests (549 → **551**): `passwordChangedAt` set on profile password change (seeker + provider), password-changed email enqueuing verified |
 
 ## What Changed in Rev 9
 
