@@ -295,7 +295,7 @@ If delivery confirmation happens after the booking deadline:
 
 ## 12. Real-Time Chat
 
-LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node.js entry point (`server.js`). This enables live message push for booking chat and complaint chat without polling.
+LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node.js entry point (`server.js`). This enables live message push for **order chat** and **complaint chat** without polling.
 
 ### Architecture
 
@@ -307,13 +307,13 @@ LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node
 
 | Room | Pattern | Who may join |
 | --- | --- | --- |
-| Booking chat | `booking:<id>` | Seeker and provider of that booking |
+| Order chat | `order:<id>` | Seeker and provider of that order (+ admin) |
 | Complaint chat | `complaint:<id>` | Seeker; provider (after admin grants access); admin |
 
 ### Security
 
 - **JWT auth middleware** on every socket connection — validates the NextAuth session cookie via `getToken()`. Unauthenticated connections are rejected immediately.
-- **Room authorization** (`lib/realtime/socket-auth.js`) — checks MongoDB to confirm the connecting user is a participant of the requested booking/complaint room.
+- **Room authorization** (`lib/realtime/socket-auth.js`) — checks MongoDB to confirm the connecting user is a participant of the requested order/complaint room.
 - **Per-socket rate limiting** — 20 room-join events per 60-second window; excess joins are rejected with `rate_limited`.
 - **Complaint provider access gate** — providers can only join a complaint room after an admin explicitly grants access (`provider_access_granted = true`).
 
@@ -321,11 +321,11 @@ LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node
 
 | Direction | Event | Purpose |
 | --- | --- | --- |
-| Client → Server | `booking:join` | Join a booking chat room |
+| Client → Server | `order:join` | Join an order chat room |
 | Client → Server | `complaint:join` | Join a complaint chat room |
 | Client → Server | `room:leave` | Leave a room |
 | Client → Server | `typing:start` / `typing:stop` | Typing indicator relay |
-| Server → Client | `booking:message:created` | New booking chat message |
+| Server → Client | `order:message:created` | New order chat message |
 | Server → Client | `complaint:message:created` | New complaint chat message |
 | Server → Client | `complaint:state:updated` | Complaint status/access change |
 | Server → Client | `typing:start` / `typing:stop` | Typing indicator forwarded to room |
@@ -336,9 +336,12 @@ LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node
 | --- | --- |
 | `server.js` | Custom Node.js server — HTTP + Socket.IO + Next.js |
 | `lib/realtime/contracts.js` | Shared event names, room helpers, message serializers |
-| `lib/realtime/socket-auth.js` | `authorizeBookingRoom()`, `authorizeComplaintRoom()`, `resolveRealtimeUserFromToken()` |
-| `lib/realtime/emitter.ts` | `emitBookingMessage()`, `emitComplaintMessage()`, `emitComplaintStateUpdate()` — called from API routes |
+| `lib/realtime/socket-auth.js` | `authorizeOrderRoom()`, `authorizeComplaintRoom()`, `resolveRealtimeUserFromToken()` |
+| `lib/realtime/emitter.ts` | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()` — called from API routes |
 | `components/providers/socket-provider.tsx` | React context + `useSocket()` hook |
+| `components/order-chat.tsx` | Order chat UI component with Socket.IO push |
+| `components/complaint-chat.tsx` | 3-way complaint chat UI component with Socket.IO push |
+| `app/api/orders/[id]/chat/route.ts` | Order chat REST endpoint (GET history + POST message) |
 
 ---
 
@@ -544,6 +547,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
 - Email outbox with retry/backoff for all transactional emails — 5 types: delivery OTP, password reset, password changed, magic link, email OTP
+- **Real-time Socket.IO chat** — order chat (`order:<id>` rooms) and complaint chat (`complaint:<id>` rooms) with JWT auth, per-socket rate limiting (20 joins/min), `SocketProvider` context with `useSocket()` hook, and server-side emitter for push-based message delivery
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
 - `decimal.js` financial precision for payout calculations
@@ -569,7 +573,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 
 **Quality Snapshot (current):**
 
-- `108` test files, `565` tests passing (100% core route coverage)
+- `108` test files, `571` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
 - TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`
@@ -579,7 +583,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Cancellation policy fully unit-tested (11 cases covering both actors, boundary conditions, `invoice_created` forced-forfeit, and all fee states)
 - Reschedule flow: atomic `$unset confirmedAt` on request, TOCTOU-safe status-guarded DB writes
 - Password management: `passwordChangedAt` tested on both seeker/provider profile routes, password-changed email enqueuing verified
-- Real-time layer: Socket.IO socket-auth, emitter dispatch, and chat-state modules are unit-tested
+- Real-time layer: Socket.IO socket-auth (order + complaint room authorization), emitter dispatch, and chat-state modules are unit-tested
 
 **Remaining Hardening Opportunities:**
 
@@ -611,7 +615,7 @@ laundry-ease/
 │   │   │   ├── disputes/         # Dispute view
 │   │   │   ├── invoice-generation/ # Invoice creation
 │   │   │   ├── manage-booking/   # Booking details
-│   │   │   ├── messages/         # Chat interface
+│   │   ├── messages/         # Order chat interface
 │   │   │   ├── order-status/     # Order lifecycle management
 │   │   │   ├── profile/          # Provider profile
 │   │   │   └── reviews-manage/   # Review management
@@ -638,13 +642,13 @@ laundry-ease/
 │   │   │   ├── system-alerts/    # Alert acknowledge/manage
 │   │   │   └── users/            # User management + ban
 │   │   ├── auth/                 # NextAuth + magic link + email verification
-│   │   ├── bookings/             # Booking CRUD + accept/reject/cancel/arrive/schedule/reschedule/dispute/chat/invoice/pay/pay-invoice
+│   │   ├── bookings/             # Booking CRUD + accept/reject/cancel/arrive/schedule/reschedule/dispute/chat(legacy)/invoice/pay/pay-invoice
 │   │   ├── complaints/           # Complaint creation + messages
 │   │   ├── cron/                 # 10 scheduled job endpoints
 │   │   ├── escrow/               # Escrow release endpoint
 │   │   ├── forgot-password/      # Password reset request
 │   │   ├── invoices/             # Invoice review
-│   │   ├── orders/               # Order lifecycle + status/payment/confirm-delivery/otp/schedule-delivery/cancel
+│   │   ├── orders/               # Order lifecycle + chat/status/payment/confirm-delivery/otp/schedule-delivery/cancel
 │   │   ├── otp/                  # OTP send/verify
 │   │   ├── payments/             # Razorpay order creation
 │   │   ├── profile/              # Profile management
@@ -714,8 +718,8 @@ laundry-ease/
 │   │   ├── theme-provider.tsx    # Dark/light theme context
 │   │   ├── theme-toggle.tsx      # Theme toggle button
 │   │   └── toast.tsx             # Toast notifications
-│   ├── chat-interface.tsx        # Booking chat with dispute modal
-│   ├── complaint-chat.tsx        # 3-way complaint chat
+│   ├── order-chat.tsx            # Real-time order chat (Socket.IO)
+│   ├── complaint-chat.tsx        # 3-way complaint chat (Socket.IO)
 │   └── landing-page-client.tsx   # Landing page client component
 │
 ├── hooks/                        # Custom React hooks
