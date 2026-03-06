@@ -26,7 +26,7 @@ The LaundryEase system is divided into the following independent modules. Each m
 |--------|---------------|-----------|
 | **Authentication Module** | User registration, login, email/phone verification, password management, session handling | `app/api/auth/`, `lib/auth/`, `app/signup/`, `app/auth/` |
 | **Provider Discovery Module** | Location-based provider search using geospatial queries, distance calculation, delivery fee computation | `app/api/providers/`, `lib/distance.ts`, `lib/geocoding.ts` |
-| **Booking Module** | Booking creation, acceptance, rejection, pickup scheduling, rescheduling, cancellation, arrival verification | `app/api/bookings/`, `lib/bookings/`, `types/bookings.ts` |
+| **Booking Module** | Booking creation, acceptance, rejection, pickup scheduling, rescheduling, cancellation with fee policies (including cancellation at `invoice_created` stage with mandatory fee forfeiture) | `app/api/bookings/`, `lib/bookings/`, `types/bookings.ts` |
 | **Invoice Module** | Item-level invoice creation with photos, discount application, delivery charge calculation, invoice review workflow | `app/(dashboard)/provider/invoice-generation/`, `components/providers/invoice-form.tsx` |
 | **Order Module** | Order lifecycle tracking through process states, deadline monitoring, status updates | `app/api/orders/`, `lib/orders/`, `types/orders.ts` |
 | **Payment Module** | Razorpay order creation, payment capture, signature verification, webhook handling, refund processing | `app/api/payments/`, `lib/razorpay.ts`, `lib/webhooks/` |
@@ -39,6 +39,7 @@ The LaundryEase system is divided into the following independent modules. Each m
 | **Cron Module** | Scheduled background tasks — stale booking auto-rejection, no-show detection, email queue processing | `cron/`, `lib/cron-tracking.ts` |
 | **Security Module** | Rate limiting, CSP headers, origin validation, CSRF protection, password policy enforcement | `lib/security/`, `lib/auth/password-policy.ts` |
 | **Audit Module** | Transaction logging, cross-entity anomaly detection, audit trail with TTL cleanup | `lib/audit.ts`, `lib/audit/` |
+| **Real-Time Module** | Socket.IO WebSocket server for live complaint chat, typing indicators, connection state management, per-socket rate limiting | `server.js`, `components/providers/socket-provider.tsx`, `hooks/use-socket.ts`, `lib/realtime/` |
 
 ---
 
@@ -224,9 +225,9 @@ flowchart TB
     P2_5 -- "Arrival Confirmed" --> PROVIDER
 
     %% Cancel Booking
-    SEEKER -- "Cancel Request" --> P2_6
+    SEEKER -- "Cancel Request\n(incl. invoice_created stage)" --> P2_6
     PROVIDER -- "Cancel Request" --> P2_6
-    P2_6 -- "Apply Cancellation Policy" --> D4
+    P2_6 -- "Apply Cancellation Policy\n(forfeit always at invoice_created)" --> D4
     P2_6 -- "Refund / Forfeit Fee" --> RAZORPAY
     P2_6 -- "Update Block Status" --> D1
     P2_6 -- "Cancellation Notice" --> SEEKER
@@ -415,6 +416,15 @@ The seeker dashboard uses a top navigation bar layout. The main content area sho
 │  │  Pickup: March 8, 10:00 AM                           │    │
 │  │  Fee: ₹50 (Paid)                                    │    │
 │  │  [Confirm Pickup]  [Request Reschedule]  [Cancel]    │    │
+│  └──────────────────────────────────────────────────────┘    │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │  Booking #BK-3C8D                                    │    │
+│  │  Provider: FreshFold                                  │    │
+│  │  Status: [Invoice Created]                           │    │
+│  │  🧾 Invoice Ready — ₹280 due                        │    │
+│  │  ⚠ Provider collected items — fee will be forfeited │    │
+│  │  [View Full Invoice]  [Cancel & Reject Invoice]      │    │
 │  └──────────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -631,7 +641,7 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | _id | ObjectId | Unique identifier (primary key) |
 | seeker_id | ObjectId | Reference to seeker (foreign key) |
 | provider_id | ObjectId | Reference to provider (foreign key) |
-| status | String | Current state (requested, accepted, rejected, pickup_proposed, reschedule_requested, confirmed, invoice_created, cancelled, completed) |
+| status | String | Current state (requested, accepted, rejected, pickup_proposed, reschedule_requested, confirmed, invoice_created, cancelled, completed). Seekers may cancel at any pre-payment state including `invoice_created`; fee is always forfeited at that stage. |
 | bookingFee | Number | Booking fee amount (₹50) |
 | bookingFeeStatus | String | Fee state (pending, paid, refunded, forfeited, applied) |
 | pickupSlot | Object | Proposed pickup date/time with confirmation |
@@ -1115,7 +1125,7 @@ The following tables show the structure of each MongoDB collection as used in th
 
 ### 5.1 Introduction
 
-This chapter describes the technologies, frameworks, and coding practices used to build the LaundryEase application. The system is implemented as a full-stack web application using a single codebase — the same framework (Next.js) handles both the frontend user interface and the backend API logic. This approach simplifies development and deployment because there is no separate backend server to manage.
+This chapter describes the technologies, frameworks, and coding practices used to build the LaundryEase application. The system is implemented as a full-stack web application using a single codebase — the same framework (Next.js) handles both the frontend user interface and the backend API logic. A custom Node.js server (`server.js`) wraps Next.js and adds a Socket.IO WebSocket layer for real-time complaint chat; this replaces the default Next.js HTTP server while preserving all routing behaviour.
 
 The codebase follows these coding principles:
 
@@ -1145,11 +1155,13 @@ LaundryEase is built on **Next.js 16.1.6** with the **App Router** architecture 
 app/
 ├── page.tsx                          ← Landing page (public)
 ├── layout.tsx                        ← Root layout (providers, theme, fonts)
+├── (auth)/                           ← Email and phone verification pages
 ├── (dashboard)/
 │   ├── seeker/
 │   │   ├── layout.tsx                ← Seeker layout (top nav)
 │   │   ├── page.tsx                  ← Provider discovery
 │   │   ├── bookings/page.tsx         ← Booking management
+│   │   ├── bookings/[id]/invoice-review/ ← Invoice review & payment
 │   │   ├── view-orders/page.tsx      ← Order tracking
 │   │   ├── invoices/page.tsx         ← Invoice history
 │   │   ├── disputes/page.tsx         ← Complaint management
@@ -1158,9 +1170,10 @@ app/
 │   │   ├── layout.tsx                ← Provider layout (sidebar)
 │   │   ├── page.tsx                  ← Dashboard with stats
 │   │   ├── bookings/page.tsx         ← Incoming requests
+│   │   ├── bookings/[id]/invoice/    ← Invoice creation for a booking
 │   │   ├── manage-booking/page.tsx   ← Active booking mgmt
 │   │   ├── order-status/page.tsx     ← Order processing
-│   │   ├── invoice-generation/page.tsx ← Invoice creation
+│   │   ├── invoice-generation/page.tsx ← Invoice creation (general)
 │   │   ├── messages/page.tsx         ← Booking chat
 │   │   ├── reviews-manage/page.tsx   ← Review management
 │   │   ├── disputes/page.tsx         ← Dispute handling
@@ -1187,6 +1200,7 @@ app/
 - **Framer Motion** — Smooth page transitions and element animations.
 - **Lucide React** — Consistent icon set used across all pages.
 - **Dark/Light theme** — Managed via `next-themes` with system preference detection.
+- **Socket.IO client** — A shared `SocketProvider` context (wrapping the root layout) maintains a single persistent WebSocket connection per session. Components consume it via the `useSocket()` hook, which exposes the socket instance, connection state, and reconnect awareness. This powers live complaint chat with typing indicators and reconnect banners.
 
 ### 5.3 TypeScript
 
@@ -1208,6 +1222,9 @@ type Booking = {
     | "reschedule_requested" | "confirmed" | "invoice_created"
     | "cancelled" | "completed";
   bookingFee?: number;
+  // "forfeited" is set when seeker cancels after the 2-hour free window
+  // or at invoice_created stage (provider has already done physical work).
+  // "applied" means the fee has been released to the provider — no cancellation possible.
   bookingFeeStatus?: "pending" | "paid" | "refunded"
     | "forfeited" | "applied";
   pickupSlot?: {
@@ -1215,6 +1232,8 @@ type Booking = {
     dateTime: Date | string;
     confirmedAt?: Date | string;
   };
+  arrivedAt?: Date | string;    // Provider arrival timestamp
+  invoice?: InvoiceData;        // Embedded after provider creates invoice
   // ... all fields typed
 };
 ```
@@ -1293,7 +1312,10 @@ const providers = await db.collection("providers").find({
 // Capacity check — count active jobs before accepting
 const activeCount = await db.collection("bookings").countDocuments({
   provider_id: providerId,
-  status: { $in: ["accepted", "confirmed", "invoice_created"] }
+  status: {
+    $in: ["accepted", "pickup_proposed", "reschedule_requested",
+          "confirmed", "invoice_created"]
+  }
 });
 ```
 
@@ -1312,7 +1334,43 @@ const bookings = await db.collection("bookings").aggregate([
 ]).toArray();
 ```
 
-#### 5.4.2 NextAuth Authentication
+#### 5.4.2 Socket.IO Real-Time Layer
+
+LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and attaches a **Socket.IO 4.8.3** WebSocket server to the same HTTP port. This allows real-time bidirectional events to coexist with Next.js API routes without a separate server process.
+
+**Architecture:**
+
+- The Next.js `requestHandler` is passed to the HTTP server. Socket.IO attaches to the same `httpServer` instance via `new Server(httpServer, { ... })`.
+- On application startup the `server.js` process handles both HTTP (Next.js) and WebSocket (Socket.IO) traffic on a single port.
+- The custom server is used in both development (`npm run dev`) and production (`npm start`).
+
+**Authentication and Authorization:**
+
+- Every socket connection is authenticated server-side inside the `connection` handler using the session cookie, preventing unauthenticated WebSocket access.
+- Room join events are rate-limited per socket (max 10 joins per minute) to prevent abuse.
+- Complaint rooms restrict access to participants only (seeker, provider, and admin who accepted the complaint).
+
+**Events:**
+
+| Event | Direction | Purpose |
+|-------|-----------|---------|
+| `join:complaint` | Client → Server | Join a complaint room after access validation |
+| `message:new` | Server → Client | Broadcast new chat message to room members |
+| `typing:start` | Client → Server | Relay typing indicator to room |
+| `typing:stop` | Client → Server | Relay typing-stopped indicator to room |
+| `connect_error` | Server → Client | Notify client of authentication failure |
+
+**Client-side shared context:**
+
+```typescript
+// components/providers/socket-provider.tsx
+// A single Socket.IO connection shared across all chat components
+const { socket, isConnected, isReconnecting } = useSocket();
+```
+
+This prevents the bug of multiple parallel socket connections when navigating between complaint pages.
+
+#### 5.4.3 NextAuth Authentication
 
 LaundryEase uses **NextAuth v4.24.13** for authentication and session management.
 
@@ -1346,14 +1404,16 @@ Every API route and dashboard page checks the user's role before allowing access
 
 ```typescript
 // lib/api/auth.ts — Middleware functions
-export async function requireSeeker(req: NextRequest) {
+export async function requireSeeker() {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "seeker") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    throw new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden");
   }
-  return session;
+  return { user: session.user };
 }
 ```
+
+---
 
 ---
 
@@ -1369,7 +1429,7 @@ The testing infrastructure consists of:
 
 | Tool | Purpose | Test Count |
 |------|---------|------------|
-| **Vitest** | Unit tests and integration tests | ~100 test files |
+| **Vitest** | Unit tests and integration tests | 108 test files, 565 tests |
 | **Playwright** | End-to-end browser tests | 5 test suites |
 | **mongodb-memory-server** | In-memory MongoDB for isolated database testing | Used in integration tests |
 
@@ -1386,7 +1446,9 @@ Unit tests verify that individual functions produce the correct output for given
 
 | Area | What Is Tested | Example |
 |------|---------------|---------|
-| Cancellation Policy | Fee refund vs. forfeit rules based on timing and role | Seeker same-day cancel returns "forfeited"; provider cancel returns "refunded" |
+| Cancellation Policy | Fee refund vs. forfeit rules based on timing, role, and booking stage | Seeker cancels within 2h → "refund"; seeker cancels after 2h → "forfeit"; seeker cancels at `invoice_created` (regardless of time window) → always "forfeit"; provider cancels → "refund" |
+| Socket Auth | Room join authorization for complaint chat | Participant allowed in; non-participant rejected; rate limit enforced |
+| Chat State | Real-time chat deduplication and archive state | POST response and socket echo deduplicated by message ID; archived thread locks composer |
 | Payout Calculation | Commission math with Decimal.js precision | ₹1000 subtotal → ₹50 commission → ₹950 payout (in paise: 95000) |
 | Order Status Machine | Valid and invalid state transitions | washing → ironing is valid; washing → delivered is rejected |
 | Deadline Compensation | SLA breach detection logic | Order past deadline triggers full_refund compensation mode |
@@ -1401,23 +1463,45 @@ Unit tests verify that individual functions produce the correct output for given
 
 ```typescript
 // lib/bookings/cancellation-policy.test.ts
-describe("Cancellation Policy", () => {
-  it("forfeits booking fee for seeker same-day cancellation", () => {
-    const booking = {
-      pickupSlot: { dateTime: new Date() }, // today
+describe("evaluateCancellationPolicy", () => {
+  it("forfeits booking fee when seeker cancels after 2-hour window", () => {
+    const createdAt = localDate(2026, 2, 8, 8); // created at 08:00
+    const now = localDate(2026, 2, 8, 12);       // 4 hours later
+    const decision = evaluateCancellationPolicy({
+      actor: "seeker",
       bookingFeeStatus: "paid",
-    };
-    const result = getCancellationOutcome(booking, "seeker");
-    expect(result.feeOutcome).toBe("forfeited");
+      bookingCreatedAt: createdAt,
+      pickupSlotTime: localDate(2026, 2, 9, 9), // tomorrow
+      now,
+    });
+    expect(decision).toMatchObject({ allowed: true, refundAction: "forfeit" });
+  });
+
+  it("always forfeits fee when seeker cancels at invoice_created stage", () => {
+    // Even if somehow still within 2h window, physical work has been done
+    const createdAt = localDate(2026, 2, 8, 10);
+    const now = new Date(createdAt.getTime() + 30 * 60 * 1000); // 30 min later
+    const decision = evaluateCancellationPolicy({
+      actor: "seeker",
+      bookingFeeStatus: "paid",
+      bookingCreatedAt: createdAt,
+      pickupSlotTime: null,
+      now,
+      bookingStatus: "invoice_created",
+    });
+    expect(decision).toMatchObject({ allowed: true, refundAction: "forfeit" });
   });
 
   it("refunds booking fee when provider cancels", () => {
-    const booking = {
-      pickupSlot: { dateTime: tomorrow },
+    const now = localDate(2026, 2, 8, 10);
+    const decision = evaluateCancellationPolicy({
+      actor: "provider",
       bookingFeeStatus: "paid",
-    };
-    const result = getCancellationOutcome(booking, "provider");
-    expect(result.feeOutcome).toBe("refunded");
+      bookingCreatedAt: localDate(2026, 2, 6, 9),
+      pickupSlotTime: localDate(2026, 2, 8, 9),
+      now,
+    });
+    expect(decision).toMatchObject({ allowed: true, refundAction: "refund" });
   });
 });
 ```
@@ -1451,13 +1535,16 @@ describe("createBooking", () => {
 });
 ```
 
-**API route tests** verify that HTTP endpoints return correct responses for valid and invalid requests. Each API route has a corresponding `.test.ts` file:
+**API route tests** verify that HTTP endpoints return correct responses for valid and invalid requests. Each API route has a corresponding `.test.ts` file. Tests use a mock `getServerSession` to simulate authenticated requests without a running auth server:
 
 | API Route | Tests Covered |
 |-----------|--------------|
 | `/api/auth/signup` | Valid registration, duplicate email rejection, weak password rejection |
 | `/api/auth/verify-email` | Valid token acceptance, expired token rejection |
 | `/api/bookings` | Booking creation, authorization checks, capacity validation |
+| `/api/bookings/[id]/cancel` | Seeker/provider cancel, fee refund vs. forfeit, `invoice_created` stage cancel |
+| `/api/bookings/[id]/invoice` | Invoice creation on confirmed booking, rejection on wrong status |
+| `/api/invoices/[id]/review` | Seeker approve (creates order) and reject (cancels booking, forfeits fee) |
 | `/api/complaints` | Complaint filing within window, rejection after window |
 | `/api/complaints/[id]/messages` | Message sending, role-based visibility |
 | `/api/webhooks/razorpay` | Signature verification, duplicate event handling |
@@ -1554,14 +1641,17 @@ The following table lists representative test cases covering the major functiona
 | TC-10 | Booking | Pay booking fee via Razorpay | Valid payment details | bookingFeeStatus updated to "paid", Razorpay order linked | Pass |
 | TC-11 | Booking | Provider accepts booking | Booking with fee "paid" | Status changes to "accepted" | Pass |
 | TC-12 | Booking | Provider accepts booking without fee payment | Booking with fee "pending" | Error: "Booking fee must be paid first" | Pass |
-| TC-13 | Booking | Seeker cancels same-day booking | Booking with pickup today | Status "cancelled", fee "forfeited" | Pass |
-| TC-14 | Booking | Provider cancels booking | Active booking | Status "cancelled", fee "refunded" to seeker | Pass |
+| TC-13 | Booking | Seeker cancels within 2-hour free window | Booking created <2h ago, fee paid | Status "cancelled", fee "refunded" to seeker | Pass |
+| TC-13b | Booking | Seeker cancels after 2-hour free window | Booking created >2h ago, fee paid | Status "cancelled", fee "forfeited" (kept by provider) | Pass |
+| TC-13c | Booking | Seeker cancels at invoice_created stage | Booking at invoice_created, fee paid | Status "cancelled", fee always "forfeited" — provider collected & catalogued items | Pass |
+| TC-14 | Booking | Provider cancels booking | Active booking at any pre-arrival status | Status "cancelled", fee "refunded" to seeker | Pass |
 | TC-15 | Booking | Auto-reject stale booking | Booking in "requested" state for >2 hours | Status "rejected", fee refunded, autoRejected flag set | Pass |
 | TC-16 | Booking | Provider marks arrival within 200m | Provider coordinates near seeker | arrivedAt timestamp set, confirmed | Pass |
 | TC-17 | Invoice | Provider creates invoice with items | 3 items with quantities, prices, photos | Invoice embedded in booking, status "invoice_created" | Pass |
 | TC-18 | Invoice | Provider applies discount | Subtotal ₹500, discount ₹50 | Total = ₹450 + delivery charge | Pass |
 | TC-19 | Order | Seeker approves and pays invoice | Valid Razorpay payment | Order created with payment_status "paid", process_status "invoiced" | Pass |
-| TC-20 | Order | Seeker rejects invoice | Rejection with reason | Invoice rejected, items returned to provider | Pass |
+| TC-20 | Order | Seeker rejects invoice via review page | Rejection with reason text | Booking status "cancelled", bookingFeeStatus "forfeited", seeker redirected to invoices page | Pass |
+| TC-20b | Booking | Seeker cancels via booking card at invoice_created | "Cancel & Reject Invoice" button with fee warning | Booking status "cancelled", fee "forfeited", card removed from active list | Pass |
 | TC-21 | Order | Provider updates order status | Current: "washing", next: "ironing" | process_status updated to "ironing" | Pass |
 | TC-22 | Order | Invalid status transition | Current: "washing", next: "delivered" | Error: Invalid transition | Pass |
 | TC-23 | Delivery | Generate delivery OTP | Order in "out_for_delivery" status | 6-digit OTP generated, email sent, 10-min expiry set | Pass |
@@ -1593,7 +1683,7 @@ LaundryEase successfully transforms the informal, trust-based local laundry serv
 - **Dispute resolution vacuum** is filled by a structured complaint system with 3-party chat, evidence attachments, response deadlines, and commission-aware settlement.
 - **Data loss** is prevented by a comprehensive MongoDB database with proper indexing, audit trails, and automated backups.
 
-The system is built on a modern, maintainable technology stack (Next.js, React, TypeScript, MongoDB, Razorpay) with strict coding standards (type safety, Zod validation, Decimal.js for financial math) and a thorough testing pipeline (100+ unit tests, 5 E2E test suites, automated CI/CD quality gates).
+The system is built on a modern, maintainable technology stack (Next.js, React, TypeScript, MongoDB, Razorpay, Socket.IO) with strict coding standards (type safety, Zod validation, Decimal.js for financial math) and a thorough testing pipeline (565 unit tests across 108 test files, 5 E2E test suites, automated CI/CD quality gates).
 
 ### 7.1 Future Enhancements
 
@@ -1611,7 +1701,7 @@ The following features are planned for future versions of LaundryEase:
 
 6. **Provider Analytics Dashboard** — Advanced analytics for providers including revenue trends, peak demand hours, customer retention rates, and service category breakdowns.
 
-7. **In-App Chat for Bookings** — Add real-time messaging between seekers and providers during active bookings for pickup coordination and special instructions.
+7. **In-App Chat for Bookings** — Real-time Socket.IO messaging between seekers and providers during active bookings is already implemented for complaint chats. Extending this to active booking coordination is planned for a future release.
 
 8. **Loyalty and Rewards Program** — Implement a points-based system that rewards frequent customers with discounts, free deliveries, or priority service.
 
