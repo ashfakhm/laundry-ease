@@ -1,10 +1,19 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
-import useSWR from "swr";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Send, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { io, type Socket } from "socket.io-client";
 import { EvidenceUpload } from "@/components/ui/evidence-upload";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
+import realtimeContracts, {
+  type BookingChatMessageDto,
+} from "@/lib/realtime/contracts";
+import {
+  appendUniqueSortedMessages,
+  CLIENT_EVENTS,
+  SERVER_EVENTS,
+  sortMessages,
+} from "@/lib/realtime/chat-state";
 
 interface DisputeState {
   open: boolean;
@@ -17,13 +26,9 @@ interface DisputeState {
   success: string | null;
 }
 
-interface ChatMessage {
-  _id?: string;
-  sender_id: string;
+type ChatMessage = BookingChatMessageDto & {
   sender_role: "seeker" | "provider";
-  message: string;
-  createdAt: string;
-}
+};
 
 const COMPLAINT_TYPES = [
   { value: "late_delivery", label: "Late Delivery" },
@@ -44,10 +49,12 @@ export default function BookingChat({
   const router = useRouter();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
-  const latestMessageAtRef = useRef<string | null>(null);
+  const hasSocketConnectedRef = useRef(false);
 
   const [dispute, setDispute] = useState<DisputeState>({
     open: false,
@@ -60,42 +67,81 @@ export default function BookingChat({
     success: null,
   });
 
-  const fetcher = (url: string) =>
-    fetch(url, { cache: "no-store" }).then((r) => {
-      if (!r.ok) throw new Error("Failed to load");
-      return r.json().then((payload) => {
-        const msgs = unwrapApiArray<ChatMessage>(payload);
-        return msgs.sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
-            (a._id ?? "").localeCompare(b._id ?? ""),
-        );
+  const fetchMessages = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/chat`, {
+        cache: "no-store",
       });
-    });
+      if (!res.ok) throw new Error("Failed to load");
 
-  const { data: messages = [], mutate } = useSWR<ChatMessage[]>(
-    `/api/bookings/${bookingId}/chat`,
-    fetcher,
-    {
-      refreshInterval: 5000,
-      revalidateOnFocus: true,
-      onSuccess: (data) => {
-        if (data.length > 0) {
-          const latestCreatedAt = data[data.length - 1].createdAt;
-          if (latestMessageAtRef.current !== latestCreatedAt) {
-            latestMessageAtRef.current = latestCreatedAt;
-            setShouldAutoScroll(true);
+      const payload = await res.json();
+      const data = sortMessages(unwrapApiArray<ChatMessage>(payload));
+      setMessages(data);
+      setError(null);
+      setShouldAutoScroll(true);
+    } catch {
+      setError("Could not load chat");
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [bookingId]);
+
+  useEffect(() => {
+    setLoadingMessages(true);
+    setMessages([]);
+    hasSocketConnectedRef.current = false;
+    void fetchMessages();
+  }, [fetchMessages]);
+
+  useEffect(() => {
+    const socket: Socket = io({
+      path: "/socket.io",
+      withCredentials: true,
+    });
+    const room = realtimeContracts.getBookingRoom(bookingId);
+
+    const handleConnect = () => {
+      socket.emit(
+        CLIENT_EVENTS.BOOKING_JOIN,
+        { bookingId },
+        (result?: { ok?: boolean; error?: string }) => {
+          if (result?.ok === false) {
+            setError(result.error || "Could not join realtime chat");
+            return;
           }
-        } else if (latestMessageAtRef.current === null) {
-          setShouldAutoScroll(true);
-          latestMessageAtRef.current = "empty";
-        }
-      },
-      onError: () => {
-        setError("Could not load chat");
-      },
-    },
-  );
+
+          if (hasSocketConnectedRef.current) {
+            void fetchMessages();
+          } else {
+            hasSocketConnectedRef.current = true;
+          }
+        },
+      );
+    };
+
+    const handleRealtimeMessage = (payload?: { message?: ChatMessage }) => {
+      if (!payload?.message?._id) return;
+      const message = payload.message;
+      setMessages((prev) => appendUniqueSortedMessages(prev, message));
+      setShouldAutoScroll(true);
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on(
+      SERVER_EVENTS.BOOKING_MESSAGE_CREATED,
+      handleRealtimeMessage,
+    );
+
+    return () => {
+      socket.emit(CLIENT_EVENTS.ROOM_LEAVE, { room });
+      socket.off("connect", handleConnect);
+      socket.off(
+        SERVER_EVENTS.BOOKING_MESSAGE_CREATED,
+        handleRealtimeMessage,
+      );
+      socket.disconnect();
+    };
+  }, [bookingId, fetchMessages]);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -109,9 +155,13 @@ export default function BookingChat({
         body: JSON.stringify({ message: input }),
       });
       if (!res.ok) throw new Error("Failed to send message");
+      const payload = await res.json();
+      const message = unwrapApiData<ChatMessage>(payload);
       setInput("");
+      if (message?._id) {
+        setMessages((prev) => appendUniqueSortedMessages(prev, message));
+      }
       setShouldAutoScroll(true);
-      mutate();
     } catch {
       setError("Could not send message");
     } finally {
@@ -181,7 +231,7 @@ export default function BookingChat({
   return (
     <div className="flex flex-col h-full bg-background/50 relative">
       <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-        {messages.length === 0 && !loading && (
+        {messages.length === 0 && !loadingMessages && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 space-y-2">
             <div className="p-3 bg-muted rounded-full">
               <Send className="w-5 h-5" />

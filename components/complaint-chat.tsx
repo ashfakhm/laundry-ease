@@ -2,18 +2,23 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Send, Lock, Paperclip, X, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { io, type Socket } from "socket.io-client";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
+import realtimeContracts, {
+  type ComplaintMessageDto,
+  type ComplaintStateUpdateDto,
+} from "@/lib/realtime/contracts";
+import {
+  appendUniqueSortedMessages,
+  CLIENT_EVENTS,
+  deriveComplaintUiState,
+  deriveComplaintUiStateFromRealtime,
+  SERVER_EVENTS,
+  sortMessages,
+} from "@/lib/realtime/chat-state";
 
-interface ChatMessage {
-  _id: string;
-  sender_id: string;
-  sender_role: string;
-  message_type: string;
-  content: string;
-  attachments?: string[];
-  createdAt: string;
-}
+type ChatMessage = ComplaintMessageDto;
 
 type ComplaintParticipants = {
   seekerName: string;
@@ -112,30 +117,20 @@ export default function ComplaintChat({
     seekerName: "Seeker",
     providerName: "Provider",
   });
-  const latestMessageAtRef = useRef<string | null>(null);
+  const hasSocketConnectedRef = useRef(false);
 
   const fetchMessages = useCallback(
-    async (incremental = false) => {
+    async () => {
       try {
-        const query = new URLSearchParams({
-          limit: "120",
+        const res = await fetch(`/api/complaints/${complaintId}/messages?limit=120`, {
+          cache: "no-store",
         });
-        if (incremental && latestMessageAtRef.current) {
-          query.set("since", latestMessageAtRef.current);
-        }
-
-        const res = await fetch(
-          `/api/complaints/${complaintId}/messages?${query}`,
-          {
-            cache: "no-store",
-          },
-        );
-        if (res.status === 403) {
+        if (res.status === 403 || res.status === 409) {
           const payload = await res.json().catch(() => ({}));
           const message = getApiErrorMessage(payload, "Access Denied");
           if (message.toLowerCase().includes("resolved")) {
             setIsResolved(true);
-            setIsAccessBlocked(true);
+            setIsAccessBlocked(selfRole !== "admin");
             setError("Dispute is resolved. Chat is archived.");
           } else {
             setIsAccessBlocked(true);
@@ -145,48 +140,19 @@ export default function ComplaintChat({
         }
         if (!res.ok) throw new Error("Failed to fetch messages");
         const payload = await res.json();
-        const data = unwrapApiArray<ChatMessage>(payload);
+        const data = sortMessages(unwrapApiArray<ChatMessage>(payload));
 
-        const sortByTime = (msgs: ChatMessage[]) =>
-          msgs.sort(
-            (a, b) =>
-              new Date(a.createdAt).getTime() -
-                new Date(b.createdAt).getTime() ||
-              (a._id ?? "").localeCompare(b._id ?? ""),
-          );
-
-        if (incremental && latestMessageAtRef.current) {
-          if (data.length > 0) {
-            latestMessageAtRef.current = data[data.length - 1].createdAt;
-            setMessages((prev) => {
-              const seen = new Set(prev.map((msg) => String(msg._id)));
-              const appended = data.filter((msg) => !seen.has(String(msg._id)));
-              return appended.length > 0
-                ? sortByTime([...prev, ...appended])
-                : prev;
-            });
-            setShouldAutoScroll(true);
-          }
-        } else {
-          setMessages(sortByTime(data));
-          latestMessageAtRef.current =
-            data.length > 0 ? data[data.length - 1].createdAt : null;
-          setShouldAutoScroll(true);
-        }
-
-        setError(null);
-        setIsResolved(false);
-        setIsAccessBlocked(false);
+        setMessages(data);
+        setShouldAutoScroll(true);
       } catch (err) {
         reportError("ComplaintMessageFetchError", err);
-        setError("Failed to load messages. Retrying...");
-        setIsAccessBlocked(false);
+        setError("Failed to load messages.");
       }
     },
-    [complaintId],
+    [complaintId, selfRole],
   );
 
-  const fetchParticipants = useCallback(async () => {
+  const fetchComplaintMeta = useCallback(async () => {
     try {
       const res = await fetch(`/api/complaints/${complaintId}`, {
         cache: "no-store",
@@ -195,6 +161,8 @@ export default function ComplaintChat({
 
       const payload = await res.json();
       const data = unwrapApiData<{
+        status?: string | null;
+        provider_access_granted?: boolean;
         seeker?: { name?: string | null } | null;
         provider?: {
           name?: string | null;
@@ -209,19 +177,94 @@ export default function ComplaintChat({
         seekerName,
         providerName,
       });
+
+      const uiState = deriveComplaintUiState({
+        selfRole,
+        status: data?.status,
+        providerAccessGranted: data?.provider_access_granted,
+      });
+      setIsResolved(uiState.isResolved);
+      setIsAccessBlocked(uiState.isAccessBlocked);
+      setError(uiState.error);
     } catch {
       // Keep safe fallback labels.
     }
-  }, [complaintId]);
+  }, [complaintId, selfRole]);
 
   useEffect(() => {
-    fetchParticipants();
-    fetchMessages(false);
-    const interval = setInterval(() => {
-      void fetchMessages(true);
-    }, 5000); // Polling
-    return () => clearInterval(interval);
-  }, [fetchMessages, fetchParticipants]);
+    hasSocketConnectedRef.current = false;
+    setMessages([]);
+    setError(null);
+    setIsResolved(false);
+    setIsAccessBlocked(false);
+    void Promise.all([fetchComplaintMeta(), fetchMessages()]);
+  }, [fetchComplaintMeta, fetchMessages]);
+
+  useEffect(() => {
+    const socket: Socket = io({
+      path: "/socket.io",
+      withCredentials: true,
+    });
+    const room = realtimeContracts.getComplaintRoom(complaintId);
+
+    const handleConnect = () => {
+      socket.emit(
+        CLIENT_EVENTS.COMPLAINT_JOIN,
+        { complaintId },
+        (result?: { ok?: boolean; error?: string }) => {
+          if (result?.ok === false) {
+            setError(result.error || "Could not join realtime complaint chat");
+            return;
+          }
+
+          if (hasSocketConnectedRef.current) {
+            void Promise.all([fetchComplaintMeta(), fetchMessages()]);
+          } else {
+            hasSocketConnectedRef.current = true;
+          }
+        },
+      );
+    };
+
+    const handleRealtimeMessage = (payload?: { message?: ChatMessage }) => {
+      if (!payload?.message?._id) return;
+      const message = payload.message;
+      setMessages((prev) => appendUniqueSortedMessages(prev, message));
+      setShouldAutoScroll(true);
+    };
+
+    const handleComplaintStateUpdate = (payload?: ComplaintStateUpdateDto) => {
+      if (!payload) return;
+      const nextUiState = deriveComplaintUiStateFromRealtime(payload, selfRole);
+      setIsResolved(nextUiState.isResolved);
+      setIsAccessBlocked(nextUiState.isAccessBlocked);
+      setError(nextUiState.error);
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on(
+      SERVER_EVENTS.COMPLAINT_MESSAGE_CREATED,
+      handleRealtimeMessage,
+    );
+    socket.on(
+      SERVER_EVENTS.COMPLAINT_STATE_UPDATED,
+      handleComplaintStateUpdate,
+    );
+
+    return () => {
+      socket.emit(CLIENT_EVENTS.ROOM_LEAVE, { room });
+      socket.off("connect", handleConnect);
+      socket.off(
+        SERVER_EVENTS.COMPLAINT_MESSAGE_CREATED,
+        handleRealtimeMessage,
+      );
+      socket.off(
+        SERVER_EVENTS.COMPLAINT_STATE_UPDATED,
+        handleComplaintStateUpdate,
+      );
+      socket.disconnect();
+    };
+  }, [complaintId, fetchComplaintMeta, fetchMessages, selfRole]);
 
   const uploadAttachments = useCallback(
     async (fileList: FileList | null) => {
@@ -318,16 +361,20 @@ export default function ComplaintChat({
         throw new Error(message);
       }
 
+      const payload = await res.json();
+      const message = unwrapApiData<ChatMessage>(payload);
       setInput("");
       setPendingAttachments([]);
+      if (message?._id) {
+        setMessages((prev) => appendUniqueSortedMessages(prev, message));
+      }
       setShouldAutoScroll(true); // Always scroll to bottom after sending
-      await fetchMessages(false);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not send message";
       if (message.toLowerCase().includes("resolved")) {
         setIsResolved(true);
-        setIsAccessBlocked(true);
+        setIsAccessBlocked(selfRole !== "admin");
       }
       setError(message);
     } finally {
