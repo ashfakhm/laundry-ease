@@ -46,6 +46,11 @@ export function buildCspPolicy(options: CspBuildOptions = {}): string {
     directive("font-src", ["'self'", "data:"]),
     directive("connect-src", [
       "'self'",
+      // WebSocket transports for Socket.IO (complaint chat, real-time events).
+      // ws: covers http/localhost dev; wss: covers production HTTPS.
+      // CORS on the Socket.IO server already restricts which origins may connect.
+      "ws:",
+      "wss:",
       "https://api.razorpay.com",
       "https://lumberjack.razorpay.com",
       "https://maps.googleapis.com",
@@ -59,7 +64,13 @@ export function buildCspPolicy(options: CspBuildOptions = {}): string {
       "https://api.razorpay.com",
     ]),
     directive("worker-src", ["'self'", "blob:"]),
-    "upgrade-insecure-requests",
+    // Only upgrade insecure requests in production (HTTPS).
+    // On localhost (plain HTTP) this directive would cause the browser to
+    // rewrite all http:// sub-resource requests — including Socket.IO polling
+    // transport — to https://, breaking them silently.
+    ...(process.env.NODE_ENV === "production"
+      ? ["upgrade-insecure-requests"]
+      : []),
   ];
 
   if (reportUri) {
