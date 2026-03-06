@@ -1,16 +1,6 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
 import { seedSmokeData, smokeUsers } from "./support/smoke-seed";
-
-async function loginViaCredentials(page: Page, email: string, password: string) {
-  await page.goto("/auth");
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-
-  await page
-    .locator('form[aria-label="Sign in form"] input[type="email"]')
-    .fill(email);
-  await page.locator("#password").fill(password);
-  await page.getByRole("button", { name: /^Sign in$/ }).click();
-}
+import { loginViaCredentials } from "./support/auth";
 
 async function runAsRole(
   browser: Browser,

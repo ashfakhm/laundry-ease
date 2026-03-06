@@ -6,17 +6,7 @@ import {
   smokeUsers,
   type SettlementSeedResult,
 } from "./support/smoke-seed";
-
-async function loginViaCredentials(page: Page, email: string, password: string) {
-  await page.goto("/auth");
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-
-  await page
-    .locator('form[aria-label="Sign in form"] input[type="email"]')
-    .fill(email);
-  await page.locator("#password").fill(password);
-  await page.getByRole("button", { name: /^Sign in$/ }).click();
-}
+import { loginViaCredentials } from "./support/auth";
 
 async function runAsRole(
   browser: Browser,
@@ -34,8 +24,32 @@ async function runAsRole(
   }
 }
 
+async function confirmAdminResolution(page: Page) {
+  await expect(
+    page.getByRole("heading", { name: "Confirm Action" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Yes, proceed" }).click();
+
+  const redirectedToList = await page
+    .waitForURL("**/admin/complaints", { timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!redirectedToList) {
+    await expect(
+      page.getByRole("heading", { name: "Settlement Summary" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.waitForURL("**/admin/complaints");
+  }
+}
+
 function isCloseTo(actual: unknown, expected: number): boolean {
   return Math.abs(Number(actual) - expected) <= 0.01;
+}
+
+function formatInr(amount: number): string {
+  return `INR ${amount.toFixed(2)}`;
 }
 
 type AdminSettlementAction = "split_equal" | "seeker_full" | "reject";
@@ -75,8 +89,8 @@ async function finalizeComplaintAsAdmin(
         await expect(
           page.getByRole("button", { name: "Reject Complaint" }),
         ).toBeVisible();
-        page.once("dialog", (dialog) => dialog.accept());
         await page.getByRole("button", { name: "Reject Complaint" }).click();
+        await confirmAdminResolution(page);
       } else {
         await expect(
           page.getByRole("button", { name: "Apply Settlement" }),
@@ -84,15 +98,36 @@ async function finalizeComplaintAsAdmin(
 
         if (action === "split_equal") {
           await page.getByRole("button", { name: "50 / 50" }).click();
+          await expect(
+            page
+              .locator("p", { hasText: "Seeker Refund" })
+              .locator("xpath=ancestor::div[contains(@class,'rounded-lg')][1]")
+              .getByText(formatInr(seed.expectedHalfSettlement), {
+                exact: true,
+              }),
+          ).toBeVisible();
         } else {
           await page.getByRole("button", { name: "Seeker Full" }).click();
+          await expect(
+            page
+              .locator("p", { hasText: "Seeker Refund" })
+              .locator("xpath=ancestor::div[contains(@class,'rounded-lg')][1]")
+              .getByText(formatInr(seed.expectedDistributableAmount), {
+                exact: true,
+              }),
+          ).toBeVisible();
+          await expect(
+            page
+              .locator("p", { hasText: "Provider Payout" })
+              .locator("xpath=ancestor::div[contains(@class,'rounded-lg')][1]")
+              .getByText(formatInr(0), { exact: true }),
+          ).toBeVisible();
         }
 
-        page.once("dialog", (dialog) => dialog.accept());
         await page.getByRole("button", { name: "Apply Settlement" }).click();
+        await confirmAdminResolution(page);
       }
 
-      await page.waitForURL("**/admin/complaints");
       await expect(
         page.getByRole("heading", { name: "Complaints Management" }),
       ).toBeVisible();

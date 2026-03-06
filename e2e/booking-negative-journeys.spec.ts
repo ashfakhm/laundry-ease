@@ -5,21 +5,7 @@ import {
   smokeUsers,
   seedSmokeData,
 } from "./support/smoke-seed";
-
-async function loginViaCredentials(
-  page: Page,
-  email: string,
-  password: string,
-) {
-  await page.goto("/auth");
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-
-  await page
-    .locator('form[aria-label="Sign in form"] input[type="email"]')
-    .fill(email);
-  await page.locator("#password").fill(password);
-  await page.getByRole("button", { name: /^Sign in$/ }).click();
-}
+import { loginViaCredentials } from "./support/auth";
 
 async function runAsRole(
   browser: Browser,
@@ -35,6 +21,13 @@ async function runAsRole(
   } finally {
     await context.close();
   }
+}
+
+async function confirmBookingCancellation(page: Page) {
+  await expect(
+    page.getByRole("heading", { name: "Cancel Booking" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Yes, Cancel/i }).click();
 }
 
 test.describe("booking negative journeys", () => {
@@ -62,6 +55,8 @@ test.describe("booking negative journeys", () => {
           status: "requested",
           bookingFee: 149,
           bookingFeeStatus: "paid",
+          razorpay_payment_id: `pay_e2e_reject_${bookingId.toString()}`,
+          razorpay_order_id: `order_e2e_reject_${bookingId.toString()}`,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
@@ -95,10 +90,8 @@ test.describe("booking negative journeys", () => {
         page.once("dialog", (dialog) => dialog.accept());
         await declineBtn.click();
 
-        // Verify status changed to Declined
-        await expect(
-          page.getByText(/Declined|Booking Declined/i).first(),
-        ).toBeVisible({ timeout: 10000 });
+        // Rejected bookings leave the pending filter immediately.
+        await expect(card).toHaveCount(0, { timeout: 10000 });
       },
     );
 
@@ -139,6 +132,8 @@ test.describe("booking negative journeys", () => {
           status: "accepted",
           bookingFee: 149,
           bookingFeeStatus: "paid",
+          razorpay_payment_id: `pay_e2e_cancel_${bookingId.toString()}`,
+          razorpay_order_id: `order_e2e_cancel_${bookingId.toString()}`,
           pickupSlot: {
             dateTime: futureSlot,
             confirmedAt: new Date(),
@@ -179,8 +174,8 @@ test.describe("booking negative journeys", () => {
           .getByRole("button", { name: /Cancel Request/i });
         await expect(cancelBtn).toBeVisible();
 
-        page.once("dialog", (dialog) => dialog.accept());
         await cancelBtn.click();
+        await confirmBookingCancellation(page);
 
         // Verify status changed to cancelled
         await expect(

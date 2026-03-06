@@ -5,21 +5,7 @@ import {
   smokeUsers,
   seedSmokeData,
 } from "./support/smoke-seed";
-
-async function loginViaCredentials(
-  page: Page,
-  email: string,
-  password: string,
-) {
-  await page.goto("/auth");
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-
-  await page
-    .locator('form[aria-label="Sign in form"] input[type="email"]')
-    .fill(email);
-  await page.locator("#password").fill(password);
-  await page.getByRole("button", { name: /^Sign in$/ }).click();
-}
+import { loginViaCredentials } from "./support/auth";
 
 async function runAsRole(
   browser: Browser,
@@ -35,6 +21,13 @@ async function runAsRole(
   } finally {
     await context.close();
   }
+}
+
+async function confirmBookingCancellation(page: Page) {
+  await expect(
+    page.getByRole("heading", { name: "Cancel Booking" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Yes, Cancel/i }).click();
 }
 
 test.describe("booking lifecycle journey", () => {
@@ -138,6 +131,7 @@ test.describe("booking lifecycle journey", () => {
       smokeUsers.provider.email,
       smokeUsers.provider.password,
       async (page) => {
+        await page.waitForURL("**/provider");
         await page.goto("/provider/manage-booking");
         await expect(
           page.getByRole("heading", { name: "Manage Bookings" }),
@@ -202,6 +196,8 @@ test.describe("booking lifecycle journey", () => {
           status: "requested",
           bookingFee: 149,
           bookingFeeStatus: "paid",
+          razorpay_payment_id: `pay_e2e_cancel_${bookingId.toString()}`,
+          razorpay_order_id: `order_e2e_cancel_${bookingId.toString()}`,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
@@ -233,8 +229,8 @@ test.describe("booking lifecycle journey", () => {
           name: /Cancel Request/i,
         });
         await expect(cancelBtn).toBeVisible();
-        page.once("dialog", (dialog) => dialog.accept());
         await cancelBtn.click();
+        await confirmBookingCancellation(page);
 
         // Verify status changed to cancelled
         await expect(

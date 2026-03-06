@@ -53,6 +53,18 @@ function SeekerBookingCardComponent({
   const elapsedMs = bookingCreatedMs > 0 ? now - bookingCreatedMs : Infinity;
   const remainingMs = SEEKER_FREE_CANCEL_WINDOW_MS - elapsedMs;
   const withinFreeWindow = remainingMs > 0;
+  const pickupSlotMs = booking.pickupSlot?.dateTime
+    ? new Date(booking.pickupSlot.dateTime).getTime()
+    : NaN;
+  const beforePickupSlot = Number.isNaN(pickupSlotMs) || now < pickupSlotMs;
+  const canCancelRequest =
+    [
+      "requested",
+      "accepted",
+      "pickup_proposed",
+      "reschedule_requested",
+      "confirmed",
+    ].includes(booking.status) && beforePickupSlot;
 
   /** Human-readable "Xh Ym" or "Xm" remaining string. */
   function formatRemaining(ms: number): string {
@@ -631,8 +643,7 @@ function SeekerBookingCardComponent({
             )}
             {/* Cancel / Delete Actions */}
             <div className="mt-4 space-y-3">
-              {(booking.status === "requested" ||
-                booking.status === "pickup_proposed") && (
+              {canCancelRequest && (
                 <div className="flex flex-col gap-2">
                   {/* Cancel-window policy badge */}
                   {booking.bookingFeeStatus === "paid" &&

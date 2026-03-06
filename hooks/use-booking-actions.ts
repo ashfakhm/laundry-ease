@@ -17,7 +17,7 @@ export function useBookingActions(bookingId: string, onRefresh?: () => void) {
       const result = await updateBookingStatus(bookingId, action);
       if (result.success) {
         toast({
-          title: action === "accept" ? "Booking accepted" : "Booking rejected",
+          title: action === "accept" ? "Booking accepted" : "Booking Declined",
           description: result.message,
           type: action === "accept" ? "success" : "info",
         });

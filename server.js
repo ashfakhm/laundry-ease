@@ -14,9 +14,28 @@ const {
   resolveRealtimeUserFromToken,
 } = require("./lib/realtime/socket-auth");
 
+function getCliArgValue(flagNames) {
+  for (let index = 0; index < process.argv.length; index += 1) {
+    const arg = process.argv[index];
+    if (flagNames.includes(arg)) {
+      return process.argv[index + 1];
+    }
+
+    for (const flagName of flagNames) {
+      const prefix = `${flagName}=`;
+      if (arg.startsWith(prefix)) {
+        return arg.slice(prefix.length);
+      }
+    }
+  }
+
+  return undefined;
+}
+
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOST || "localhost";
-const port = Number(process.env.PORT || 3000);
+const cliPort = getCliArgValue(["--port", "-p"]);
+const port = Number(process.env.PORT || cliPort || 3000);
 
 if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) {
   dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4", "1.0.0.1"]);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback, use, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, UserPlus, CheckCircle, Ban } from "lucide-react";
 import Link from "next/link";
@@ -84,7 +84,8 @@ export default function AdminComplaintDetailPage({
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [seekerRefundAmount, setSeekerRefundAmount] = useState(0);
-  const { showConfirm, closeDialog, dialogProps } = useConfirmDialog();
+  const seekerRefundAmountRef = useRef(0);
+  const { showConfirm, dialogProps } = useConfirmDialog();
   const [settlementModal, setSettlementModal] = useState<{
     isOpen: boolean;
     providerDetails: SettlementProviderDetails | null;
@@ -101,6 +102,12 @@ export default function AdminComplaintDetailPage({
     hasManualTransfers: false,
   });
 
+  const updateSeekerRefundAmount = useCallback((nextAmount: number) => {
+    const normalizedAmount = Number.isFinite(nextAmount) ? nextAmount : 0;
+    seekerRefundAmountRef.current = normalizedAmount;
+    setSeekerRefundAmount(normalizedAmount);
+  }, []);
+
   const fetchComplaint = useCallback(async () => {
     try {
       const res = await fetch(`/api/complaints/${id}`);
@@ -108,7 +115,7 @@ export default function AdminComplaintDetailPage({
         const payload = await res.json();
         const data = unwrapApiData<ComplaintData>(payload);
         setComplaint(data);
-        setSeekerRefundAmount(0);
+        updateSeekerRefundAmount(0);
       } else {
         toast.error("Failed to load complaint");
       }
@@ -118,7 +125,7 @@ export default function AdminComplaintDetailPage({
     } finally {
       setLoading(false);
     }
-  }, [id, toast]);
+  }, [id, toast, updateSeekerRefundAmount]);
 
   useEffect(() => {
     fetchComplaint();
@@ -271,17 +278,24 @@ export default function AdminComplaintDetailPage({
       return;
     }
 
-    if (clampedSeekerRefund <= 0.01) {
+    const requestedRefundAmount = round2(
+      Math.min(
+        Math.max(0, seekerRefundAmountRef.current),
+        distributableAmount,
+      ),
+    );
+
+    if (requestedRefundAmount <= 0.01) {
       await handleResolve("release_payout");
       return;
     }
 
-    if (Math.abs(clampedSeekerRefund - distributableAmount) <= 0.01) {
+    if (Math.abs(requestedRefundAmount - distributableAmount) <= 0.01) {
       await handleResolve("refund_full");
       return;
     }
 
-    await handleResolve("refund_partial", clampedSeekerRefund);
+    await handleResolve("refund_partial", requestedRefundAmount);
   }
 
   if (loading) {
@@ -533,7 +547,9 @@ export default function AdminComplaintDetailPage({
                         step={0.01}
                         value={clampedSeekerRefund}
                         onChange={(event) =>
-                          setSeekerRefundAmount(Number(event.target.value))
+                          updateSeekerRefundAmount(
+                            Number(event.target.value),
+                          )
                         }
                         disabled={actionLoading || distributableAmount <= 0}
                         className="w-full accent-primary disabled:opacity-60"
@@ -546,7 +562,7 @@ export default function AdminComplaintDetailPage({
 
                     <div className="flex flex-wrap gap-2">
                       <button
-                        onClick={() => setSeekerRefundAmount(0)}
+                        onClick={() => updateSeekerRefundAmount(0)}
                         type="button"
                         className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-background/80"
                       >
@@ -554,7 +570,9 @@ export default function AdminComplaintDetailPage({
                       </button>
                       <button
                         onClick={() =>
-                          setSeekerRefundAmount(round2(distributableAmount / 2))
+                          updateSeekerRefundAmount(
+                            round2(distributableAmount / 2),
+                          )
                         }
                         type="button"
                         className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-background/80"
@@ -563,7 +581,7 @@ export default function AdminComplaintDetailPage({
                       </button>
                       <button
                         onClick={() =>
-                          setSeekerRefundAmount(distributableAmount)
+                          updateSeekerRefundAmount(distributableAmount)
                         }
                         type="button"
                         className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-background/80"

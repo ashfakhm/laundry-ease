@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { MongoClient, ObjectId } from "mongodb";
+import { Db, MongoClient, ObjectId } from "mongodb";
 
 export const smokeUsers = {
   seeker: {
@@ -171,6 +171,7 @@ async function upsertProvider(
         location: "Bengaluru",
         services: ["Wash", "Fold"],
         pricing: 120,
+        capacity: 10000,
         radius_km: 10,
         per_km_rate: 10,
         razorpay_fund_account_id: "fa_e2e_smoke_provider",
@@ -222,6 +223,78 @@ async function upsertAdmin(
   return admin._id as ObjectId;
 }
 
+async function clearSmokeWorkspace(
+  db: Db,
+  ids: {
+    seekerId: ObjectId;
+    providerId: ObjectId;
+  },
+) {
+  const bookingIds = (
+    await db
+      .collection("bookings")
+      .find(
+        {
+          $or: [
+            { seeker_id: ids.seekerId },
+            { provider_id: ids.providerId },
+          ],
+        },
+        { projection: { _id: 1 } },
+      )
+      .toArray()
+  ).map((booking) => booking._id as ObjectId);
+
+  const orderIds = (
+    await db
+      .collection("orders")
+      .find(
+        {
+          $or: [
+            { seeker_id: ids.seekerId },
+            { provider_id: ids.providerId },
+            ...(bookingIds.length > 0 ? [{ booking_id: { $in: bookingIds } }] : []),
+          ],
+        },
+        { projection: { _id: 1 } },
+      )
+      .toArray()
+  ).map((order) => order._id as ObjectId);
+
+  const complaintIds = (
+    await db
+      .collection("complaints")
+      .find(
+        {
+          $or: [
+            { seeker_id: ids.seekerId },
+            { provider_id: ids.providerId },
+            ...(bookingIds.length > 0 ? [{ booking_id: { $in: bookingIds } }] : []),
+            ...(orderIds.length > 0 ? [{ order_id: { $in: orderIds } }] : []),
+          ],
+        },
+        { projection: { _id: 1 } },
+      )
+      .toArray()
+  ).map((complaint) => complaint._id as ObjectId);
+
+  if (complaintIds.length > 0) {
+    await db
+      .collection("complaint_messages")
+      .deleteMany({ complaint_id: { $in: complaintIds } });
+    await db.collection("complaints").deleteMany({ _id: { $in: complaintIds } });
+  }
+
+  if (bookingIds.length > 0) {
+    await db.collection("chats").deleteMany({ booking_id: { $in: bookingIds } });
+    await db.collection("bookings").deleteMany({ _id: { $in: bookingIds } });
+  }
+
+  if (orderIds.length > 0) {
+    await db.collection("orders").deleteMany({ _id: { $in: orderIds } });
+  }
+}
+
 export async function seedSmokeData(
   options?: SmokeSeedOptions,
 ): Promise<SeedResult> {
@@ -239,6 +312,8 @@ export async function seedSmokeData(
       upsertProvider(client, dbName, hashedPassword),
       upsertAdmin(client, dbName, hashedPassword),
     ]);
+
+    await clearSmokeWorkspace(db, { seekerId, providerId });
 
     const namespace = options?.namespace?.trim() || "default";
     const bookingId = deterministicObjectId(namespace, "booking");
@@ -379,6 +454,8 @@ export async function seedSettlementJourneyData(
       upsertProvider(client, dbName, hashedPassword),
       upsertAdmin(client, dbName, hashedPassword),
     ]);
+
+    await clearSmokeWorkspace(db, { seekerId, providerId });
 
     const bookingId = new ObjectId();
     const orderId = new ObjectId();

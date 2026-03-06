@@ -38,13 +38,15 @@ vi.mock("@/lib/logger", () => ({
 import { PATCH } from "./route";
 
 function makeDbMock() {
+  const findOne = vi.fn();
   const updateOne = vi.fn();
   const db = {
     collection: vi.fn(() => ({
+      findOne,
       updateOne,
     })),
   };
-  return { db, updateOne };
+  return { db, findOne, updateOne };
 }
 
 function makeRequest(body: unknown) {
@@ -97,18 +99,24 @@ describe("PATCH /api/admin/complaints/[id]", () => {
 
   it("returns 404 when complaint does not exist", async () => {
     const dbMock = makeDbMock();
-    dbMock.updateOne.mockResolvedValue({ matchedCount: 0 });
+    dbMock.findOne.mockResolvedValue(null);
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
     const res = await PATCH(makeRequest({ status: "accepted" }) as never, {
       params: Promise.resolve({ id: new ObjectId().toString() }),
     });
     expect(res.status).toBe(404);
+    expect(dbMock.findOne).toHaveBeenCalledTimes(1);
+    expect(dbMock.updateOne).not.toHaveBeenCalled();
   });
 
   it("returns success and updates complaint status", async () => {
     const complaintId = new ObjectId();
     const dbMock = makeDbMock();
+    dbMock.findOne.mockResolvedValue({
+      _id: complaintId,
+      provider_access_granted: true,
+    });
     dbMock.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
@@ -119,6 +127,10 @@ describe("PATCH /api/admin/complaints/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(data.data).toEqual({ ok: true });
+    expect(dbMock.findOne).toHaveBeenCalledWith(
+      { _id: complaintId },
+      { projection: { provider_access_granted: 1 } },
+    );
     expect(dbMock.updateOne).toHaveBeenCalledWith(
       { _id: complaintId },
       { $set: { status: "in_review" } },
