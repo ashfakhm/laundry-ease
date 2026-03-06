@@ -1125,7 +1125,7 @@ The following tables show the structure of each MongoDB collection as used in th
 
 ### 5.1 Introduction
 
-This chapter describes the technologies, frameworks, and coding practices used to build the LaundryEase application. The system is implemented as a full-stack web application using a single codebase — the same framework (Next.js) handles both the frontend user interface and the backend API logic. A custom Node.js server (`server.js`) wraps Next.js and adds a Socket.IO WebSocket layer for real-time complaint chat; this replaces the default Next.js HTTP server while preserving all routing behaviour.
+This chapter describes the technologies, frameworks, and coding practices used to build the LaundryEase application. The system is implemented as a full-stack web application using a single codebase — the same framework (Next.js) handles both the frontend user interface and the backend API logic. A custom Node.js server (`server.js`) wraps Next.js and adds a Socket.IO WebSocket layer for real-time **order chat** and **complaint chat**; this replaces the default Next.js HTTP server while preserving all routing behaviour.
 
 The codebase follows these coding principles:
 
@@ -1200,7 +1200,7 @@ app/
 - **Framer Motion** — Smooth page transitions and element animations.
 - **Lucide React** — Consistent icon set used across all pages.
 - **Dark/Light theme** — Managed via `next-themes` with system preference detection.
-- **Socket.IO client** — A shared `SocketProvider` context (wrapping the root layout) maintains a single persistent WebSocket connection per session. Components consume it via the `useSocket()` hook, which exposes the socket instance, connection state, and reconnect awareness. This powers live complaint chat with typing indicators and reconnect banners.
+- **Socket.IO client** — A shared `SocketProvider` context (wrapping the root layout) maintains a single persistent WebSocket connection per session. Components consume it via the `useSocket()` hook, which exposes the socket instance, connection state, and reconnect awareness. This powers live order chat and complaint chat with typing indicators and reconnect banners.
 
 ### 5.3 TypeScript
 
@@ -1336,29 +1336,38 @@ const bookings = await db.collection("bookings").aggregate([
 
 #### 5.4.2 Socket.IO Real-Time Layer
 
-LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and attaches a **Socket.IO 4.8.3** WebSocket server to the same HTTP port. This allows real-time bidirectional events to coexist with Next.js API routes without a separate server process.
+LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and attaches a **Socket.IO 4.8.3** WebSocket server to the same HTTP port. This allows real-time bidirectional events to coexist with Next.js API routes without a separate server process. The system supports two chat systems: **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin).
 
 **Architecture:**
 
 - The Next.js `requestHandler` is passed to the HTTP server. Socket.IO attaches to the same `httpServer` instance via `new Server(httpServer, { ... })`.
 - On application startup the `server.js` process handles both HTTP (Next.js) and WebSocket (Socket.IO) traffic on a single port.
+- The Socket.IO instance is stored on `globalThis._socketIoServer` so Next.js API routes can emit events via `lib/realtime/emitter.ts`.
 - The custom server is used in both development (`npm run dev`) and production (`npm start`).
 
 **Authentication and Authorization:**
 
-- Every socket connection is authenticated server-side inside the `connection` handler using the session cookie, preventing unauthenticated WebSocket access.
-- Room join events are rate-limited per socket (max 10 joins per minute) to prevent abuse.
-- Complaint rooms restrict access to participants only (seeker, provider, and admin who accepted the complaint).
+- Every socket connection is authenticated server-side using JWT — the `getToken()` function from `next-auth/jwt` validates the NextAuth session cookie. Unauthenticated connections are rejected before any room join.
+- Room join events are rate-limited per socket (max 20 joins per 60-second window) to prevent abuse.
+- Order rooms (`order:<id>`) restrict access to the seeker, provider, or admin — verified by looking up the order in MongoDB via `authorizeOrderRoom()`.
+- Complaint rooms (`complaint:<id>`) restrict access to participants only — seeker, provider (only after admin grants `provider_access_granted = true`), and admin — verified via `authorizeComplaintRoom()`.
 
-**Events:**
+**Events** (defined in `lib/realtime/contracts.js`):
 
 | Event | Direction | Purpose |
 |-------|-----------|---------|
-| `join:complaint` | Client → Server | Join a complaint room after access validation |
-| `message:new` | Server → Client | Broadcast new chat message to room members |
+| `order:join` | Client → Server | Join an order chat room after participant verification |
+| `complaint:join` | Client → Server | Join a complaint chat room after access validation |
+| `room:leave` | Client → Server | Leave a room |
 | `typing:start` | Client → Server | Relay typing indicator to room |
 | `typing:stop` | Client → Server | Relay typing-stopped indicator to room |
-| `connect_error` | Server → Client | Notify client of authentication failure |
+| `order:message:created` | Server → Client | New order chat message pushed live |
+| `complaint:message:created` | Server → Client | New complaint chat message pushed live |
+| `complaint:state:updated` | Server → Client | Complaint status/access change notification |
+
+**Server-side emitter** (`lib/realtime/emitter.ts`):
+
+When a message is sent via a REST API route (e.g., `POST /api/orders/[id]/chat`), the route handler calls `emitOrderMessageCreated()` which pushes the `order:message:created` event to all connected clients in that order's room via `globalThis._socketIoServer`. Similarly, `emitComplaintMessageCreated()` and `emitComplaintStateUpdated()` push events to complaint rooms.
 
 **Client-side shared context:**
 
@@ -1368,7 +1377,7 @@ LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and at
 const { socket, isConnected, isReconnecting } = useSocket();
 ```
 
-This prevents the bug of multiple parallel socket connections when navigating between complaint pages.
+This prevents the bug of multiple parallel socket connections when navigating between chat pages. The `OrderChat` component (`components/order-chat.tsx`) and `ComplaintChat` component (`components/complaint-chat.tsx`) both consume this shared connection.
 
 #### 5.4.3 NextAuth Authentication
 
@@ -1429,7 +1438,7 @@ The testing infrastructure consists of:
 
 | Tool | Purpose | Test Count |
 |------|---------|------------|
-| **Vitest** | Unit tests and integration tests | 108 test files, 565 tests |
+| **Vitest** | Unit tests and integration tests | 108 test files, 571 tests |
 | **Playwright** | End-to-end browser tests | 5 test suites |
 | **mongodb-memory-server** | In-memory MongoDB for isolated database testing | Used in integration tests |
 
@@ -1447,7 +1456,7 @@ Unit tests verify that individual functions produce the correct output for given
 | Area | What Is Tested | Example |
 |------|---------------|---------|
 | Cancellation Policy | Fee refund vs. forfeit rules based on timing, role, and booking stage | Seeker cancels within 2h → "refund"; seeker cancels after 2h → "forfeit"; seeker cancels at `invoice_created` (regardless of time window) → always "forfeit"; provider cancels → "refund" |
-| Socket Auth | Room join authorization for complaint chat | Participant allowed in; non-participant rejected; rate limit enforced |
+| Socket Auth | Room join authorization for order and complaint chat | Order/complaint participant allowed in; non-participant rejected; rate limit enforced; admin always allowed for orders |
 | Chat State | Real-time chat deduplication and archive state | POST response and socket echo deduplicated by message ID; archived thread locks composer |
 | Payout Calculation | Commission math with Decimal.js precision | ₹1000 subtotal → ₹50 commission → ₹950 payout (in paise: 95000) |
 | Order Status Machine | Valid and invalid state transitions | washing → ironing is valid; washing → delivered is rejected |
@@ -1680,10 +1689,11 @@ LaundryEase successfully transforms the informal, trust-based local laundry serv
 - **Operational opacity** is replaced with a deterministic order lifecycle — both parties see the same timeline of explicit states (washing, ironing, ready, out for delivery, delivered) instead of vague promises.
 - **Payment insecurity** is eliminated through Razorpay integration with automated commission calculation and provider payouts via RazorpayX.
 - **Discovery failure** is solved by geospatial provider search — customers see only providers who actually serve their area, filtered by MongoDB 2dsphere queries.
+- **Communication gaps** are addressed by real-time Socket.IO order chat (seeker ↔ provider on active orders) and 3-way complaint chat (seeker/provider/admin), both with JWT-authenticated rooms, typing indicators, and push-based message delivery.
 - **Dispute resolution vacuum** is filled by a structured complaint system with 3-party chat, evidence attachments, response deadlines, and commission-aware settlement.
 - **Data loss** is prevented by a comprehensive MongoDB database with proper indexing, audit trails, and automated backups.
 
-The system is built on a modern, maintainable technology stack (Next.js, React, TypeScript, MongoDB, Razorpay, Socket.IO) with strict coding standards (type safety, Zod validation, Decimal.js for financial math) and a thorough testing pipeline (565 unit tests across 108 test files, 5 E2E test suites, automated CI/CD quality gates).
+The system is built on a modern, maintainable technology stack (Next.js, React, TypeScript, MongoDB, Razorpay, Socket.IO) with strict coding standards (type safety, Zod validation, Decimal.js for financial math) and a thorough testing pipeline (571 unit tests across 108 test files, 5 E2E test suites, automated CI/CD quality gates).
 
 ### 7.1 Future Enhancements
 
@@ -1701,7 +1711,7 @@ The following features are planned for future versions of LaundryEase:
 
 6. **Provider Analytics Dashboard** — Advanced analytics for providers including revenue trends, peak demand hours, customer retention rates, and service category breakdowns.
 
-7. **In-App Chat for Bookings** — Real-time Socket.IO messaging between seekers and providers during active bookings is already implemented for complaint chats. Extending this to active booking coordination is planned for a future release.
+7. **Enhanced In-App Chat** — Real-time Socket.IO messaging is already implemented for both order chat (seeker ↔ provider on active orders) and complaint chat (3-way). Future enhancements include read receipts, message reactions, image/file sharing in order chat, and push notifications for new messages when the app is not in focus.
 
 8. **Loyalty and Rewards Program** — Implement a points-based system that rewards frequent customers with discounts, free deliveries, or priority service.
 
@@ -1791,7 +1801,8 @@ laundry-ease/
 │   ├── api/                      # Backend API routes (15+ modules)
 │   │   ├── auth/                 # Authentication endpoints
 │   │   ├── bookings/             # Booking CRUD and actions
-│   │   ├── orders/               # Order lifecycle management
+│   │   ├── orders/               # Order lifecycle + chat + delivery
+│   │   │   └── [id]/chat/        # Order chat REST endpoint (GET/POST)
 │   │   ├── complaints/           # Complaint filing and chat
 │   │   ├── payments/             # Razorpay integration
 │   │   ├── providers/            # Provider search and profiles
@@ -1812,7 +1823,9 @@ laundry-ease/
 │   ├── seeker/                   # Seeker-specific components
 │   ├── provider/                 # Provider-specific components
 │   ├── orders/                   # Order management components
-│   └── providers/                # Provider listing components
+│   ├── providers/                # Provider listing + socket provider
+│   ├── order-chat.tsx            # Real-time order chat (Socket.IO)
+│   └── complaint-chat.tsx        # 3-way complaint chat (Socket.IO)
 │
 ├── lib/                          # Backend business logic
 │   ├── auth/                     # Password policy, session helpers
@@ -1820,6 +1833,12 @@ laundry-ease/
 │   ├── orders/                   # Status machine, deadline logic
 │   ├── complaints/               # Access control, chat rules
 │   ├── payouts/                  # Commission calculation, amounts
+│   ├── realtime/                 # Socket.IO contracts, auth, emitter, chat-state
+│   │   ├── contracts.js          # Event names, room helpers, serializers
+│   │   ├── contracts.d.ts        # TypeScript declarations
+│   │   ├── socket-auth.js        # authorizeOrderRoom, authorizeComplaintRoom
+│   │   ├── emitter.ts            # emitOrderMessageCreated, emitComplaintMessageCreated
+│   │   └── chat-state.ts         # Message sort, dedup, archive detection
 │   ├── security/                 # CSP, rate limiting, origin check
 │   ├── api/                      # Auth middleware, schemas, security
 │   ├── data/                     # Data access layer (queries)
@@ -1860,8 +1879,8 @@ laundry-ease/
 ├── docs/                         # Project documentation
 ├── public/                       # Static assets
 │
+├── server.js                     # Custom Node.js server (HTTP + Socket.IO + Next.js)
 ├── next.config.ts                # Next.js configuration
-├── tailwind.config.ts            # Tailwind CSS configuration
 ├── tsconfig.json                 # TypeScript configuration
 ├── vitest.config.ts              # Unit test configuration
 ├── playwright.config.ts          # E2E test configuration
