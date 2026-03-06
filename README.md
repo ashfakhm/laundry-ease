@@ -227,7 +227,7 @@ npm run dev
 
 ```
 requested → accepted → pickup_proposed → confirmed → invoice_created → completed
-                    ↘ rejected
+                    ↘ rejected                                       ↘ cancelled (fee forfeited)
          ↘ cancelled
               reschedule_requested ↩ (loops back to propose/confirm)
 ```
@@ -254,10 +254,11 @@ requested → accepted → pickup_proposed → confirmed → invoice_created →
 - **Seeker free-cancel window**: seeker can cancel within **2 hours of booking creation** (`SEEKER_FREE_CANCEL_WINDOW_MS`) and receive a full booking-fee refund
 - **Seeker after 2-hour window**: cancellation is still allowed (before slot time) but the booking fee is **forfeited**
 - **Seeker after slot time**: cannot cancel at or after the scheduled pickup time — enforced at API level
+- **Seeker at `invoice_created` stage**: cancellation is **always allowed** (slot time is bypassed) but the booking fee is **always forfeited** — the provider has already physically collected and inspected the items. The cancel button changes to **"Cancel & Reject Invoice"** and a fee-forfeit warning is shown in the confirm dialog.
 - **Provider cancellation**: always refunds the seeker's booking fee in full
 - **Booking fee already applied**: cancellation blocked (requires admin intervention)
 - **Live countdown badge**: the seeker booking card shows a live timer during the 2-hour free-cancel window, updating every 10 seconds
-- **Policy engine**: `lib/bookings/cancellation-policy.ts` — pure function `evaluateCancellationPolicy()` is the single source of truth for refund/forfeit decisions
+- **Policy engine**: `lib/bookings/cancellation-policy.ts` — pure function `evaluateCancellationPolicy()` is the single source of truth for refund/forfeit decisions; accepts optional `bookingStatus` to force the `invoice_created` forfeiture rule
 
 ## 11. Order Lifecycle
 
@@ -292,7 +293,56 @@ If delivery confirmation happens after the booking deadline:
 - If payment is in another state: blocked with manual-support message
 - Compensation is idempotent — applied only once per order
 
-## 12. Complaint & Dispute Resolution
+## 12. Real-Time Chat
+
+LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node.js entry point (`server.js`). This enables live message push for booking chat and complaint chat without polling.
+
+### Architecture
+
+- `server.js` creates an HTTP server, attaches the Next.js request handler, and then mounts a `socket.io` `Server` instance on the same port.
+- On startup the `io` instance is stored on `globalThis._socketIoServer` so Next.js API routes can emit events via `lib/realtime/emitter.ts`.
+- The `SocketProvider` (`components/providers/socket-provider.tsx`) wraps the dashboard layout and maintains a single authenticated Socket.IO connection per session, exposed via `useSocket()`.
+
+### Rooms
+
+| Room | Pattern | Who may join |
+| --- | --- | --- |
+| Booking chat | `booking:<id>` | Seeker and provider of that booking |
+| Complaint chat | `complaint:<id>` | Seeker; provider (after admin grants access); admin |
+
+### Security
+
+- **JWT auth middleware** on every socket connection — validates the NextAuth session cookie via `getToken()`. Unauthenticated connections are rejected immediately.
+- **Room authorization** (`lib/realtime/socket-auth.js`) — checks MongoDB to confirm the connecting user is a participant of the requested booking/complaint room.
+- **Per-socket rate limiting** — 20 room-join events per 60-second window; excess joins are rejected with `rate_limited`.
+- **Complaint provider access gate** — providers can only join a complaint room after an admin explicitly grants access (`provider_access_granted = true`).
+
+### Events
+
+| Direction | Event | Purpose |
+| --- | --- | --- |
+| Client → Server | `booking:join` | Join a booking chat room |
+| Client → Server | `complaint:join` | Join a complaint chat room |
+| Client → Server | `room:leave` | Leave a room |
+| Client → Server | `typing:start` / `typing:stop` | Typing indicator relay |
+| Server → Client | `booking:message:created` | New booking chat message |
+| Server → Client | `complaint:message:created` | New complaint chat message |
+| Server → Client | `complaint:state:updated` | Complaint status/access change |
+| Server → Client | `typing:start` / `typing:stop` | Typing indicator forwarded to room |
+
+### Key files
+
+| File | Purpose |
+| --- | --- |
+| `server.js` | Custom Node.js server — HTTP + Socket.IO + Next.js |
+| `lib/realtime/contracts.js` | Shared event names, room helpers, message serializers |
+| `lib/realtime/socket-auth.js` | `authorizeBookingRoom()`, `authorizeComplaintRoom()`, `resolveRealtimeUserFromToken()` |
+| `lib/realtime/emitter.ts` | `emitBookingMessage()`, `emitComplaintMessage()`, `emitComplaintStateUpdate()` — called from API routes |
+| `components/providers/socket-provider.tsx` | React context + `useSocket()` hook |
+
+---
+
+## 13. Complaint & Dispute Resolution
 
 ### Complaint Lifecycle
 
@@ -334,7 +384,7 @@ Admin can extend the complaint filing window for exceptional cases via `POST /ap
 | `PATCH /api/admin/complaints/[id]/resolve`       | Resolve with settlement outcome    |
 | `POST /api/admin/orders/[id]/extend-complaint`   | Extend complaint filing window     |
 
-## 13. Operational Monitoring & Alerting
+## 14. Operational Monitoring & Alerting
 
 ### Health Monitoring
 
@@ -376,7 +426,7 @@ The admin dashboard surfaces:
 - Mean Time To Resolve (MTTR) for recently resolved alerts
 - SLA-breached alert counts (critical and high separately)
 
-## 14. Cron Jobs
+## 15. Cron Jobs
 
 | Endpoint                               | Schedule     | Purpose                                                      |
 | -------------------------------------- | ------------ | ------------------------------------------------------------ |
@@ -399,9 +449,11 @@ All 10 cron endpoints are:
 
 **Email outbox dev override**: Set `EMAIL_SEND_IMMEDIATE=1` to bypass the queue and send emails synchronously during local development. Use `POST /api/cron/process-email-outbox` (no auth required in non-production) to manually drain the queue during testing.
 
+**Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`): Set `DEMO_MODE=1` in `.env` to enable the admin demo panel that invokes all 10 cron handlers **in-process** (no external scheduler required). This is designed for local development and demos — all handlers are called directly with a `CRON_SECRET`-signed `NextRequest`, so the full cron logic runs and results are shown in the admin UI. **Remove `DEMO_MODE` or set it to `0` in production.**
+
 All cron runs are tracked in the `cron_runs` collection with job name, start time, duration, status, and result details. Cron endpoints are secured with `CRON_SECRET` bearer token authentication.
 
-## 15. Security
+## 16. Security
 
 ### Headers & Transport
 
@@ -411,6 +463,8 @@ All cron runs are tracked in the `cron_runs` collection with job name, start tim
 - **X-Content-Type-Options**: `nosniff`
 - **Referrer-Policy**: `strict-origin-when-cross-origin`
 - **Permissions-Policy**: camera/microphone disabled, geolocation self-only
+
+- **WebSocket CSP**: `connect-src` includes `ws:` and `wss:` to allow Socket.IO WebSocket transport. `upgrade-insecure-requests` is only applied in production (`NODE_ENV === "production"`) — on localhost it is omitted to prevent the browser from silently rewriting `http:` polling requests to `https:`, which would break Socket.IO.
 
 ### Authentication & Authorization
 
@@ -453,7 +507,7 @@ Auto-cleanup via TTL indexes. Stale lock recovery for burst traffic.
 
 Structured Pino logging with native redaction of: `password`, `passwordHash`, `token`, `secret`, `apiKey`, `otp`, `code`, `codeHash`, `authToken`, `accessToken`. Pretty-printing in dev, JSON in production.
 
-## 16. Project Status & Direction
+## 17. Project Status & Direction
 
 **UI & Interaction:**
 
@@ -465,6 +519,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 | `SettlementSummaryModal` | `components/ui/settlement-summary-modal.tsx` | `alert()` dumps of settlement data in admin complaint resolution |
 | `BanUserDialog` (inline) | `app/(dashboard)/admin/user-management/page.tsx` | `window.prompt()` for ban reason |
 | Headless `handleCancelBooking` callback | `hooks/use-booking-actions.ts` | Inline `confirm()` before cancellation |
+| "Cancel & Reject Invoice" confirm dialog | `app/(dashboard)/seeker/bookings/seeker-booking-card.tsx` | Dynamic confirm text + fee-forfeit warning for `invoice_created` stage |
 
 **Stable:**
 
@@ -477,7 +532,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Complaint system with admin workflow (accept → add provider → resolve)
 - Complaint split-settlement support (`refund_partial`) with commission-aware allocation
 - Unified payout orchestration with concurrent batch processing
-- Booking cancellation rules: 2-hour free-cancel window from creation, enforced refund/forfeiture policy (`lib/bookings/cancellation-policy.ts`)
+- Booking cancellation rules: 2-hour free-cancel window from creation, enforced refund/forfeiture policy (`lib/bookings/cancellation-policy.ts`) — including cancel-at-`invoice_created` stage (always forfeits fee; bypasses slot-time guard)
 - Geofenced provider arrival checks before booking-fee payout release
 - 24-hour complaint window enforcement at API level
 - Deadline compensation (auto full-refund on late delivery at OTP confirmation)
@@ -514,16 +569,17 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 
 **Quality Snapshot (current):**
 
-- `104` test files, `551` tests passing (100% core route coverage)
+- `108` test files, `565` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
 - TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`
 - Zero production type casts
 - Strict escrow paise precision enforced
 - System webhooks fully mutex-locked
-- Cancellation policy fully unit-tested (10 cases covering both actors, boundary conditions, and fee states)
+- Cancellation policy fully unit-tested (11 cases covering both actors, boundary conditions, `invoice_created` forced-forfeit, and all fee states)
 - Reschedule flow: atomic `$unset confirmedAt` on request, TOCTOU-safe status-guarded DB writes
 - Password management: `passwordChangedAt` tested on both seeker/provider profile routes, password-changed email enqueuing verified
+- Real-time layer: Socket.IO socket-auth, emitter dispatch, and chat-state modules are unit-tested
 
 **Remaining Hardening Opportunities:**
 
@@ -531,12 +587,13 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Team calendar/on-call integration for dynamic owner pools
 - Password-recovery anti-abuse hardening (captcha strategy for production)
 - Promote CSP from report-only to enforce mode after violation cleanup
+- Tighten CSP `connect-src` from broad `wss:` to specific `wss://<your-domain>` in production
 - Split-settlement reconciliation tooling for rare one-leg failure cases
 - Reschedule abuse prevention (caps, cooldowns, or admin escalation)
-- Real-time push (SSE/WebSocket) to replace polling in booking/order status updates
-- Playwright E2E coverage for reschedule flow and cancellation window boundary behavior
+- Playwright E2E coverage for reschedule flow, cancellation window boundary, and Socket.IO chat flows
+- Remove `DEMO_MODE=1` and `ALLOW_START_WITH_INDEX_ERRORS=1` from `.env` before any public deployment
 
-## 17. Project Structure
+## 18. Project Structure
 
 ```text
 laundry-ease/
