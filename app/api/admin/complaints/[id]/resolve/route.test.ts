@@ -10,6 +10,8 @@ const {
   mockInitiateOrderPayout,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
+  mockEmitComplaintMessageCreated,
+  mockEmitComplaintStateUpdated,
 } = vi.hoisted(() => ({
   mockRequireAdminWithDbCheck: vi.fn(),
   mockGetDb: vi.fn(),
@@ -18,6 +20,8 @@ const {
   mockInitiateOrderPayout: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
+  mockEmitComplaintMessageCreated: vi.fn(),
+  mockEmitComplaintStateUpdated: vi.fn(),
 }));
 
 vi.mock("@/lib/api/auth", () => ({
@@ -51,6 +55,11 @@ vi.mock("@/lib/logger", () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/realtime/emitter", () => ({
+  emitComplaintMessageCreated: mockEmitComplaintMessageCreated,
+  emitComplaintStateUpdated: mockEmitComplaintStateUpdated,
 }));
 
 import { POST } from "./route";
@@ -152,7 +161,8 @@ describe("POST /api/admin/complaints/[id]/resolve", () => {
     });
     dbMock.complaintsUpdateOne.mockResolvedValue({ modifiedCount: 1 });
     dbMock.ordersUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.complaintMessagesInsertOne.mockResolvedValue({ acknowledged: true });
+    const insertedId = new ObjectId();
+    dbMock.complaintMessagesInsertOne.mockResolvedValue({ insertedId });
 
     mockGetOrderById.mockResolvedValue({
       _id: orderId,
@@ -199,6 +209,17 @@ describe("POST /api/admin/complaints/[id]/resolve", () => {
         }),
       },
     );
+    expect(mockEmitComplaintMessageCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: insertedId,
+        complaint_id: complaintId,
+      }),
+    );
+    expect(mockEmitComplaintStateUpdated).toHaveBeenCalledWith({
+      complaintId: complaintId.toString(),
+      status: "rejected",
+      providerAccessGranted: false,
+    });
   });
 
   it("resolves with partial refund split and records payout + refund amounts", async () => {

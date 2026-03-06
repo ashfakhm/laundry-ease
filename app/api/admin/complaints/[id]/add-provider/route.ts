@@ -7,6 +7,10 @@ import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import {
+  emitComplaintMessageCreated,
+  emitComplaintStateUpdated,
+} from "@/lib/realtime/emitter";
 
 export async function POST(
   req: Request,
@@ -84,7 +88,16 @@ export async function POST(
       createdAt: new Date(),
     };
 
-    await db.collection("complaint_messages").insertOne(systemMsg);
+    const insertResult = await db.collection("complaint_messages").insertOne(systemMsg);
+    emitComplaintMessageCreated({
+      _id: insertResult.insertedId,
+      ...systemMsg,
+    });
+    emitComplaintStateUpdated({
+      complaintId: id,
+      status: "in_review",
+      providerAccessGranted: true,
+    });
 
     return successResponse({
       success: true

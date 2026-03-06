@@ -6,11 +6,15 @@ const {
   mockGetDb,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
+  mockEmitComplaintMessageCreated,
+  mockEmitComplaintStateUpdated,
 } = vi.hoisted(() => ({
   mockRequireAdminWithDbCheck: vi.fn(),
   mockGetDb: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
+  mockEmitComplaintMessageCreated: vi.fn(),
+  mockEmitComplaintStateUpdated: vi.fn(),
 }));
 
 vi.mock("@/lib/api/auth", () => ({
@@ -32,6 +36,11 @@ vi.mock("@/lib/logger", () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/realtime/emitter", () => ({
+  emitComplaintMessageCreated: mockEmitComplaintMessageCreated,
+  emitComplaintStateUpdated: mockEmitComplaintStateUpdated,
 }));
 
 import { PATCH } from "./route";
@@ -135,7 +144,8 @@ describe("PATCH /api/admin/complaints/[id]/access", () => {
       status: "accepted",
     });
     dbMock.complaintUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.complaintMessagesInsertOne.mockResolvedValue({ acknowledged: true });
+    const insertedId = new ObjectId();
+    dbMock.complaintMessagesInsertOne.mockResolvedValue({ insertedId });
 
     const res = await PATCH(makeRequest({ granted: true }), {
       params: Promise.resolve({ id: complaintId.toString() }),
@@ -163,6 +173,17 @@ describe("PATCH /api/admin/complaints/[id]/access", () => {
         content: "Admin added Provider to the chat.",
       }),
     );
+    expect(mockEmitComplaintMessageCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: insertedId,
+        complaint_id: complaintId,
+      }),
+    );
+    expect(mockEmitComplaintStateUpdated).toHaveBeenCalledWith({
+      complaintId: complaintId.toString(),
+      status: "in_review",
+      providerAccessGranted: true,
+    });
   });
 
   it("revokes access and moves in_review complaint back to accepted", async () => {
@@ -177,7 +198,8 @@ describe("PATCH /api/admin/complaints/[id]/access", () => {
       provider_access_granted: true,
     });
     dbMock.complaintUpdateOne.mockResolvedValue({ modifiedCount: 1 });
-    dbMock.complaintMessagesInsertOne.mockResolvedValue({ acknowledged: true });
+    const insertedId = new ObjectId();
+    dbMock.complaintMessagesInsertOne.mockResolvedValue({ insertedId });
 
     const res = await PATCH(makeRequest({ granted: false }), {
       params: Promise.resolve({ id: complaintId.toString() }),
@@ -200,6 +222,17 @@ describe("PATCH /api/admin/complaints/[id]/access", () => {
         content: "Admin revoked Provider access.",
       }),
     );
+    expect(mockEmitComplaintMessageCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: insertedId,
+        complaint_id: complaintId,
+      }),
+    );
+    expect(mockEmitComplaintStateUpdated).toHaveBeenCalledWith({
+      complaintId: complaintId.toString(),
+      status: "accepted",
+      providerAccessGranted: false,
+    });
   });
 
   it("returns 409 for finalized complaints", async () => {

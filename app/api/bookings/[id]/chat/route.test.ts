@@ -6,11 +6,13 @@ const {
   mockRequireAuth,
   mockRequireSameOrigin,
   mockEnforceRateLimit,
+  mockEmitBookingMessageCreated,
 } = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockRequireAuth: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
+  mockEmitBookingMessageCreated: vi.fn(),
 }));
 
 vi.mock("@/lib/mongodb", () => ({
@@ -35,6 +37,10 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+vi.mock("@/lib/realtime/emitter", () => ({
+  emitBookingMessageCreated: mockEmitBookingMessageCreated,
+}));
+
 import { GET, POST } from "./route";
 
 describe("booking chat route contracts", () => {
@@ -57,7 +63,8 @@ describe("booking chat route contracts", () => {
   it("POST returns compatibility success payload for a valid participant", async () => {
     const bookingId = new ObjectId();
     const seekerId = new ObjectId();
-    const insertOne = vi.fn().mockResolvedValue({ acknowledged: true });
+    const insertedId = new ObjectId();
+    const insertOne = vi.fn().mockResolvedValue({ insertedId });
     const findOne = vi.fn().mockResolvedValue({
       _id: bookingId,
       seeker_id: seekerId,
@@ -95,6 +102,19 @@ describe("booking chat route contracts", () => {
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.ok).toBe(true);
+    expect(body.data).toMatchObject({
+      _id: insertedId.toString(),
+      booking_id: bookingId.toString(),
+      sender_id: seekerId.toString(),
+      sender_role: "seeker",
+      message: "I am here",
+    });
     expect(insertOne).toHaveBeenCalledOnce();
+    expect(mockEmitBookingMessageCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: insertedId,
+        booking_id: bookingId,
+      }),
+    );
   });
 });

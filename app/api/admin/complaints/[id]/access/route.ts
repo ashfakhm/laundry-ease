@@ -8,6 +8,10 @@ import { adminComplaintAccessSchema } from "@/lib/api/schemas";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import {
+  emitComplaintMessageCreated,
+  emitComplaintStateUpdated,
+} from "@/lib/realtime/emitter";
 
 export async function PATCH(
   req: Request,
@@ -88,7 +92,20 @@ export async function PATCH(
       createdAt: new Date(),
     };
 
-    await db.collection("complaint_messages").insertOne(systemMsg);
+    const insertResult = await db.collection("complaint_messages").insertOne(systemMsg);
+    emitComplaintMessageCreated({
+      _id: insertResult.insertedId,
+      ...systemMsg,
+    });
+    emitComplaintStateUpdated({
+      complaintId: id,
+      status: granted
+        ? "in_review"
+        : complaint.status === "in_review"
+          ? "accepted"
+          : complaint.status,
+      providerAccessGranted: granted,
+    });
 
     return successResponse({ granted });
   } catch (error) {

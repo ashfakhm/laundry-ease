@@ -23,6 +23,10 @@ import {
   fetchManualTransferDetails,
   fetchSettlementPartyDetails,
 } from "@/lib/services/complaint-resolution";
+import {
+  emitComplaintMessageCreated,
+  emitComplaintStateUpdated,
+} from "@/lib/realtime/emitter";
 
 export async function POST(
   req: Request,
@@ -194,7 +198,19 @@ export async function POST(
         refundApplied: financialResult?.refundApplied,
       });
 
-      await db.collection("complaint_messages").insertOne({
+      const insertResult = await db.collection("complaint_messages").insertOne({
+        complaint_id: complaintId,
+        sender_id: new ObjectId(session.user.id),
+        sender_role: "system",
+        message_type: "SYSTEM",
+        content:
+          !financialResult?.payoutApplied && !financialResult?.refundApplied
+            ? `Failed to finalize complaint due to financial action error: ${details}`
+            : `Complaint finalized but follow-up is needed. ${details}. payoutApplied=${financialResult?.payoutApplied}, refundApplied=${financialResult?.refundApplied}`,
+        createdAt: new Date(),
+      });
+      emitComplaintMessageCreated({
+        _id: insertResult.insertedId,
         complaint_id: complaintId,
         sender_id: new ObjectId(session.user.id),
         sender_role: "system",
@@ -276,7 +292,16 @@ export async function POST(
       createdAt: new Date(),
     };
 
-    await db.collection("complaint_messages").insertOne(systemMsg);
+    const insertResult = await db.collection("complaint_messages").insertOne(systemMsg);
+    emitComplaintMessageCreated({
+      _id: insertResult.insertedId,
+      ...systemMsg,
+    });
+    emitComplaintStateUpdated({
+      complaintId: id,
+      status: resolved.dbStatus,
+      providerAccessGranted: false,
+    });
 
     const manualTransferDetails = await fetchManualTransferDetails(db, order, {
       payoutPendingManual,

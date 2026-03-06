@@ -199,6 +199,16 @@ const INDEX_SPECS: IndexSpec[] = [
     options: { name: "complaints_status_deadline" },
   },
   {
+    collection: "chats",
+    keys: { booking_id: 1, createdAt: 1, _id: 1 },
+    options: { name: "chats_booking_createdAt_id" },
+  },
+  {
+    collection: "complaint_messages",
+    keys: { complaint_id: 1, createdAt: 1, _id: 1 },
+    options: { name: "complaint_messages_complaint_createdAt_id" },
+  },
+  {
     collection: "email_outbox",
     keys: { status: 1, nextAttemptAt: 1, createdAt: 1 },
     options: { name: "email_outbox_status_nextAttempt_createdAt" },

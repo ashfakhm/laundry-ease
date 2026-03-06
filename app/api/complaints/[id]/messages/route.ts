@@ -9,6 +9,8 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { canAccessComplaintConversation } from "@/lib/complaints/access";
 import { requireAuth } from "@/lib/api/auth";
+import realtimeContracts from "@/lib/realtime/contracts";
+import { emitComplaintMessageCreated } from "@/lib/realtime/emitter";
 
 type ComplaintAccessDoc = {
   seeker_id: ObjectId;
@@ -113,7 +115,13 @@ export async function GET(
       .limit(limit)
       .toArray();
 
-    return successResponse(messages);
+    return successResponse(
+      messages.map((message) =>
+        realtimeContracts.serializeComplaintMessage(
+          message as Record<string, unknown>,
+        ),
+      ),
+    );
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
@@ -187,6 +195,16 @@ export async function POST(
       return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, access.error));
     }
 
+    if (complaint.status === "resolved" || complaint.status === "rejected") {
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Dispute is resolved. Chat is archived.",
+        ),
+      );
+    }
+
     // Construct Message
     // FORCE message_type = TEXT (or IMAGE if only attachments).
     // User CANNOT send SYSTEM messages.
@@ -202,9 +220,20 @@ export async function POST(
       createdAt: new Date(),
     };
 
-    await db.collection("complaint_messages").insertOne(message);
+    const insertResult = await db.collection("complaint_messages").insertOne(message);
+    const persistedMessage = {
+      _id: insertResult.insertedId,
+      ...message,
+    };
 
-    return successResponse(message, 201);
+    emitComplaintMessageCreated(persistedMessage as Record<string, unknown>);
+
+    return successResponse(
+      realtimeContracts.serializeComplaintMessage(
+        persistedMessage as Record<string, unknown>,
+      ),
+      201,
+    );
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);

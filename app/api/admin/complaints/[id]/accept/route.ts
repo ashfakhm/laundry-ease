@@ -8,6 +8,10 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { errorResponse, successResponse } from "@/lib/api/response";
+import {
+  emitComplaintMessageCreated,
+  emitComplaintStateUpdated,
+} from "@/lib/realtime/emitter";
 
 function getProviderDisplayName(
   provider?: {
@@ -127,7 +131,16 @@ export async function POST(
       createdAt: now,
     };
 
-    await db.collection("complaint_messages").insertOne(systemMsg);
+    const insertResult = await db.collection("complaint_messages").insertOne(systemMsg);
+    emitComplaintMessageCreated({
+      _id: insertResult.insertedId,
+      ...systemMsg,
+    });
+    emitComplaintStateUpdated({
+      complaintId: id,
+      status: "accepted",
+      providerAccessGranted: Boolean(complaint.provider_access_granted),
+    });
 
     const notifications = [
       {

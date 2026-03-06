@@ -7,6 +7,8 @@ import { bookingChatMessageSchema } from "@/lib/api/schemas";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
+import realtimeContracts from "@/lib/realtime/contracts";
+import { emitBookingMessageCreated } from "@/lib/realtime/emitter";
 
 /**
  * GET /api/bookings/[id]/chat
@@ -52,7 +54,13 @@ export async function GET(
       .find({ booking_id: bookingId })
       .sort({ createdAt: 1, _id: 1 })
       .toArray();
-    return successResponse(messages);
+    return successResponse(
+      messages.map((message) =>
+        realtimeContracts.serializeBookingChatMessage(
+          message as Record<string, unknown>,
+        ),
+      ),
+    );
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
@@ -121,10 +129,20 @@ export async function POST(
       message: parsed.data.message.trim(),
       createdAt: new Date(),
     };
-    await db.collection("chats").insertOne(chatMsg);
-    return successResponse({
-      success: true
-    }, 200);
+    const insertResult = await db.collection("chats").insertOne(chatMsg);
+    const persistedMessage = {
+      _id: insertResult.insertedId,
+      ...chatMsg,
+    };
+
+    emitBookingMessageCreated(persistedMessage as Record<string, unknown>);
+
+    return successResponse(
+      realtimeContracts.serializeBookingChatMessage(
+        persistedMessage as Record<string, unknown>,
+      ),
+      200,
+    );
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);

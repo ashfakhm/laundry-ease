@@ -8,6 +8,7 @@ import { adminComplaintStatusSchema } from "@/lib/api/schemas";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
+import { emitComplaintStateUpdated } from "@/lib/realtime/emitter";
 
 /**
  * PATCH /api/admin/complaints/:id
@@ -42,13 +43,24 @@ export async function PATCH(
     const { status } = parsed.data;
     const { db } = await getDb();
 
-    const result = await db
+    const complaintId = new ObjectId(id);
+    const existingComplaint = await db
       .collection("complaints")
-      .updateOne({ _id: new ObjectId(id) }, { $set: { status } });
+      .findOne({ _id: complaintId }, { projection: { provider_access_granted: 1 } });
 
-    if (result.matchedCount === 0) {
+    if (!existingComplaint) {
       return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
     }
+
+    await db
+      .collection("complaints")
+      .updateOne({ _id: complaintId }, { $set: { status } });
+
+    emitComplaintStateUpdated({
+      complaintId: id,
+      status,
+      providerAccessGranted: Boolean(existingComplaint.provider_access_granted),
+    });
 
     return successResponse({ ok: true });
   } catch (error) {

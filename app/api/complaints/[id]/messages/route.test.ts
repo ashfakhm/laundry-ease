@@ -8,12 +8,14 @@ const {
   mockEnforceRateLimit,
   mockGetDb,
   mockCanAccessComplaintConversation,
+  mockEmitComplaintMessageCreated,
 } = vi.hoisted(() => ({
   mockRequireAuth: vi.fn(),
   mockRequireSameOrigin: vi.fn(),
   mockEnforceRateLimit: vi.fn(),
   mockGetDb: vi.fn(),
   mockCanAccessComplaintConversation: vi.fn(),
+  mockEmitComplaintMessageCreated: vi.fn(),
 }));
 
 vi.mock("@/lib/api/auth", () => ({
@@ -40,6 +42,10 @@ vi.mock("@/lib/logger", () => ({
     info: vi.fn(),
     debug: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/realtime/emitter", () => ({
+  emitComplaintMessageCreated: mockEmitComplaintMessageCreated,
 }));
 
 import { POST } from "./route";
@@ -122,8 +128,9 @@ describe("POST /api/complaints/[id]/messages", () => {
       provider_access_granted: true,
       status: "in_review",
     });
+    const insertedId = new ObjectId();
     dbMock.complaintMessagesInsertOne.mockResolvedValue({
-      insertedId: new ObjectId(),
+      insertedId,
     });
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
@@ -141,6 +148,19 @@ describe("POST /api/complaints/[id]/messages", () => {
         content: "",
         message_type: "IMAGE",
         attachments: ["https://example.com/evidence-1.jpg"],
+      }),
+    );
+    const body = await res.json();
+    expect(body.data).toMatchObject({
+      _id: insertedId.toString(),
+      complaint_id: complaintId.toString(),
+      sender_id: seekerId.toString(),
+      message_type: "IMAGE",
+    });
+    expect(mockEmitComplaintMessageCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: insertedId,
+        complaint_id: complaintId,
       }),
     );
   });
