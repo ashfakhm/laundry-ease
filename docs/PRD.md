@@ -1,4 +1,4 @@
-# LaundryEase — Product Requirements Document (Rev 11)
+# LaundryEase — Product Requirements Document (Rev 12)
 
 ## 1. Executive Summary
 
@@ -269,6 +269,9 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 
 - **Complaint window enforcement**
   Seekers must raise complaints within 24 hours of delivery. After this window, escrow may auto-release.
+
+- **Real-time order chat**
+  Seekers and providers must be able to exchange messages on active orders in real time via Socket.IO (`order:<id>` rooms). Messages are persisted in the `order_chats` collection and pushed live to connected participants. Admins may also access order chat rooms.
 
 - **Complaint chat audit trail**
   All messages in a complaint thread must be recorded with sender role and timestamp for dispute evidence.
@@ -631,7 +634,7 @@ See `README.md` for detailed setup instructions.
 - **Team calendar / on-call integration**
   Alert owner routing currently uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`). Real dynamic on-call scheduling requires external calendar integration.
 
-## 14. Implementation Alignment Matrix (2026-03-06 — Rev 11)
+## 14. Implementation Alignment Matrix (2026-03-07 — Rev 12)
 
 | PRD Requirement                  | Expected Behavior                                                                                                                | Current System Status                                                                                                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -691,7 +694,8 @@ See `README.md` for detailed setup instructions.
 | Invoice finalization safety     | Invoice payment must atomically create order and link booking                                                                    | Implemented (`lib/services/invoice-finalization.ts` with MongoDB transaction + compensating-write fallback for non-replica-set envs)                                      |
 | Distributed refund locking      | Concurrent cancel/reject must not double-refund booking fees                                                                     | Implemented (`lib/services/refund-lock.ts` with stale-lock timeout and diagnostic recovery)                                                                              |
 | React Compiler                  | Frontend should leverage compiler optimizations for performance                                                                  | Implemented (`reactCompiler: true` in `next.config.ts`)                                                                                                                 |
-| Real-time chat                  | Booking and complaint chat must deliver messages in real time via WebSocket without polling                                      | Implemented — `server.js` co-hosts Socket.IO with Next.js on the same port; JWT auth middleware on every connection; booking + complaint rooms with DB-verified authorization; per-socket rate limiting (20 joins/min); `SocketProvider` + `useSocket()` hook; server-side emitter (`lib/realtime/emitter.ts`) pushes events from API routes |
+| Real-time chat                  | Order chat and complaint chat must deliver messages in real time via WebSocket without polling                                   | Implemented — `server.js` co-hosts Socket.IO with Next.js on the same port; JWT auth middleware on every connection; **order** (`order:<id>`) + complaint (`complaint:<id>`) rooms with DB-verified authorization; per-socket rate limiting (20 joins/min); `SocketProvider` + `useSocket()` hook; server-side emitter (`lib/realtime/emitter.ts`) pushes events from API routes; `OrderChat` component replaces the previous booking-scoped `BookingChat`; `/api/orders/[id]/chat` REST endpoint for message history + send |
+| Real-time order chat            | Seekers and providers must be able to exchange messages on active orders in real time; messages persisted in `order_chats`       | Implemented — `components/order-chat.tsx` joins `order:<id>` Socket.IO room via `order:join` event; `authorizeOrderRoom()` in `lib/realtime/socket-auth.js` verifies participant access against MongoDB; REST endpoint `GET/POST /api/orders/[id]/chat` for history + send; `emitOrderMessageCreated()` pushes `order:message:created` events; provider messages inbox refactored to aggregate from `orders` + `order_chats`; expandable chat panel on provider order-status page |
 | CSP WebSocket support           | CSP must allow WebSocket transport for real-time features without breaking localhost development                                  | Implemented — `connect-src` includes `ws:` and `wss:` in `lib/security/csp.ts`; `upgrade-insecure-requests` is now production-only (`NODE_ENV === "production"`) to avoid breaking Socket.IO polling transport on localhost |
 | Demo cron dispatcher            | Local development should be able to trigger all cron jobs without an external scheduler                                          | Implemented — `lib/demo/cron-dispatch.ts` provides in-process runner for all 10 cron handlers; enabled by `DEMO_MODE=1` in `.env`; admin demo panel invokes handlers with `CRON_SECRET`-signed requests; must be disabled (`DEMO_MODE=0`) in production |
 | Provider bank sync              | Bank detail changes must sync to Razorpay contact/fund account                                                                  | Implemented (`lib/services/provider-bank-sync.ts` — creates contact + fund account, masks stored account number)                                                         |
