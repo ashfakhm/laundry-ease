@@ -58,6 +58,10 @@ const SocketContext = createContext<SocketContextValue>({
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
 
+  // Extract a stable primitive so the effect dep doesn't change on
+  // every render due to object reference instability.
+  const userEmail = session?.user?.email ?? null;
+
   // Ref holds the raw socket so the cleanup function can call
   // `disconnect()` without needing `socket` (state) in its closure.
   // The ref is never read during render — only inside the effect.
@@ -71,7 +75,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Only create a socket when the user is authenticated.
-    if (status !== "authenticated" || !session?.user) return;
+    if (status !== "authenticated" || !userEmail) return;
 
     const s = io({
       autoConnect: true,
@@ -126,7 +130,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setIsConnected(false);
       setIsReconnecting(false);
     };
-  }, [status, session?.user]);
+  }, [status, userEmail]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected, isReconnecting }}>
