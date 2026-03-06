@@ -1,10 +1,10 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-03-05
+**Last Updated:** 2026-03-06 (Rev 11)
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes a full complaint/dispute resolution system with 3-way chat, commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase), and a professional password management system with secure token-based reset, session invalidation on password change, and branded security notification emails.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes a full complaint/dispute resolution system with 3-way real-time chat (Socket.IO), commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase), and a professional password management system with secure token-based reset, session invalidation on password change, and branded security notification emails.
 
 ```mermaid
 graph LR
@@ -212,16 +212,27 @@ laundry-ease/
 │   ├── audit/                    # Data integrity checks
 │   ├── auth/                     # Password policy
 │   ├── bookings/                 # Booking logic (cancellation policy, arrival)
-│   │   ├── cancellation-policy.ts  # Pure function: 2-hour free-cancel window, role-aware refund/forfeit
-│   │   └── cancellation-policy.test.ts  # 10 unit tests (both actors, boundary times, all fee states)
+│   │   ├── cancellation-policy.ts  # Pure function: 2-hour free-cancel window, invoice_created forfeit, role-aware
+│   │   └── cancellation-policy.test.ts  # 11 unit tests (both actors, boundary times, invoice_created stage, all fee states)
 │   ├── complaints/               # Complaint access control
 │   ├── data/                     # Data access helpers
 │   ├── db/                       # Database CRUD (bookings, orders, users, complaints, escrow, transaction)
 │   │   ├── bookings.ts           # updateBookingPickupSlot uses atomic status filter + $unset confirmedAt
 │   │   └── [5 other db modules]
+│   ├── demo/
+│   │   └── cron-dispatch.ts      # In-process demo cron runner (DEMO_MODE=1) — calls all 10 cron handlers directly
 │   ├── ops/                      # Operational monitoring (6 modules + tests)
 │   ├── orders/                   # Order state machine, delivery confirmation, deadline compensation
 │   ├── payouts/                  # Payout calculation with decimal.js
+│   ├── realtime/                 # Socket.IO real-time layer
+│   │   ├── contracts.js          # Shared event names + serializers (CommonJS — loaded by server.js)
+│   │   ├── contracts.d.ts        # TypeScript declarations for contracts.js
+│   │   ├── socket-auth.js        # Room authorization helpers (booking + complaint rooms)
+│   │   ├── socket-auth.test.ts   # Auth helper unit tests
+│   │   ├── emitter.ts            # Server-side event emitter (wraps globalThis._socketIoServer)
+│   │   ├── emitter.test.ts       # Emitter unit tests
+│   │   ├── chat-state.ts         # Chat message helpers
+│   │   └── chat-state.test.ts    # Chat state unit tests
 │   ├── security/                 # CSP policy, origin validation
 │   ├── services/                 # Domain services (8 modules)
 │   ├── utils/                    # Delivery charge, monetary helpers
@@ -230,10 +241,11 @@ laundry-ease/
 │                                 # email-outbox, env, logger, mongodb, otp, payouts, razorpay,
 │                                 # telemetry, utils, distance, geocoding, email templates...
 │
+├── server.js                     # Custom Node.js server: attaches Socket.IO to Next.js HTTP server
 ├── scripts/                      # CI/CD scripts (4 files)
 ├── types/                        # TypeScript definitions (8 files)
 ├── e2e/                          # Playwright E2E tests (5 specs + support/)
-├── docs/                         # Documentation (7 files)
+├── docs/                         # Documentation (8 files)
 └── public/                       # Static assets (5 files)
 ```
 
@@ -241,10 +253,11 @@ laundry-ease/
 
 The seeker bookings page (`app/(dashboard)/seeker/bookings/`) now has:
 
-- **Four tabs**: All, Pending, Active, and **Reschedule** (new)
+- **Four tabs**: All, Pending, Active, and **Reschedule**
 - **Live countdown badge**: On booking cards within the 2-hour free-cancel window — updates every 10 seconds and changes wording/color after expiry
 - **Reschedule context**: `reschedule_requested` cards show who requested (You / Provider), the reason, the previously confirmed slot, and the reschedule count
-- **Confirm dialog**: Cancellation uses `ConfirmDialog` — wording changes dynamically based on whether the free-cancel window has expired
+- **Confirm dialog**: Cancellation uses `ConfirmDialog` — wording changes dynamically based on whether the free-cancel window has expired, and shows a distinct "Cancel & Reject Invoice" confirmation when the booking is at the `invoice_created` stage
+- **Cancel at invoice stage**: When `booking.status === "invoice_created"`, the cancel button label changes to **"Cancel & Reject Invoice"** and the confirm dialog warns that the booking fee will be forfeited (provider has already collected the items)
 
 ### Route Protection Architecture
 
@@ -539,7 +552,15 @@ Seeker                          Provider                         System
   │                                ├── POST .../invoice ────────────┤ (create invoice with items)
   │                                │   status → invoice_created     │
   │                                │                                │
-  ├── POST /api/invoices/[id] ─────┤ (approve/reject invoice)       │
+  ├── POST /api/bookings/[id]/cancel (invoice_created stage)        │
+  │   status → cancelled           │                                │
+  │   bookingFeeStatus → forfeited │                                │
+  │   [seeker chose to cancel      │                                │
+  │    after provider collected    │                                │
+  │    items — fee always lost]    │                                │
+  │                OR              │                                │
+  ├── POST /api/invoices/[id]/review (approve/reject)               │
+  │   [if approved: proceed to pay]│                                │
   │   [if rejected: cancelled +    │                                │
   │    bookingFee forfeited]       │                                │
   │                                │                                │
@@ -551,13 +572,14 @@ Seeker                          Provider                         System
 
 **Cancellation Policy** (`lib/bookings/cancellation-policy.ts`):
 
-The policy is a pure function `evaluateCancellationPolicy()` that returns `{ allowed, refundAction, withinFreeCancelWindow }`. It is the single source of truth — the cancel route, seeker UI badge, and all unit tests reference `SEEKER_FREE_CANCEL_WINDOW_MS` from `lib/constants.ts`.
+The policy is a pure function `evaluateCancellationPolicy()` that returns `{ allowed, refundAction, withinFreeCancelWindow }`. It is the single source of truth — the cancel route, seeker UI badge, and all unit tests reference `SEEKER_FREE_CANCEL_WINDOW_MS` from `lib/constants.ts`. The optional `bookingStatus` field forces the `invoice_created` forfeiture rule regardless of timing.
 
 | Condition                                             | Outcome                                     |
 | ----------------------------------------------------- | ------------------------------------------- |
 | Seeker cancels within 2 hours of booking creation     | Allowed; booking fee **refunded**           |
 | Seeker cancels after 2-hour window (before slot time) | Allowed; booking fee **forfeited**          |
-| Seeker cancels at or after scheduled pickup time      | **Blocked** at API level                    |
+| Seeker cancels at or after scheduled pickup slot time | **Blocked** at API level (except `invoice_created`) |
+| **Seeker cancels at `invoice_created` stage**         | **Always allowed; booking fee forfeited** (provider has collected items — bypasses slot-time guard) |
 | Provider cancels at any point before arrival          | Allowed; booking fee **refunded** to seeker |
 | Booking fee already `applied`                         | **Blocked** for all actors                  |
 | Booking fee `unpaid` (either actor)                   | Allowed; refund action `none`               |
@@ -965,6 +987,7 @@ Wash, Fold, Dry Cleaning, Ironing, Shoe Cleaning, Stain Removal, Bedding & Linen
 ```
 RootLayout (app/layout.tsx)
 ├── SessionProvider (NextAuth)
+├── SocketProvider (Socket.IO — single shared connection)
 ├── ThemeProvider (next-themes)
 ├── GoogleMapsProvider
 └── Route Groups
@@ -987,8 +1010,9 @@ RootLayout (app/layout.tsx)
 | Component                       | Purpose                                                                                                                                                                                                                               |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `landing-page-client.tsx`       | Animated landing with spotlight cards, text-generate effect                                                                                                                                                                           |
-| `chat-interface.tsx`            | Real-time booking chat with dispute filing modal                                                                                                                                                                                      |
-| `complaint-chat.tsx`            | 3-way complaint chat (seeker/provider/admin)                                                                                                                                                                                          |
+| `chat-interface.tsx`            | Real-time booking chat with dispute filing modal — uses `useSocket()` for live message push                                                                                                                                           |
+| `complaint-chat.tsx`            | 3-way complaint chat (seeker/provider/admin) — uses `useSocket()` for live message push and complaint state updates                                                                                                                   |
+| `socket-provider.tsx`           | `SocketProvider` context + `useSocket()` hook — maintains one Socket.IO connection per authenticated session, exposes `{ socket, isConnected, isReconnecting }`                                                                      |
 | `invoice-form.tsx`              | Provider invoice creation with line items and photos                                                                                                                                                                                  |
 | `invoice-review-form.tsx`       | Seeker invoice approval/rejection                                                                                                                                                                                                     |
 | `delivery-otp-form.tsx`         | OTP entry for delivery confirmation                                                                                                                                                                                                   |
@@ -1117,6 +1141,8 @@ flowchart TD
 - Whitelisted domains: Razorpay checkout, Google Maps, Cloudinary
 - `unsafe-inline` for scripts and styles (Next.js requirement)
 - `unsafe-eval` included in report-only mode, removed in enforce mode (unless `CSP_ALLOW_UNSAFE_EVAL=true`)
+- **`connect-src` includes `ws:` and `wss:`** — required for Socket.IO WebSocket transport; CORS on the Socket.IO server provides the actual origin restriction
+- **`upgrade-insecure-requests` is production-only** — omitted on `NODE_ENV !== "production"` so that Socket.IO polling over plain HTTP works correctly on localhost without the browser silently rewriting `http:` requests to `https:`
 - Violations reported to `/api/security/csp-report`
 
 ### Authentication Security
@@ -1185,16 +1211,17 @@ flowchart LR
 
 ### Unit Tests (Vitest)
 
-- **104 test files**, **551 tests** passing
+- **108 test files**, **565 tests** passing
 - Located alongside source files as `*.test.ts`
 - In-memory MongoDB via `mongodb-memory-server`
 - Coverage areas:
   - All API route handlers
   - Business logic modules:
-    - Cancellation policy — **10 tests** (both actors, boundary 2-hour window, all `bookingFeeStatus` values)
+    - Cancellation policy — **11 tests** (both actors, boundary 2-hour window, `invoice_created` forced-forfeit, all `bookingFeeStatus` values)
     - Reschedule route — atomic `$unset` and TOCTOU-safe status guard scenarios
     - Schedule route — propose/confirm TOCTOU guards, `updatedAt` correctness
     - Deadline compensation, status machine, payout amounts
+  - **Real-time modules** — `lib/realtime/`: socket-auth room authorization, emitter dispatch, chat-state serialization
   - Security modules (rate limiting, origin checks, CSP)
   - Ops modules (health signals, alert delivery, SLA tracking, owner routing, analytics)
   - Data integrity (audit integrity checks)
@@ -1327,11 +1354,11 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 ---
 
-## 16. Current Project Status (Rev 10)
+## 16. Current Project Status (Rev 11)
 
-**Quality Snapshot (2026-03-05):**
+**Quality Snapshot (2026-03-06):**
 
-- 104 test files, 551 tests passing (100% core route coverage)
+- 108 test files, 565 tests passing (100% core route coverage)
 - 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
@@ -1349,7 +1376,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Complaint system with admin workflow (accept → add provider → resolve)
 - Split-settlement support with commission-aware allocation
 - Unified payout orchestration with concurrent batch processing
-- Booking cancellation rules with enforced refund/forfeiture policy
+- Booking cancellation rules with enforced refund/forfeiture policy — including `invoice_created` stage cancel (always forfeits fee)
 - Geofenced provider arrival checks before booking-fee payout release
 - 24-hour complaint window enforcement at API level
 - Deadline compensation (auto full-refund on late delivery at OTP confirmation)
@@ -1362,6 +1389,8 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
 - Email outbox with retry/backoff (delivery OTP, password reset, password changed, magic link, email OTP) — 5 email types
+- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` maintains one authenticated connection per session; booking and complaint rooms with JWT auth and per-socket rate limiting (20 joins/min)
+- **Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`) — `DEMO_MODE=1` enables in-process cron invocation for local testing without external scheduler
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
 - Financial precision with decimal.js and paise integers
@@ -1385,6 +1414,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Split-settlement reconciliation tooling for rare one-leg failures
 - Webhook payload archival policy
 - Reschedule abuse prevention (caps, cooldowns, or admin escalation)
+- Tighten CSP `connect-src` to specific `wss://<domain>` in production (currently `wss:` is broad)
 
 ---
 
@@ -1400,11 +1430,12 @@ graph TB
         A[Admin Dashboard]
     end
 
-    subgraph AppRouter[Next.js App Router]
+    subgraph AppRouter[Next.js App Router + server.js]
         Pages[Pages and Layouts]
         API[API Routes]
         Auth[NextAuth v4]
         Cron[10 Cron Jobs]
+        SIO[Socket.IO Server]
     end
 
     subgraph BusinessLogic[Business Logic]
@@ -1413,6 +1444,7 @@ graph TB
         PY[Payout Orchestration]
         CR[Complaint Resolution]
         PW[Password Management]
+        RT[Realtime Emitter]
     end
 
     subgraph DataServices[Data and Services]
@@ -1427,6 +1459,8 @@ graph TB
     S --> Pages
     P --> Pages
     A --> Pages
+    S <-->|WebSocket| SIO
+    P <-->|WebSocket| SIO
     Pages --> API
     API --> Auth
     API --> BK
@@ -1434,6 +1468,8 @@ graph TB
     API --> PY
     API --> CR
     API --> PW
+    API --> RT
+    RT --> SIO
     Cron --> BK
     Cron --> PY
     Cron --> EM
@@ -1449,6 +1485,7 @@ graph TB
 
     style DB fill:#059669,color:#fff
     style RZ fill:#3b82f6,color:#fff
+    style SIO fill:#7c3aed,color:#fff
 ```
 
 ### Booking → Order → Settlement Lifecycle
@@ -1465,6 +1502,7 @@ stateDiagram-v2
     pickup_proposed --> confirmed: Seeker confirms
     confirmed --> arrived: Provider arrives (geofence)
     arrived --> invoice_created: Provider creates invoice
+    invoice_created --> cancelled: Seeker cancels (fee forfeited)
     invoice_created --> completed: Seeker pays invoice
 
     state "Order Lifecycle" as order {
@@ -1615,16 +1653,17 @@ erDiagram
 
 ---
 
-## Summary (Rev 10)
+## Summary (Rev 11)
 
 LaundryEase is a production-grade laundry marketplace built with:
 
 1. **Trust-First Design** — Escrow payments, OTP-verified delivery, tracked state transitions
 2. **Clear Role Separation** — Seeker, Provider, Admin with distinct workflows and dashboards
-3. **Robust State Machines** — Booking (10 states) and Order (7 process states × 5 payment states) with explicit, enforced transitions
-4. **Comprehensive Dispute Resolution** — 3-way chat, commission-aware split settlements, manual fallback for failed auto-actions
+3. **Robust State Machines** — Booking (10 states, including cancel-at-invoice) and Order (7 process states × 5 payment states) with explicit, enforced transitions
+4. **Comprehensive Dispute Resolution** — 3-way real-time Socket.IO chat, commission-aware split settlements, manual fallback for failed auto-actions
 5. **Financial Precision** — decimal.js for calculations, paise integers for Razorpay, distributed locks for concurrent safety
-6. **Production-Ready Infrastructure** — 10 cron jobs, operational alerting with SLA/escalation/owner routing, email outbox with retry (5 types), MongoDB-backed rate limiting, structured logging with secret redaction, Datadog APM
+6. **Production-Ready Infrastructure** — 10 cron jobs (+ in-process demo runner), operational alerting with SLA/escalation/owner routing, email outbox with retry (5 types), MongoDB-backed rate limiting, structured logging with secret redaction, Datadog APM
 7. **Professional Password Management** — Secure token-based reset (SHA-256, 1hr TTL), anti-enumeration, branded email notifications, JWT session invalidation on password change (5-min re-check), password show/hide UX
-8. **Quality Assurance** — 104 test files (551 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
+8. **Quality Assurance** — 108 test files (565 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
 9. **Operational Observability** — Cron run tracking, data integrity auditing, abuse monitoring, alert analytics (trend/burn-rate/MTTR), CSP violation reporting
+10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
