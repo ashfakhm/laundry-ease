@@ -1,4 +1,4 @@
-# LaundryEase — Presentation Q&A Helper (Rev 11)
+# LaundryEase — Presentation Q&A Helper (Rev 12)
 
 > **Purpose**: This document helps you answer any question your HODs and teachers may ask about your project. Read it fully before your mock presentation.
 
@@ -1329,7 +1329,7 @@ Operational detail from current code:
 
 ### Q: How does real-time chat work?
 
-**Answer**: LaundryEase uses **Socket.IO** for live message delivery in booking chat and complaint chat. Here's how it works end-to-end:
+**Answer**: LaundryEase uses **Socket.IO** for live message delivery in **order chat** and **complaint chat**. Here's how it works end-to-end:
 
 **Server side** (`server.js`):
 
@@ -1338,7 +1338,7 @@ HTTP Server (Node.js)
   ├── Next.js request handler  (all normal pages + API routes)
   └── Socket.IO Server         (WebSocket upgrades on /socket.io)
         ├── Auth middleware: getToken() from next-auth/jwt on every connection
-        ├── booking:join    → authorizeBookingRoom() → DB check → join room
+        ├── order:join      → authorizeOrderRoom() → DB check → join room
         ├── complaint:join  → authorizeComplaintRoom() → DB check + access gate → join room
         ├── typing:start/stop → relay to room
         └── disconnect
@@ -1347,11 +1347,11 @@ HTTP Server (Node.js)
 **Client side** (`components/providers/socket-provider.tsx`):
 - `SocketProvider` wraps the dashboard layout and creates one Socket.IO connection per authenticated session
 - `useSocket()` hook gives any component access to `{ socket, isConnected, isReconnecting }`
-- When a message is sent via REST API (`POST /api/bookings/[id]/chat`), the route handler calls `emitBookingMessage()` from `lib/realtime/emitter.ts` which pushes the `booking:message:created` event to the room
+- When a message is sent via REST API (`POST /api/orders/[id]/chat`), the route handler calls `emitOrderMessageCreated()` from `lib/realtime/emitter.ts` which pushes the `order:message:created` event to the room
 
 **Security**:
 - Every socket connection is authenticated via NextAuth JWT — no connection without a valid session
-- Room joins are verified against MongoDB — you can only join a room for a booking/complaint you participate in
+- Room joins are verified against MongoDB — you can only join a room for an order/complaint you participate in
 - Provider can only join a complaint room after an admin explicitly grants access (`provider_access_granted = true`)
 - Per-socket rate limiting: 20 join events per 60 seconds per connection
 
@@ -1359,10 +1359,10 @@ HTTP Server (Node.js)
 
 | Direction | Event | Purpose |
 | --- | --- | --- |
-| Client → Server | `booking:join` / `complaint:join` | Enter a chat room |
+| Client → Server | `order:join` / `complaint:join` | Enter a chat room |
 | Client → Server | `room:leave` | Leave a room |
 | Client → Server | `typing:start` / `typing:stop` | Typing indicator |
-| Server → Client | `booking:message:created` | New booking chat message pushed live |
+| Server → Client | `order:message:created` | New order chat message pushed live |
 | Server → Client | `complaint:message:created` | New complaint chat message pushed live |
 | Server → Client | `complaint:state:updated` | Complaint status change (e.g., provider added) |
 
@@ -1697,7 +1697,7 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 Current quality snapshot:
 
 - `108` test files
-- `565` tests passing (100% core route coverage)
+- `571` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
@@ -2065,14 +2065,16 @@ Use these points if you are asked about differences between the PRD and what is 
 
 ### Real-Time Chat (Socket.IO)
 - **Custom Node.js server** (`server.js`): Attaches a Socket.IO `Server` to the same HTTP server as Next.js — single port, no separate process
+- **Two chat systems**: **Order chat** (`order:<id>` rooms — seeker ↔ provider on active orders) and **complaint chat** (`complaint:<id>` rooms — 3-way: seeker/provider/admin)
 - **JWT auth on every connection**: `getToken()` from `next-auth/jwt` validates the NextAuth session cookie; unauthenticated connections rejected before any room join
-- **Room authorization** (`lib/realtime/socket-auth.js`): DB-verified participant check for booking rooms; DB-verified participant + `provider_access_granted` gate for complaint rooms
+- **Room authorization** (`lib/realtime/socket-auth.js`): `authorizeOrderRoom()` — DB-verified participant check for order rooms; `authorizeComplaintRoom()` — DB-verified participant + `provider_access_granted` gate for complaint rooms
 - **Per-socket rate limiting**: 20 join events per 60-second window; excess returns `{ ok: false, error: "rate_limited" }` — prevents join-event floods
 - **`SocketProvider`** (`components/providers/socket-provider.tsx`): React context maintaining one Socket.IO connection per authenticated session; exposes `{ socket, isConnected, isReconnecting }` via `useSocket()` hook
-- **Server-side emitter** (`lib/realtime/emitter.ts`): API route handlers call `emitBookingMessage()` / `emitComplaintMessage()` / `emitComplaintStateUpdate()` which push events to rooms via `globalThis._socketIoServer`
+- **`OrderChat` component** (`components/order-chat.tsx`): Joins `order:<id>` room, listens for `order:message:created`, sends via REST `POST /api/orders/[id]/chat`, typing indicators, disconnect banner
+- **Server-side emitter** (`lib/realtime/emitter.ts`): API route handlers call `emitOrderMessageCreated()` / `emitComplaintMessageCreated()` / `emitComplaintStateUpdated()` which push events to rooms via `globalThis._socketIoServer`
 - **Shared contracts** (`lib/realtime/contracts.js`): Event name constants + room name helpers + message serializers — CommonJS module used by both `server.js` and TypeScript code
 - **CSP WebSocket support**: `connect-src` includes `ws:` and `wss:`; `upgrade-insecure-requests` is production-only so Socket.IO polling works over plain HTTP on localhost
-- **All realtime modules unit-tested**: `socket-auth.test.ts`, `emitter.test.ts`, `chat-state.test.ts`
+- **All realtime modules unit-tested**: `socket-auth.test.ts` (order + complaint + booking room auth), `emitter.test.ts`, `chat-state.test.ts`
 
 ### Security & Hardening
 - **CSP pipeline**: Content-Security-Policy in Report-Only mode with violation capture endpoint; enforce via `CSP_ENFORCE=true`
@@ -2112,8 +2114,9 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Must be disabled in production** — set `DEMO_MODE=0` or remove the env var before any public deployment
 
 ### Testing & CI
-- **108 test files, 565 unit tests** passing (Vitest + mongodb-memory-server)
-- **New test coverage (Rev 11)**: realtime socket-auth room authorization, emitter dispatch, chat-state serialization, cancellation policy `invoice_created` forced-forfeit case (+1 → 11 total)
+- **108 test files, 571 unit tests** passing (Vitest + mongodb-memory-server)
+- **New test coverage (Rev 12)**: `authorizeOrderRoom` — 6 tests (invalid id, not found, forbidden, seeker allowed, provider allowed, admin allowed)
+- **Retained from Rev 11**: realtime socket-auth room authorization, emitter dispatch, chat-state serialization, cancellation policy `invoice_created` forced-forfeit case (11 total)
 - **Retained from Rev 10**: `passwordChangedAt` on profile password change (seeker + provider), password-changed email enqueuing verified
 - **Retained from Rev 9**: cancellation policy — 11 tests (both actors, 2h boundary, `invoice_created` stage, all fee states); reschedule `$unset`/TOCTOU; schedule route atomic guards; `useConfirmDialog` hook; headless `handleCancelBooking` callback
 - **5 Playwright E2E specs**: smoke-role-journeys, complaint-chat-journey, settlement-chain-journey, booking-lifecycle-journey, booking-negative-journeys
@@ -2136,18 +2139,19 @@ Use these points if you are asked about differences between the PRD and what is 
 - `public/manifest.json` — PWA manifest
 - `public/og-image.png` — Open Graph image
 
-## Quick Presentation Tips (Updated 2026-03-06 Rev 11)
+## Quick Presentation Tips (Updated 2026-03-07 Rev 12)
 
 1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
 3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
-4. **Show what's special**: Escrow system, 3-way real-time Socket.IO complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with session invalidation
-5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO co-hosted with Next.js for real-time chat, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes, SHA-256 token hashing for password resets, JWT session invalidation on password change"
-6. **Mention production quality**: "108 test files, 565 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
+4. **Show what's special**: Escrow system, real-time Socket.IO order chat + 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with session invalidation
+5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO co-hosted with Next.js for real-time order and complaint chat, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes, SHA-256 token hashing for password resets, JWT session invalidation on password change"
+6. **Mention production quality**: "108 test files, 571 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
-8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 1hr reset token TTL, 5-min session re-check, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 5 email types, 108 test files, 565 tests
+8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 1hr reset token TTL, 5-min session re-check, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 5 email types, 108 test files, 571 tests
 9. **Password security talking point**: "We never store raw reset tokens — only SHA-256 hashes. Even if the database is compromised, the tokens are useless. And when a password changes, all existing sessions are invalidated within 5 minutes automatically."
-10. **Real-time talking point**: "Booking chat and complaint chat are powered by Socket.IO running on the same server as Next.js. Every connection is JWT-authenticated and room access is verified against MongoDB — seekers can only join rooms for their own bookings."
+10. **Real-time talking point**: "Order chat and complaint chat are powered by Socket.IO running on the same server as Next.js. Every connection is JWT-authenticated and room access is verified against MongoDB — seekers can only join rooms for their own orders. Messages are pushed in real time with no polling."
 11. **Cancel-at-invoice talking point**: "We respect both sides. Even after a provider has collected the items and created an invoice, the seeker can still cancel — they just forfeit the ₹50 booking fee as fair compensation for the provider's physical work. The policy engine, the API, and the UI all enforce this consistently."
+12. **Order chat architecture talking point**: "We migrated chat from the booking level to the order level — this makes more sense because chat is most useful after payment, during active order processing. The OrderChat component uses the same Socket.IO infrastructure as complaint chat: contracts define events, socket-auth verifies room access against MongoDB, and the emitter pushes messages from API routes to connected clients."
 
 **Good luck with your presentation! 🚀**
