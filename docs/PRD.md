@@ -1,4 +1,4 @@
-# LaundryEase — Product Requirements Document
+# LaundryEase — Product Requirements Document (Rev 11)
 
 ## 1. Executive Summary
 
@@ -183,6 +183,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
    Seeker reviews and either:
    - **Approves & Pays**: Proceeds to payment
    - **Rejects**: Returns items to provider with a required reason
+   - **Cancels booking (fee forfeited)**: Seeker may also cancel the entire booking at this stage using the **"Cancel & Reject Invoice"** button. This terminates the booking with `bookingFeeStatus = forfeited` — the provider has already physically collected and inspected the items, so the fee is non-refundable regardless of whether the seeker is within the 2-hour free-cancel window.
 
 5. **Payment capture**
    On approval, seeker pays. Payment is captured and linked to the order (`payment_status = paid`) to fund the commitment.
@@ -258,7 +259,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
   Work must start only after invoice payment is captured and verified.
 
 - **Cancellation and booking-fee policy**
-  Provider rejection/cancellation must refund paid booking fee; seeker cancellation before slot-time is refundable except same-day cancellations (forfeiture rule).
+  Provider rejection/cancellation must refund paid booking fee. Seeker cancellation within 2 hours of booking creation is free (full refund); after that window, the booking fee is forfeited. Seeker cannot cancel at or after the scheduled pickup time — **except** at the `invoice_created` stage, where cancellation is always permitted (the pickup slot is already in the past by definition) but the booking fee is **always forfeited** regardless of timing, since the provider has already done physical work collecting and inspecting items.
 
 - **Unified payout orchestration**
   Escrow release, payout initiation, complaint gating, and admin-triggered manual release must use a shared idempotent payout processor.
@@ -328,6 +329,9 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 - **Email delivery reliability**
   Transactional emails must be queued through an outbox pattern with retry/backoff. Five email types supported: delivery OTP, password reset, password changed notification, magic link, and email OTP. Inline dispatch attempted on enqueue with cron fallback.
 
+- **Real-time chat**
+  Booking chat and complaint chat must deliver messages in real time without requiring page refresh. The system must use a persistent WebSocket connection (Socket.IO) co-hosted with the Next.js server. Every connection must be JWT-authenticated. Room access must be validated against MongoDB (participant membership; provider complaint access gate). Per-socket rate limiting must prevent join-event floods.
+
 - **Session security after credential changes**
   Password changes (via reset or profile) must write a `passwordChangedAt` timestamp. JWT sessions must be periodically re-validated against this timestamp to ensure stale sessions are invalidated.
 
@@ -343,7 +347,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 | `pickup_proposed`      | Provider proposed a pickup slot                              | `confirmed`, `reschedule_requested`, `cancelled`                    |
 | `confirmed`            | Parties agreed on pickup/slot                                | `invoice_created`, `reschedule_requested`, `cancelled`              |
 | `reschedule_requested` | Either side requested a new pickup time (not a cancellation) | `pickup_proposed`, `confirmed`, `cancelled`                         |
-| `invoice_created`      | Provider generated invoice after pickup                      | `completed`, `cancelled`                                            |
+| `invoice_created`      | Provider generated invoice after pickup                      | `completed`, `cancelled` (seeker cancel: fee always forfeited)      |
 | `cancelled`            | Booking cancelled by either party                            | terminal                                                            |
 | `completed`            | Order created and booking lifecycle ended                    | terminal                                                            |
 
@@ -351,6 +355,7 @@ State vector notes:
 
 - Booking status and booking-fee status are separate concerns.
 - `bookingFeeStatus` transitions: `pending` -> `paid` -> (`refunded`, `forfeited`, or `applied` based on downstream outcomes).
+- Seeker cancellation at `invoice_created` always results in `bookingFeeStatus = forfeited` regardless of the 2-hour free-cancel window — the provider has performed physical work.
 - Provider acceptance is allowed only when `bookingFeeStatus = paid`.
 
 ### Order (Commitment → Settlement) States
@@ -626,7 +631,7 @@ See `README.md` for detailed setup instructions.
 - **Team calendar / on-call integration**
   Alert owner routing currently uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`). Real dynamic on-call scheduling requires external calendar integration.
 
-## 14. Implementation Alignment Matrix (2026-03-05)
+## 14. Implementation Alignment Matrix (2026-03-06 — Rev 11)
 
 | PRD Requirement                  | Expected Behavior                                                                                                                | Current System Status                                                                                                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -639,7 +644,8 @@ See `README.md` for detailed setup instructions.
 | In-app password change           | Users can change password from profile with current password verification                                                        | Implemented (both seeker PUT and provider PATCH profile routes support `currentPassword` + `newPassword` with bcrypt verification)                                        |
 | Discovery coverage               | Show only providers whose radius covers seeker coordinate                                                                        | Implemented (strict provider-radius filtering; optional seeker-side radius cap)                                                                                          |
 | Booking fee gate                 | Provider cannot accept unpaid booking                                                                                            | Implemented                                                                                                                                                              |
-| Booking cancellation policy      | Seeker can cancel only before slot time; seeker cancellation within 2 hours of booking creation gets full refund; after 2-hour window, booking fee forfeited; provider cancellation always refunds fee | Implemented — `evaluateCancellationPolicy()` in `lib/bookings/cancellation-policy.ts` is the single source of truth; `SEEKER_FREE_CANCEL_WINDOW_MS = 2h` in `lib/constants.ts`; cancel route passes `booking.createdAt`; seeker booking card shows live countdown badge during free-cancel window |
+| Booking cancellation policy      | Seeker can cancel only before slot time; seeker cancellation within 2 hours of booking creation gets full refund; after 2-hour window, booking fee forfeited; provider cancellation always refunds fee; seeker can cancel at `invoice_created` (fee always forfeited, slot-time guard bypassed) | Implemented — `evaluateCancellationPolicy()` in `lib/bookings/cancellation-policy.ts` is the single source of truth; `SEEKER_FREE_CANCEL_WINDOW_MS = 2h` in `lib/constants.ts`; cancel route adds `invoice_created` to seeker allowed statuses and bypasses slot-time guard for that stage; UI shows "Cancel & Reject Invoice" button with fee-forfeit confirm dialog |
+| Cancel at `invoice_created` stage | Seeker must be able to cancel after provider creates invoice, even though pickup slot has passed; booking fee must always be forfeited at this stage | Implemented — `cancel/route.ts` skips slot-time check when `booking.status === "invoice_created"`; policy engine returns `refundAction: "forfeit"` unconditionally for this status; UI button label and confirm dialog updated |
 | Booking-fee release control      | Booking-fee payout should trigger only on provider arrival and geofence compliance                                               | Implemented                                                                                                                                                              |
 | Capacity limit                   | Provider acceptance blocked when at capacity                                                                                     | Implemented via transactional checks                                                                                                                                     |
 | Invoice review                   | Seeker can approve/reject invoice with reason on reject                                                                          | Implemented                                                                                                                                                              |
@@ -684,7 +690,10 @@ See `README.md` for detailed setup instructions.
 
 | Invoice finalization safety     | Invoice payment must atomically create order and link booking                                                                    | Implemented (`lib/services/invoice-finalization.ts` with MongoDB transaction + compensating-write fallback for non-replica-set envs)                                      |
 | Distributed refund locking      | Concurrent cancel/reject must not double-refund booking fees                                                                     | Implemented (`lib/services/refund-lock.ts` with stale-lock timeout and diagnostic recovery)                                                                              |
-| React Compiler                  | Frontend should leverage compiler optimizations for performance                                                                  | Implemented (`reactCompiler: true` in `next.config.ts`)                                                                                                                  |
+| React Compiler                  | Frontend should leverage compiler optimizations for performance                                                                  | Implemented (`reactCompiler: true` in `next.config.ts`)                                                                                                                 |
+| Real-time chat                  | Booking and complaint chat must deliver messages in real time via WebSocket without polling                                      | Implemented — `server.js` co-hosts Socket.IO with Next.js on the same port; JWT auth middleware on every connection; booking + complaint rooms with DB-verified authorization; per-socket rate limiting (20 joins/min); `SocketProvider` + `useSocket()` hook; server-side emitter (`lib/realtime/emitter.ts`) pushes events from API routes |
+| CSP WebSocket support           | CSP must allow WebSocket transport for real-time features without breaking localhost development                                  | Implemented — `connect-src` includes `ws:` and `wss:` in `lib/security/csp.ts`; `upgrade-insecure-requests` is now production-only (`NODE_ENV === "production"`) to avoid breaking Socket.IO polling transport on localhost |
+| Demo cron dispatcher            | Local development should be able to trigger all cron jobs without an external scheduler                                          | Implemented — `lib/demo/cron-dispatch.ts` provides in-process runner for all 10 cron handlers; enabled by `DEMO_MODE=1` in `.env`; admin demo panel invokes handlers with `CRON_SECRET`-signed requests; must be disabled (`DEMO_MODE=0`) in production |
 | Provider bank sync              | Bank detail changes must sync to Razorpay contact/fund account                                                                  | Implemented (`lib/services/provider-bank-sync.ts` — creates contact + fund account, masks stored account number)                                                         |
 | Delivery charge calculation     | Charges must be distance-based with free radius and per-km rate                                                                  | Implemented (`lib/utils/delivery-charge.ts` — Haversine distance, configurable free radius and per-km rate)                                                              |
 | SEO foundations                 | Platform should have sitemap, robots.txt, and structured data                                                                    | Implemented (`app/sitemap.ts`, `app/robots.ts`, `components/seo/json-ld.tsx`)                                                                                            |
@@ -696,8 +705,11 @@ See `README.md` for detailed setup instructions.
 3. Add archival policy for old webhook payloads to control long-term storage growth.
 4. Add CAPTCHA (e.g., reCAPTCHA/hCaptcha) to forgot-password form for production anti-abuse hardening (rate limiting already in place).
 5. Promote CSP from report-only to enforced mode after violation cleanup.
-6. Integrate real team calendar/on-call system for dynamic owner pool routing.
-7. Add split-settlement reconciliation tooling for rare one-leg failure cases.
-8. Add reschedule abuse prevention (caps, cooldowns, or admin escalation).
-9. Consider stateful session management for instant session revocation (current approach has ≤5 min delay via JWT re-check).
-10. Add Playwright E2E test covering forgot-password → email outbox → follow link → reset → login with new password.
+6. **Tighten CSP `connect-src`** from broad `wss:` to `wss://<production-domain>` for defence-in-depth.
+7. **Remove `DEMO_MODE=1`** from `.env` before any public deployment — demo cron panel bypasses external scheduler auth.
+8. Integrate real team calendar/on-call system for dynamic owner pool routing.
+9. Add split-settlement reconciliation tooling for rare one-leg failure cases.
+10. Add reschedule abuse prevention (caps, cooldowns, or admin escalation).
+11. Consider stateful session management for instant session revocation (current approach has ≤5 min delay via JWT re-check).
+12. Add Playwright E2E test covering forgot-password → email outbox → follow link → reset → login with new password.
+13. Add Playwright E2E coverage for Socket.IO chat flows and cancel-at-invoice-stage scenario.
