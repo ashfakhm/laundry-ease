@@ -19,7 +19,7 @@ Production readiness is tracked through:
 | TypeScript | `npx tsc --noEmit` | ✅ 0 errors |
 | TypeScript strict | `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` | ✅ 0 errors |
 | ESLint | `npx eslint . --max-warnings=0` | ✅ 0 warnings |
-| Unit tests | `npx vitest run` | ✅ 108 files, 565 tests, 0 failures |
+| Unit tests | `npx vitest run` | ✅ 108 files, 571 tests, 0 failures |
 | Production build | `npm run build` | ✅ Passes cleanly |
 | E2E smoke | `npm run test:e2e` | ✅ 5 specs passing |
 | One-shot gate | `npm run verify:gates` | ✅ All passing |
