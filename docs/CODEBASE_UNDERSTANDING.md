@@ -738,7 +738,6 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 | `/api/bookings/[id]/schedule`           | POST     | Propose/confirm pickup slot    |
 | `/api/bookings/[id]/reschedule/request` | POST     | Request reschedule             |
 | `/api/bookings/[id]/dispute`            | POST     | File dispute on booking        |
-| `/api/bookings/[id]/chat`               | GET/POST | Booking chat messages (legacy) |
 | `/api/bookings/[id]/invoice`            | POST     | Create invoice                 |
 | `/api/bookings/[id]/pay`                | POST     | Pay booking fee                |
 | `/api/bookings/[id]/pay-invoice`        | POST     | Pay invoice amount             |

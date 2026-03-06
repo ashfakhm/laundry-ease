@@ -2,7 +2,6 @@
 
 import { signIn, useSession } from "next-auth/react";
 import { useState, Suspense, useEffect } from "react";
-// removed unused useRouter
 import React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";

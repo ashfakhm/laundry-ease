@@ -37,12 +37,8 @@ vi.mock("@/lib/env", () => ({
   },
 }));
 
-vi.mock("razorpay", () => ({
-  default: class Razorpay {
-    orders = {
-      create: mockRazorpayCreateOrder,
-    };
-  },
+vi.mock("@/lib/razorpay", () => ({
+  createRazorpayOrder: mockRazorpayCreateOrder,
 }));
 
 import { POST } from "./route";
@@ -166,12 +162,11 @@ describe("POST /api/payments/create-order", () => {
 
     expect(res.status).toBe(200);
     expect(mockRazorpayCreateOrder).toHaveBeenCalledOnce();
-    expect(mockRazorpayCreateOrder).toHaveBeenCalledWith({
-      amount: 14900,
-      currency: "INR",
-      receipt: BOOKING_ID,
-      payment_capture: true,
-    });
+    expect(mockRazorpayCreateOrder).toHaveBeenCalledWith(
+      14900,
+      BOOKING_ID,
+      "INR",
+    );
     expect(data.data.orderId).toBe("order_test_123");
     expect(data.data.amount).toBe(14900);
     expect(data.data.currency).toBe("INR");

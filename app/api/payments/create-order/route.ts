@@ -1,5 +1,5 @@
 import { RATE_LIMIT_DEFAULT_WINDOW_MS } from "@/lib/constants";
-import Razorpay from "razorpay";
+import { createRazorpayOrder } from "@/lib/razorpay";
 import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
@@ -67,16 +67,11 @@ export async function POST(req: Request) {
       return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking fee amount"));
     }
 
-    const razorpay = new Razorpay({
-      key_id: env.RAZORPAY_KEY_ID,
-      key_secret: env.RAZORPAY_KEY_SECRET,
-    });
-    const order = await razorpay.orders.create({
+    const order = await createRazorpayOrder(
       amount,
-      currency: "INR",
-      receipt: bookingId.toString(),
-      payment_capture: true,
-    });
+      bookingId.toString(),
+      "INR",
+    );
 
     await db.collection("bookings").updateOne(
       { _id: bookingId },

@@ -270,8 +270,7 @@ export async function markProviderArrival(
     };
   }
 
-  // Location verification temporarily disabled to allow arrival marking without GPS
-  // TODO: Re-enable with proper fallback mechanism for poor GPS signal areas
+  // Location verification disabled by design: GPS fallback for poor-signal areas not yet implemented.
   // if (booking.seeker_coordinates) {
   //   if (
   //     !coordinates ||

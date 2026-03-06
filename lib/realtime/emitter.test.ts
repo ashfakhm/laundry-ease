@@ -13,7 +13,6 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import {
-  emitBookingMessageCreated,
   emitComplaintMessageCreated,
   emitComplaintStateUpdated,
 } from "./emitter";
@@ -25,22 +24,6 @@ describe("realtime emitter", () => {
   });
 
   describe("when _socketIoServer is undefined", () => {
-    it("emitBookingMessageCreated is a no-op", () => {
-      expect(() =>
-        emitBookingMessageCreated({
-          _id: "msg1",
-          booking_id: "b1",
-          sender_id: "u1",
-          sender_role: "seeker",
-          message: "hi",
-          createdAt: new Date(),
-        }),
-      ).not.toThrow();
-
-      expect(mockTo).not.toHaveBeenCalled();
-      expect(mockEmit).not.toHaveBeenCalled();
-    });
-
     it("emitComplaintMessageCreated is a no-op", () => {
       expect(() =>
         emitComplaintMessageCreated({
@@ -76,31 +59,6 @@ describe("realtime emitter", () => {
       (globalThis as Record<string, unknown>)._socketIoServer = {
         to: mockTo,
       };
-    });
-
-    it("emitBookingMessageCreated emits to the correct room", () => {
-      emitBookingMessageCreated({
-        _id: "msg1",
-        booking_id: "b1",
-        sender_id: "u1",
-        sender_role: "seeker",
-        message: "hi",
-        createdAt: new Date("2025-01-01T00:00:00Z"),
-      });
-
-      expect(mockTo).toHaveBeenCalledWith("booking:b1");
-      expect(mockEmit).toHaveBeenCalledWith(
-        "booking:message:created",
-        expect.objectContaining({
-          message: expect.objectContaining({
-            _id: "msg1",
-            booking_id: "b1",
-            sender_id: "u1",
-            sender_role: "seeker",
-            message: "hi",
-          }),
-        }),
-      );
     });
 
     it("emitComplaintMessageCreated emits to the correct room", () => {
@@ -153,12 +111,14 @@ describe("realtime emitter", () => {
       });
 
       expect(() =>
-        emitBookingMessageCreated({
+        emitComplaintMessageCreated({
           _id: "msg3",
-          booking_id: "b2",
+          complaint_id: "c2",
           sender_id: "u1",
           sender_role: "seeker",
-          message: "test",
+          message_type: "TEXT",
+          content: "test",
+          attachments: [],
           createdAt: new Date(),
         }),
       ).not.toThrow();

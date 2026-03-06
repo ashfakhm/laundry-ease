@@ -18,7 +18,6 @@ const { getToken } = require("next-auth/jwt");
 
 const realtimeContracts = require("./lib/realtime/contracts");
 const {
-  authorizeBookingRoom,
   authorizeComplaintRoom,
   authorizeOrderRoom,
   resolveRealtimeUserFromToken,
@@ -120,26 +119,6 @@ async function findUserByEmail(email) {
   }
 
   return null;
-}
-
-/**
- * Fetch booking participant IDs.
- * @param {string} bookingId
- */
-async function findBookingById(bookingId) {
-  const db = await getRealtimeDb();
-  const booking = await db
-    .collection("bookings")
-    .findOne(
-      { _id: new ObjectId(bookingId) },
-      { projection: { seeker_id: 1, provider_id: 1 } },
-    );
-  if (!booking) return null;
-
-  return {
-    seeker_id: booking.seeker_id?.toString?.() || "",
-    provider_id: booking.provider_id?.toString?.() || "",
-  };
 }
 
 /**
@@ -275,33 +254,6 @@ async function bootstrap() {
 
   io.on("connection", (socket) => {
     const userId = socket.data.user?._id || "unknown";
-
-    /* ---- Booking room join ---- */
-    socket.on(
-      realtimeContracts.CLIENT_EVENTS.BOOKING_JOIN,
-      async (payload, acknowledge) => {
-        if (isRateLimited(socket)) {
-          acknowledge?.({ ok: false, error: "rate_limited" });
-          return;
-        }
-
-        const result = await authorizeBookingRoom(
-          {
-            bookingId: payload?.bookingId,
-            user: socket.data.user,
-          },
-          { findBookingById },
-        );
-
-        if (!result.ok) {
-          acknowledge?.(result);
-          return;
-        }
-
-        await socket.join(result.room);
-        acknowledge?.(result);
-      },
-    );
 
     /* ---- Order room join ---- */
     socket.on(

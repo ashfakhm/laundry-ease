@@ -215,6 +215,12 @@ npm run dev
 5. **Cloudinary**: Create a [Cloudinary](https://cloudinary.com) account for image uploads
 6. **MongoDB**: Use a replica set for transaction support (MongoDB Atlas works out of the box)
 
+### Running on Localhost
+
+- **Cron jobs**: Vercel crons run only when deployed. On localhost, set `DEMO_MODE=1`, log in as admin, and use **Local Demo Tools** on `/admin` to manually trigger each cron (auto-reject, no-show, payouts, email outbox, etc.).
+- **Razorpay webhooks**: Razorpay cannot POST to localhost. For full payment flow testing (payment.captured, refund.created), use [ngrok](https://ngrok.com) or [localtunnel](https://localtunnel.github.io/www/) to expose your local server, then set the webhook URL in Razorpay Dashboard.
+- **E2E_FAKE_PAYMENTS**: Set to `1` to bypass real Razorpay for order creation, refunds, and payouts. Useful for E2E tests and local demos without Razorpay credentials. Disabled in production.
+
 ### Troubleshooting
 
 - **Transaction errors**: Ensure MongoDB is running as a replica set. Standalone mode doesn't support transactions — the app has a compensating-write fallback for invoice finalization, but other operations require replica set support.

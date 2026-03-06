@@ -19,6 +19,16 @@ function createE2EId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
 }
 
+export interface RazorpayOrderResponse {
+  id: string;
+  amount: number;
+  currency: string;
+  receipt: string;
+  entity?: string;
+  status?: string;
+  created_at?: number;
+}
+
 interface RazorpayOrderOptions {
   amount: string | number;
   currency: string;
@@ -87,7 +97,20 @@ export async function createRazorpayOrder(
   amount: number,
   receipt: string,
   currency: string = "INR",
-) {
+): Promise<RazorpayOrderResponse> {
+  if (isE2EFakePaymentsEnabled()) {
+    const orderId = createE2EId("order");
+    return {
+      id: orderId,
+      entity: "order",
+      amount,
+      currency,
+      receipt,
+      status: "created",
+      created_at: Math.floor(Date.now() / 1000),
+    };
+  }
+
   const options: RazorpayOrderOptions = {
     amount: amount, // Keep as number - Razorpay SDK accepts and returns number
     currency,
@@ -101,7 +124,15 @@ export async function createRazorpayOrder(
       amount: order.amount,
       currency: order.currency,
     });
-    return order;
+    return {
+      id: order.id,
+      amount: typeof order.amount === "number" ? order.amount : Number(order.amount),
+      currency: order.currency,
+      receipt: order.receipt ?? receipt,
+      entity: order.entity,
+      status: order.status,
+      created_at: order.created_at,
+    };
   } catch (error) {
     logger.error("RAZORPAY", "Error creating Razorpay order", error, {
       receipt,

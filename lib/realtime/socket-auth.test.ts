@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  authorizeBookingRoom,
   authorizeComplaintRoom,
   authorizeOrderRoom,
   resolveRealtimeUserFromToken,
@@ -47,20 +46,7 @@ describe("socket auth helpers", () => {
     });
   });
 
-  it("authorizes booking rooms only for participants", async () => {
-    const allowed = await authorizeBookingRoom(
-      {
-        bookingId: "507f1f77bcf86cd799439013",
-        user: { id: "507f1f77bcf86cd799439011", role: "seeker" },
-      },
-      {
-        findBookingById: async () => ({
-          seeker_id: "507f1f77bcf86cd799439011",
-          provider_id: "507f1f77bcf86cd799439012",
-        }),
-      },
-    );
-
+  it("denies complaint room when provider access not granted", async () => {
     const denied = await authorizeComplaintRoom(
       {
         complaintId: "507f1f77bcf86cd799439014",
@@ -76,10 +62,6 @@ describe("socket auth helpers", () => {
       },
     );
 
-    expect(allowed).toEqual({
-      ok: true,
-      room: "booking:507f1f77bcf86cd799439013",
-    });
     expect(denied).toEqual({
       ok: false,
       error: "Provider access has not been granted.",

@@ -1,7 +1,6 @@
 import realtimeContracts from "@/lib/realtime/contracts";
 import { logger } from "@/lib/logger";
 
-type BookingMessageRecord = Record<string, unknown>;
 type ComplaintMessageRecord = Record<string, unknown>;
 type OrderMessageRecord = Record<string, unknown>;
 
@@ -28,19 +27,6 @@ function emitToRoom(
       reason: error instanceof Error ? error.message : String(error),
     });
   }
-}
-
-export function emitBookingMessageCreated(message: BookingMessageRecord) {
-  const serialized = realtimeContracts.serializeBookingChatMessage(message);
-  emitToRoom(
-    realtimeContracts.getBookingRoom(serialized.booking_id),
-    realtimeContracts.SERVER_EVENTS.BOOKING_MESSAGE_CREATED,
-    { message: serialized },
-    {
-      bookingId: serialized.booking_id,
-      messageId: serialized._id,
-    },
-  );
 }
 
 export function emitComplaintMessageCreated(message: ComplaintMessageRecord) {
