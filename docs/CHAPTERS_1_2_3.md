@@ -6,6 +6,7 @@
 
 ## INTRODUCTION
 
+
 Introducing LaundryEase, a comprehensive digital laundry management platform designed for both customers (seekers) and laundry service providers. The application enables customers to effortlessly discover nearby laundry providers, place service orders for washing, drying, and ironing, and track the real-time status of their laundry through every stage—from pickup to delivery. For laundry shop owners and employees, the platform provides robust tools to manage incoming bookings, update order statuses, generate itemized digital invoices, and receive automated payouts through an escrow-backed payment system. With role-based access for customers, providers, and administrators, LaundryEase ensures a seamless, transparent, and trustworthy experience for all users. The platform replaces informal promises and manual record-keeping with a verifiable digital workflow, bringing accountability and convenience to the local laundry service industry.
 
 ### 1.1 LaundryEase Management System
