@@ -1,4 +1,4 @@
-# LaundryEase — Presentation Q&A Helper (Rev 12)
+# LaundryEase — Presentation Q&A Helper (Rev 13)
 
 > **Purpose**: This document helps you answer any question your HODs and teachers may ask about your project. Read it fully before your mock presentation.
 
@@ -1696,8 +1696,8 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 
 Current quality snapshot:
 
-- `108` test files
-- `571` tests passing (100% core route coverage)
+- `107` test files
+- `567` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
@@ -2023,7 +2023,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **E2E test for Socket.IO chat and cancel-at-invoice**: No Playwright E2E coverage for real-time chat flows or the cancel-at-invoice-stage scenario yet.
 - **DEMO_MODE in .env**: `DEMO_MODE=1` is set in the local `.env` for development — must be removed before any public deployment (demo cron panel bypasses external scheduler auth).
 
-## Key Features Implemented (Full System — 2026-03-06 Rev 11)
+## Key Features Implemented (Full System — 2026-03-07 Rev 13)
 
 ### Core Workflow
 - **Full booking lifecycle**: requested → accepted → pickup_proposed → reschedule_requested → confirmed → invoice_created → completed/cancelled/rejected
@@ -2114,8 +2114,8 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Must be disabled in production** — set `DEMO_MODE=0` or remove the env var before any public deployment
 
 ### Testing & CI
-- **108 test files, 571 unit tests** passing (Vitest + mongodb-memory-server)
-- **New test coverage (Rev 12)**: `authorizeOrderRoom` — 6 tests (invalid id, not found, forbidden, seeker allowed, provider allowed, admin allowed)
+- **107 test files, 567 unit tests** passing (Vitest + mongodb-memory-server)
+- **Test coverage includes**: `authorizeOrderRoom` — 6 tests (invalid id, not found, forbidden, seeker allowed, provider allowed, admin allowed)
 - **Retained from Rev 11**: realtime socket-auth room authorization, emitter dispatch, chat-state serialization, cancellation policy `invoice_created` forced-forfeit case (11 total)
 - **Retained from Rev 10**: `passwordChangedAt` on profile password change (seeker + provider), password-changed email enqueuing verified
 - **Retained from Rev 9**: cancellation policy — 11 tests (both actors, 2h boundary, `invoice_created` stage, all fee states); reschedule `$unset`/TOCTOU; schedule route atomic guards; `useConfirmDialog` hook; headless `handleCancelBooking` callback
@@ -2139,16 +2139,16 @@ Use these points if you are asked about differences between the PRD and what is 
 - `public/manifest.json` — PWA manifest
 - `public/og-image.png` — Open Graph image
 
-## Quick Presentation Tips (Updated 2026-03-07 Rev 12)
+## Quick Presentation Tips (Updated 2026-03-07 Rev 13)
 
 1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
 3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
 4. **Show what's special**: Escrow system, real-time Socket.IO order chat + 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with session invalidation
 5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO co-hosted with Next.js for real-time order and complaint chat, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes, SHA-256 token hashing for password resets, JWT session invalidation on password change"
-6. **Mention production quality**: "108 test files, 571 tests, 5 E2E specs, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
+6. **Mention production quality**: "107 test files, 567 tests, 5 E2E specs, only 2 eslint-disable comments, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
-8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 1hr reset token TTL, 5-min session re-check, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 5 email types, 108 test files, 571 tests
+8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 1hr reset token TTL, 5-min session re-check, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 5 email types, 107 test files, 567 tests, only 2 eslint-disable comments
 9. **Password security talking point**: "We never store raw reset tokens — only SHA-256 hashes. Even if the database is compromised, the tokens are useless. And when a password changes, all existing sessions are invalidated within 5 minutes automatically."
 10. **Real-time talking point**: "Order chat and complaint chat are powered by Socket.IO running on the same server as Next.js. Every connection is JWT-authenticated and room access is verified against MongoDB — seekers can only join rooms for their own orders. Messages are pushed in real time with no polling."
 11. **Cancel-at-invoice talking point**: "We respect both sides. Even after a provider has collected the items and created an invoice, the seeker can still cancel — they just forfeit the ₹50 booking fee as fair compensation for the provider's physical work. The policy engine, the API, and the UI all enforce this consistently."
