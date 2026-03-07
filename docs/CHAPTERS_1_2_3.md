@@ -161,6 +161,7 @@ The development of LaundryEase follows an **iterative, component-driven methodol
 - Order lifecycle tracking through explicit process states (washing, ironing, ready, out for delivery, delivered).
 - Escrow-backed payment system with booking fees, invoice payments, OTP-verified delivery, and timed payout release.
 - Complaint and dispute resolution with real-time 3-party Socket.IO chat, typing indicators, evidence attachments, and admin-mediated settlement.
+- Real-time order chat between seekers and providers on active orders via Socket.IO (`order:<id>` rooms), with JWT-authenticated connections, typing indicators, push-based message delivery, and message persistence in the `order_chats` MongoDB collection.
 - Provider bank account integration and automated payouts via RazorpayX with 5% platform commission.
 - Review and rating system (1–5 stars) post-delivery.
 - Admin dashboard for user management, complaint triage, payment oversight, and operational monitoring.
@@ -174,7 +175,6 @@ The development of LaundryEase follows an **iterative, component-driven methodol
 - Instant or on-demand pickup within minutes is not supported; the system is designed for scheduled, reliable service.
 - Native mobile applications (iOS/Android) are not included in the current version; the platform is a responsive web application.
 - Algorithmic pricing, dynamic surge pricing, or AI-based service recommendations are not part of the current scope.
-- Real-time chat during active bookings (outside of complaint disputes) is not yet available; the Socket.IO infrastructure currently serves complaint chat only.
 
 ---
 

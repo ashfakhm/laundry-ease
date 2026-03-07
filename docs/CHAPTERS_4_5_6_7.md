@@ -39,7 +39,7 @@ The LaundryEase system is divided into the following independent modules. Each m
 | **Cron Module** | Scheduled background tasks — stale booking auto-rejection, no-show detection, email queue processing | `cron/`, `lib/cron-tracking.ts` |
 | **Security Module** | Rate limiting, CSP headers, origin validation, CSRF protection, password policy enforcement | `lib/security/`, `lib/auth/password-policy.ts` |
 | **Audit Module** | Transaction logging, cross-entity anomaly detection, audit trail with TTL cleanup | `lib/audit.ts`, `lib/audit/` |
-| **Real-Time Module** | Socket.IO WebSocket server for live complaint chat, typing indicators, connection state management, per-socket rate limiting | `server.js`, `components/providers/socket-provider.tsx`, `hooks/use-socket.ts`, `lib/realtime/` |
+| **Real-Time Module** | Socket.IO WebSocket server for live order chat and complaint chat, typing indicators, connection state management, per-socket rate limiting | `server.js`, `components/providers/socket-provider.tsx`, `components/order-chat.tsx`, `components/complaint-chat.tsx`, `lib/realtime/` |
 
 ---
 
@@ -442,8 +442,33 @@ The seeker dashboard uses a top navigation bar layout. The main content area sho
 │  │  Process: [✓Wash] [✓Iron] [●Ready] [○Delivery]     │    │
 │  │  Payment: Paid (Held in Escrow)                      │    │
 │  │                                                      │    │
-│  │  [Enter Delivery OTP]                                │    │
+│  │  [Enter Delivery OTP]    [View Order & Chat]         │    │
 │  └──────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Order Detail Page** (with embedded real-time chat):
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Order #ORD-A2B4                                             │
+│                                                              │
+│  ┌─────────────────────────┐  ┌────────────────────────────┐│
+│  │  ORDER DETAILS          │  │  CHAT WITH PROVIDER        ││
+│  │                         │  │                            ││
+│  │  Provider: FreshFold    │  │  ┌──────────────────────┐  ││
+│  │  Items: 3 Shirts, ...   │  │  │ Provider: Items are  │  ││
+│  │  Total: ₹450           │  │  │ ready for delivery!  │  ││
+│  │                         │  │  └──────────────────────┘  ││
+│  │  Process Status:        │  │         ┌──────────────┐   ││
+│  │  [✓Wash] [✓Iron]       │  │         │ Great, when  │   ││
+│  │  [●Ready] [○Delivery]  │  │         │ can you come?│   ││
+│  │                         │  │         └──────────────┘   ││
+│  │  Payment: Held          │  │                            ││
+│  │                         │  │  Provider is typing…       ││
+│  │  [Enter Delivery OTP]   │  │  ┌──────────────────┐      ││
+│  │                         │  │  │ Type a message... │ [➤] ││
+│  │                         │  │  └──────────────────┘      ││
+│  └─────────────────────────┘  └────────────────────────────┘│
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -510,6 +535,46 @@ The provider dashboard uses a sidebar navigation layout on desktop and a collaps
 │          │  [Submit Invoice]                                 │
 └──────────┴───────────────────────────────────────────────────┘
 ```
+
+**Order Status Page** (with expandable chat per order):
+```
+┌──────────┬───────────────────────────────────────────────────┐
+│          │  Order Processing                                 │
+│ SIDEBAR  │                                                   │
+│          │  ┌──────────────────────────────────────────┐     │
+│          │  │  Order #ORD-A2B4 — John D.               │     │
+│          │  │  Status: [Washing ▼]                      │     │
+│          │  │  Items: 3 Shirts, 2 Pants                 │     │
+│          │  │  Total: ₹450                             │     │
+│          │  │  [▶ Advance to Ironing]                   │     │
+│          │  │                                           │     │
+│          │  │  💬 Chat  [▾ Expand]                      │     │
+│          │  │  ┌─────────────────────────────────────┐  │     │
+│          │  │  │  Seeker: When will it be ready?     │  │     │
+│          │  │  │         ┌─────────────────────┐     │  │     │
+│          │  │  │         │ Should be done by   │     │  │     │
+│          │  │  │         │ tomorrow evening.   │     │  │     │
+│          │  │  │         └─────────────────────┘     │  │     │
+│          │  │  │  ┌──────────────────┐               │  │     │
+│          │  │  │  │ Type a message...│ [➤]           │  │     │
+│          │  │  │  └──────────────────┘               │  │     │
+│          │  │  └─────────────────────────────────────┘  │     │
+│          │  └──────────────────────────────────────────┘     │
+│          │                                                   │
+│          │  ┌──────────────────────────────────────────┐     │
+│          │  │  Order #ORD-C7E1 — Jane S.               │     │
+│          │  │  Status: [Ready]                          │     │
+│          │  │  [▶ Mark Out for Delivery]                │     │
+│          │  │  💬 Chat  [▸ Collapsed]                   │     │
+│          │  └──────────────────────────────────────────┘     │
+└──────────┴───────────────────────────────────────────────────┘
+```
+
+**Key Elements:**
+- Each order card has an expandable real-time chat panel powered by Socket.IO
+- Chat uses the shared `SocketProvider` connection — no extra socket per card
+- Typing indicators and disconnect banners appear inside the chat panel
+- The Messages page (`/provider/messages`) aggregates all order conversations with last-message preview and unread counts
 
 #### 4.4.4 Admin Dashboard
 
@@ -730,7 +795,18 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | attachments | Array | Attached image URLs |
 | createdAt | Date | Message timestamp |
 
-**Entity 8: Review**
+**Entity 8: Order Chat Message**
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| _id | ObjectId | Unique identifier (primary key) |
+| order_id | ObjectId | Reference to parent order (foreign key) |
+| sender_id | String | Reference to message sender (user ID) |
+| sender_role | String | Role of sender (seeker, provider) |
+| message | String | Message text |
+| createdAt | Date | Message timestamp |
+
+**Entity 9: Review**
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
@@ -743,7 +819,7 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | comment | String | Optional text feedback |
 | createdAt | Date | Review submission timestamp |
 
-**Entity 9: Payment**
+**Entity 10: Payment**
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
@@ -753,7 +829,7 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | status | String | Payment status |
 | createdAt | Date | Payment record timestamp |
 
-**Entity 10: Email Outbox**
+**Entity 11: Email Outbox**
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
@@ -919,6 +995,15 @@ erDiagram
         date createdAt
     }
 
+    ORDER_CHAT_MESSAGE {
+        ObjectId _id PK
+        ObjectId order_id FK
+        string sender_id FK
+        string sender_role
+        string message
+        date createdAt
+    }
+
     REVIEW {
         ObjectId _id PK
         ObjectId order_id FK
@@ -959,6 +1044,7 @@ erDiagram
     SEEKER ||--o{ COMPLAINT : "files"
     PROVIDER ||--o{ COMPLAINT : "is accused in"
     COMPLAINT ||--o{ COMPLAINT_MESSAGE : "contains"
+    ORDER ||--o{ ORDER_CHAT_MESSAGE : "contains"
     ORDER ||--o| REVIEW : "receives"
     SEEKER ||--o{ REVIEW : "writes"
     PROVIDER ||--o{ REVIEW : "is reviewed in"
@@ -1104,6 +1190,17 @@ The following tables show the structure of each MongoDB collection as used in th
 | attachments | Array[String] | — | Attached images |
 | createdAt | Date | — | Sent timestamp |
 
+**Collection: order_chats**
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| _id | ObjectId | Primary Key | Auto-generated |
+| order_id | ObjectId | Indexed | Parent order |
+| sender_id | String | — | Message author (user ID) |
+| sender_role | String | — | seeker / provider |
+| message | String | — | Message body |
+| createdAt | Date | — | Sent timestamp |
+
 **Collection: reviews**
 
 | Field | Type | Constraints | Description |
@@ -1163,6 +1260,7 @@ app/
 │   │   ├── bookings/page.tsx         ← Booking management
 │   │   ├── bookings/[id]/invoice-review/ ← Invoice review & payment
 │   │   ├── view-orders/page.tsx      ← Order tracking
+│   │   ├── orders/[id]/page.tsx      ← Order detail + order chat
 │   │   ├── invoices/page.tsx         ← Invoice history
 │   │   ├── disputes/page.tsx         ← Complaint management
 │   │   └── profile/page.tsx          ← Profile settings
@@ -1174,7 +1272,7 @@ app/
 │   │   ├── manage-booking/page.tsx   ← Active booking mgmt
 │   │   ├── order-status/page.tsx     ← Order processing
 │   │   ├── invoice-generation/page.tsx ← Invoice creation (general)
-│   │   ├── messages/page.tsx         ← Booking chat
+│   │   ├── messages/page.tsx         ← Order chat inbox
 │   │   ├── reviews-manage/page.tsx   ← Review management
 │   │   ├── disputes/page.tsx         ← Dispute handling
 │   │   └── profile/page.tsx          ← Business profile
@@ -1438,7 +1536,7 @@ The testing infrastructure consists of:
 
 | Tool | Purpose | Test Count |
 |------|---------|------------|
-| **Vitest** | Unit tests and integration tests | 108 test files, 571 tests |
+| **Vitest** | Unit tests and integration tests | 107 test files, 567 tests |
 | **Playwright** | End-to-end browser tests | 5 test suites |
 | **mongodb-memory-server** | In-memory MongoDB for isolated database testing | Used in integration tests |
 
@@ -1614,10 +1712,12 @@ Key areas validated during alpha testing:
 - Invoice creation with itemized pricing and photo uploads
 - Razorpay payment capture in test mode
 - Delivery OTP generation, email delivery, and verification
+- Real-time order chat between seeker and provider on active orders (message send/receive, typing indicators, disconnect/reconnect banner)
 - Complaint filing and 3-party chat functionality
 - Admin complaint resolution with partial/full refund calculations
 - Provider profile setup with bank account linking
 - Cancellation policy enforcement (fee forfeit vs. refund)
+- Provider messages inbox aggregation from order chats with last-message preview
 
 #### 6.2.5 Beta Testing
 
@@ -1676,6 +1776,9 @@ The following table lists representative test cases covering the major functiona
 | TC-33 | Security | CSRF protection on POST | POST request without valid Origin header | 403 Forbidden | Pass |
 | TC-34 | No-Show | Detect provider no-show | Confirmed booking, 30+ min past pickup, no order created | noShowStatus set, booking cancelled, fee refunded | Pass |
 | TC-35 | E2E | Full seeker journey | Register → search → book → pay → track → receive → review | All steps complete successfully in browser | Pass |
+| TC-36 | Order Chat | Authorize order room join | Socket emits `order:join` with valid orderId for participant | Room joined, `{ ok: true }` acknowledged | Pass |
+| TC-37 | Order Chat | Reject non-participant from order room | Socket emits `order:join` for order where user is not seeker/provider/admin | `{ ok: false, error: "Forbidden" }` acknowledged, room not joined | Pass |
+| TC-38 | Order Chat | Send and receive order chat message | POST `/api/orders/[id]/chat` with valid message body | Message persisted in `order_chats`, `order:message:created` emitted to room | Pass |
 
 ---
 
@@ -1693,7 +1796,7 @@ LaundryEase successfully transforms the informal, trust-based local laundry serv
 - **Dispute resolution vacuum** is filled by a structured complaint system with 3-party chat, evidence attachments, response deadlines, and commission-aware settlement.
 - **Data loss** is prevented by a comprehensive MongoDB database with proper indexing, audit trails, and automated backups.
 
-The system is built on a modern, maintainable technology stack (Next.js, React, TypeScript, MongoDB, Razorpay, Socket.IO) with strict coding standards (type safety, Zod validation, Decimal.js for financial math) and a thorough testing pipeline (571 unit tests across 108 test files, 5 E2E test suites, automated CI/CD quality gates).
+The system is built on a modern, maintainable technology stack (Next.js, React, TypeScript, MongoDB, Razorpay, Socket.IO) with strict coding standards (type safety, Zod validation, Decimal.js for financial math) and a thorough testing pipeline (567 unit tests across 107 test files, 5 E2E test suites, automated CI/CD quality gates).
 
 ### 7.1 Future Enhancements
 
@@ -1740,6 +1843,7 @@ The following features are planned for future versions of LaundryEase:
 | Twilio Documentation | https://www.twilio.com/docs | SMS API for OTP delivery |
 | Cloudinary Documentation | https://cloudinary.com/documentation | Image upload and CDN |
 | Google Maps Platform | https://developers.google.com/maps/documentation | Maps, Places, Geocoding APIs |
+| Socket.IO Documentation | https://socket.io/docs/v4 | Real-time bidirectional WebSocket communication for order chat and complaint chat |
 
 #### 7.2.2 References
 
@@ -1753,6 +1857,7 @@ The following features are planned for future versions of LaundryEase:
 8. shadcn, "shadcn/ui — Re-usable Components," 2025. [Online]. Available: https://ui.shadcn.com
 9. Colin McDonnell, "Zod — TypeScript-first Schema Validation," 2025. [Online]. Available: https://zod.dev
 10. Microsoft, "Playwright — End-to-End Testing," 2025. [Online]. Available: https://playwright.dev
+11. Socket.IO Contributors, "Socket.IO v4 Documentation," 2025. [Online]. Available: https://socket.io/docs/v4
 
 ### 7.3 Snapshots (Screenshots)
 
@@ -1773,13 +1878,16 @@ This section contains representative screenshots of the LaundryEase application.
 13. **Invoice Review** — Seeker viewing invoice before payment
 14. **Razorpay Payment** — Payment checkout overlay
 15. **Order Tracking** — Order with process status progress bar
-16. **Delivery OTP** — OTP entry form for delivery confirmation
-17. **Complaint Filing** — Dispute creation form with evidence upload
-18. **Complaint Chat** — 3-party chat interface showing messages from seeker, provider, and admin
-19. **Admin Dashboard** — Operational alerts and platform statistics
-20. **Admin Complaint Resolution** — Settlement dialog with refund slider
-21. **Provider Profile** — Business profile with reviews and ratings
-22. **Payment History** — Order payment records with status indicators
+16. **Order Chat (Seeker)** — Seeker order detail page with embedded real-time chat panel showing message bubbles, typing indicator, and send input
+17. **Order Chat (Provider)** — Provider order-status page with expandable chat panel per order card
+18. **Provider Messages Inbox** — Aggregated order chat conversations with last-message preview and seeker details
+19. **Delivery OTP** — OTP entry form for delivery confirmation
+20. **Complaint Filing** — Dispute creation form with evidence upload
+21. **Complaint Chat** — 3-party chat interface showing messages from seeker, provider, and admin
+22. **Admin Dashboard** — Operational alerts and platform statistics
+23. **Admin Complaint Resolution** — Settlement dialog with refund slider
+24. **Provider Profile** — Business profile with reviews and ratings
+25. **Payment History** — Order payment records with status indicators
 
 *(Insert actual screenshots from the running application here)*
 
@@ -1866,7 +1974,8 @@ laundry-ease/
 │   └── no-show-check.ts          # Provider no-show detection
 │
 ├── hooks/                        # Custom React hooks
-│   └── use-booking-actions.ts    # Booking action handlers
+│   ├── use-booking-actions.ts    # Booking action handlers
+│   └── use-live-data.ts          # Real-time data subscription hook
 │
 ├── e2e/                          # Playwright E2E test suites
 │   ├── smoke-role-journeys.spec.ts
