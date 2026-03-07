@@ -579,10 +579,10 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 
 **Quality Snapshot (current):**
 
-- `108` test files, `571` tests passing (100% core route coverage)
+- `107` test files, `567` tests passing (100% core route coverage)
 - `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
-- TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`
+- TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`, only 2 `eslint-disable` comments (both in CommonJS files)
 - Zero production type casts
 - Strict escrow paise precision enforced
 - System webhooks fully mutex-locked
@@ -602,6 +602,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Reschedule abuse prevention (caps, cooldowns, or admin escalation)
 - Playwright E2E coverage for reschedule flow, cancellation window boundary, and Socket.IO chat flows
 - Remove `DEMO_MODE=1` and `ALLOW_START_WITH_INDEX_ERRORS=1` from `.env` before any public deployment
+- Remove 3 `console.log` debug statements from `components/seeker/invoice-review-form.tsx` (payment debugging logs)
 
 ## 18. Project Structure
 
