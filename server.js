@@ -353,6 +353,16 @@ async function bootstrap() {
 
   httpServer.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
+
+    // Start local cron jobs
+    if (!process.env.VERCEL) {
+      try {
+        const { startLocalCron } = require("./lib/local-cron");
+        startLocalCron(port);
+      } catch (err) {
+        console.error("Failed to initialize local cron:", err);
+      }
+    }
   });
 }
 
