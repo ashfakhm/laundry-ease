@@ -1,10 +1,10 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-03-07 (Rev 12)
+**Last Updated:** 2026-03-07 (Rev 13)
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes real-time Socket.IO messaging for both **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin), commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase), and a professional password management system with secure token-based reset, session invalidation on password change, and branded security notification emails.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 6.21 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes real-time Socket.IO messaging for both **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin), commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase), and a professional password management system with secure token-based reset, session invalidation on password change, and branded security notification emails. The codebase has **107 test files with 567 passing tests**, 5 Playwright E2E specs, and only 2 justified `eslint-disable` comments (both in CommonJS files).
 
 ```mermaid
 graph LR
@@ -1211,9 +1211,9 @@ flowchart LR
 
 ## 13. Testing Strategy
 
-### Unit Tests (Vitest)
+### Unit Tests (Vitest) — 107 files, 567 tests
 
-- **108 test files**, **571 tests** passing
+- **107 test files**, **567 tests** passing
 - Located alongside source files as `*.test.ts`
 - In-memory MongoDB via `mongodb-memory-server`
 - Coverage areas:
@@ -1366,21 +1366,22 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 ---
 
-## 16. Current Project Status (Rev 12)
+## 16. Current Project Status (Rev 13)
 
 **Quality Snapshot (2026-03-07):**
 
-- 108 test files, 571 tests passing (100% core route coverage)
+- 107 test files, 567 tests passing (100% core route coverage)
 - 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
 - System webhooks fully mutex-locked
 - Zero production type casts
 - React Compiler enabled for automatic optimizations
+- Only 2 `eslint-disable` comments remaining (both `@typescript-eslint/no-require-imports` in CommonJS files: `server.js`, `lib/local-cron.js`)
 
 **Stable Features:**
 
-- Role-based flows (seeker/provider/admin) with complete dashboards
+- Role-based flows (seeker/provider/admin) with complete dashboards (38 component files)
 - Location-based provider discovery ($geoNear + bounding-box fallback)
 - Full booking → invoicing → payment → delivery → escrow loop
 - Canonical payment APIs with backward-compatible legacy aliases
@@ -1427,6 +1428,14 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Webhook payload archival policy
 - Reschedule abuse prevention (caps, cooldowns, or admin escalation)
 - Tighten CSP `connect-src` to specific `wss://<domain>` in production (currently `wss:` is broad)
+
+---
+
+**Known Minor Issues (P3):**
+
+- 3 `console.log` debug statements in `components/seeker/invoice-review-form.tsx` (payment debugging logs — should be removed or converted to logger calls before production)
+- 1 `@ts-expect-error` in reconciliation cron (Razorpay SDK type gap — justified)
+- `proxy.ts` duplicates IP extraction logic from `lib/api/security.ts` (Edge vs Node runtime constraint — intentional)
 
 ---
 
@@ -1674,7 +1683,7 @@ erDiagram
 
 ---
 
-## Summary (Rev 12)
+## Summary (Rev 13)
 
 LaundryEase is a production-grade laundry marketplace built with:
 
@@ -1685,6 +1694,6 @@ LaundryEase is a production-grade laundry marketplace built with:
 5. **Financial Precision** — decimal.js for calculations, paise integers for Razorpay, distributed locks for concurrent safety
 6. **Production-Ready Infrastructure** — 10 cron jobs (+ in-process demo runner), operational alerting with SLA/escalation/owner routing, email outbox with retry (5 types), MongoDB-backed rate limiting, structured logging with secret redaction, Datadog APM
 7. **Professional Password Management** — Secure token-based reset (SHA-256, 1hr TTL), anti-enumeration, branded email notifications, JWT session invalidation on password change (5-min re-check), password show/hide UX
-8. **Quality Assurance** — 108 test files (571 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows
+8. **Quality Assurance** — 107 test files (567 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows, only 2 `eslint-disable` comments
 9. **Operational Observability** — Cron run tracking, data integrity auditing, abuse monitoring, alert analytics (trend/burn-rate/MTTR), CSP violation reporting
 10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
