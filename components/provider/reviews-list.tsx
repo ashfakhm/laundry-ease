@@ -16,10 +16,14 @@ export function ReviewsList({ providerId }: { providerId: string }) {
 
     useEffect(() => {
         if (!providerId) return;
-        fetch(`/api/reviews?provider_id=${providerId}`)
+        fetch(`/api/providers/${providerId}/reviews`)
             .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) setReviews(data as ReviewItem[]);
+            .then(json => {
+                if (json.success && Array.isArray(json.data)) {
+                    setReviews(json.data as ReviewItem[]);
+                } else if (Array.isArray(json)) {
+                    setReviews(json as ReviewItem[]);
+                }
             })
             .catch(err => reportError("ReviewFetchError", err))
             .finally(() => setLoading(false));
