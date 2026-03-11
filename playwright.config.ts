@@ -7,6 +7,9 @@ if (process.env.FORCE_COLOR && process.env.NO_COLOR) {
 const e2ePort = Number(process.env.E2E_PORT || 3405);
 const baseURL = process.env.E2E_BASE_URL || `http://127.0.0.1:${e2ePort}`;
 const useExternalBaseUrl = Boolean(process.env.E2E_BASE_URL);
+// Fresh servers are slower, but reusing an arbitrary local process can point
+// Playwright at stale code or env and create false failures.
+const reuseExistingServer = process.env.E2E_REUSE_SERVER === "1";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -37,7 +40,7 @@ export default defineConfig({
         command: `npm run dev -- --port ${e2ePort}`,
         url: baseURL,
         timeout: 180_000,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer,
         env: {
           ...process.env,
           AUTH_URL: process.env.AUTH_URL || process.env.NEXTAUTH_URL || baseURL,
