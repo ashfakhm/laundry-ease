@@ -9,9 +9,9 @@ import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
-const JWT_SECRET = new TextEncoder().encode(env.NEXTAUTH_SECRET);
+const JWT_SECRET = new TextEncoder().encode(env.AUTH_SECRET);
 const BASE_URL =
-  env.NEXTAUTH_URL || env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  env.AUTH_URL || env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 const sendMagicLinkSchema = z.object({
   email: z.string().trim().toLowerCase().email("Valid email is required"),

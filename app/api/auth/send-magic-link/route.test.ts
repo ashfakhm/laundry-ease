@@ -31,12 +31,16 @@ vi.mock("jose", () => {
     sign: mockSignJWT,
   };
   return {
-    SignJWT: vi.fn(() => signInstance),
+    SignJWT: vi.fn(function MockSignJWT() {
+      return signInstance;
+    }),
   };
 });
 
 vi.mock("@/lib/env", () => ({
   env: {
+    AUTH_SECRET: "test-secret",
+    AUTH_URL: "https://laundryease.test",
     NEXTAUTH_SECRET: "test-secret",
     NEXTAUTH_URL: "https://laundryease.test",
     NEXT_PUBLIC_BASE_URL: "https://laundryease.test",

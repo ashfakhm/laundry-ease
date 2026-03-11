@@ -57,6 +57,8 @@ describe("lib/db.ts - Booking Atomic Transactions", () => {
   afterAll(async () => {
     if (mongoClient) await mongoClient.close();
     if (mongoServer) await mongoServer.stop();
+    globalThis.__laundryEaseMongoClientPromise = undefined;
+    globalThis.__laundryEaseMongoIndexInitPromise = undefined;
   });
 
   describe("createBooking", () => {

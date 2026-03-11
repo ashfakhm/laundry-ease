@@ -79,7 +79,7 @@ export function collectAllowedOrigins(req: Request): string[] {
     envOrigins: [
       env.NEXT_PUBLIC_APP_URL,
       env.NEXT_PUBLIC_BASE_URL,
-      env.NEXTAUTH_URL,
+      env.AUTH_URL,
     ],
   });
 }

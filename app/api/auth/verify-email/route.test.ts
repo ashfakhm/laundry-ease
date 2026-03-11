@@ -16,7 +16,10 @@ vi.mock("jose", () => ({
 }));
 
 vi.mock("@/lib/env", () => ({
-  env: { NEXTAUTH_SECRET: "test-jwt-secret" },
+  env: {
+    AUTH_SECRET: "test-jwt-secret",
+    NEXTAUTH_SECRET: "test-jwt-secret",
+  },
 }));
 
 vi.mock("@/lib/api/security", () => ({

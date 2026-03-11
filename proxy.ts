@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/auth";
 
 // ---------------------------------------------------------------------------
 // Next.js 16 Proxy (replaces middleware.ts)
@@ -124,19 +124,12 @@ function getAdminAllowlistIps(): Set<string> {
 
 // ── Proxy function ─────────────────────────────────────────────────────────
 
-export async function proxy(req: NextRequest): Promise<NextResponse> {
+export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // ── 1. Decode JWT (Edge-safe, no DB call) ────────────────────────────
-  // getToken reads the NextAuth session cookie and verifies the JWT
-  // signature using NEXTAUTH_SECRET. Returns null if unauthenticated.
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
-
-  const userRole = token?.role;
-  const isAuthenticated = !!token && isRoleValid(userRole);
+  // ── 1. Read auth state from Auth.js session ───────────────────────────
+  const userRole = req.auth?.user?.role;
+  const isAuthenticated = isRoleValid(userRole);
 
   // ── 2. Admin IP allowlist enforcement ────────────────────────────────
   // If ADMIN_ALLOWLIST_IPS is configured, restrict /admin routes AND
@@ -198,7 +191,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
 
   // ── 5. Pass through ──────────────────────────────────────────────────
   return NextResponse.next();
-}
+});
 
 // ── Matcher configuration ──────────────────────────────────────────────────
 // Only run the proxy on routes that actually need protection.

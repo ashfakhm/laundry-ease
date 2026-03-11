@@ -6,6 +6,8 @@ import { vi } from "vitest";
 // by calling vi.mock("@/lib/env", ...) with their own values.
 vi.mock("@/lib/env", () => ({
   env: {
+    AUTH_GOOGLE_ID: "test-google-id",
+    AUTH_GOOGLE_SECRET: "test-google-secret",
     GOOGLE_ID: "test-google-id",
     GOOGLE_SECRET: "test-google-secret",
     MONGODB_URI: "mongodb://localhost:27017/test",
@@ -21,6 +23,9 @@ vi.mock("@/lib/env", () => ({
     RAZORPAYX_ACCOUNT_NUMBER: "",
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: "test-maps-key",
     CRON_SECRET: "test-cron-secret",
+    AUTH_SECRET: "test-nextauth-secret",
+    AUTH_URL: "https://laundryease.test",
+    AUTH_TRUST_HOST: "false",
     NEXTAUTH_SECRET: "test-nextauth-secret",
     NEXTAUTH_URL: "https://laundryease.test",
     NEXT_PUBLIC_BASE_URL: "https://laundryease.test",
@@ -39,6 +44,7 @@ vi.mock("@/lib/env", () => ({
     TRUST_PROXY: "false",
     DEBUG_LOGGING: "false",
     E2E_FAKE_PAYMENTS: "0",
+    DEMO_MODE: "0",
     PROVIDER_SEARCH_DEBUG: "false",
     ALLOW_BASE64_UPLOAD_FALLBACK: "0",
     ALLOW_START_WITH_INDEX_ERRORS: "0",

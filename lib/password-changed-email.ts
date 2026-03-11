@@ -28,7 +28,7 @@ export async function sendPasswordChangedEmailNow(
   });
 
   const supportUrl =
-    env.NEXT_PUBLIC_BASE_URL || env.NEXTAUTH_URL || "http://localhost:3000";
+    env.NEXT_PUBLIC_BASE_URL || env.AUTH_URL || "http://localhost:3000";
 
   await transporter.sendMail({
     from: env.EMAIL_USER,

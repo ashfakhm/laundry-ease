@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { auth } from "@/auth";
 import { Role } from "@/types/enums";
 import { getUserByEmail } from "@/lib/db/index";
 import { Errors } from "./errors";
@@ -29,7 +28,7 @@ function isLikelyDbObjectId(id: string | undefined): boolean {
  * Throws AppError if auth fails
  */
 export async function requireAuth(allowedRoles?: Role[]): Promise<AuthResult> {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
 
   if (!session?.user?.email) {
     throw Errors.unauthorized("Please sign in to continue");

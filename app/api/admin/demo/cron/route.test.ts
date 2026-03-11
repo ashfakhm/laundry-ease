@@ -28,6 +28,7 @@ vi.mock("@/lib/demo/cron-dispatch", () => ({
 vi.mock("@/lib/env", () => ({
   env: {
     DEMO_MODE: "1",
+    AUTH_URL: "http://localhost:3000",
     NEXTAUTH_URL: "http://localhost:3000",
     NEXT_PUBLIC_BASE_URL: "",
     NEXT_PUBLIC_APP_URL: "",

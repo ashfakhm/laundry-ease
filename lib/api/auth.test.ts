@@ -2,17 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Role } from "@/types/enums";
 import { AppError } from "./errors";
 
-const { mockGetServerSession, mockGetUserByEmail } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
+const { mockAuth, mockGetUserByEmail } = vi.hoisted(() => ({
+  mockAuth: vi.fn(),
   mockGetUserByEmail: vi.fn(),
 }));
 
-vi.mock("next-auth", () => ({
-  getServerSession: mockGetServerSession,
-}));
-
-vi.mock("@/app/api/auth/[...nextauth]/route", () => ({
-  authOptions: {},
+vi.mock("@/auth", () => ({
+  auth: mockAuth,
 }));
 
 vi.mock("@/lib/db/index", () => ({
@@ -23,7 +19,7 @@ import { requireAdminWithDbCheck, requireAuth, requireProvider } from "./auth";
 
 describe("lib/api/auth", () => {
   beforeEach(() => {
-    mockGetServerSession.mockReset();
+    mockAuth.mockReset();
     mockGetUserByEmail.mockReset();
   });
 
@@ -32,7 +28,7 @@ describe("lib/api/auth", () => {
   });
 
   it("returns session identity directly when id and role are valid", async () => {
-    mockGetServerSession.mockResolvedValue({
+    mockAuth.mockResolvedValue({
       user: {
         id: "507f1f77bcf86cd799439001",
         email: "provider@laundryease.test",
@@ -49,7 +45,7 @@ describe("lib/api/auth", () => {
   });
 
   it("normalizes OAuth-like session ids via DB fallback", async () => {
-    mockGetServerSession.mockResolvedValue({
+    mockAuth.mockResolvedValue({
       user: {
         id: "google-oauth-subject-id",
         email: "seeker@laundryease.test",
@@ -72,7 +68,7 @@ describe("lib/api/auth", () => {
   });
 
   it("enforces admin DB-check for high-risk routes", async () => {
-    mockGetServerSession.mockResolvedValue({
+    mockAuth.mockResolvedValue({
       user: {
         id: "507f1f77bcf86cd799439003",
         email: "admin@laundryease.test",

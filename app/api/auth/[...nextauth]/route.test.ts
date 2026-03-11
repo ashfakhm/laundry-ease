@@ -3,10 +3,31 @@ import { ObjectId } from "mongodb";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/constants";
 import { Role } from "@/types/enums";
 
-const { mockNextAuth, mockGetUserByEmail } = vi.hoisted(() => ({
-  mockNextAuth: vi.fn(() => vi.fn()),
-  mockGetUserByEmail: vi.fn(),
-}));
+const {
+  mockGetUserByEmail,
+  mockNextAuth,
+} = vi.hoisted(() => {
+  const mockAuth = vi.fn();
+  const mockGetHandler = vi.fn();
+  const mockGetUserByEmail = vi.fn();
+  const mockPostHandler = vi.fn();
+  const mockSignIn = vi.fn();
+  const mockSignOut = vi.fn();
+  const mockNextAuth = vi.fn(() => ({
+    auth: mockAuth,
+    handlers: {
+      GET: mockGetHandler,
+      POST: mockPostHandler,
+    },
+    signIn: mockSignIn,
+    signOut: mockSignOut,
+  }));
+
+  return {
+    mockGetUserByEmail,
+    mockNextAuth,
+  };
+});
 
 vi.mock("next-auth", () => ({
   default: mockNextAuth,
@@ -23,7 +44,8 @@ vi.mock("bcrypt", () => ({
   compare: vi.fn(),
 }));
 
-import { authOptions } from "./route";
+import { authOptions, handlers } from "@/auth";
+import { GET, POST } from "./route";
 
 describe("/api/auth/[...nextauth]", () => {
   beforeEach(() => {
@@ -51,6 +73,11 @@ describe("/api/auth/[...nextauth]", () => {
     expect(result).toBe("/choose-role");
   });
 
+  it("route re-exports Auth.js handlers from the root auth module", () => {
+    expect(GET).toBe(handlers.GET);
+    expect(POST).toBe(handlers.POST);
+  });
+
   it("google signIn callback canonicalizes user id/role from DB", async () => {
     const providerId = new ObjectId();
     mockGetUserByEmail.mockResolvedValue({
@@ -72,5 +99,23 @@ describe("/api/auth/[...nextauth]", () => {
     expect(result).toBe(true);
     expect(user.id).toBe(providerId.toString());
     expect(user.role).toBe(Role.PROVIDER);
+  });
+
+  it("jwt callback invalidates the session after a password reset", async () => {
+    mockGetUserByEmail.mockResolvedValue({
+      _id: new ObjectId(),
+      role: Role.SEEKER,
+      passwordChangedAt: new Date("2024-01-01T00:05:00.000Z"),
+    });
+
+    const result = await authOptions.callbacks?.jwt?.({
+      token: {
+        email: "seeker@laundryease.test",
+        iat: Math.floor(new Date("2024-01-01T00:00:00.000Z").getTime() / 1000),
+        _lastDbCheck: 0,
+      },
+    } as never);
+
+    expect(result).toBeNull();
   });
 });

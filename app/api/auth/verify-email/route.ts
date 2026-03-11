@@ -7,7 +7,7 @@ import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 
-const JWT_SECRET = new TextEncoder().encode(env.NEXTAUTH_SECRET);
+const JWT_SECRET = new TextEncoder().encode(env.AUTH_SECRET);
 
 type EmailVerificationTokenPayload = JWTPayload & {
   email?: string;

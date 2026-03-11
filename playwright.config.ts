@@ -40,6 +40,7 @@ export default defineConfig({
         reuseExistingServer: !process.env.CI,
         env: {
           ...process.env,
+          AUTH_URL: process.env.AUTH_URL || process.env.NEXTAUTH_URL || baseURL,
           NEXTAUTH_URL: process.env.NEXTAUTH_URL || baseURL,
           NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || baseURL,
           NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || baseURL,

@@ -112,8 +112,8 @@ describe("POST /api/admin/refund (integration)", () => {
   afterAll(async () => {
     await mongoClient.close();
     await mongoServer.stop();
-    global._mongoClientPromise = undefined;
-    global._mongoIndexInitPromise = undefined;
+    globalThis.__laundryEaseMongoClientPromise = undefined;
+    globalThis.__laundryEaseMongoIndexInitPromise = undefined;
   });
 
   it("refunds an eligible order and persists state transition", async () => {

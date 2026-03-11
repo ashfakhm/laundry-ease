@@ -12,10 +12,10 @@ const dns = require("node:dns");
 const { createServer } = require("node:http");
 
 const next = require("next");
-const { MongoClient, ObjectId } = require("mongodb");
+const { MongoClient, ObjectId, ServerApiVersion } = require("mongodb");
 const { Server } = require("socket.io");
-const { getToken } = require("next-auth/jwt");
 
+const { getRequestAuthToken } = require("./lib/auth/request-token");
 const realtimeContracts = require("./lib/realtime/contracts");
 const {
   authorizeComplaintRoom,
@@ -63,24 +63,29 @@ if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) {
 /*  MongoDB helpers                                                    */
 /* ------------------------------------------------------------------ */
 
-/** @type {Promise<import('mongodb').MongoClient> | null} */
-let mongoClientPromise;
-
 function getMongoClient() {
-  if (!mongoClientPromise) {
+  if (!globalThis.__laundryEaseMongoClientPromise) {
     if (!process.env.MONGODB_URI) {
       throw new Error("MONGODB_URI is required for realtime server");
     }
 
     const client = new MongoClient(process.env.MONGODB_URI, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+      },
       serverSelectionTimeoutMS: 8000,
       connectTimeoutMS: 10000,
       socketTimeoutMS: 45000,
     });
-    mongoClientPromise = client.connect();
+    globalThis.__laundryEaseMongoClientPromise = client.connect().catch(
+      (error) => {
+        globalThis.__laundryEaseMongoClientPromise = undefined;
+        throw error;
+      },
+    );
   }
 
-  return mongoClientPromise;
+  return globalThis.__laundryEaseMongoClientPromise;
 }
 
 async function getRealtimeDb() {
@@ -228,10 +233,7 @@ async function bootstrap() {
 
   io.use(async (socket, nextMiddleware) => {
     try {
-      const token = await getToken({
-        req: socket.request,
-        secret: process.env.NEXTAUTH_SECRET,
-      });
+      const token = await getRequestAuthToken(socket.request);
 
       const user = await resolveRealtimeUserFromToken(token, {
         findUserByEmail,

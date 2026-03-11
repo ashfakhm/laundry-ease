@@ -28,6 +28,7 @@ vi.mock("@/lib/env", () => ({
   env: {
     EMAIL_USER: "noreply@laundryease.test",
     EMAIL_PASS: "test-pass",
+    AUTH_URL: "https://laundryease.test",
     NEXT_PUBLIC_BASE_URL: "https://laundryease.test",
     NEXTAUTH_URL: "https://laundryease.test",
   },

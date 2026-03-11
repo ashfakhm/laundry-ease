@@ -94,14 +94,14 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 | ------------------ | ---------------------------- | --------------------------------------------- |
 | **Framework**      | Next.js 16.1.6 (App Router)  | Full-stack React framework with SSR/SSG       |
 | **Frontend**       | React 19.2.4 + TypeScript 5  | Type-safe modern UI with React Compiler       |
-| **Styling**        | Tailwind CSS 4 + shadcn/ui   | Utility-first CSS + accessible components     |
+| **Styling**        | Tailwind CSS 4 + shadcn/ui (CLI v4) | Utility-first CSS + accessible components |
 | **Animations**     | Framer Motion                | Smooth page and element animations            |
-| **Database**       | MongoDB 6.21 (native driver) | Flexible documents + geospatial queries       |
-| **Auth**           | NextAuth v4                  | Google OAuth + email/password + magic link     |
+| **Database**       | MongoDB 7 (native driver)    | Flexible documents + geospatial queries       |
+| **Auth**           | Auth.js v5 (`next-auth` beta) | Google OAuth + email/password + magic link    |
 | **Payments**       | Razorpay + RazorpayX         | Payment capture, escrow, and provider payouts |
 | **Maps**           | Google Maps APIs             | Places, Geocoding, Maps JavaScript            |
 | **SMS**            | Twilio                       | OTP delivery via SMS                          |
-| **Email**          | Nodemailer + Email Outbox    | Queued email delivery with retry/backoff (5 types) |
+| **Email**          | Nodemailer 8 + Email Outbox  | Queued email delivery with retry/backoff (5 types) |
 | **Images**         | Cloudinary                   | CDN-backed image uploads                      |
 | **Validation**     | Zod 4                        | Runtime schema validation                     |
 | **Forms**          | React Hook Form              | Performant form handling                      |
@@ -110,7 +110,7 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 | **Financial Math** | decimal.js                   | Precise monetary calculations (no float bugs) |
 | **APM / Telemetry**| Datadog (dd-trace + StatsD)  | Application performance monitoring & metrics  |
 | **Rate Limiting**  | MongoDB-backed counters      | Per-IP/actor abuse prevention with TTL        |
-| **Testing**        | Vitest + Playwright          | Unit tests + browser E2E tests                |
+| **Testing**        | Vitest 4 + Playwright        | Unit tests + browser E2E tests                |
 | **CI/CD**          | GitHub Actions + Vercel      | Quality gates + serverless deployment         |
 
 ## 9. Getting Started
@@ -133,6 +133,8 @@ npm install
 ```
 
 Create a `.env.local` file with your configuration (see Environment Variables section below).
+
+Migration note: the Auth.js v5 rollout invalidates existing sessions once. Users should expect a one-time re-login after deploy.
 
 Start the development server:
 
@@ -164,8 +166,8 @@ npm run dev
 
 | Variable                          | Description                                          |
 | --------------------------------- | ---------------------------------------------------- |
-| `GOOGLE_ID`                       | Google OAuth client ID                               |
-| `GOOGLE_SECRET`                   | Google OAuth client secret                           |
+| `AUTH_GOOGLE_ID`                  | Primary Google OAuth client ID for Auth.js v5        |
+| `AUTH_GOOGLE_SECRET`              | Primary Google OAuth client secret for Auth.js v5    |
 | `MONGODB_URI`                     | MongoDB connection string                            |
 | `MONGODB_DB`                      | Database name (default: `laundryease`)               |
 | `EMAIL_USER`                      | Email address for sending OTP emails                 |
@@ -178,13 +180,14 @@ npm run dev
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID`   | Same as RAZORPAY_KEY_ID (exposed to client)          |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`| Google Maps API key                                  |
 | `CRON_SECRET`                    | Secret for securing cron endpoints                   |
-| `NEXTAUTH_SECRET`               | Secret for NextAuth JWT signing                      |
+| `AUTH_SECRET`                    | Primary Auth.js secret for JWT/session signing       |
 
 **Optional:**
 
 | Variable                          | Description                                          |
 | --------------------------------- | ---------------------------------------------------- |
-| `NEXTAUTH_URL`                   | Application base URL                                 |
+| `AUTH_URL`                       | Primary application base URL for Auth.js             |
+| `AUTH_TRUST_HOST`                | `true` when Auth.js should trust forwarded host headers |
 | `NEXT_PUBLIC_BASE_URL`           | Public URL for email links                           |
 | `NEXT_PUBLIC_APP_URL`            | Alternative application URL                          |
 | `RAZORPAYX_ACCOUNT_NUMBER`      | RazorpayX account number for payouts                 |
@@ -205,6 +208,8 @@ npm run dev
 | `PROVIDER_SEARCH_DEBUG`         | `true` to log provider search diagnostics            |
 | `ALLOW_BASE64_UPLOAD_FALLBACK`  | `1` to allow base64 upload when Cloudinary is down   |
 | `ALLOW_START_WITH_INDEX_ERRORS` | `1` to skip critical index failure hard-stop         |
+
+Legacy aliases still accepted during transition: `GOOGLE_ID`, `GOOGLE_SECRET`, `NEXTAUTH_SECRET`, and `NEXTAUTH_URL`.
 
 ### External Service Setup
 
@@ -318,7 +323,7 @@ LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node
 
 ### Security
 
-- **JWT auth middleware** on every socket connection — validates the NextAuth session cookie via `getToken()`. Unauthenticated connections are rejected immediately.
+- **JWT auth middleware** on every socket connection — validates the Auth.js session cookie via `getToken()`. Unauthenticated connections are rejected immediately.
 - **Room authorization** (`lib/realtime/socket-auth.js`) — checks MongoDB to confirm the connecting user is a participant of the requested order/complaint room.
 - **Per-socket rate limiting** — 20 room-join events per 60-second window; excess joins are rejected with `rate_limited`.
 - **Complaint provider access gate** — providers can only join a complaint room after an admin explicitly grants access (`provider_access_granted = true`).
@@ -477,7 +482,7 @@ All cron runs are tracked in the `cron_runs` collection with job name, start tim
 
 ### Authentication & Authorization
 
-- Google OAuth + email/password credentials + magic link via NextAuth v4
+- Google OAuth + email/password credentials + magic link via Auth.js v5
 - Session-based JWT tokens (7-day max age)
 - Role-based API guards: `requireSeeker()`, `requireProvider()`, `requireAdmin()`, `requireAdminWithDbCheck()`
 - Same-origin enforcement on unsafe HTTP methods
@@ -608,6 +613,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 
 ```text
 laundry-ease/
+├── auth.ts                       # Shared authentication configuration and route handlers
 ├── app/                          # Next.js App Router
 │   ├── (auth)/                   # Auth route group
 │   │   ├── verify-email/         # Email verification flow
@@ -847,7 +853,7 @@ laundry-ease/
 │   ├── geocoding.ts              # Google Geocoding API
 │   ├── logger.ts                 # Pino structured logging with secret redaction
 │   ├── magic-link-email.ts       # Magic link email template
-│   ├── mongodb.ts                # MongoDB connection + index init
+│   ├── mongodb.ts                # Shared MongoDB client pool + index init (App Router + Socket.IO server)
 │   ├── otp.ts                    # OTP generation + verification
 │   ├── otp-code-email.ts         # OTP code email template
 │   ├── password-reset-email.ts   # Password reset email template

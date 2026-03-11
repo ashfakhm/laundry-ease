@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const baseUrl =
-      env.NEXTAUTH_URL ||
+      env.AUTH_URL ||
       env.NEXT_PUBLIC_BASE_URL ||
       env.NEXT_PUBLIC_APP_URL ||
       "http://localhost:3000";

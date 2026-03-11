@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Force dynamic rendering - this page uses getServerSession which requires headers()
+// Force dynamic rendering - this page depends on request-scoped auth/session headers.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {

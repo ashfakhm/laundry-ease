@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 // Mock env before imports to prevent Zod validation error
 vi.mock("@/lib/env", () => ({
   env: {
+    AUTH_URL: "http://localhost:3000",
+    AUTH_SECRET: "test-secret",
     NEXTAUTH_URL: "http://localhost:3000",
     NEXTAUTH_SECRET: "test-secret",
     CRON_SECRET: "test-cron-secret",

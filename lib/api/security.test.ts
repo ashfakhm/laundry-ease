@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockEnv = vi.hoisted(() => ({
   TRUST_PROXY: "true",
+  AUTH_URL: "https://laundryease.test",
   NEXT_PUBLIC_APP_URL: "https://laundryease.test",
   NEXT_PUBLIC_BASE_URL: "https://laundryease.test",
   NEXTAUTH_URL: "https://laundryease.test",

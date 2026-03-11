@@ -1,5 +1,9 @@
 import dns from "node:dns";
-import { MongoClient, type MongoClientOptions } from "mongodb";
+import {
+  MongoClient,
+  ServerApiVersion,
+  type MongoClientOptions,
+} from "mongodb";
 import { env } from "./env";
 import { ensureDbIndexes } from "./db-indexes";
 
@@ -12,98 +16,98 @@ if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) {
 }
 
 declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
-  var _mongoIndexInitPromise: Promise<void> | undefined;
+  var __laundryEaseMongoClientPromise: Promise<MongoClient> | undefined;
+  var __laundryEaseMongoIndexInitPromise: Promise<void> | undefined;
 }
 
 const clientOptions: MongoClientOptions = {
+  // Pin the Stable API to keep driver/server behavior predictable.
+  serverApi: {
+    version: ServerApiVersion.v1,
+  },
   // Fail fast instead of hanging for 30s (default) when DB is unreachable.
   serverSelectionTimeoutMS: 8000,
   connectTimeoutMS: 10000,
   socketTimeoutMS: 45000,
 };
 
-let clientPromise: Promise<MongoClient> | undefined;
+function getMongoClientPromise(): Promise<MongoClient> {
+  if (!globalThis.__laundryEaseMongoClientPromise) {
+    const client = new MongoClient(env.MONGODB_URI, clientOptions);
 
-function createClientPromise(): Promise<MongoClient> {
-  const client = new MongoClient(env.MONGODB_URI, clientOptions);
+    globalThis.__laundryEaseMongoClientPromise = client.connect().catch(
+      (err) => {
+        // Log the real error so devs can see it in the terminal.
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(
+          "\n\x1b[31m╔══════════════════════════════════════════════════════════╗\x1b[0m",
+        );
+        console.error(
+          "\x1b[31m║           MongoDB Connection Failed                      ║\x1b[0m",
+        );
+        console.error(
+          "\x1b[31m╚══════════════════════════════════════════════════════════╝\x1b[0m\n",
+        );
+        console.error(`  Error: ${msg}\n`);
 
-  const connectPromise = client.connect().catch((err) => {
-    // Log the real error so devs can see it in the terminal.
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(
-      "\n\x1b[31m╔══════════════════════════════════════════════════════════╗\x1b[0m",
+        if (msg.includes("querySrv") || msg.includes("ECONNREFUSED")) {
+          console.error(
+            "  Likely cause: DNS SRV lookup failed or connection refused.",
+          );
+          console.error("  Fixes to try:");
+          console.error("    1. Check your internet connection");
+          console.error("    2. Add your IP to MongoDB Atlas Network Access:");
+          console.error("       Atlas → Network Access → Add Current IP Address");
+          console.error("       (or add 0.0.0.0/0 for development only)");
+          console.error(
+            "    3. Try using the non-SRV connection string (mongodb://)",
+          );
+        } else if (msg.includes("authentication") || msg.includes("auth")) {
+          console.error("  Likely cause: Invalid MongoDB credentials.");
+          console.error(
+            "  Fix: Check MONGODB_URI username/password in your .env file.",
+          );
+        } else if (msg.includes("timed out") || msg.includes("timeout")) {
+          console.error("  Likely cause: Network cannot reach MongoDB Atlas.");
+          console.error("  Fixes to try:");
+          console.error("    1. Add your IP to MongoDB Atlas Network Access");
+          console.error(
+            "    2. Check if a firewall/VPN is blocking the connection",
+          );
+          console.error("    3. Try a different network (e.g. mobile hotspot)");
+        } else {
+          console.error("  Fixes to try:");
+          console.error("    1. Verify MONGODB_URI in your .env is correct");
+          console.error("    2. Add your IP to Atlas Network Access");
+          console.error("    3. Check your internet connection");
+        }
+        console.error("");
+
+        // Reset the cached promise so the next request retries instead of
+        // returning the same failed promise forever.
+        globalThis.__laundryEaseMongoClientPromise = undefined;
+
+        throw err;
+      },
     );
-    console.error(
-      "\x1b[31m║           MongoDB Connection Failed                      ║\x1b[0m",
-    );
-    console.error(
-      "\x1b[31m╚══════════════════════════════════════════════════════════╝\x1b[0m\n",
-    );
-    console.error(`  Error: ${msg}\n`);
-
-    if (msg.includes("querySrv") || msg.includes("ECONNREFUSED")) {
-      console.error(
-        "  Likely cause: DNS SRV lookup failed or connection refused.",
-      );
-      console.error("  Fixes to try:");
-      console.error("    1. Check your internet connection");
-      console.error("    2. Add your IP to MongoDB Atlas Network Access:");
-      console.error("       Atlas → Network Access → Add Current IP Address");
-      console.error("       (or add 0.0.0.0/0 for development only)");
-      console.error(
-        "    3. Try using the non-SRV connection string (mongodb://)",
-      );
-    } else if (msg.includes("authentication") || msg.includes("auth")) {
-      console.error("  Likely cause: Invalid MongoDB credentials.");
-      console.error(
-        "  Fix: Check MONGODB_URI username/password in your .env file.",
-      );
-    } else if (msg.includes("timed out") || msg.includes("timeout")) {
-      console.error("  Likely cause: Network cannot reach MongoDB Atlas.");
-      console.error("  Fixes to try:");
-      console.error("    1. Add your IP to MongoDB Atlas Network Access");
-      console.error(
-        "    2. Check if a firewall/VPN is blocking the connection",
-      );
-      console.error("    3. Try a different network (e.g. mobile hotspot)");
-    } else {
-      console.error("  Fixes to try:");
-      console.error("    1. Verify MONGODB_URI in your .env is correct");
-      console.error("    2. Add your IP to Atlas Network Access");
-      console.error("    3. Check your internet connection");
-    }
-    console.error("");
-
-    // Reset the cached promise so the next request retries instead of
-    // returning the same failed promise forever.
-    clientPromise = undefined;
-    if (process.env.NODE_ENV === "development") {
-      global._mongoClientPromise = undefined;
-    }
-
-    throw err;
-  });
-
-  if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) {
-      global._mongoClientPromise = connectPromise;
-    }
-    return global._mongoClientPromise as Promise<MongoClient>;
   }
 
-  return connectPromise;
+  return globalThis.__laundryEaseMongoClientPromise;
 }
 
 export async function getDb() {
-  if (!clientPromise) clientPromise = createClientPromise();
-  const client = await clientPromise;
+  const client = await getMongoClientPromise();
   const db = client.db(env.MONGODB_DB);
 
-  if (!global._mongoIndexInitPromise) {
-    global._mongoIndexInitPromise = ensureDbIndexes(db);
+  if (!globalThis.__laundryEaseMongoIndexInitPromise) {
+    globalThis.__laundryEaseMongoIndexInitPromise = ensureDbIndexes(db).catch(
+      (err) => {
+        globalThis.__laundryEaseMongoIndexInitPromise = undefined;
+        throw err;
+      },
+    );
   }
 
-  await global._mongoIndexInitPromise;
+  await globalThis.__laundryEaseMongoIndexInitPromise;
   return { db, client };
 }

@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const envSchema = z.object({
   // OAuth
+  AUTH_GOOGLE_ID: z.string().min(1),
+  AUTH_GOOGLE_SECRET: z.string().min(1),
   GOOGLE_ID: z.string().min(1),
   GOOGLE_SECRET: z.string().min(1),
 
@@ -31,6 +33,9 @@ const envSchema = z.object({
   CRON_SECRET: z.string().min(1),
 
   // NextAuth (required for JWT signing)
+  AUTH_SECRET: z.string().min(1),
+  AUTH_URL: z.string().url().optional(),
+  AUTH_TRUST_HOST: z.enum(["true", "false"]).optional().default("false"),
   NEXTAUTH_SECRET: z.string().min(1),
   NEXTAUTH_URL: z.string().url().optional(),
 
@@ -70,9 +75,24 @@ const envSchema = z.object({
 
 let _env: z.infer<typeof envSchema> | null = null;
 
+function normalizeProcessEnv(rawEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...rawEnv,
+    AUTH_GOOGLE_ID: rawEnv.AUTH_GOOGLE_ID ?? rawEnv.GOOGLE_ID,
+    AUTH_GOOGLE_SECRET: rawEnv.AUTH_GOOGLE_SECRET ?? rawEnv.GOOGLE_SECRET,
+    GOOGLE_ID: rawEnv.GOOGLE_ID ?? rawEnv.AUTH_GOOGLE_ID,
+    GOOGLE_SECRET: rawEnv.GOOGLE_SECRET ?? rawEnv.AUTH_GOOGLE_SECRET,
+    AUTH_SECRET: rawEnv.AUTH_SECRET ?? rawEnv.NEXTAUTH_SECRET,
+    NEXTAUTH_SECRET: rawEnv.NEXTAUTH_SECRET ?? rawEnv.AUTH_SECRET,
+    AUTH_URL: rawEnv.AUTH_URL ?? rawEnv.NEXTAUTH_URL,
+    NEXTAUTH_URL: rawEnv.NEXTAUTH_URL ?? rawEnv.AUTH_URL,
+    AUTH_TRUST_HOST: rawEnv.AUTH_TRUST_HOST ?? "false",
+  };
+}
+
 function getEnv(): z.infer<typeof envSchema> {
   if (!_env) {
-    _env = envSchema.parse(process.env);
+    _env = envSchema.parse(normalizeProcessEnv(process.env));
   }
   return _env;
 }

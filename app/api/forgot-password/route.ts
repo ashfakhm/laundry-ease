@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     });
 
     const resetUrl = `${
-      env.NEXT_PUBLIC_BASE_URL || env.NEXTAUTH_URL || "http://localhost:3000"
+      env.NEXT_PUBLIC_BASE_URL || env.AUTH_URL || "http://localhost:3000"
     }/reset-password?token=${encodeURIComponent(resetToken)}`;
 
     await enqueueEmailOutboxJob({
