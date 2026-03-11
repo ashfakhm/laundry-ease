@@ -1,15 +1,4 @@
-"use client";
-
-import { usePathname } from "next/navigation";
-
 export function GlobalFooter() {
-  const pathname = usePathname();
-
-  // The landing page has its own custom footer.
-  if (pathname === "/") {
-    return null;
-  }
-
   return (
     <footer
       role="contentinfo"
@@ -19,4 +8,3 @@ export function GlobalFooter() {
     </footer>
   );
 }
-

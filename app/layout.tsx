@@ -6,7 +6,7 @@ import { SocketProvider } from "@/components/providers/socket-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { GoogleMapsProvider } from "@/components/providers/google-maps-provider";
 import JsonLd from "@/components/seo/json-ld";
-import { GlobalFooter } from "@/components/ui/global-footer";
+
 import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
 
 import "./globals.css";
@@ -113,32 +113,30 @@ export default async function RootLayout({
         <SessionProvider>
           <SocketProvider>
             <GoogleMapsProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="dark"
-              enableSystem={false}
-              disableTransitionOnChange
-            >
-              {/* Global High-Tech Background */}
-              <InteractiveGridPattern />
-              <div className="relative z-10 w-full min-h-screen flex flex-col">
-                <header role="banner" className="sr-only">
-                  {/* Main site header is rendered in individual pages for flexibility */}
-                  LaundryEase
-                </header>
-                <main
-                  id="main-content"
-                  role="main"
-                  className="flex-1 flex flex-col"
-                >
-                  <ToastProvider>{children}</ToastProvider>
-                </main>
-
-                <GlobalFooter />
-              </div>
-              <JsonLd />
-            </ThemeProvider>
-          </GoogleMapsProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="dark"
+                enableSystem={false}
+                disableTransitionOnChange
+              >
+                {/* Global High-Tech Background */}
+                <InteractiveGridPattern />
+                <div className="relative z-10 w-full min-h-screen flex flex-col">
+                  <header role="banner" className="sr-only">
+                    {/* Main site header is rendered in individual pages for flexibility */}
+                    LaundryEase
+                  </header>
+                  <main
+                    id="main-content"
+                    role="main"
+                    className="flex-1 flex flex-col"
+                  >
+                    <ToastProvider>{children}</ToastProvider>
+                  </main>
+                </div>
+                <JsonLd />
+              </ThemeProvider>
+            </GoogleMapsProvider>
           </SocketProvider>
         </SessionProvider>
       </body>
