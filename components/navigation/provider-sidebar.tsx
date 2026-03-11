@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -26,7 +27,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface NavItem {
   label: string;
-  href: string;
+  href: Route;
   icon: React.ElementType;
   badge?: number;
 }

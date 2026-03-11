@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Send, WifiOff } from "lucide-react";
 import { useSocket } from "@/components/providers/socket-provider";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
@@ -42,8 +42,7 @@ export default function OrderChat({
 
   const room = realtimeContracts.getOrderRoom(orderId);
 
-  /* ---- Fetch messages from REST API ---- */
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useEffectEvent(async () => {
     try {
       const res = await fetch(`/api/orders/${orderId}/chat`, {
         cache: "no-store",
@@ -60,17 +59,17 @@ export default function OrderChat({
     } finally {
       setLoadingMessages(false);
     }
-  }, [orderId]);
+  });
 
-  /* ---- Initial fetch ---- */
   useEffect(() => {
     setLoadingMessages(true);
     setMessages([]);
+    setError(null);
+    setPeerTyping(null);
     hasSocketConnectedRef.current = false;
     void fetchMessages();
-  }, [fetchMessages]);
+  }, [orderId]);
 
-  /* ---- Socket.IO lifecycle ---- */
   useEffect(() => {
     if (!socket) return;
 
@@ -134,10 +133,17 @@ export default function OrderChat({
       socket.off(SERVER_EVENTS.TYPING_START, handleTypingStart);
       socket.off(SERVER_EVENTS.TYPING_STOP, handleTypingStop);
     };
-  }, [socket, orderId, room, fetchMessages]);
+  }, [socket, orderId, room]);
 
-  /* ---- Typing indicator ---- */
-  const emitTypingStart = useCallback(() => {
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function emitTypingStart() {
     if (!socket || !isConnected) return;
     if (!isTypingRef.current) {
       isTypingRef.current = true;
@@ -149,7 +155,7 @@ export default function OrderChat({
       isTypingRef.current = false;
       socket.emit(CLIENT_EVENTS.TYPING_STOP, { room });
     }, TYPING_DEBOUNCE_MS);
-  }, [socket, isConnected, room]);
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);

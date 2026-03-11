@@ -63,7 +63,7 @@ export default function VerifyPhonePage() {
       }
 
       toast.success("Phone verified successfully!");
-      router.push("/dashboard");
+      router.push("/auth");
       router.refresh();
     } catch (error) {
       const message =

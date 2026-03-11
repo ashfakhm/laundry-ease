@@ -29,7 +29,7 @@ export default function VerifyEmailPage() {
 
         // Redirect after 2 seconds
         setTimeout(() => {
-          router.push("/dashboard");
+          router.push("/auth");
         }, 2000);
       } catch (error: unknown) {
         const errorMessage =
@@ -90,10 +90,10 @@ export default function VerifyEmailPage() {
               </h1>
               <p className="text-muted-foreground mb-6">{message}</p>
               <button
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/auth")}
                 className="w-full h-12 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all"
               >
-                Go to Dashboard
+                Go to Sign In
               </button>
             </>
           )}

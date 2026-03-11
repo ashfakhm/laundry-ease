@@ -31,34 +31,16 @@ const providerProfileSchema = z
     coordinates: z.object({ lat: z.number(), lng: z.number() }).optional(),
     phone: z.string().optional(),
     services: z.array(z.string()).min(1, "Select at least one service"),
-    radius_km: z.preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(1, "Minimum radius is 1km"),
-    ),
-    free_radius_km: z.preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(0),
-    ),
-    per_km_rate: z.preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(0),
-    ),
-    pricing: z.preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(0),
-    ), // Base pricing MVP
-    capacity: z.preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
-      z.number().min(1, "Minimum capacity is 1"),
-    ),
+    radius_km: z.number().min(1, "Minimum radius is 1km"),
+    free_radius_km: z.number().min(0),
+    per_km_rate: z.number().min(0),
+    pricing: z.number().min(0), // Base pricing MVP
+    capacity: z.number().min(1, "Minimum capacity is 1"),
     // Fixed Price List
     items: z.array(
       z.object({
         name: z.string().min(1, "Item name is required"),
-        price: z.preprocess(
-          (val) => (val === "" ? undefined : Number(val)),
-          z.number().min(0, "Price must be 0 or more"),
-        ),
+        price: z.number().min(0, "Price must be 0 or more"),
       }),
     ),
     // Bank Details
@@ -111,31 +93,7 @@ const providerProfileSchema = z
     },
   );
 
-export type ProviderProfileValues = {
-  name: string;
-  businessName?: string;
-  bio?: string;
-  description?: string;
-  location: string;
-  coordinates?: { lat: number; lng: number };
-  phone?: string;
-  services: string[];
-  radius_km: number;
-  free_radius_km: number;
-  per_km_rate: number;
-  pricing: number;
-  capacity: number;
-  items: { name: string; price: number }[];
-  bankAccountHolder?: string;
-  bankAccountNumber?: string;
-  bankIFSC?: string;
-  upiId?: string;
-  profilePicture?: string;
-  bannerImage?: string;
-  currentPassword?: string;
-  newPassword?: string;
-  confirmPassword?: string;
-};
+export type ProviderProfileValues = z.infer<typeof providerProfileSchema>;
 
 export default function ProviderEditProfilePage() {
   const router = useRouter();
@@ -144,9 +102,7 @@ export default function ProviderEditProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<ProviderProfileValues>({
-    resolver: zodResolver(
-      providerProfileSchema,
-    ) as import("react-hook-form").Resolver<ProviderProfileValues>,
+    resolver: zodResolver(providerProfileSchema),
     defaultValues: {
       name: "",
       businessName: "",

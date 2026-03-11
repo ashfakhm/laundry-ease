@@ -1,7 +1,39 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { unwrapApiArray } from "@/lib/client-api";
+
+async function syncLiveData<T>({
+  url,
+  setData,
+  setError,
+  setLoading,
+}: {
+  url: string;
+  setData: Dispatch<SetStateAction<T[]>>;
+  setError: Dispatch<SetStateAction<string | null>>;
+  setLoading: Dispatch<SetStateAction<boolean>>;
+}) {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return; // silently ignore transient failures
+    const payload = await res.json();
+    const fresh = unwrapApiArray<T>(payload);
+    setData(fresh);
+    setError(null);
+  } catch {
+    // Network error — don't wipe existing data; just note the error.
+    setError("Failed to fetch latest data");
+  } finally {
+    setLoading(false);
+  }
+}
 
 type PollingOptions<T> = {
   /** API endpoint to fetch from */
@@ -57,76 +89,64 @@ export function useLiveData<T>({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Keep a stable ref to the latest data so the interval closure never stales.
-  const dataRef = useRef(data);
-  useEffect(() => {
-    dataRef.current = data;
-  }, [data]);
+  const fetchData = useEffectEvent(async () => {
+    await syncLiveData<T>({ url, setData, setError, setLoading });
+  });
 
-  // Stable fetch function — never changes identity.
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) return; // silently ignore transient failures
-      const payload = await res.json();
-      const fresh = unwrapApiArray<T>(payload);
-      setData(fresh);
-      setError(null);
-    } catch {
-      // Network error — don't wipe existing data; just note the error.
-      setError("Failed to fetch latest data");
-    } finally {
-      setLoading(false);
-    }
-  }, [url]);
+  const getPollInterval = useEffectEvent(() =>
+    !isActive || isActive(data) ? activeIntervalMs : idleIntervalMs,
+  );
 
-  // Expose a manual refresh that also shows the loading indicator.
-  const refresh = useCallback(() => {
+  const refresh = () => {
     setLoading(true);
-    void fetchData();
-  }, [fetchData]);
+    void syncLiveData<T>({ url, setData, setError, setLoading });
+  };
 
-  // Main polling effect.
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout> | null = null;
+    let isDisposed = false;
 
-    function scheduleNext() {
+    const scheduleNext = () => {
+      if (isDisposed) return;
       if (timerId) clearTimeout(timerId);
-      // Don't poll while the tab is hidden.
       if (document.hidden) return;
 
-      const interval =
-        !isActive || isActive(dataRef.current)
-          ? activeIntervalMs
-          : idleIntervalMs;
-
       timerId = setTimeout(() => {
-        void fetchData().then(scheduleNext);
-      }, interval);
-    }
+        void fetchData().then(() => {
+          if (!isDisposed) {
+            scheduleNext();
+          }
+        });
+      }, getPollInterval());
+    };
 
-    // Initial fetch on mount (replaces the SSR snapshot with fresh data).
-    void fetchData().then(scheduleNext);
-
-    // When the tab becomes visible again, re-fetch immediately then resume.
-    function handleVisibilityChange() {
-      if (!document.hidden) {
-        if (timerId) clearTimeout(timerId);
-        void fetchData().then(scheduleNext);
+    const refetchAndSchedule = async () => {
+      await fetchData();
+      if (!isDisposed) {
+        scheduleNext();
       }
-    }
+    };
+
+    void refetchAndSchedule();
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (timerId) clearTimeout(timerId);
+        return;
+      }
+
+      if (timerId) clearTimeout(timerId);
+      void refetchAndSchedule();
+    };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      isDisposed = true;
       if (timerId) clearTimeout(timerId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchData, activeIntervalMs, idleIntervalMs]);
-  // NOTE: `isActive` is intentionally excluded from deps — it's a stable
-  // predicate defined inline by the caller; re-creating the whole interval
-  // chain every render is more disruptive than using the ref trick above.
+  }, [url, activeIntervalMs, idleIntervalMs]);
 
   return { data, loading, error, refresh };
 }

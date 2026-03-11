@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Send, Lock, Paperclip, X, Loader2, WifiOff } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
@@ -128,40 +128,40 @@ export default function ComplaintChat({
 
   const room = realtimeContracts.getComplaintRoom(complaintId);
 
-  const fetchMessages = useCallback(
-    async () => {
-      try {
-        const res = await fetch(`/api/complaints/${complaintId}/messages?limit=120`, {
+  const fetchMessages = useEffectEvent(async () => {
+    try {
+      const res = await fetch(
+        `/api/complaints/${complaintId}/messages?limit=120`,
+        {
           cache: "no-store",
-        });
-        if (res.status === 403 || res.status === 409) {
-          const payload = await res.json().catch(() => ({}));
-          const message = getApiErrorMessage(payload, "Access Denied");
-          if (message.toLowerCase().includes("resolved")) {
-            setIsResolved(true);
-            setIsAccessBlocked(selfRole !== "admin");
-            setError("Dispute is resolved. Chat is archived.");
-          } else {
-            setIsAccessBlocked(true);
-            setError(message);
-          }
-          return;
+        },
+      );
+      if (res.status === 403 || res.status === 409) {
+        const payload = await res.json().catch(() => ({}));
+        const message = getApiErrorMessage(payload, "Access Denied");
+        if (message.toLowerCase().includes("resolved")) {
+          setIsResolved(true);
+          setIsAccessBlocked(selfRole !== "admin");
+          setError("Dispute is resolved. Chat is archived.");
+        } else {
+          setIsAccessBlocked(true);
+          setError(message);
         }
-        if (!res.ok) throw new Error("Failed to fetch messages");
-        const payload = await res.json();
-        const data = sortMessages(unwrapApiArray<ChatMessage>(payload));
-
-        setMessages(data);
-        setShouldAutoScroll(true);
-      } catch (err) {
-        reportError("ComplaintMessageFetchError", err);
-        setError("Failed to load messages.");
+        return;
       }
-    },
-    [complaintId, selfRole],
-  );
+      if (!res.ok) throw new Error("Failed to fetch messages");
+      const payload = await res.json();
+      const data = sortMessages(unwrapApiArray<ChatMessage>(payload));
 
-  const fetchComplaintMeta = useCallback(async () => {
+      setMessages(data);
+      setShouldAutoScroll(true);
+    } catch (err) {
+      reportError("ComplaintMessageFetchError", err);
+      setError("Failed to load messages.");
+    }
+  });
+
+  const fetchComplaintMeta = useEffectEvent(async () => {
     try {
       const res = await fetch(`/api/complaints/${complaintId}`, {
         cache: "no-store",
@@ -198,7 +198,7 @@ export default function ComplaintChat({
     } catch {
       // Keep safe fallback labels.
     }
-  }, [complaintId, selfRole]);
+  });
 
   useEffect(() => {
     hasSocketConnectedRef.current = false;
@@ -206,10 +206,11 @@ export default function ComplaintChat({
     setError(null);
     setIsResolved(false);
     setIsAccessBlocked(false);
+    setPendingAttachments([]);
+    setPeerTyping(null);
     void Promise.all([fetchComplaintMeta(), fetchMessages()]);
-  }, [fetchComplaintMeta, fetchMessages]);
+  }, [complaintId, selfRole]);
 
-  /* ---- Socket.IO lifecycle ---- */
   useEffect(() => {
     if (!socket) return;
 
@@ -288,10 +289,17 @@ export default function ComplaintChat({
       socket.off(SERVER_EVENTS.TYPING_START, handleTypingStart);
       socket.off(SERVER_EVENTS.TYPING_STOP, handleTypingStop);
     };
-  }, [socket, complaintId, room, fetchComplaintMeta, fetchMessages, selfRole]);
+  }, [socket, complaintId, room, selfRole]);
 
-  /* ---- Typing indicator ---- */
-  const emitTypingStart = useCallback(() => {
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function emitTypingStart() {
     if (!socket || !isConnected) return;
     if (!isTypingRef.current) {
       isTypingRef.current = true;
@@ -303,7 +311,7 @@ export default function ComplaintChat({
       isTypingRef.current = false;
       socket.emit(CLIENT_EVENTS.TYPING_STOP, { room });
     }, TYPING_DEBOUNCE_MS);
-  }, [socket, isConnected, room]);
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -312,58 +320,55 @@ export default function ComplaintChat({
     }
   };
 
-  const uploadAttachments = useCallback(
-    async (fileList: FileList | null) => {
-      if (!fileList || fileList.length === 0) return;
+  async function uploadAttachments(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
 
-      const currentCount = pendingAttachments.length;
-      const remainingSlots = Math.max(0, 5 - currentCount);
-      if (remainingSlots === 0) {
-        setError("You can attach up to 5 images per message.");
-        return;
-      }
+    const currentCount = pendingAttachments.length;
+    const remainingSlots = Math.max(0, 5 - currentCount);
+    if (remainingSlots === 0) {
+      setError("You can attach up to 5 images per message.");
+      return;
+    }
 
-      const files = Array.from(fileList).slice(0, remainingSlots);
-      setUploadingAttachments(true);
-      setError(null);
+    const files = Array.from(fileList).slice(0, remainingSlots);
+    setUploadingAttachments(true);
+    setError(null);
 
-      try {
-        const uploadedUrls: string[] = [];
+    try {
+      const uploadedUrls: string[] = [];
 
-        for (const file of files) {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("folder", "complaint-evidence");
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("folder", "complaint-evidence");
 
-          const res = await fetch("/api/upload/image", {
-            method: "POST",
-            body: formData,
-          });
+        const res = await fetch("/api/upload/image", {
+          method: "POST",
+          body: formData,
+        });
 
-          const data = (await res.json().catch(() => ({}))) as {
-            url?: string;
-            error?: string;
-          };
-          if (!res.ok || !data.url) {
-            throw new Error(data.error || "Failed to upload attachment");
-          }
-
-          uploadedUrls.push(data.url);
+        const data = (await res.json().catch(() => ({}))) as {
+          url?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.url) {
+          throw new Error(data.error || "Failed to upload attachment");
         }
 
-        setPendingAttachments((prev) =>
-          Array.from(new Set([...prev, ...uploadedUrls])).slice(0, 5),
-        );
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to upload attachment";
-        setError(message);
-      } finally {
-        setUploadingAttachments(false);
+        uploadedUrls.push(data.url);
       }
-    },
-    [pendingAttachments.length],
-  );
+
+      setPendingAttachments((prev) =>
+        Array.from(new Set([...prev, ...uploadedUrls])).slice(0, 5),
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to upload attachment";
+      setError(message);
+    } finally {
+      setUploadingAttachments(false);
+    }
+  }
 
   function removePendingAttachment(url: string) {
     setPendingAttachments((prev) => prev.filter((item) => item !== url));

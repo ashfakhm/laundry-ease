@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -22,7 +23,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface NavItem {
   label: string;
-  href: string;
+  href: Route;
   icon: React.ElementType;
   badge?: number;
 }
