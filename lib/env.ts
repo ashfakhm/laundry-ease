@@ -75,18 +75,39 @@ const envSchema = z.object({
 
 let _env: z.infer<typeof envSchema> | null = null;
 
-function normalizeProcessEnv(rawEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+function pickNonEmptyEnvValue(
+  ...values: Array<string | undefined>
+): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim() !== "") {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+export function normalizeProcessEnv(rawEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return {
     ...rawEnv,
-    AUTH_GOOGLE_ID: rawEnv.AUTH_GOOGLE_ID ?? rawEnv.GOOGLE_ID,
-    AUTH_GOOGLE_SECRET: rawEnv.AUTH_GOOGLE_SECRET ?? rawEnv.GOOGLE_SECRET,
-    GOOGLE_ID: rawEnv.GOOGLE_ID ?? rawEnv.AUTH_GOOGLE_ID,
-    GOOGLE_SECRET: rawEnv.GOOGLE_SECRET ?? rawEnv.AUTH_GOOGLE_SECRET,
-    AUTH_SECRET: rawEnv.AUTH_SECRET ?? rawEnv.NEXTAUTH_SECRET,
-    NEXTAUTH_SECRET: rawEnv.NEXTAUTH_SECRET ?? rawEnv.AUTH_SECRET,
-    AUTH_URL: rawEnv.AUTH_URL ?? rawEnv.NEXTAUTH_URL,
-    NEXTAUTH_URL: rawEnv.NEXTAUTH_URL ?? rawEnv.AUTH_URL,
-    AUTH_TRUST_HOST: rawEnv.AUTH_TRUST_HOST ?? "false",
+    AUTH_GOOGLE_ID: pickNonEmptyEnvValue(rawEnv.AUTH_GOOGLE_ID, rawEnv.GOOGLE_ID),
+    AUTH_GOOGLE_SECRET: pickNonEmptyEnvValue(
+      rawEnv.AUTH_GOOGLE_SECRET,
+      rawEnv.GOOGLE_SECRET,
+    ),
+    GOOGLE_ID: pickNonEmptyEnvValue(rawEnv.GOOGLE_ID, rawEnv.AUTH_GOOGLE_ID),
+    GOOGLE_SECRET: pickNonEmptyEnvValue(
+      rawEnv.GOOGLE_SECRET,
+      rawEnv.AUTH_GOOGLE_SECRET,
+    ),
+    AUTH_SECRET: pickNonEmptyEnvValue(rawEnv.AUTH_SECRET, rawEnv.NEXTAUTH_SECRET),
+    NEXTAUTH_SECRET: pickNonEmptyEnvValue(
+      rawEnv.NEXTAUTH_SECRET,
+      rawEnv.AUTH_SECRET,
+    ),
+    AUTH_URL: pickNonEmptyEnvValue(rawEnv.AUTH_URL, rawEnv.NEXTAUTH_URL),
+    NEXTAUTH_URL: pickNonEmptyEnvValue(rawEnv.NEXTAUTH_URL, rawEnv.AUTH_URL),
+    AUTH_TRUST_HOST: pickNonEmptyEnvValue(rawEnv.AUTH_TRUST_HOST, "false"),
   };
 }
 
