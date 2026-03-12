@@ -150,14 +150,14 @@ export async function DELETE(
       return successResponse({ deleted: true, mode: "for_me" });
     }
 
-    // ── for_everyone: Soft-delete for all ──
+    // ── for_everyone: Delete for all participants ──
     const isAdmin = user.role === "admin";
     const isSender =
       message.sender_id === user.id ||
       message.sender_id?.toString() === user.id;
 
-    // Admin can delete for everyone (any message, no time window)
-    // Regular users can only delete their own messages within the time window
+    // Admin can delete any message with no time window.
+    // Regular users can only delete their own messages within the time window.
     if (!isAdmin && !isSender) {
       return errorResponse(
         new AppError(
@@ -179,6 +179,16 @@ export async function DELETE(
           ),
         );
       }
+    }
+
+    // Admin "delete for everyone" is a silent hard-delete — no "this message
+    // was deleted" placeholder is shown to anyone, the message simply vanishes.
+    // Regular user "delete for everyone" is a soft-delete that leaves a
+    // placeholder so other participants know something was removed.
+    if (isAdmin) {
+      await db.collection("complaint_messages").deleteOne({ _id: msgId });
+      emitComplaintMessageDeleted(id, messageId, "hard_delete");
+      return successResponse({ deleted: true, mode: "for_everyone" });
     }
 
     await db.collection("complaint_messages").updateOne(

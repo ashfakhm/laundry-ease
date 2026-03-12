@@ -11,7 +11,6 @@ import {
   Square,
   Trash2,
   Ban,
-  ShieldAlert,
 } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
@@ -919,17 +918,6 @@ export default function ComplaintChat({
               >
                 <Ban className="w-4 h-4" />
                 Delete for everyone
-              </button>
-            )}
-            {selfRole === "admin" && (
-              <button
-                type="button"
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-destructive/10 text-destructive transition-colors disabled:opacity-50 border-t border-border/50"
-                onClick={() => handleDelete("admin_hard_delete")}
-                disabled={deleting}
-              >
-                <ShieldAlert className="w-4 h-4" />
-                Remove permanently
               </button>
             )}
           </div>
