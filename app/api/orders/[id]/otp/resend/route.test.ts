@@ -131,13 +131,24 @@ describe("POST /api/orders/[id]/otp/resend", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 429 when resent too recently", async () => {
+  it("returns 429 when resent too recently (resend_count > 0)", async () => {
     mockGetOrderById.mockResolvedValue(
-      makeOrder({ delivery_otp_sent_at: new Date() }), // just now
+      makeOrder({ delivery_otp_sent_at: new Date(), delivery_otp_resend_count: 1 }), // just now, already resent once
     );
     setupDb();
     const res = await POST(makeReq(), makeParams());
     expect(res.status).toBe(429);
+  });
+
+  it("bypasses time-based throttle on first resend (resend_count === 0)", async () => {
+    mockGetOrderById.mockResolvedValue(
+      makeOrder({ delivery_otp_sent_at: new Date(), delivery_otp_resend_count: 0 }), // just now, but first resend
+    );
+    const { updateOne } = setupDb();
+    const res = await POST(makeReq(), makeParams());
+    expect(res.status).toBe(200);
+    expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledOnce();
+    expect(updateOne).toHaveBeenCalledOnce();
   });
 
   it("returns 429 when max resends reached", async () => {

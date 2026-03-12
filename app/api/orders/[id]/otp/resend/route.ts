@@ -86,15 +86,19 @@ export async function POST(
 
     const now = new Date();
 
+    const resendCount = Number(order.delivery_otp_resend_count ?? 0);
+
     // Rate limit: ensure minimum interval between resends.
-    if (order.delivery_otp_sent_at) {
+    // Skip time-based throttle on first resend (resend_count === 0) so the
+    // auto-send triggered when the OTP modal opens isn't blocked by the
+    // timestamp set during the out_for_delivery transition.
+    if (order.delivery_otp_sent_at && resendCount > 0) {
       const last = new Date(order.delivery_otp_sent_at);
       if (now.getTime() - last.getTime() < MIN_RESEND_INTERVAL_MS) {
         return errorResponse(new AppError(ErrorCode.RATE_LIMITED, 429, "OTP resent too recently. Please wait before trying again."));
       }
     }
 
-    const resendCount = Number(order.delivery_otp_resend_count ?? 0);
     if (resendCount >= MAX_RESENDS) {
       return errorResponse(
         new AppError(

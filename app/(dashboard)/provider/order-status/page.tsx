@@ -343,6 +343,14 @@ export default function OrderStatusPage() {
     setResendInfo(null);
   }, [otpModalOpen]);
 
+  // Auto-send OTP when modal opens so the seeker receives a fresh email
+  // without the provider needing to click "Resend OTP" manually.
+  useEffect(() => {
+    if (!otpModalOpen || !selectedOrderForOtp) return;
+    handleResendOtp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otpModalOpen, selectedOrderForOtp]);
+
   useEffect(() => {
     async function fetchOrders() {
       try {
