@@ -1,6 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
-import { Send, Paperclip, X, Loader2, WifiOff } from "lucide-react";
+import { Send, Paperclip, X, Loader2, WifiOff, Mic, Square } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
@@ -14,6 +14,7 @@ import {
   SERVER_EVENTS,
   sortMessages,
 } from "@/lib/realtime/chat-state";
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 
 type ChatMessage = OrderChatMessageDto & {
   sender_role: "seeker" | "provider";
@@ -48,6 +49,16 @@ export default function OrderChat({
 
   // Lightbox state
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  // Voice recorder
+  const [pendingVoiceUrl, setPendingVoiceUrl] = useState<string | null>(null);
+  const voiceRecorder = useVoiceRecorder({
+    folder: "order-chat-voice",
+    onRecorded: (url) => {
+      setPendingVoiceUrl(url);
+    },
+    onError: (msg) => setError(msg),
+  });
 
   const room = realtimeContracts.getOrderRoom(orderId);
 
@@ -230,9 +241,10 @@ export default function OrderChat({
   }
 
   /* ---- Send message ---- */
-  async function sendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    if (input.trim().length === 0 && pendingAttachments.length === 0) return;
+  async function sendMessage(e?: React.FormEvent, voiceUrl?: string) {
+    e?.preventDefault();
+    const voice = voiceUrl || pendingVoiceUrl;
+    if (input.trim().length === 0 && pendingAttachments.length === 0 && !voice) return;
     setLoading(true);
     setError(null);
 
@@ -250,6 +262,7 @@ export default function OrderChat({
         body: JSON.stringify({
           message: input.trim() || undefined,
           attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+          voiceMessage: voice || undefined,
         }),
       });
       if (!res.ok) throw new Error("Failed to send message");
@@ -257,6 +270,7 @@ export default function OrderChat({
       const message = unwrapApiData<ChatMessage>(payload);
       setInput("");
       setPendingAttachments([]);
+      setPendingVoiceUrl(null);
       if (message?._id) {
         setMessages((prev) => appendUniqueSortedMessages(prev, message));
       }
@@ -267,6 +281,14 @@ export default function OrderChat({
       setLoading(false);
     }
   }
+
+  // Auto-send when voice recording finishes and produces a URL
+  useEffect(() => {
+    if (pendingVoiceUrl) {
+      void sendMessage(undefined, pendingVoiceUrl);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingVoiceUrl]);
 
   /* ---- Auto-scroll ---- */
   useEffect(() => {
@@ -344,8 +366,18 @@ export default function OrderChat({
               }`}
             >
               {msg.message && <p className="whitespace-pre-wrap">{msg.message}</p>}
+              {msg.voiceMessage && (
+                <div className={msg.message ? "mt-2" : ""}>
+                  <audio
+                    controls
+                    preload="metadata"
+                    className="w-full max-w-60 h-8"
+                    src={msg.voiceMessage}
+                  />
+                </div>
+              )}
               {msg.attachments && msg.attachments.length > 0 && (
-                <div className={`grid gap-2 ${msg.message ? "mt-2" : ""} ${msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                <div className={`grid gap-2 ${msg.message || msg.voiceMessage ? "mt-2" : ""} ${msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
                   {msg.attachments.map((url, idx) => (
                     <button
                       key={idx}
@@ -388,90 +420,138 @@ export default function OrderChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <form
-        onSubmit={sendMessage}
-        className="p-3 border-t bg-card/80 backdrop-blur-sm space-y-3"
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            void uploadAttachments(e.target.files);
-            e.currentTarget.value = "";
-          }}
-        />
-
-        {/* Pending attachment previews */}
-        {pendingAttachments.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-            {pendingAttachments.map((url) => (
-              <div
-                key={url}
-                className="relative rounded-xl overflow-hidden border border-border/60 bg-muted"
-              >
-                <Image
-                  src={url}
-                  alt="Pending attachment preview"
-                  width={96}
-                  height={96}
-                  className="w-full aspect-square object-cover"
-                />
-                <button
-                  type="button"
-                  className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/75"
-                  onClick={() => removePendingAttachment(url)}
-                  disabled={loading || uploadingAttachments}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
+      {/* Voice recording indicator */}
+      {voiceRecorder.isRecording && (
+        <div className="flex items-center gap-3 px-4 py-2.5 border-t bg-red-500/10 animate-pulse">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+          <span className="text-sm font-medium text-red-600 dark:text-red-400">
+            Recording… {Math.floor(voiceRecorder.duration / 60)}:{String(voiceRecorder.duration % 60).padStart(2, "0")}
+          </span>
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              className="p-1.5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+              onClick={voiceRecorder.cancelRecording}
+              title="Cancel recording"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              className="p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+              onClick={voiceRecorder.stopRecording}
+              title="Stop and send"
+            >
+              <Square className="w-3.5 h-3.5" />
+            </button>
           </div>
-        )}
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={
-              loading ||
-              uploadingAttachments ||
-              pendingAttachments.length >= 5
-            }
-            title="Attach images"
-          >
-            {uploadingAttachments ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Paperclip className="w-4 h-4" />
-            )}
-          </button>
-
-          <input
-            className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
-            value={input}
-            onChange={handleInputChange}
-            placeholder="Type a message..."
-            disabled={loading}
-          />
-          <button
-            className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
-            type="submit"
-            disabled={
-              loading ||
-              uploadingAttachments ||
-              (input.trim().length === 0 && pendingAttachments.length === 0)
-            }
-          >
-            <Send className="w-4 h-4 ml-0.5" />
-          </button>
         </div>
-      </form>
+      )}
+
+      {/* Voice uploading indicator */}
+      {voiceRecorder.isUploading && (
+        <div className="flex items-center justify-center gap-2 px-4 py-2.5 border-t bg-primary/5">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <span className="text-sm font-medium text-muted-foreground">Sending voice message…</span>
+        </div>
+      )}
+
+      {/* Input Area */}
+      {!voiceRecorder.isRecording && !voiceRecorder.isUploading && (
+        <form
+          onSubmit={sendMessage}
+          className="p-3 border-t bg-card/80 backdrop-blur-sm space-y-3"
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              void uploadAttachments(e.target.files);
+              e.currentTarget.value = "";
+            }}
+          />
+
+          {/* Pending attachment previews */}
+          {pendingAttachments.length > 0 && (
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              {pendingAttachments.map((url) => (
+                <div
+                  key={url}
+                  className="relative rounded-xl overflow-hidden border border-border/60 bg-muted"
+                >
+                  <Image
+                    src={url}
+                    alt="Pending attachment preview"
+                    width={96}
+                    height={96}
+                    className="w-full aspect-square object-cover"
+                  />
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/75"
+                    onClick={() => removePendingAttachment(url)}
+                    disabled={loading || uploadingAttachments}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={
+                loading ||
+                uploadingAttachments ||
+                pendingAttachments.length >= 5
+              }
+              title="Attach images"
+            >
+              {uploadingAttachments ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Paperclip className="w-4 h-4" />
+              )}
+            </button>
+
+            <input
+              className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
+              value={input}
+              onChange={handleInputChange}
+              placeholder="Type a message..."
+              disabled={loading}
+            />
+
+            {/* Show mic button when no text/attachments, otherwise send */}
+            {input.trim().length === 0 && pendingAttachments.length === 0 ? (
+              <button
+                type="button"
+                className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                onClick={voiceRecorder.startRecording}
+                disabled={loading || uploadingAttachments}
+                title="Send voice message"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
+                type="submit"
+                disabled={loading || uploadingAttachments}
+              >
+                <Send className="w-4 h-4 ml-0.5" />
+              </button>
+            )}
+          </div>
+        </form>
+      )}
 
       {error && (
         <div className="text-destructive text-xs p-2 text-center bg-destructive/5 font-medium">

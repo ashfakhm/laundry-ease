@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Send, Lock, Paperclip, X, Loader2, WifiOff } from "lucide-react";
+import { Send, Lock, Paperclip, X, Loader2, WifiOff, Mic, Square } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
 import { reportError } from "@/lib/client-error";
@@ -18,6 +18,7 @@ import {
   SERVER_EVENTS,
   sortMessages,
 } from "@/lib/realtime/chat-state";
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 
 type ChatMessage = ComplaintMessageDto;
 
@@ -126,6 +127,16 @@ export default function ComplaintChat({
   const isTypingRef = useRef(false);
   const [peerTyping, setPeerTyping] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  // Voice recorder
+  const [pendingVoiceUrl, setPendingVoiceUrl] = useState<string | null>(null);
+  const voiceRecorder = useVoiceRecorder({
+    folder: "complaint-voice",
+    onRecorded: (url) => {
+      setPendingVoiceUrl(url);
+    },
+    onError: (msg) => setError(msg),
+  });
 
   const room = realtimeContracts.getComplaintRoom(complaintId);
 
@@ -375,12 +386,13 @@ export default function ComplaintChat({
     setPendingAttachments((prev) => prev.filter((item) => item !== url));
   }
 
-  async function sendMessage(e: React.FormEvent) {
-    e.preventDefault();
+  async function sendMessage(e?: React.FormEvent, voiceUrl?: string) {
+    e?.preventDefault();
+    const voice = voiceUrl || pendingVoiceUrl;
     if (
       isResolved ||
       isAccessBlocked ||
-      (input.trim().length === 0 && pendingAttachments.length === 0)
+      (input.trim().length === 0 && pendingAttachments.length === 0 && !voice)
     ) {
       return;
     }
@@ -401,6 +413,7 @@ export default function ComplaintChat({
         body: JSON.stringify({
           content: input.trim(),
           attachments: pendingAttachments,
+          voiceMessage: voice || undefined,
         }),
       });
 
@@ -425,6 +438,7 @@ export default function ComplaintChat({
       const message = unwrapApiData<ChatMessage>(payload);
       setInput("");
       setPendingAttachments([]);
+      setPendingVoiceUrl(null);
       if (message?._id) {
         setMessages((prev) => appendUniqueSortedMessages(prev, message));
       }
@@ -441,6 +455,14 @@ export default function ComplaintChat({
       setLoading(false);
     }
   }
+
+  // Auto-send when voice recording finishes
+  useEffect(() => {
+    if (pendingVoiceUrl) {
+      void sendMessage(undefined, pendingVoiceUrl);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingVoiceUrl]);
 
   // Auto-scroll only when user sends a message
   useEffect(() => {
@@ -539,6 +561,16 @@ export default function ComplaintChat({
                   ) : (
                     <>
                       <p className="whitespace-pre-wrap">{msg.content}</p>
+                      {msg.voiceMessage && (
+                        <div className={msg.content ? "mt-2" : ""}>
+                          <audio
+                            controls
+                            preload="metadata"
+                            className="w-full max-w-60 h-8"
+                            src={msg.voiceMessage}
+                          />
+                        </div>
+                      )}
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className={`mt-2 grid gap-2 ${msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
                           {msg.attachments.map((url, idx) => (
@@ -592,8 +624,44 @@ export default function ComplaintChat({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Voice recording indicator */}
+      {voiceRecorder.isRecording && (
+        <div className="flex items-center gap-3 px-4 py-2.5 border-t bg-red-500/10 animate-pulse">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+          <span className="text-sm font-medium text-red-600 dark:text-red-400">
+            Recording… {Math.floor(voiceRecorder.duration / 60)}:{String(voiceRecorder.duration % 60).padStart(2, "0")}
+          </span>
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              className="p-1.5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+              onClick={voiceRecorder.cancelRecording}
+              title="Cancel recording"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              className="p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+              onClick={voiceRecorder.stopRecording}
+              title="Stop and send"
+            >
+              <Square className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Voice uploading indicator */}
+      {voiceRecorder.isUploading && (
+        <div className="flex items-center justify-center gap-2 px-4 py-2.5 border-t bg-primary/5">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <span className="text-sm font-medium text-muted-foreground">Sending voice message…</span>
+        </div>
+      )}
+
       {/* Input Area */}
-      {!isResolved && !isAccessBlocked && (
+      {!isResolved && !isAccessBlocked && !voiceRecorder.isRecording && !voiceRecorder.isUploading && (
         <form
           onSubmit={sendMessage}
           className="p-3 border-t bg-card/80 backdrop-blur-sm space-y-3"
@@ -663,17 +731,27 @@ export default function ComplaintChat({
               placeholder="Type a message..."
               disabled={loading}
             />
-            <button
-              className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
-              type="submit"
-              disabled={
-                loading ||
-                uploadingAttachments ||
-                (input.trim().length === 0 && pendingAttachments.length === 0)
-              }
-            >
-              <Send className="w-4 h-4 ml-0.5" />
-            </button>
+
+            {/* Show mic button when no text/attachments, otherwise send */}
+            {input.trim().length === 0 && pendingAttachments.length === 0 ? (
+              <button
+                type="button"
+                className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                onClick={voiceRecorder.startRecording}
+                disabled={loading || uploadingAttachments}
+                title="Send voice message"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
+                type="submit"
+                disabled={loading || uploadingAttachments}
+              >
+                <Send className="w-4 h-4 ml-0.5" />
+              </button>
+            )}
           </div>
         </form>
       )}

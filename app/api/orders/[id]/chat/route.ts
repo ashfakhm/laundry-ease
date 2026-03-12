@@ -155,6 +155,7 @@ export async function POST(
       sender_role: senderRole,
       message: (parsed.data.message ?? "").trim(),
       attachments: parsed.data.attachments ?? [],
+      voiceMessage: parsed.data.voiceMessage ?? "",
       createdAt: new Date(),
     };
     const insertResult = await db.collection("order_chats").insertOne(chatMsg);

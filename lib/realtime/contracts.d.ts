@@ -6,6 +6,7 @@ export type ComplaintMessageDto = {
   message_type: string;
   content: string;
   attachments: string[];
+  voiceMessage: string;
   createdAt: string;
 };
 
@@ -16,6 +17,7 @@ export type OrderChatMessageDto = {
   sender_role: string;
   message: string;
   attachments: string[];
+  voiceMessage: string;
   createdAt: string;
 };
 

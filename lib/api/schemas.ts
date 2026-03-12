@@ -406,12 +406,14 @@ export const sendMagicLinkSchema = z.object({
 export const complaintMessageSchema = z.object({
   content: z.string().trim().max(5000).optional(),
   attachments: z.array(z.string().url()).max(5).optional(),
+  voiceMessage: z.string().url().optional(),
 }).refine(
   (data) =>
     (typeof data.content === "string" && data.content.trim().length > 0) ||
-    (Array.isArray(data.attachments) && data.attachments.length > 0),
+    (Array.isArray(data.attachments) && data.attachments.length > 0) ||
+    (typeof data.voiceMessage === "string" && data.voiceMessage.length > 0),
   {
-    message: "Message content or at least one attachment is required",
+    message: "Message content, at least one attachment, or a voice message is required",
     path: ["content"],
   },
 );
@@ -419,12 +421,14 @@ export const complaintMessageSchema = z.object({
 export const bookingChatMessageSchema = z.object({
   message: z.string().trim().max(2000).optional(),
   attachments: z.array(z.string().url()).max(5).optional(),
+  voiceMessage: z.string().url().optional(),
 }).refine(
   (data) =>
     (typeof data.message === "string" && data.message.trim().length > 0) ||
-    (Array.isArray(data.attachments) && data.attachments.length > 0),
+    (Array.isArray(data.attachments) && data.attachments.length > 0) ||
+    (typeof data.voiceMessage === "string" && data.voiceMessage.length > 0),
   {
-    message: "Message content or at least one attachment is required",
+    message: "Message content, at least one attachment, or a voice message is required",
     path: ["message"],
   },
 );

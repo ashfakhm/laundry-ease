@@ -206,17 +206,25 @@ export async function POST(
     }
 
     // Construct Message
-    // FORCE message_type = TEXT (or IMAGE if only attachments).
+    // FORCE message_type = TEXT / IMAGE / VOICE.
     // User CANNOT send SYSTEM messages.
+
+    const voiceMessage = parsed.data.voiceMessage ?? "";
+
+    function deriveMessageType(): "TEXT" | "IMAGE" | "VOICE" {
+      if (voiceMessage && content.length === 0 && attachments.length === 0) return "VOICE";
+      if (attachments.length > 0 && content.length === 0 && !voiceMessage) return "IMAGE";
+      return "TEXT";
+    }
 
     const message: Omit<ComplaintMessage, "_id"> = {
       complaint_id: complaintId,
       sender_id: actorId,
       sender_role: access.role,
-      message_type:
-        attachments.length > 0 && content.length === 0 ? "IMAGE" : "TEXT",
+      message_type: deriveMessageType(),
       content,
       attachments,
+      voiceMessage,
       createdAt: new Date(),
     };
 

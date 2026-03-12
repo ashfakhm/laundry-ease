@@ -133,6 +133,7 @@ describe("POST /api/orders/[id]/chat", () => {
       order_id: orderId.toString(),
       sender_id: seekerId.toString(),
       attachments: ["https://res.cloudinary.com/test/photo1.jpg"],
+      voiceMessage: "",
     });
     expect(mockEmitOrderMessageCreated).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -199,6 +200,35 @@ describe("POST /api/orders/[id]/chat", () => {
       expect.objectContaining({
         message: "Hello provider!",
         attachments: [],
+        voiceMessage: "",
+      }),
+    );
+  });
+
+  it("accepts voice-only message", async () => {
+    const dbMock = makeDbMock();
+    dbMock.ordersFindOne.mockResolvedValue({
+      _id: orderId,
+      seeker_id: seekerId,
+      provider_id: providerId,
+    });
+    const insertedId = new ObjectId();
+    dbMock.orderChatsInsertOne.mockResolvedValue({ insertedId });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+    const res = await POST(
+      makeRequest({
+        voiceMessage: "https://res.cloudinary.com/test/voice.webm",
+      }),
+      { params: Promise.resolve({ id: orderId.toString() }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(dbMock.orderChatsInsertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "",
+        attachments: [],
+        voiceMessage: "https://res.cloudinary.com/test/voice.webm",
       }),
     );
   });

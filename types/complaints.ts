@@ -45,8 +45,9 @@ export type ComplaintMessage = {
   complaint_id: ObjectId;
   sender_id: ObjectId; // If system, maybe null or admin ID? We'll enforce role='system'
   sender_role: "seeker" | "provider" | "admin" | "system";
-  message_type: "TEXT" | "IMAGE" | "SYSTEM"; // Added for type enforcement
+  message_type: "TEXT" | "IMAGE" | "VOICE" | "SYSTEM"; // Added for type enforcement
   content: string;
   attachments?: string[];
+  voiceMessage?: string;
   createdAt: Date;
 };

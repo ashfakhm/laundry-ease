@@ -98,6 +98,12 @@ export const MAX_UPLOAD_FILE_BYTES = 5 * 1024 * 1024; // 5MB
 /** Maximum number of evidence photos per complaint. */
 export const MAX_EVIDENCE_FILES = 5;
 
+/** Maximum voice message file size (bytes). */
+export const MAX_VOICE_MESSAGE_BYTES = 2 * 1024 * 1024; // 2MB
+
+/** Maximum voice message recording duration (seconds). */
+export const MAX_VOICE_MESSAGE_DURATION_SEC = 120; // 2 minutes
+
 /** Razorpay checkout script URL. */
 export const RAZORPAY_CHECKOUT_SCRIPT_URL =
   "https://checkout.razorpay.com/v1/checkout.js";
