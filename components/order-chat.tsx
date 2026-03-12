@@ -53,6 +53,8 @@ export default function OrderChat({
   const [loading, setLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const voiceErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
@@ -76,7 +78,11 @@ export default function OrderChat({
     onRecorded: (url) => {
       setPendingVoiceUrl(url);
     },
-    onError: (msg) => setError(msg),
+    onError: (msg) => {
+      setVoiceError(msg);
+      if (voiceErrorTimerRef.current) clearTimeout(voiceErrorTimerRef.current);
+      voiceErrorTimerRef.current = setTimeout(() => setVoiceError(null), 4000);
+    },
   });
 
   const room = realtimeContracts.getOrderRoom(orderId);
@@ -534,6 +540,22 @@ export default function OrderChat({
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Voice permission error banner */}
+      {voiceError && (
+        <div className="flex items-center gap-2 px-4 py-2.5 border-t bg-destructive/10 text-destructive text-sm font-medium">
+          <Mic className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{voiceError}</span>
+          <button
+            type="button"
+            className="p-0.5 rounded hover:bg-destructive/20 transition-colors"
+            onClick={() => setVoiceError(null)}
+            title="Dismiss"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Voice recording indicator */}
       {voiceRecorder.isRecording && (
