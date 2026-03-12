@@ -1,6 +1,18 @@
 "use client";
 import React, { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Send, Lock, Paperclip, X, Loader2, WifiOff, Mic, Square } from "lucide-react";
+import {
+  Send,
+  Lock,
+  Paperclip,
+  X,
+  Loader2,
+  WifiOff,
+  Mic,
+  Square,
+  Trash2,
+  Ban,
+  ShieldAlert,
+} from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
 import { reportError } from "@/lib/client-error";
@@ -9,9 +21,12 @@ import realtimeContracts, {
   type ComplaintMessageDto,
   type ComplaintStateUpdateDto,
   type TypingStartDto,
+  type MessageDeletedDto,
 } from "@/lib/realtime/contracts";
 import {
   appendUniqueSortedMessages,
+  applyMessageDeletion,
+  removeMessageLocally,
   CLIENT_EVENTS,
   deriveComplaintUiState,
   deriveComplaintUiStateFromRealtime,
@@ -139,6 +154,68 @@ export default function ComplaintChat({
   });
 
   const room = realtimeContracts.getComplaintRoom(complaintId);
+
+  // Delete menu state
+  const [deleteMenuMsg, setDeleteMenuMsg] = useState<ChatMessage | null>(null);
+  const [deleteMenuPos, setDeleteMenuPos] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const [deleting, setDeleting] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function openDeleteMenu(msg: ChatMessage, x: number, y: number) {
+    if (msg.deletedForEveryone) return;
+    setDeleteMenuMsg(msg);
+    setDeleteMenuPos({ x, y });
+  }
+
+  function closeDeleteMenu() {
+    setDeleteMenuMsg(null);
+  }
+
+  async function handleDelete(
+    mode: "for_me" | "for_everyone" | "admin_hard_delete",
+  ) {
+    if (!deleteMenuMsg) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/complaints/${complaintId}/messages/${deleteMenuMsg._id}?mode=${mode}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(
+          (data as { error?: string }).error || "Failed to delete",
+        );
+      }
+
+      if (mode === "for_me") {
+        setMessages((prev) => removeMessageLocally(prev, deleteMenuMsg._id));
+      }
+      if (mode === "admin_hard_delete") {
+        // Remove immediately from local state (socket event will also fire)
+        setMessages((prev) => removeMessageLocally(prev, deleteMenuMsg._id));
+      }
+      // for_everyone is handled by the socket event
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeleting(false);
+      closeDeleteMenu();
+    }
+  }
+
+  function canDeleteForEveryone(msg: ChatMessage): boolean {
+    const senderRole = normalizeSenderRole(msg.sender_role);
+    // Admin can delete any non-system message for everyone (no time limit)
+    if (selfRole === "admin" && senderRole !== "system") return true;
+    // Regular users can only delete their own messages within the window
+    if (senderRole !== selfRole) return false;
+    const age = Date.now() - new Date(msg.createdAt).getTime();
+    return age <= 60 * 60 * 1000; // 1 hour
+  }
 
   const fetchMessages = useEffectEvent(async () => {
     try {
@@ -270,11 +347,14 @@ export default function ComplaintChat({
       setPeerTyping(null);
     };
 
+    const handleMessageDeleted = (payload?: MessageDeletedDto) => {
+      if (!payload?.messageId) return;
+      setMessages((prev) => applyMessageDeletion(prev, payload));
+    };
+
     socket.on("connect", handleConnect);
-    socket.on(
-      SERVER_EVENTS.COMPLAINT_MESSAGE_CREATED,
-      handleRealtimeMessage,
-    );
+    socket.on(SERVER_EVENTS.COMPLAINT_MESSAGE_CREATED, handleRealtimeMessage);
+    socket.on(SERVER_EVENTS.COMPLAINT_MESSAGE_DELETED, handleMessageDeleted);
     socket.on(
       SERVER_EVENTS.COMPLAINT_STATE_UPDATED,
       handleComplaintStateUpdate,
@@ -294,6 +374,7 @@ export default function ComplaintChat({
         SERVER_EVENTS.COMPLAINT_MESSAGE_CREATED,
         handleRealtimeMessage,
       );
+      socket.off(SERVER_EVENTS.COMPLAINT_MESSAGE_DELETED, handleMessageDeleted);
       socket.off(
         SERVER_EVENTS.COMPLAINT_STATE_UPDATED,
         handleComplaintStateUpdate,
@@ -461,7 +542,7 @@ export default function ComplaintChat({
     if (pendingVoiceUrl) {
       void sendMessage(undefined, pendingVoiceUrl);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingVoiceUrl]);
 
   // Auto-scroll only when user sends a message
@@ -528,6 +609,8 @@ export default function ComplaintChat({
             String(msg.message_type).toUpperCase() === "SYSTEM";
           const isSelfMessage = senderRole === selfRole;
           const senderLabel = getSenderLabel(senderRole, participants);
+          const isDeleted = Boolean(msg.deletedForEveryone);
+          const canInteract = !isSystemMessage && !isDeleted;
 
           return (
             <div
@@ -535,7 +618,7 @@ export default function ComplaintChat({
               className={`flex ${isSelfMessage ? "justify-end" : "justify-start"}`}
             >
               <div className={isSystemMessage ? "w-full" : "max-w-[85%]"}>
-                {!isSystemMessage && (
+                {!isSystemMessage && !isDeleted && (
                   <p
                     className={`mb-1 px-1 text-[11px] font-semibold tracking-wide ${
                       isSelfMessage
@@ -549,14 +632,51 @@ export default function ComplaintChat({
 
                 <div
                   className={`rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all ${
-                    isSelfMessage
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : isSystemMessage
-                        ? "bg-muted text-muted-foreground w-full text-center mx-auto text-xs py-1"
-                        : "bg-background border border-border rounded-bl-sm"
+                    isDeleted
+                      ? "bg-muted/50 border border-border/30 italic text-muted-foreground rounded-br-sm"
+                      : isSelfMessage
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : isSystemMessage
+                          ? "bg-muted text-muted-foreground w-full text-center mx-auto text-xs py-1"
+                          : "bg-background border border-border rounded-bl-sm"
                   }`}
+                  onContextMenu={
+                    canInteract
+                      ? (e) => {
+                          e.preventDefault();
+                          openDeleteMenu(msg, e.clientX, e.clientY);
+                        }
+                      : undefined
+                  }
+                  onTouchStart={
+                    canInteract
+                      ? (e) => {
+                          const touch = e.touches[0];
+                          longPressTimerRef.current = setTimeout(() => {
+                            openDeleteMenu(msg, touch.clientX, touch.clientY);
+                          }, 500);
+                        }
+                      : undefined
+                  }
+                  onTouchEnd={() => {
+                    if (longPressTimerRef.current) {
+                      clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = null;
+                    }
+                  }}
+                  onTouchMove={() => {
+                    if (longPressTimerRef.current) {
+                      clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = null;
+                    }
+                  }}
                 >
-                  {isSystemMessage ? (
+                  {isDeleted ? (
+                    <p className="flex items-center gap-1.5 text-xs">
+                      <Ban className="w-3 h-3" />
+                      This message was deleted
+                    </p>
+                  ) : isSystemMessage ? (
                     <span className="italic">{msg.content}</span>
                   ) : (
                     <>
@@ -572,7 +692,9 @@ export default function ComplaintChat({
                         </div>
                       )}
                       {msg.attachments && msg.attachments.length > 0 && (
-                        <div className={`mt-2 grid gap-2 ${msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                        <div
+                          className={`mt-2 grid gap-2 ${msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}
+                        >
                           {msg.attachments.map((url, idx) => (
                             <button
                               key={idx}
@@ -629,7 +751,8 @@ export default function ComplaintChat({
         <div className="flex items-center gap-3 px-4 py-2.5 border-t bg-red-500/10 animate-pulse">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
           <span className="text-sm font-medium text-red-600 dark:text-red-400">
-            Recording… {Math.floor(voiceRecorder.duration / 60)}:{String(voiceRecorder.duration % 60).padStart(2, "0")}
+            Recording… {Math.floor(voiceRecorder.duration / 60)}:
+            {String(voiceRecorder.duration % 60).padStart(2, "0")}
           </span>
           <div className="ml-auto flex gap-2">
             <button
@@ -656,104 +779,161 @@ export default function ComplaintChat({
       {voiceRecorder.isUploading && (
         <div className="flex items-center justify-center gap-2 px-4 py-2.5 border-t bg-primary/5">
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span className="text-sm font-medium text-muted-foreground">Sending voice message…</span>
+          <span className="text-sm font-medium text-muted-foreground">
+            Sending voice message…
+          </span>
         </div>
       )}
 
       {/* Input Area */}
-      {!isResolved && !isAccessBlocked && !voiceRecorder.isRecording && !voiceRecorder.isUploading && (
-        <form
-          onSubmit={sendMessage}
-          className="p-3 border-t bg-card/80 backdrop-blur-sm space-y-3"
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              void uploadAttachments(e.target.files);
-              e.currentTarget.value = "";
-            }}
-          />
-
-          {pendingAttachments.length > 0 && (
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {pendingAttachments.map((url) => (
-                <div
-                  key={url}
-                  className="relative rounded-xl overflow-hidden border border-border/60 bg-muted"
-                >
-                  <Image
-                    src={url}
-                    alt="Pending attachment preview"
-                    width={96}
-                    height={96}
-                    className="w-full aspect-square object-cover"
-                  />
-                  <button
-                    type="button"
-                    className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/75"
-                    onClick={() => removePendingAttachment(url)}
-                    disabled={loading || uploadingAttachments}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={
-                loading ||
-                uploadingAttachments ||
-                pendingAttachments.length >= 5
-              }
-              title="Attach images"
-            >
-              {uploadingAttachments ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Paperclip className="w-4 h-4" />
-              )}
-            </button>
-
+      {!isResolved &&
+        !isAccessBlocked &&
+        !voiceRecorder.isRecording &&
+        !voiceRecorder.isUploading && (
+          <form
+            onSubmit={sendMessage}
+            className="p-3 border-t bg-card/80 backdrop-blur-sm space-y-3"
+          >
             <input
-              className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
-              value={input}
-              onChange={handleInputChange}
-              placeholder="Type a message..."
-              disabled={loading}
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                void uploadAttachments(e.target.files);
+                e.currentTarget.value = "";
+              }}
             />
 
-            {/* Show mic button when no text/attachments, otherwise send */}
-            {input.trim().length === 0 && pendingAttachments.length === 0 ? (
+            {pendingAttachments.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                {pendingAttachments.map((url) => (
+                  <div
+                    key={url}
+                    className="relative rounded-xl overflow-hidden border border-border/60 bg-muted"
+                  >
+                    <Image
+                      src={url}
+                      alt="Pending attachment preview"
+                      width={96}
+                      height={96}
+                      className="w-full aspect-square object-cover"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/75"
+                      onClick={() => removePendingAttachment(url)}
+                      disabled={loading || uploadingAttachments}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
               <button
                 type="button"
                 className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
-                onClick={voiceRecorder.startRecording}
-                disabled={loading || uploadingAttachments}
-                title="Send voice message"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={
+                  loading ||
+                  uploadingAttachments ||
+                  pendingAttachments.length >= 5
+                }
+                title="Attach images"
               >
-                <Mic className="w-4 h-4" />
+                {uploadingAttachments ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Paperclip className="w-4 h-4" />
+                )}
               </button>
-            ) : (
+
+              <input
+                className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
+                value={input}
+                onChange={handleInputChange}
+                placeholder="Type a message..."
+                disabled={loading}
+              />
+
+              {/* Show mic button when no text/attachments, otherwise send */}
+              {input.trim().length === 0 && pendingAttachments.length === 0 ? (
+                <button
+                  type="button"
+                  className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                  onClick={voiceRecorder.startRecording}
+                  disabled={loading || uploadingAttachments}
+                  title="Send voice message"
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
+                  type="submit"
+                  disabled={loading || uploadingAttachments}
+                >
+                  <Send className="w-4 h-4 ml-0.5" />
+                </button>
+              )}
+            </div>
+          </form>
+        )}
+
+      {/* Delete context menu */}
+      {deleteMenuMsg && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={closeDeleteMenu} />
+          <div
+            className="fixed z-50 bg-card border border-border rounded-xl shadow-xl py-1 min-w-48 animate-in fade-in zoom-in-95 duration-150"
+            style={{
+              left: Math.min(
+                deleteMenuPos.x,
+                typeof window !== "undefined" ? window.innerWidth - 200 : 200,
+              ),
+              top: Math.min(
+                deleteMenuPos.y,
+                typeof window !== "undefined" ? window.innerHeight - 160 : 200,
+              ),
+            }}
+          >
+            <button
+              type="button"
+              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-muted transition-colors disabled:opacity-50"
+              onClick={() => handleDelete("for_me")}
+              disabled={deleting}
+            >
+              <Trash2 className="w-4 h-4 text-muted-foreground" />
+              Delete for me
+            </button>
+            {canDeleteForEveryone(deleteMenuMsg) && (
               <button
-                className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
-                type="submit"
-                disabled={loading || uploadingAttachments}
+                type="button"
+                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-destructive/10 text-destructive transition-colors disabled:opacity-50"
+                onClick={() => handleDelete("for_everyone")}
+                disabled={deleting}
               >
-                <Send className="w-4 h-4 ml-0.5" />
+                <Ban className="w-4 h-4" />
+                Delete for everyone
+              </button>
+            )}
+            {selfRole === "admin" && (
+              <button
+                type="button"
+                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-destructive/10 text-destructive transition-colors disabled:opacity-50 border-t border-border/50"
+                onClick={() => handleDelete("admin_hard_delete")}
+                disabled={deleting}
+              >
+                <ShieldAlert className="w-4 h-4" />
+                Remove permanently
               </button>
             )}
           </div>
-        </form>
+        </>
       )}
     </div>
   );

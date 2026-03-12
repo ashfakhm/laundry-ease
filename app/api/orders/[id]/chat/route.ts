@@ -16,13 +16,13 @@ import { emitOrderMessageCreated } from "@/lib/realtime/emitter";
  */
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
     if (!ObjectId.isValid(id)) {
       return errorResponse(
-        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id")
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id"),
       );
     }
 
@@ -35,7 +35,7 @@ export async function GET(
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
       return errorResponse(
-        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized")
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
       );
     }
 
@@ -44,7 +44,7 @@ export async function GET(
     const order = await db.collection("orders").findOne({ _id: orderId });
     if (!order) {
       return errorResponse(
-        new AppError(ErrorCode.NOT_FOUND, 404, "Order not found")
+        new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"),
       );
     }
 
@@ -53,23 +53,24 @@ export async function GET(
     const isProvider = user.id === order.provider_id?.toString();
     const isAdmin = user.role === "admin";
     if (!isSeeker && !isProvider && !isAdmin) {
-      return errorResponse(
-        new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden")
-      );
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"));
     }
 
     const messages = await db
       .collection("order_chats")
-      .find({ order_id: orderId })
+      .find({
+        order_id: orderId,
+        deletedFor: { $ne: user.id },
+      })
       .sort({ createdAt: 1, _id: 1 })
       .toArray();
 
     return successResponse(
       messages.map((message) =>
         realtimeContracts.serializeOrderChatMessage(
-          message as Record<string, unknown>
-        )
-      )
+          message as Record<string, unknown>,
+        ),
+      ),
     );
   } catch (error) {
     if (error instanceof AppError) {
@@ -80,7 +81,7 @@ export async function GET(
       orderId: id,
     });
     return errorResponse(
-      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal error")
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal error"),
     );
   }
 }
@@ -92,7 +93,7 @@ export async function GET(
  */
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
@@ -105,14 +106,14 @@ export async function POST(
 
     if (!ObjectId.isValid(id)) {
       return errorResponse(
-        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id")
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order id"),
       );
     }
 
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id)) {
       return errorResponse(
-        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized")
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
       );
     }
 
@@ -124,8 +125,8 @@ export async function POST(
           ErrorCode.VALIDATION_ERROR,
           400,
           "Invalid chat message",
-          parsed
-        )
+          parsed,
+        ),
       );
     }
 
@@ -135,7 +136,7 @@ export async function POST(
     const order = await db.collection("orders").findOne({ _id: orderId });
     if (!order) {
       return errorResponse(
-        new AppError(ErrorCode.NOT_FOUND, 404, "Order not found")
+        new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"),
       );
     }
 
@@ -144,9 +145,7 @@ export async function POST(
     if (user.id === order.seeker_id?.toString()) senderRole = "seeker";
     if (user.id === order.provider_id?.toString()) senderRole = "provider";
     if (!senderRole) {
-      return errorResponse(
-        new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden")
-      );
+      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"));
     }
 
     const chatMsg = {
@@ -168,9 +167,9 @@ export async function POST(
 
     return successResponse(
       realtimeContracts.serializeOrderChatMessage(
-        persistedMessage as Record<string, unknown>
+        persistedMessage as Record<string, unknown>,
       ),
-      200
+      200,
     );
   } catch (error) {
     if (error instanceof AppError) {
@@ -181,7 +180,7 @@ export async function POST(
       orderId: id,
     });
     return errorResponse(
-      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal error")
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal error"),
     );
   }
 }

@@ -51,18 +51,28 @@ export async function GET(
   try {
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id) || !user.role) {
-      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     if (!ObjectId.isValid(id)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"),
+      );
     }
 
     const requestUrl = new URL(req.url);
     const sinceRaw = requestUrl.searchParams.get("since");
     const since = parseSinceParam(sinceRaw);
     if (sinceRaw && !since) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid since timestamp"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid since timestamp",
+        ),
+      );
     }
     const limit = parseMessagesLimit(requestUrl.searchParams.get("limit"));
 
@@ -75,7 +85,9 @@ export async function GET(
       .collection<ComplaintAccessDoc>("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"),
+      );
     }
 
     const access = canAccessComplaintConversation({
@@ -89,7 +101,9 @@ export async function GET(
       },
     });
     if (!access.allowed) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, access.error));
+      return errorResponse(
+        new AppError(ErrorCode.FORBIDDEN, 403, access.error),
+      );
     }
 
     // Fetch Messages
@@ -97,8 +111,10 @@ export async function GET(
       complaint_id: ObjectId;
       createdAt?: { $gte: Date };
       message_type?: { $ne: string };
+      deletedFor?: { $ne: string };
     } = {
       complaint_id: complaintId,
+      deletedFor: { $ne: user.id },
     };
     if (since) {
       messageQuery.createdAt = { $gte: since };
@@ -130,7 +146,9 @@ export async function GET(
     logger.error("COMPLAINTS", "Error fetching messages", error, {
       complaintId: id,
     });
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"),
+    );
   }
 }
 
@@ -153,18 +171,24 @@ export async function POST(
 
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id) || !user.role) {
-      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     if (!ObjectId.isValid(id)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"),
+      );
     }
 
     const body = await req.json();
     const parsed = complaintMessageSchema.safeParse(body);
 
     if (!parsed.success) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid message data"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid message data"),
+      );
     }
 
     const content = parsed.data.content?.trim() || "";
@@ -178,7 +202,9 @@ export async function POST(
       .collection<ComplaintAccessDoc>("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"),
+      );
     }
 
     const access = canAccessComplaintConversation({
@@ -192,7 +218,9 @@ export async function POST(
       },
     });
     if (!access.allowed) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, access.error));
+      return errorResponse(
+        new AppError(ErrorCode.FORBIDDEN, 403, access.error),
+      );
     }
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
@@ -212,8 +240,10 @@ export async function POST(
     const voiceMessage = parsed.data.voiceMessage ?? "";
 
     function deriveMessageType(): "TEXT" | "IMAGE" | "VOICE" {
-      if (voiceMessage && content.length === 0 && attachments.length === 0) return "VOICE";
-      if (attachments.length > 0 && content.length === 0 && !voiceMessage) return "IMAGE";
+      if (voiceMessage && content.length === 0 && attachments.length === 0)
+        return "VOICE";
+      if (attachments.length > 0 && content.length === 0 && !voiceMessage)
+        return "IMAGE";
       return "TEXT";
     }
 
@@ -228,7 +258,9 @@ export async function POST(
       createdAt: new Date(),
     };
 
-    const insertResult = await db.collection("complaint_messages").insertOne(message);
+    const insertResult = await db
+      .collection("complaint_messages")
+      .insertOne(message);
     const persistedMessage = {
       _id: insertResult.insertedId,
       ...message,
@@ -250,6 +282,8 @@ export async function POST(
     logger.error("COMPLAINTS", "Error creating message", error, {
       complaintId: id,
     });
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"),
+    );
   }
 }

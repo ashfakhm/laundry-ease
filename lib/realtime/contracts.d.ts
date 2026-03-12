@@ -7,6 +7,7 @@ export type ComplaintMessageDto = {
   content: string;
   attachments: string[];
   voiceMessage: string;
+  deletedForEveryone: boolean;
   createdAt: string;
 };
 
@@ -18,7 +19,13 @@ export type OrderChatMessageDto = {
   message: string;
   attachments: string[];
   voiceMessage: string;
+  deletedForEveryone: boolean;
   createdAt: string;
+};
+
+export type MessageDeletedDto = {
+  messageId: string;
+  mode: "for_everyone" | "hard_delete";
 };
 
 export type ComplaintStateUpdateDto = {
@@ -49,8 +56,10 @@ declare const realtimeContracts: {
   };
   SERVER_EVENTS: {
     COMPLAINT_MESSAGE_CREATED: "complaint:message:created";
+    COMPLAINT_MESSAGE_DELETED: "complaint:message:deleted";
     COMPLAINT_STATE_UPDATED: "complaint:state:updated";
     ORDER_MESSAGE_CREATED: "order:message:created";
+    ORDER_MESSAGE_DELETED: "order:message:deleted";
     TYPING_START: "typing:start";
     TYPING_STOP: "typing:stop";
   };

@@ -71,3 +71,29 @@ export function emitComplaintStateUpdated(input: {
     },
   );
 }
+
+export function emitOrderMessageDeleted(
+  orderId: string,
+  messageId: string,
+  mode: "for_everyone" | "hard_delete",
+) {
+  emitToRoom(
+    realtimeContracts.getOrderRoom(orderId),
+    realtimeContracts.SERVER_EVENTS.ORDER_MESSAGE_DELETED,
+    { messageId, mode },
+    { orderId, messageId, mode },
+  );
+}
+
+export function emitComplaintMessageDeleted(
+  complaintId: string,
+  messageId: string,
+  mode: "for_everyone" | "hard_delete",
+) {
+  emitToRoom(
+    realtimeContracts.getComplaintRoom(complaintId),
+    realtimeContracts.SERVER_EVENTS.COMPLAINT_MESSAGE_DELETED,
+    { messageId, mode },
+    { complaintId, messageId, mode },
+  );
+}

@@ -1,5 +1,6 @@
 import realtimeContracts, {
   type ComplaintStateUpdateDto,
+  type MessageDeletedDto,
 } from "@/lib/realtime/contracts";
 
 type MessageWithIdentity = {
@@ -15,7 +16,9 @@ export type ComplaintUiState = {
   error: string | null;
 };
 
-export function sortMessages<T extends MessageWithIdentity>(messages: T[]): T[] {
+export function sortMessages<T extends MessageWithIdentity>(
+  messages: T[],
+): T[] {
   return [...messages].sort(
     (a, b) =>
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
@@ -40,7 +43,9 @@ export function appendUniqueSortedMessages<T extends MessageWithIdentity>(
   return sortMessages([...next.values()]);
 }
 
-export function isComplaintArchived(status: string | null | undefined): boolean {
+export function isComplaintArchived(
+  status: string | null | undefined,
+): boolean {
   return status === "resolved" || status === "rejected";
 }
 
@@ -84,3 +89,45 @@ export function deriveComplaintUiStateFromRealtime(
 }
 
 export const { CLIENT_EVENTS, SERVER_EVENTS } = realtimeContracts;
+
+/**
+ * Handle a "message deleted" realtime event.
+ * - for_everyone: marks the message as deletedForEveryone (shows placeholder)
+ * - hard_delete: removes the message entirely from the list (no trace)
+ */
+export function applyMessageDeletion<
+  T extends MessageWithIdentity & {
+    deletedForEveryone?: boolean;
+    message?: string;
+    content?: string;
+    attachments?: string[];
+    voiceMessage?: string;
+  },
+>(messages: T[], payload: MessageDeletedDto): T[] {
+  if (payload.mode === "hard_delete") {
+    return messages.filter((m) => m._id !== payload.messageId);
+  }
+
+  // for_everyone — mark as deleted, strip content
+  return messages.map((m) => {
+    if (m._id !== payload.messageId) return m;
+    return {
+      ...m,
+      deletedForEveryone: true,
+      message: "",
+      content: "",
+      attachments: [],
+      voiceMessage: "",
+    };
+  });
+}
+
+/**
+ * Remove a message from the local list (used after "delete for me" succeeds).
+ */
+export function removeMessageLocally<T extends MessageWithIdentity>(
+  messages: T[],
+  messageId: string,
+): T[] {
+  return messages.filter((m) => m._id !== messageId);
+}

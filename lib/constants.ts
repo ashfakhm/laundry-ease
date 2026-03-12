@@ -113,6 +113,11 @@ export const RAZORPAY_CHECKOUT_SCRIPT_URL =
 /** Window after delivery in which a seeker can file a complaint (ms). */
 export const COMPLAINT_FILING_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// ─── Chat Message Deletion ──────────────────────────────────────────────────
+
+/** Window after sending in which a user can "delete for everyone" (ms). Like WhatsApp's ~1 hr. */
+export const DELETE_FOR_EVERYONE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
 // ─── Auth & Sessions ────────────────────────────────────────────────────────
 
 /** Maximum session duration (seconds). */
