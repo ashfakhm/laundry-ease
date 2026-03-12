@@ -418,7 +418,7 @@ export default function ViewOrdersPage() {
                       </div>
 
                       {/* Right: Actions & Total - Sticky-ish behavior on Desktop */}
-                      <div className="flex flex-col items-start lg:items-end gap-5 lg:min-w-[200px] border-t lg:border-t-0 lg:border-l border-border/50 pt-6 lg:pt-0 lg:pl-8">
+                      <div className="flex flex-col items-start lg:items-end gap-5 lg:min-w-50 border-t lg:border-t-0 lg:border-l border-border/50 pt-6 lg:pt-0 lg:pl-8">
                         <div className="w-full text-left lg:text-right">
                           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                             Total Amount

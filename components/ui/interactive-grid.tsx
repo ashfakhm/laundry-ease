@@ -152,7 +152,7 @@ export const InteractiveGridPattern = () => {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 -z-0 overflow-hidden pointer-events-auto"
+      className="absolute inset-0 z-0 overflow-hidden pointer-events-auto"
     >
       <canvas
         ref={canvasRef}
