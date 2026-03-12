@@ -417,8 +417,17 @@ export const complaintMessageSchema = z.object({
 );
 
 export const bookingChatMessageSchema = z.object({
-  message: z.string().min(1).max(2000),
-});
+  message: z.string().trim().max(2000).optional(),
+  attachments: z.array(z.string().url()).max(5).optional(),
+}).refine(
+  (data) =>
+    (typeof data.message === "string" && data.message.trim().length > 0) ||
+    (Array.isArray(data.attachments) && data.attachments.length > 0),
+  {
+    message: "Message content or at least one attachment is required",
+    path: ["message"],
+  },
+);
 
 export const demoCronJobSchema = z.object({
   job: z.enum(CRON_JOB_NAMES),

@@ -153,7 +153,8 @@ export async function POST(
       order_id: orderId,
       sender_id: user.id,
       sender_role: senderRole,
-      message: parsed.data.message.trim(),
+      message: (parsed.data.message ?? "").trim(),
+      attachments: parsed.data.attachments ?? [],
       createdAt: new Date(),
     };
     const insertResult = await db.collection("order_chats").insertOne(chatMsg);

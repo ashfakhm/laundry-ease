@@ -1,6 +1,7 @@
 "use client";
-import React, { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Send, WifiOff } from "lucide-react";
+import React, { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { Send, Paperclip, X, Loader2, WifiOff } from "lucide-react";
+import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 import realtimeContracts, {
@@ -40,6 +41,14 @@ export default function OrderChat({
   const isTypingRef = useRef(false);
   const [peerTyping, setPeerTyping] = useState<string | null>(null);
 
+  // Photo upload state
+  const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Lightbox state
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
   const room = realtimeContracts.getOrderRoom(orderId);
 
   const fetchMessages = useEffectEvent(async () => {
@@ -66,6 +75,7 @@ export default function OrderChat({
     setMessages([]);
     setError(null);
     setPeerTyping(null);
+    setPendingAttachments([]);
     hasSocketConnectedRef.current = false;
     void fetchMessages();
   }, [orderId]);
@@ -164,10 +174,65 @@ export default function OrderChat({
     }
   };
 
+  /* ---- Upload attachments ---- */
+  const uploadAttachments = useCallback(async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+
+    const currentCount = pendingAttachments.length;
+    const remainingSlots = Math.max(0, 5 - currentCount);
+    if (remainingSlots === 0) {
+      setError("You can attach up to 5 images per message.");
+      return;
+    }
+
+    const files = Array.from(fileList).slice(0, remainingSlots);
+    setUploadingAttachments(true);
+    setError(null);
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("folder", "order-chat");
+
+        const res = await fetch("/api/upload/image", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = (await res.json().catch(() => ({}))) as {
+          url?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.url) {
+          throw new Error(data.error || "Failed to upload attachment");
+        }
+
+        uploadedUrls.push(data.url);
+      }
+
+      setPendingAttachments((prev) =>
+        Array.from(new Set([...prev, ...uploadedUrls])).slice(0, 5),
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to upload attachment";
+      setError(message);
+    } finally {
+      setUploadingAttachments(false);
+    }
+  }, [pendingAttachments.length]);
+
+  function removePendingAttachment(url: string) {
+    setPendingAttachments((prev) => prev.filter((item) => item !== url));
+  }
+
   /* ---- Send message ---- */
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (input.trim().length === 0 && pendingAttachments.length === 0) return;
     setLoading(true);
     setError(null);
 
@@ -182,12 +247,16 @@ export default function OrderChat({
       const res = await fetch(`/api/orders/${orderId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({
+          message: input.trim() || undefined,
+          attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+        }),
       });
       if (!res.ok) throw new Error("Failed to send message");
       const payload = await res.json();
       const message = unwrapApiData<ChatMessage>(payload);
       setInput("");
+      setPendingAttachments([]);
       if (message?._id) {
         setMessages((prev) => appendUniqueSortedMessages(prev, message));
       }
@@ -212,6 +281,29 @@ export default function OrderChat({
 
   return (
     <div className="flex flex-col h-full bg-background/50 relative">
+      {/* Lightbox overlay */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <Image
+            src={lightboxUrl}
+            alt="Full size image"
+            width={900}
+            height={900}
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* Disconnect banner */}
       {!isConnected && hasSocketConnectedRef.current && (
         <div className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium px-3 py-2 animate-pulse">
@@ -251,7 +343,27 @@ export default function OrderChat({
                   : "bg-background border border-border rounded-bl-sm"
               }`}
             >
-              <p>{msg.message}</p>
+              {msg.message && <p className="whitespace-pre-wrap">{msg.message}</p>}
+              {msg.attachments && msg.attachments.length > 0 && (
+                <div className={`grid gap-2 ${msg.message ? "mt-2" : ""} ${msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                  {msg.attachments.map((url, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className="relative w-full aspect-square rounded-lg overflow-hidden border border-white/20 cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setLightboxUrl(url)}
+                    >
+                      <Image
+                        src={url}
+                        alt="Shared image"
+                        width={128}
+                        height={128}
+                        className="object-cover w-full h-full"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="text-[10px] mt-1 text-right opacity-60 leading-none">
                 {new Date(msg.createdAt).toLocaleTimeString("en-IN", {
                   hour: "2-digit",
@@ -279,22 +391,86 @@ export default function OrderChat({
       {/* Input Area */}
       <form
         onSubmit={sendMessage}
-        className="flex gap-2 p-3 border-t bg-card/80 backdrop-blur-sm"
+        className="p-3 border-t bg-card/80 backdrop-blur-sm space-y-3"
       >
         <input
-          className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
-          value={input}
-          onChange={handleInputChange}
-          placeholder="Type a message..."
-          disabled={loading}
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            void uploadAttachments(e.target.files);
+            e.currentTarget.value = "";
+          }}
         />
-        <button
-          className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
-          type="submit"
-          disabled={loading || !input.trim()}
-        >
-          <Send className="w-4 h-4 ml-0.5" />
-        </button>
+
+        {/* Pending attachment previews */}
+        {pendingAttachments.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {pendingAttachments.map((url) => (
+              <div
+                key={url}
+                className="relative rounded-xl overflow-hidden border border-border/60 bg-muted"
+              >
+                <Image
+                  src={url}
+                  alt="Pending attachment preview"
+                  width={96}
+                  height={96}
+                  className="w-full aspect-square object-cover"
+                />
+                <button
+                  type="button"
+                  className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-black/75"
+                  onClick={() => removePendingAttachment(url)}
+                  disabled={loading || uploadingAttachments}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="p-2.5 border border-border rounded-full text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={
+              loading ||
+              uploadingAttachments ||
+              pendingAttachments.length >= 5
+            }
+            title="Attach images"
+          >
+            {uploadingAttachments ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Paperclip className="w-4 h-4" />
+            )}
+          </button>
+
+          <input
+            className="flex-1 bg-muted/50 border border-transparent focus:border-primary/20 focus:bg-background rounded-full px-4 py-2.5 text-sm outline-none transition-all placeholder:text-muted-foreground/70"
+            value={input}
+            onChange={handleInputChange}
+            placeholder="Type a message..."
+            disabled={loading}
+          />
+          <button
+            className="p-2.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
+            type="submit"
+            disabled={
+              loading ||
+              uploadingAttachments ||
+              (input.trim().length === 0 && pendingAttachments.length === 0)
+            }
+          >
+            <Send className="w-4 h-4 ml-0.5" />
+          </button>
+        </div>
       </form>
 
       {error && (

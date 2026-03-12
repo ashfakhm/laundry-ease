@@ -125,6 +125,7 @@ export default function ComplaintChat({
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
   const [peerTyping, setPeerTyping] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const room = realtimeContracts.getComplaintRoom(complaintId);
 
@@ -454,6 +455,29 @@ export default function ComplaintChat({
 
   return (
     <div className="flex flex-col h-full bg-background/50 relative rounded-2xl overflow-hidden border border-border/50">
+      {/* Lightbox overlay */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <Image
+            src={lightboxUrl}
+            alt="Full size image"
+            width={900}
+            height={900}
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* Disconnect banner */}
       {!isConnected && hasSocketConnectedRef.current && (
         <div className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium px-3 py-2 animate-pulse">
@@ -516,20 +540,22 @@ export default function ComplaintChat({
                     <>
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                       {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className={`mt-2 grid gap-2 ${msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
                           {msg.attachments.map((url, idx) => (
-                            <div
+                            <button
                               key={idx}
-                              className="relative w-full aspect-square rounded-lg overflow-hidden border border-white/20"
+                              type="button"
+                              className="relative w-full aspect-square rounded-lg overflow-hidden border border-white/20 cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => setLightboxUrl(url)}
                             >
                               <Image
                                 src={url}
                                 alt="Complaint evidence image"
                                 width={128}
                                 height={128}
-                                className="object-cover"
+                                className="object-cover w-full h-full"
                               />
-                            </div>
+                            </button>
                           ))}
                         </div>
                       )}

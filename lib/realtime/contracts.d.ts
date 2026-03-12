@@ -15,6 +15,7 @@ export type OrderChatMessageDto = {
   sender_id: string;
   sender_role: string;
   message: string;
+  attachments: string[];
   createdAt: string;
 };
 
