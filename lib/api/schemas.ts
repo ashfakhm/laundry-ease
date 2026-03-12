@@ -3,7 +3,7 @@ import { CRON_JOB_NAMES } from "@/lib/constants";
 
 /**
  * Centralized validation schemas for API requests
- * FAANG Practice: Single source of truth for all input validation
+ * Single source of truth for all input validation
  * Updated for Zod v4 - using top-level type validators
  */
 
@@ -324,21 +324,28 @@ export const adminComplaintAcceptSchema = z.object({
   deadlineDays: z.number().min(1).max(14).default(7), // Days until provider must respond
 });
 
-export const adminComplaintResolveSchema = z.object({
-  outcome: z.enum(["refund_full", "refund_partial", "release_payout", "reject"]),
-  seeker_refund_amount: z.number().nonnegative().optional(),
-}).superRefine((data, ctx) => {
-  if (
-    data.outcome === "refund_partial" &&
-    typeof data.seeker_refund_amount !== "number"
-  ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["seeker_refund_amount"],
-      message: "seeker_refund_amount is required for refund_partial outcome",
-    });
-  }
-});
+export const adminComplaintResolveSchema = z
+  .object({
+    outcome: z.enum([
+      "refund_full",
+      "refund_partial",
+      "release_payout",
+      "reject",
+    ]),
+    seeker_refund_amount: z.number().nonnegative().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.outcome === "refund_partial" &&
+      typeof data.seeker_refund_amount !== "number"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["seeker_refund_amount"],
+        message: "seeker_refund_amount is required for refund_partial outcome",
+      });
+    }
+  });
 
 export const adminComplaintAccessSchema = z.object({
   granted: z.boolean(),
@@ -403,35 +410,41 @@ export const sendMagicLinkSchema = z.object({
 });
 
 // Complaint message schema
-export const complaintMessageSchema = z.object({
-  content: z.string().trim().max(5000).optional(),
-  attachments: z.array(z.string().url()).max(5).optional(),
-  voiceMessage: z.string().url().optional(),
-}).refine(
-  (data) =>
-    (typeof data.content === "string" && data.content.trim().length > 0) ||
-    (Array.isArray(data.attachments) && data.attachments.length > 0) ||
-    (typeof data.voiceMessage === "string" && data.voiceMessage.length > 0),
-  {
-    message: "Message content, at least one attachment, or a voice message is required",
-    path: ["content"],
-  },
-);
+export const complaintMessageSchema = z
+  .object({
+    content: z.string().trim().max(5000).optional(),
+    attachments: z.array(z.string().url()).max(5).optional(),
+    voiceMessage: z.string().url().optional(),
+  })
+  .refine(
+    (data) =>
+      (typeof data.content === "string" && data.content.trim().length > 0) ||
+      (Array.isArray(data.attachments) && data.attachments.length > 0) ||
+      (typeof data.voiceMessage === "string" && data.voiceMessage.length > 0),
+    {
+      message:
+        "Message content, at least one attachment, or a voice message is required",
+      path: ["content"],
+    },
+  );
 
-export const bookingChatMessageSchema = z.object({
-  message: z.string().trim().max(2000).optional(),
-  attachments: z.array(z.string().url()).max(5).optional(),
-  voiceMessage: z.string().url().optional(),
-}).refine(
-  (data) =>
-    (typeof data.message === "string" && data.message.trim().length > 0) ||
-    (Array.isArray(data.attachments) && data.attachments.length > 0) ||
-    (typeof data.voiceMessage === "string" && data.voiceMessage.length > 0),
-  {
-    message: "Message content, at least one attachment, or a voice message is required",
-    path: ["message"],
-  },
-);
+export const bookingChatMessageSchema = z
+  .object({
+    message: z.string().trim().max(2000).optional(),
+    attachments: z.array(z.string().url()).max(5).optional(),
+    voiceMessage: z.string().url().optional(),
+  })
+  .refine(
+    (data) =>
+      (typeof data.message === "string" && data.message.trim().length > 0) ||
+      (Array.isArray(data.attachments) && data.attachments.length > 0) ||
+      (typeof data.voiceMessage === "string" && data.voiceMessage.length > 0),
+    {
+      message:
+        "Message content, at least one attachment, or a voice message is required",
+      path: ["message"],
+    },
+  );
 
 export const demoCronJobSchema = z.object({
   job: z.enum(CRON_JOB_NAMES),

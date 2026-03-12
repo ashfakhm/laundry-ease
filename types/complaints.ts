@@ -14,7 +14,7 @@ export type Complaint = {
   photos?: string[];
 
   // State
-  // FAANG-Grade State Machine:
+  // State machine:
   // OPEN: Initial state. Payment blocked. Awaiting admin review.
   // ACCEPTED: Admin acknowledged. Payment blocked. Chat active. Provider NOT yet in chat.
   // IN_REVIEW: Provider added to chat. Active mediation. Payment blocked.

@@ -1,5 +1,5 @@
 /**
- * Centralized API error handling for FAANG-grade error consistency
+ * Centralized API error handling
  * All API routes should use these error types for predictable client handling
  */
 

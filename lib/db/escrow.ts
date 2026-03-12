@@ -29,7 +29,7 @@ export async function releaseEscrowPayment(order_id: ObjectId) {
       }
 
       // VALIDATION: Check for active complaints before releasing
-      // FAANG Requirement: Block if ANY complaint is not fully resolved/rejected.
+      // Block if ANY complaint is not fully resolved/rejected.
       const openComplaint = await db.collection("complaints").findOne(
         {
           order_id: new ObjectId(order_id),

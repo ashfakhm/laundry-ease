@@ -65,7 +65,7 @@ export function errorResponse(error: unknown): NextResponse {
     );
   }
 
-  // Log unexpected errors (FAANG practice: structured logging)
+  // Log unexpected errors
   logger.error("API", "Unexpected error in API route", error, {
     type: error instanceof Error ? error.name : "Unknown",
     timestamp: new Date().toISOString(),
