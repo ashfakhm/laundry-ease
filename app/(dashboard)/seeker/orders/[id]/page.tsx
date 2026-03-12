@@ -73,7 +73,6 @@ export default async function OrderDetailsPage({
     redirect("/seeker");
   }
 
-  // Check reviewed
   const existingReview = await db
     .collection("reviews")
     .findOne({ order_id: new ObjectId(id) });

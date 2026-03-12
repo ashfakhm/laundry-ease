@@ -26,7 +26,6 @@ export default async function CreateInvoicePage({
 
   const { db } = await getDb();
 
-  // Get provider
   const provider = await db
     .collection("providers")
     .findOne({ _id: providerId });
@@ -35,7 +34,6 @@ export default async function CreateInvoicePage({
     redirect("/provider/profile");
   }
 
-  // Get booking
   const booking = await db
     .collection("bookings")
     .findOne({ _id: new ObjectId(id) });
@@ -44,7 +42,6 @@ export default async function CreateInvoicePage({
     redirect("/provider/bookings");
   }
 
-  // Get seeker details
   const seeker = await db
     .collection("seekers")
     .findOne({ _id: new ObjectId(booking.seeker_id) });

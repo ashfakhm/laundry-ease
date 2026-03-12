@@ -4,7 +4,6 @@ import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
-// GET /api/providers/[id]/reviews — public endpoint
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },

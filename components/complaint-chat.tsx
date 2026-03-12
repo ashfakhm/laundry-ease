@@ -154,7 +154,6 @@ export default function ComplaintChat({
 
   const room = realtimeContracts.getComplaintRoom(complaintId);
 
-  // Delete menu state
   const [deleteMenuMsg, setDeleteMenuMsg] = useState<ChatMessage | null>(null);
   const [deleteMenuPos, setDeleteMenuPos] = useState<{ x: number; y: number }>({
     x: 0,
@@ -194,7 +193,6 @@ export default function ComplaintChat({
         setMessages((prev) => removeMessageLocally(prev, deleteMenuMsg._id));
       }
       if (mode === "admin_hard_delete") {
-        // Remove immediately from local state (socket event will also fire)
         setMessages((prev) => removeMessageLocally(prev, deleteMenuMsg._id));
       }
       // for_everyone is handled by the socket event

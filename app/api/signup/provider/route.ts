@@ -66,7 +66,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if email already exists in any collection
     const exists = await emailExists(normalizedEmail);
     if (exists) {
       return errorResponse(
@@ -74,7 +73,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create provider in providers collection
     await createProvider({
       email: normalizedEmail,
       name,

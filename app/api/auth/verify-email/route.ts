@@ -66,7 +66,6 @@ export async function POST(req: Request) {
 
     const { db } = await getDb();
 
-    // Check if user exists in seekers or providers
     const seeker = await db.collection("seekers").findOne({ email });
     const provider = await db.collection("providers").findOne({ email });
 
@@ -76,7 +75,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Update emailVerified flag
     if (seeker) {
       await db
         .collection("seekers")

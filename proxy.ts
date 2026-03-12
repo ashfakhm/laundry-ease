@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 
-// ---------------------------------------------------------------------------
 // Next.js 16 Proxy (replaces middleware.ts)
 //
 // Runs on the Edge Runtime for every matched route. Responsible for:
@@ -12,7 +11,6 @@ import { auth } from "@/auth";
 //
 // Heavy checks (DB queries, rate limiting, CSRF origin validation) remain in
 // the route handlers via requireAuth / requireSameOrigin / enforceRateLimit.
-// ---------------------------------------------------------------------------
 
 type Role = "seeker" | "provider" | "admin";
 

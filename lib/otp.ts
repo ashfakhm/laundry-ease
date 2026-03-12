@@ -183,7 +183,6 @@ export async function verifyOtp(target: string, type: OtpType, code: string) {
   if (new Date(doc.expiresAt).getTime() < Date.now())
     return { ok: false, error: "OTP expired" };
 
-  // Check attempt limit
   if (doc.attempts >= MAX_VERIFICATION_ATTEMPTS) {
     logger.warn("OTP", `Max attempts exceeded for ${type}`, {
       target: normalizedTarget.substring(0, 4) + "***",

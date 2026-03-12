@@ -43,7 +43,6 @@ export const authOptions = {
 
         let user;
         try {
-          // Check seekers → providers → admins collections in order
           user = await getUserByEmail(email);
         } catch (err) {
           // DB connection failures (e.g. IP not whitelisted in Atlas, DNS issues)

@@ -20,13 +20,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Call the actual handler
     const res = await createBookingFeeOrder(req, {
       params: Promise.resolve({ id: parsed.data.bookingId }),
     });
 
     if (!res.ok) {
-      // If the underlying handler failed, we just pass through the error response
       return res;
     }
 

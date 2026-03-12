@@ -29,18 +29,25 @@ export async function POST(req: Request) {
     const payload = await req.json();
     const parsed = sendMagicLinkSchema.safeParse(payload);
     if (!parsed.success) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Valid email is required"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Valid email is required",
+        ),
+      );
     }
     const email = parsed.data.email;
 
     const { db } = await getDb();
 
-    // Check if user exists
     const seeker = await db.collection("seekers").findOne({ email });
     const provider = await db.collection("providers").findOne({ email });
 
     if (!seeker && !provider) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "User not found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "User not found"),
+      );
     }
 
     // Generate JWT token (valid for 24 hours) using jose
@@ -67,6 +74,12 @@ export async function POST(req: Request) {
     }
 
     logger.error("AUTH", "Send magic link error", error);
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to send verification email"));
+    return errorResponse(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        500,
+        "Failed to send verification email",
+      ),
+    );
   }
 }

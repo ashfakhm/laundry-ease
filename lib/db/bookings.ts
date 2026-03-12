@@ -141,7 +141,6 @@ export async function acceptBookingWithCapacityCheck(data: {
     let updatedBooking: Booking | null = null;
 
     await session.withTransaction(async () => {
-      // Get booking first to verify it exists and is in correct state
       const booking = await db
         .collection<Booking>("bookings")
         .findOne({ _id: data.booking_id }, { session });
@@ -222,7 +221,6 @@ export async function acceptBookingWithCapacityCheck(data: {
         );
       }
 
-      // Update booking within same transaction
       const updateResult = await db
         .collection<Booking>("bookings")
         .findOneAndUpdate(

@@ -25,7 +25,6 @@ export function successResponse<T>(
 }
 
 export function errorResponse(error: unknown): NextResponse {
-  // Handle known AppError
   if (error instanceof AppError) {
     return NextResponse.json(
       {
@@ -42,7 +41,6 @@ export function errorResponse(error: unknown): NextResponse {
     );
   }
 
-  // Handle Zod validation errors
   if (error instanceof ZodError) {
     const fieldErrors: Record<string, string> = {};
     error.issues.forEach((err) => {

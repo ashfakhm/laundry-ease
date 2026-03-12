@@ -37,7 +37,6 @@ describe("lib/db.ts - Booking Atomic Transactions", () => {
     mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     mockedEnv.MONGODB_URI = mongoServer.getUri();
 
-    // Import and get connected db
     const { getDb } = await import("./mongodb");
     const connected = await getDb();
     db = connected.db;
@@ -224,7 +223,9 @@ describe("lib/db.ts - Booking Atomic Transactions", () => {
       const success = await confirmOrderDelivery(orderId);
       expect(success).toBe(true);
 
-      const updatedOrder = await db.collection("orders").findOne({ _id: orderId });
+      const updatedOrder = await db
+        .collection("orders")
+        .findOne({ _id: orderId });
       expect(updatedOrder?.process_status).toBe("delivered");
       expect(updatedOrder?.payment_status).toBe("held");
       expect(updatedOrder?.otp_confirmed_at).toBeInstanceOf(Date);
@@ -255,7 +256,9 @@ describe("lib/db.ts - Booking Atomic Transactions", () => {
       const success = await confirmOrderDelivery(orderId);
       expect(success).toBe(true);
 
-      const updatedOrder = await db.collection("orders").findOne({ _id: orderId });
+      const updatedOrder = await db
+        .collection("orders")
+        .findOne({ _id: orderId });
       expect(updatedOrder?.process_status).toBe("delivered");
       expect(updatedOrder?.payment_status).toBe("released");
       expect(new Date(updatedOrder?.escrow_started_at ?? 0).toISOString()).toBe(

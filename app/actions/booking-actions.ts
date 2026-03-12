@@ -111,7 +111,6 @@ export async function updateBookingStatus(
 
         if (accountHolderName && accountNumber && ifsc) {
           try {
-            // Create Contact
             const contact = await createRazorpayContact({
               name: provider.name || provider.businessName || "Provider",
               email: provider.email,
@@ -120,7 +119,6 @@ export async function updateBookingStatus(
               reference_id: provider._id.toString(),
             });
 
-            // Create Fund Account
             const fundAccount = await createRazorpayFundAccount({
               contact_id: contact.id,
               account_type: "bank_account",
@@ -131,7 +129,6 @@ export async function updateBookingStatus(
               },
             });
 
-            // Update Provider
             await updateProviderRazorpayIds(
               provider._id!.toString(),
               contact.id,

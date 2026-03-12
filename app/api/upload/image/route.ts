@@ -1,5 +1,8 @@
 import { NextRequest } from "next/server";
-import { RATE_LIMIT_STRICT_WINDOW_MS, MAX_UPLOAD_FILE_BYTES } from "@/lib/constants";
+import {
+  RATE_LIMIT_STRICT_WINDOW_MS,
+  MAX_UPLOAD_FILE_BYTES,
+} from "@/lib/constants";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
@@ -9,7 +12,6 @@ import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { ObjectId } from "mongodb";
 import { env } from "@/lib/env";
 
-// Check if Cloudinary is configured
 const isCloudinaryConfigured = !!(
   env.CLOUDINARY_CLOUD_NAME &&
   env.CLOUDINARY_API_KEY &&
@@ -39,7 +41,9 @@ export async function POST(req: NextRequest) {
 
     const { user } = await requireAuth();
     if (!user?.id || !ObjectId.isValid(user.id)) {
-      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     const formData = await req.formData();
@@ -47,22 +51,38 @@ export async function POST(req: NextRequest) {
     const folder = (formData.get("folder") as string) || "provider-images";
 
     if (!file) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "No file provided"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "No file provided"),
+      );
     }
     if (!/^[a-zA-Z0-9/_-]{1,80}$/.test(folder)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid folder name"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid folder name"),
+      );
     }
 
     // Validate file type
     const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid file type. Only JPG, PNG, and WebP are allowed."));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid file type. Only JPG, PNG, and WebP are allowed.",
+        ),
+      );
     }
 
     // Validate file size
     const maxSize = MAX_UPLOAD_FILE_BYTES;
     if (file.size > maxSize) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "File too large. Maximum size is 5MB."));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "File too large. Maximum size is 5MB.",
+        ),
+      );
     }
 
     // Convert file to buffer
@@ -103,7 +123,13 @@ export async function POST(req: NextRequest) {
       const base64 = buffer.toString("base64");
       imageUrl = `data:${file.type};base64,${base64}`;
     } else {
-      return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 503, "Image upload service is unavailable. Please try again later."));
+      return errorResponse(
+        new AppError(
+          ErrorCode.INTERNAL_ERROR,
+          503,
+          "Image upload service is unavailable. Please try again later.",
+        ),
+      );
     }
 
     return successResponse({ url: imageUrl });
@@ -113,6 +139,8 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error("UPLOAD", "Image upload error", error);
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to upload image"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to upload image"),
+    );
   }
 }

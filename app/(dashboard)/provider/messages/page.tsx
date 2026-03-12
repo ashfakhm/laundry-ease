@@ -74,7 +74,6 @@ export default function ProviderMessagesPage() {
 
   const activeChat = chats.find((c) => c._id === selectedChatId);
 
-  // Handle back button on mobile
   const handleBackToMenu = () => {
     setShowMobileList(true);
     setSelectedChatId(null);

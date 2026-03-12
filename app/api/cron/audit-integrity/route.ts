@@ -9,7 +9,6 @@ import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { requireCronSecret } from "@/lib/api/cron-auth";
 import { syncAlerts } from "@/lib/ops/alert-lifecycle";
 
-// GET /api/cron/audit-integrity
 export async function GET(req: NextRequest) {
   try {
     requireCronSecret(req);

@@ -58,7 +58,6 @@ function toDigestItem(alert: SystemAlertDocument): AlertDigestItem {
   };
 }
 
-// GET /api/cron/notify-system-alerts
 export async function GET(req: NextRequest) {
   try {
     requireCronSecret(req);

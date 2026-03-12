@@ -59,7 +59,9 @@ export async function POST(
     });
 
     if (!ObjectId.isValid(id)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint id"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint id"),
+      );
     }
 
     const session = await requireAdminWithDbCheck();
@@ -84,14 +86,22 @@ export async function POST(
       .findOne({ _id: complaintId });
 
     if (!complaint) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"),
+      );
     }
 
     // Only open or legacy status complaints can be accepted
     // Known completed statuses that should not be re-accepted
     const completedStatuses = ["accepted", "in_review", "resolved", "rejected"];
     if (completedStatuses.includes(complaint.status)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, `Cannot accept complaint with status: ${complaint.status}`));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          `Cannot accept complaint with status: ${complaint.status}`,
+        ),
+      );
     }
 
     // Calculate response deadline
@@ -99,7 +109,6 @@ export async function POST(
     const responseDeadline = new Date(now);
     responseDeadline.setDate(responseDeadline.getDate() + deadlineDays);
 
-    // Update complaint
     await db.collection("complaints").updateOne(
       { _id: complaintId },
       {
@@ -111,7 +120,6 @@ export async function POST(
       },
     );
 
-    // Get seeker/provider details for system message + notifications
     const [seeker, provider] = await Promise.all([
       db.collection("seekers").findOne({ _id: complaint.seeker_id }),
       db.collection("providers").findOne({ _id: complaint.provider_id }),
@@ -121,7 +129,6 @@ export async function POST(
       provider as { name?: string; businessName?: string | null } | null,
     );
 
-    // Create system message
     const systemMsg: Omit<ComplaintMessage, "_id"> = {
       complaint_id: complaintId,
       sender_id: new ObjectId(session.user.id),
@@ -131,7 +138,9 @@ export async function POST(
       createdAt: now,
     };
 
-    const insertResult = await db.collection("complaint_messages").insertOne(systemMsg);
+    const insertResult = await db
+      .collection("complaint_messages")
+      .insertOne(systemMsg);
     emitComplaintMessageCreated({
       _id: insertResult.insertedId,
       ...systemMsg,
@@ -174,8 +183,10 @@ export async function POST(
       notificationsCreated: notifications.length,
     });
 
-    return successResponse({ status: "accepted",
-      response_deadline: responseDeadline });
+    return successResponse({
+      status: "accepted",
+      response_deadline: responseDeadline,
+    });
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
@@ -184,6 +195,8 @@ export async function POST(
     logger.error("ADMIN_COMPLAINTS", "Error accepting complaint", error, {
       complaintId: id,
     });
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"),
+    );
   }
 }

@@ -11,7 +11,6 @@ import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
 import type { RazorpayResponse, RazorpayError } from "@/types/razorpay";
 
-// Define strict types matching the API response
 type InvoiceItem = {
   itemType: string;
   quantity: number;

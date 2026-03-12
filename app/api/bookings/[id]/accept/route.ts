@@ -10,7 +10,10 @@ import {
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { PLATFORM_COMMISSION_RATE, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
+import {
+  PLATFORM_COMMISSION_RATE,
+  RATE_LIMIT_STRICT_WINDOW_MS,
+} from "@/lib/constants";
 
 export async function PATCH(
   req: Request,
@@ -27,7 +30,9 @@ export async function PATCH(
 
     const { user } = await requireProvider();
     if (!ObjectId.isValid(user.id)) {
-      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     const { db } = await getDb();
@@ -36,27 +41,37 @@ export async function PATCH(
       .findOne({ _id: new ObjectId(user.id) });
 
     if (!provider) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"),
+      );
     }
 
     if (!ObjectId.isValid(id)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking id"),
+      );
     }
     const booking_id = new ObjectId(id);
 
-    // Get booking to calculate commission
     const booking = await getBookingById(booking_id);
 
     if (!booking) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
+      );
     }
 
     // Ensure booking fee is paid before accepting
     if (booking.bookingFeeStatus !== "paid") {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Booking fee must be paid before provider can accept"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Booking fee must be paid before provider can accept",
+        ),
+      );
     }
 
-    // Check for Provider Payment Details (Mandatory)
     if (!provider.razorpay_fund_account_id) {
       // Attempt to sync on-the-fly if details exist locally
       const { accountHolderName, accountNumber, ifsc } =
@@ -100,10 +115,22 @@ export async function PATCH(
             bookingId: id,
             providerId: provider._id,
           });
-          return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Payment setup failed. Please verify your bank details and try again."));
+          return errorResponse(
+            new AppError(
+              ErrorCode.VALIDATION_ERROR,
+              400,
+              "Payment setup failed. Please verify your bank details and try again.",
+            ),
+          );
         }
       } else {
-        return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "You must complete your Payment/Bank Details in Profile before accepting bookings."));
+        return errorResponse(
+          new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            400,
+            "You must complete your Payment/Bank Details in Profile before accepting bookings.",
+          ),
+        );
       }
     }
 
@@ -127,28 +154,66 @@ export async function PATCH(
       if (updatedBooking) {
         return successResponse({ message: "Booking accepted" });
       } else {
-        return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to accept booking"));
+        return errorResponse(
+          new AppError(
+            ErrorCode.INTERNAL_ERROR,
+            500,
+            "Failed to accept booking",
+          ),
+        );
       }
     } catch (error) {
       // Handle specific error types from the atomic operation
       if (error instanceof Error) {
         if (error.message.startsWith("BOOKING_NOT_FOUND:")) {
-          return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
+          return errorResponse(
+            new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
+          );
         }
         if (error.message.startsWith("UNAUTHORIZED:")) {
-          return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "You are not authorized to accept this booking"));
+          return errorResponse(
+            new AppError(
+              ErrorCode.FORBIDDEN,
+              403,
+              "You are not authorized to accept this booking",
+            ),
+          );
         }
         if (error.message.startsWith("ALREADY_PROCESSED:")) {
-          return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Booking has already been acted upon"));
+          return errorResponse(
+            new AppError(
+              ErrorCode.VALIDATION_ERROR,
+              400,
+              "Booking has already been acted upon",
+            ),
+          );
         }
         if (error.message.startsWith("CAPACITY_EXCEEDED:")) {
-          return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Provider has reached maximum booking capacity"));
+          return errorResponse(
+            new AppError(
+              ErrorCode.VALIDATION_ERROR,
+              400,
+              "Provider has reached maximum booking capacity",
+            ),
+          );
         }
         if (error.message.startsWith("PAYMENT_NOT_SETTLED:")) {
-          return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Booking payment has not been settled yet"));
+          return errorResponse(
+            new AppError(
+              ErrorCode.CONFLICT,
+              409,
+              "Booking payment has not been settled yet",
+            ),
+          );
         }
         if (error.message.startsWith("REFUND_IN_PROGRESS:")) {
-          return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "A refund is currently being processed for this booking"));
+          return errorResponse(
+            new AppError(
+              ErrorCode.CONFLICT,
+              409,
+              "A refund is currently being processed for this booking",
+            ),
+          );
         }
       }
       throw error;
@@ -161,6 +226,8 @@ export async function PATCH(
     logger.error("BOOKINGS", "Error accepting booking", error, {
       bookingId: id,
     });
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal server error"),
+    );
   }
 }

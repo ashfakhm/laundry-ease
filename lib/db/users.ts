@@ -16,7 +16,6 @@ export async function getUserByEmail(
   const { db } = await getDb();
   const normalizedEmail = email.trim().toLowerCase();
 
-  // Check seekers collection first
   const seeker = await db
     .collection<Seeker>("seekers")
     .findOne({ email: normalizedEmail });
@@ -24,7 +23,6 @@ export async function getUserByEmail(
     return { ...seeker, role: Role.SEEKER };
   }
 
-  // Check providers collection
   const provider = await db
     .collection<Provider>("providers")
     .findOne({ email: normalizedEmail });
@@ -32,7 +30,6 @@ export async function getUserByEmail(
     return { ...provider, role: Role.PROVIDER };
   }
 
-  // Check admins collection
   const admin = await db
     .collection<Admin>("admins")
     .findOne({ email: normalizedEmail });
@@ -72,10 +69,7 @@ export async function createSeeker(data: {
   const { db } = await getDb();
   const now = new Date();
   const passwordHash = data.password
-    ? await bcrypt.hash(
-        data.password,
-        BCRYPT_SALT_ROUNDS,
-      )
+    ? await bcrypt.hash(data.password, BCRYPT_SALT_ROUNDS)
     : null;
 
   const seeker: Seeker = {
@@ -127,10 +121,7 @@ export async function createProvider(data: {
   const { db } = await getDb();
   const now = new Date();
   const passwordHash = data.password
-    ? await bcrypt.hash(
-        data.password,
-        BCRYPT_SALT_ROUNDS,
-      )
+    ? await bcrypt.hash(data.password, BCRYPT_SALT_ROUNDS)
     : null;
 
   const provider: Provider = {

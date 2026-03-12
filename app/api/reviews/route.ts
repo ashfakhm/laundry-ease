@@ -85,7 +85,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check duplicate review
     const existing = await db
       .collection("reviews")
       .findOne({ order_id: order._id });
@@ -97,7 +96,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get seeker name for denormalization
     const seeker = await db.collection("seekers").findOne({
       _id: new ObjectId(user.id),
     });

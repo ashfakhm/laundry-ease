@@ -16,7 +16,6 @@ function parseBatchLimit(rawLimit: string | null): number {
   return Math.min(MAX_LIMIT, Math.floor(parsed));
 }
 
-// GET /api/cron/process-email-outbox
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (!env.CRON_SECRET) {

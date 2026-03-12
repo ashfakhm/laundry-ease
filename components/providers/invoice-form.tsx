@@ -57,7 +57,6 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
     fetchPricing();
   }, []);
 
-  // Handle Dropdown Change
   function handleItemSelect(e: React.ChangeEvent<HTMLSelectElement>) {
     const key = e.target.value;
     setSelectedItemKey(key);

@@ -12,7 +12,6 @@ import { logger } from "@/lib/logger";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    // Initialize server-side APM here
     if (process.env.DATADOG_API_KEY || process.env.DD_API_KEY) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const tracer = require("dd-trace");
@@ -33,6 +32,5 @@ export async function register() {
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {
-    // Initialize edge-side APM here if supported
   }
 }

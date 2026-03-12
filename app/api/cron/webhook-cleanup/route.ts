@@ -11,7 +11,6 @@ import { requireCronSecret } from "@/lib/api/cron-auth";
  */
 const RETENTION_DAYS = 30;
 
-// GET /api/cron/webhook-cleanup
 export async function GET(req: NextRequest) {
   try {
     requireCronSecret(req);

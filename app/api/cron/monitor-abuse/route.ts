@@ -9,7 +9,6 @@ import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
-// GET /api/cron/monitor-abuse
 export async function GET(req: Request) {
   // Verify Cron Secret - CRITICAL for production security
   const authHeader = req.headers.get("authorization");

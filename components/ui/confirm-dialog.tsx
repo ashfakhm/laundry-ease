@@ -45,11 +45,10 @@ export function ConfirmDialog({
     }
   }, [onConfirm, onClose]);
 
-  // Handle keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
-      
+
       if (e.key === "Escape") {
         onClose();
       } else if (e.key === "Enter" && !isConfirming) {
@@ -118,14 +117,21 @@ export function ConfirmDialog({
               </button>
 
               {/* Icon */}
-              <div className={cn("mb-4 inline-flex rounded-full p-3", style.iconBg)}>
+              <div
+                className={cn(
+                  "mb-4 inline-flex rounded-full p-3",
+                  style.iconBg,
+                )}
+              >
                 <Icon className={cn("h-6 w-6", style.iconColor)} />
               </div>
 
               {/* Content */}
-              <h3 className="mb-2 text-lg font-bold text-foreground">{title}</h3>
+              <h3 className="mb-2 text-lg font-bold text-foreground">
+                {title}
+              </h3>
               <p className="mb-6 text-sm text-muted-foreground">{message}</p>
-              
+
               {/* Custom children content */}
               {children && <div className="mb-6">{children}</div>}
 
@@ -143,7 +149,7 @@ export function ConfirmDialog({
                   disabled={isConfirming || loading}
                   className={cn(
                     "rounded-xl px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                    style.confirmButton
+                    style.confirmButton,
                   )}
                 >
                   {isConfirming || loading ? (
@@ -164,7 +170,6 @@ export function ConfirmDialog({
   );
 }
 
-// Hook for easier usage
 export function useConfirmDialog() {
   const [dialogState, setDialogState] = useState<{
     isOpen: boolean;

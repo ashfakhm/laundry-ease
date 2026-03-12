@@ -39,7 +39,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if email already exists in any collection
     const exists = await emailExists(normalizedEmail);
     if (exists) {
       return errorResponse(
@@ -47,7 +46,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create seeker in seekers collection
     await createSeeker({
       email: normalizedEmail,
       name,

@@ -28,7 +28,9 @@ export async function POST(
     const session = await requireAdminWithDbCheck();
 
     if (!ObjectId.isValid(id)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"),
+      );
     }
 
     const { db } = await getDb();
@@ -42,25 +44,43 @@ export async function POST(
     }
 
     if (complaint.status === "resolved" || complaint.status === "rejected") {
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Cannot add provider after complaint is finalized"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Cannot add provider after complaint is finalized",
+        ),
+      );
     }
 
     if (complaint.status !== "accepted" && complaint.status !== "in_review") {
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Complaint must be accepted before adding provider"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Complaint must be accepted before adding provider",
+        ),
+      );
     }
 
-    // Check if provider already has access
     if (complaint.provider_access_granted) {
-      return successResponse({ idempotent: true,
-        message: "Provider already added" });
+      return successResponse({
+        idempotent: true,
+        message: "Provider already added",
+      });
     }
 
     if (!ObjectId.isValid(String(complaint.provider_id))) {
-      return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Complaint provider reference is invalid"));
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          "Complaint provider reference is invalid",
+        ),
+      );
     }
     const providerObjectId = new ObjectId(String(complaint.provider_id));
 
-    // Update complaint to grant provider access and change status to in_review
     await db.collection("complaints").updateOne(
       { _id: complaintId },
       {
@@ -72,7 +92,6 @@ export async function POST(
       },
     );
 
-    // Get provider name for system message
     const provider = await db
       .collection("providers")
       .findOne({ _id: providerObjectId });
@@ -88,7 +107,9 @@ export async function POST(
       createdAt: new Date(),
     };
 
-    const insertResult = await db.collection("complaint_messages").insertOne(systemMsg);
+    const insertResult = await db
+      .collection("complaint_messages")
+      .insertOne(systemMsg);
     emitComplaintMessageCreated({
       _id: insertResult.insertedId,
       ...systemMsg,
@@ -99,9 +120,12 @@ export async function POST(
       providerAccessGranted: true,
     });
 
-    return successResponse({
-      success: true
-    }, 200);
+    return successResponse(
+      {
+        success: true,
+      },
+      200,
+    );
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);
@@ -113,6 +137,8 @@ export async function POST(
       error,
       { complaintId: id },
     );
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"),
+    );
   }
 }

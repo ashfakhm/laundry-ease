@@ -3,8 +3,6 @@ import crypto from "crypto";
 import { logger } from "./logger";
 import { env } from "./env";
 
-// Initialize Razorpay
-// Note: These env vars must be set in .env.local
 export const razorpay = new Razorpay({
   key_id: env.RAZORPAY_KEY_ID,
   key_secret: env.RAZORPAY_KEY_SECRET,
@@ -126,7 +124,8 @@ export async function createRazorpayOrder(
     });
     return {
       id: order.id,
-      amount: typeof order.amount === "number" ? order.amount : Number(order.amount),
+      amount:
+        typeof order.amount === "number" ? order.amount : Number(order.amount),
       currency: order.currency,
       receipt: order.receipt ?? receipt,
       entity: order.entity,

@@ -81,7 +81,6 @@ export default function OrderChat({
 
   const room = realtimeContracts.getOrderRoom(orderId);
 
-  // Delete menu state
   const [deleteMenuMsg, setDeleteMenuMsg] = useState<ChatMessage | null>(null);
   const [deleteMenuPos, setDeleteMenuPos] = useState<{ x: number; y: number }>({
     x: 0,

@@ -69,7 +69,6 @@ export default function SeekerDashboardPage() {
     return d.toISOString().slice(0, 16);
   })();
 
-  // Get User Coordinates
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {

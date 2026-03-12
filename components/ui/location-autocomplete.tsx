@@ -12,7 +12,7 @@ interface LocationAutocompleteProps {
   value: string;
   onChange: (
     address: string,
-    coords?: { lat: number; lng: number; city?: string; pincode?: string }
+    coords?: { lat: number; lng: number; city?: string; pincode?: string },
   ) => void;
   placeholder?: string;
 }
@@ -30,7 +30,6 @@ export const LocationAutocomplete = ({
     clearSuggestions,
   } = usePlacesAutocomplete({
     requestOptions: {
-      /* Define search scope here if needed, e.g., componentRestrictions: { country: "in" } */
       componentRestrictions: { country: "in" },
     },
     debounce: 300,

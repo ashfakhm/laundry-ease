@@ -15,7 +15,7 @@ export const InteractiveGridPattern = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
-  
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -60,12 +60,13 @@ export const InteractiveGridPattern = () => {
     const draw = () => {
       // Determine colors based on theme
       const isDark = theme === "dark";
-      const particleColor = isDark ? "rgba(45, 212, 191, 0.5)" : "rgba(13, 148, 136, 0.5)"; // Teal based
+      const particleColor = isDark
+        ? "rgba(45, 212, 191, 0.5)"
+        : "rgba(13, 148, 136, 0.5)"; // Teal based
       const lineColor = isDark ? "rgba(45, 212, 191," : "rgba(13, 148, 136,";
 
       ctx.clearRect(0, 0, width, height);
 
-      // Update and draw particles
       particles.forEach((p, i) => {
         p.x += p.vx;
         p.y += p.vy;
@@ -85,19 +86,19 @@ export const InteractiveGridPattern = () => {
         const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
 
         if (distMouse < mouseDistance) {
-            const alpha = 1 - distMouse / mouseDistance;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(mouseX, mouseY);
-            ctx.strokeStyle = `${lineColor} ${alpha * 0.4})`;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            
-            // Push particles away slightly
-            if (distMouse < 50) {
-                 p.x += dxMouse * 0.02;
-                 p.y += dyMouse * 0.02;
-            }
+          const alpha = 1 - distMouse / mouseDistance;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(mouseX, mouseY);
+          ctx.strokeStyle = `${lineColor} ${alpha * 0.4})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Push particles away slightly
+          if (distMouse < 50) {
+            p.x += dxMouse * 0.02;
+            p.y += dyMouse * 0.02;
+          }
         }
 
         // Connect to other particles
@@ -123,20 +124,20 @@ export const InteractiveGridPattern = () => {
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-        const rect = container.getBoundingClientRect();
-        mouseX = e.clientX - rect.left;
-        mouseY = e.clientY - rect.top;
+      const rect = container.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
     };
-    
+
     const handleMouseLeave = () => {
-        mouseX = -1000;
-        mouseY = -1000;
+      mouseX = -1000;
+      mouseY = -1000;
     };
 
     window.addEventListener("resize", resize);
     container.addEventListener("mousemove", handleMouseMove);
     container.addEventListener("mouseleave", handleMouseLeave);
-    
+
     resize();
     draw();
 
@@ -149,10 +150,16 @@ export const InteractiveGridPattern = () => {
   }, [theme]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 -z-0 overflow-hidden pointer-events-auto">
-        <canvas ref={canvasRef} className="block w-full h-full opacity-60 dark:opacity-80" />
-        {/* Gradient Overlay for Fade Out at bottom */}
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background" />
+    <div
+      ref={containerRef}
+      className="absolute inset-0 -z-0 overflow-hidden pointer-events-auto"
+    >
+      <canvas
+        ref={canvasRef}
+        className="block w-full h-full opacity-60 dark:opacity-80"
+      />
+      {/* Gradient Overlay for Fade Out at bottom */}
+      <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background" />
     </div>
   );
 };

@@ -338,16 +338,6 @@ describe("POST /api/reviews", () => {
 
       expect(res.status).toBe(500);
       expect(data.success).toBe(false);
-      // AppError with INTERNAL_ERROR defaults to "An unexpected error occurred" usually,
-      // but if errorResponse catches unknown error it might use "Failed to create review"?
-      // Wait, in my code catch block: `logger.error(...)` then `return errorResponse(error)`.
-      // If error is `new Error("Unexpected error")`, `errorResponse` will treat it as unknown and return standard internal error message or the error message if in dev?
-      // `errorResponse` logic:
-      // if not AppError, checks ZodError.
-      // If unknown: returns 500 and "Internal Server Error" (or similar, depending on implementation).
-      // Let's check `errorResponse` implementation detail for unknown errors.
-      // Assuming it returns generic message.
-      // expect(data.message).toBe("An unexpected error occurred"); // or check what it returns
       expect(data.success).toBe(false);
     });
 

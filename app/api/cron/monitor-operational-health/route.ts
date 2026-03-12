@@ -28,7 +28,6 @@ function toObjectId(value: unknown): ObjectId | null {
   return null;
 }
 
-// GET /api/cron/monitor-operational-health
 export async function GET(req: NextRequest) {
   try {
     requireCronSecret(req);
