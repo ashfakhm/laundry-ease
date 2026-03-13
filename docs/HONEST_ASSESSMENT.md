@@ -333,7 +333,7 @@ The `output/` directory was empty and gitignored. Deleted in Rev 6.
 
 | Category | Change |
 |---|---|
-| **Order Chat (Socket.IO)** | NEW: `order-chat.tsx` component replaces deleted `chat-interface.tsx` (BookingChat). Real-time order messaging via `order:join` room join + `order:message:created` event push. Messages stored in `order_chats` MongoDB collection. REST endpoint `GET/POST /api/orders/[id]/chat`. |
+| **Order Chat (Socket.IO)** | NEW: `order-chat.tsx` component replaces deleted `chat-interface.tsx` (BookingChat). Real-time order messaging via `order:join` room join + `order:message:created` event push. Includes voice notes, photos, and WhatsApp-style message deletion. Messages stored in `order_chats` MongoDB collection. REST endpoint `GET/POST/DELETE /api/orders/[id]/chat/...`. |
 | **Order room authorization** | `authorizeOrderRoom()` added to `socket-auth.js` — verifies user is seeker, provider, or admin of the order. `findOrderById()` helper added to `server.js`. |
 | **Server.js** | `ORDER_JOIN` handler added with rate limiting and `authorizeOrderRoom()` call. |
 | **Emitter** | `emitOrderMessageCreated()` added to `lib/realtime/emitter.ts`. |
@@ -347,7 +347,7 @@ The `output/` directory was empty and gitignored. Deleted in Rev 6.
 | Category | Change |
 |---|---|
 | **Cancel at `invoice_created`** | Seekers can now cancel after provider creates invoice — fee always forfeited. UI label "Cancel & Reject Invoice", confirm dialog warns of forfeit. API `allowedStatuses` updated, slot-time guard bypassed, policy engine updated. |
-| **Real-time Socket.IO** | `server.js` custom Node.js server co-hosts Socket.IO with Next.js. JWT auth on every connect. Booking + complaint rooms with DB-verified authorization. Provider access gate on complaint rooms. Per-socket rate limiting (20 joins/min). `SocketProvider` + `useSocket()` hook. `lib/realtime/` module with contracts, socket-auth, emitter, chat-state. |
+| **Real-time Socket.IO** | `server.js` custom Node.js server co-hosts Socket.IO with Next.js. JWT auth on every connect. Supports 3-tier message deletion and Cloudinary rich media. Booking + complaint rooms with DB-verified authorization. Provider access gate on complaint rooms. Per-socket rate limiting (20 joins/min). `SocketProvider` + `useSocket()` hook. `lib/realtime/` module with contracts, socket-auth, emitter, chat-state. |
 | **CSP: WebSocket support** | `connect-src` gains `ws:` + `wss:`. `upgrade-insecure-requests` moved to production-only. |
 | **Demo cron dispatcher** | `lib/demo/cron-dispatch.ts` — in-process runner for all 10 cron handlers. Enabled by `DEMO_MODE=1`. Used by admin demo panel for local dev/demo without external scheduler. |
 | **Tests** | +14 tests: realtime socket-auth (new), emitter (new), chat-state (new), cancellation policy `invoice_created` case (+1). 104 → **108** test files; 551 → **565** tests. |
