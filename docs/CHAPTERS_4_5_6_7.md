@@ -1423,7 +1423,7 @@ const payout = new Decimal(order.total_price).minus(commission);
 
 #### 5.4.1 MongoDB Database
 
-LaundryEase uses **MongoDB 6.21** through the official Node.js driver (not an ORM). This gives direct control over queries, indexes, and atomic operations.
+LaundryEase uses **MongoDB 7.1** through the official Node.js driver (not an ORM). This gives direct control over queries, indexes, and atomic operations.
 
 **Why MongoDB was chosen:**
 
@@ -1601,7 +1601,7 @@ The testing infrastructure consists of:
 
 Unit tests verify that individual functions produce the correct output for given inputs. They run in isolation without connecting to real databases or external services.
 
-**Framework:** Vitest 3.2.4
+**Framework:** Vitest 4.0.18
 **Configuration:** Tests run in Node.js environment with a 30-second timeout. External dependencies (database, email, Razorpay) are replaced with mock implementations so tests are fast and repeatable.
 
 **What is unit tested:**
@@ -1884,24 +1884,24 @@ The following features are planned for future versions of LaundryEase:
 
 #### 7.2.1 Websites
 
-| Resource                   | URL                                                   | Purpose                                                                           |
-| -------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Next.js Documentation      | https://nextjs.org/docs                               | Framework reference (App Router, API Routes, SSR)                                 |
-| React Documentation        | https://react.dev                                     | Component architecture, hooks, server components                                  |
-| TypeScript Handbook        | https://www.typescriptlang.org/docs/handbook          | Type system, generics, utility types                                              |
-| MongoDB Documentation      | https://www.mongodb.com/docs/manual                   | Database operations, indexes, aggregation, geospatial                             |
-| NextAuth.js Documentation  | https://next-auth.js.org/getting-started/introduction | Authentication, session management, providers                                     |
-| Razorpay Documentation     | https://razorpay.com/docs                             | Payment integration, orders, payouts, webhooks                                    |
-| Tailwind CSS Documentation | https://tailwindcss.com/docs                          | Utility-first CSS framework                                                       |
-| shadcn/ui Documentation    | https://ui.shadcn.com                                 | Accessible React component library                                                |
-| Zod Documentation          | https://zod.dev                                       | Schema validation library                                                         |
-| Playwright Documentation   | https://playwright.dev/docs/intro                     | End-to-end testing framework                                                      |
-| Vitest Documentation       | https://vitest.dev/guide                              | Unit testing framework                                                            |
-| Vercel Documentation       | https://vercel.com/docs                               | Deployment platform, serverless functions                                         |
-| Twilio Documentation       | https://www.twilio.com/docs                           | SMS API for OTP delivery                                                          |
-| Cloudinary Documentation   | https://cloudinary.com/documentation                  | Image upload and CDN                                                              |
-| Google Maps Platform       | https://developers.google.com/maps/documentation      | Maps, Places, Geocoding APIs                                                      |
-| Socket.IO Documentation    | https://socket.io/docs/v4                             | Real-time bidirectional WebSocket communication for order chat and complaint chat |
+| Resource                   | URL                                              | Purpose                                                                           |
+| -------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Next.js Documentation      | https://nextjs.org/docs                          | Framework reference (App Router, API Routes, SSR)                                 |
+| React Documentation        | https://react.dev                                | Component architecture, hooks, server components                                  |
+| TypeScript Handbook        | https://www.typescriptlang.org/docs/handbook     | Type system, generics, utility types                                              |
+| MongoDB Documentation      | https://www.mongodb.com/docs/manual              | Database operations, indexes, aggregation, geospatial                             |
+| Auth.js Documentation      | https://authjs.dev                               | Authentication, session management, providers                                     |
+| Razorpay Documentation     | https://razorpay.com/docs                        | Payment integration, orders, payouts, webhooks                                    |
+| Tailwind CSS Documentation | https://tailwindcss.com/docs                     | Utility-first CSS framework                                                       |
+| shadcn/ui Documentation    | https://ui.shadcn.com                            | Accessible React component library                                                |
+| Zod Documentation          | https://zod.dev                                  | Schema validation library                                                         |
+| Playwright Documentation   | https://playwright.dev/docs/intro                | End-to-end testing framework                                                      |
+| Vitest Documentation       | https://vitest.dev/guide                         | Unit testing framework                                                            |
+| Vercel Documentation       | https://vercel.com/docs                          | Deployment platform, serverless functions                                         |
+| Twilio Documentation       | https://www.twilio.com/docs                      | SMS API for OTP delivery                                                          |
+| Cloudinary Documentation   | https://cloudinary.com/documentation             | Image upload and CDN                                                              |
+| Google Maps Platform       | https://developers.google.com/maps/documentation | Maps, Places, Geocoding APIs                                                      |
+| Socket.IO Documentation    | https://socket.io/docs/v4                        | Real-time bidirectional WebSocket communication for order chat and complaint chat |
 
 #### 7.2.2 References
 
@@ -1910,7 +1910,7 @@ The following features are planned for future versions of LaundryEase:
 3. Microsoft, "TypeScript 5.0 Handbook," 2024. [Online]. Available: https://www.typescriptlang.org/docs
 4. MongoDB, Inc., "MongoDB Manual — Geospatial Queries," 2025. [Online]. Available: https://www.mongodb.com/docs/manual/geospatial-queries
 5. Razorpay Software Private Limited, "Razorpay Payment Gateway API Documentation," 2025. [Online]. Available: https://razorpay.com/docs/api
-6. Auth.js Contributors, "NextAuth.js v4 Documentation," 2024. [Online]. Available: https://next-auth.js.org
+6. Auth.js Contributors, "Auth.js Documentation," 2026. [Online]. Available: https://authjs.dev
 7. Adam Wathan, "Tailwind CSS v4 Documentation," 2025. [Online]. Available: https://tailwindcss.com/docs
 8. shadcn, "shadcn/ui — Re-usable Components," 2025. [Online]. Available: https://ui.shadcn.com
 9. Colin McDonnell, "Zod — TypeScript-first Schema Validation," 2025. [Online]. Available: https://zod.dev

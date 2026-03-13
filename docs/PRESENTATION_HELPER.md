@@ -86,26 +86,26 @@
 
 **Answer**:
 
-| Layer              | Technology                   | Why                                           |
-| ------------------ | ---------------------------- | --------------------------------------------- |
-| **Framework**      | Next.js 16.1.6 (App Router)  | Full-stack, SSR, API routes                   |
-| **Frontend**       | React 19.2.4, TypeScript 5   | Type safety, modern features                  |
-| **Styling**        | Tailwind CSS 4, shadcn/ui    | Fast development, same look everywhere        |
-| **Animations**     | Framer Motion                | Smooth, fast animations                       |
-| **Database**       | MongoDB 6.21 (native driver) | Flexible data structure, location queries     |
-| **Authentication** | NextAuth v4                  | Google OAuth + Credentials support            |
-| **Payments**       | Razorpay + RazorpayX         | Indian payment system, escrow payouts         |
-| **Maps**           | Google Maps APIs             | Location, address to coordinates, places      |
-| **SMS OTP**        | Twilio                       | Dependable SMS sending                        |
-| **Email**          | Nodemailer + Email Outbox    | Queued email delivery with retry/backoff. `EMAIL_SEND_IMMEDIATE=1` bypasses queue in dev |
-| **Image Upload**   | Cloudinary                   | Fast image storage with CDN                   |
-| **Validation**     | Zod 4                        | Check data types while app runs               |
-| **Forms**          | React Hook Form              | Fast form handling                            |
-| **Data Fetching**  | SWR                          | Client-side data fetching with revalidation   |
-| **Logging**        | Pino + pino-pretty           | Structured JSON logging with secret redaction |
-| **Financial Math** | decimal.js                   | Precise monetary calculations (no float bugs) |
-| **Rate Limiting**  | MongoDB-backed counters      | Per-IP/actor rate limiting with TTL cleanup   |
-| **Deployment**     | Vercel                       | Serverless, edge functions, scheduled jobs    |
+| Layer              | Technology                    | Why                                                                                      |
+| ------------------ | ----------------------------- | ---------------------------------------------------------------------------------------- |
+| **Framework**      | Next.js 16.1.6 (App Router)   | Full-stack, SSR, API routes                                                              |
+| **Frontend**       | React 19.2.4, TypeScript 5    | Type safety, modern features                                                             |
+| **Styling**        | Tailwind CSS 4, shadcn/ui     | Fast development, same look everywhere                                                   |
+| **Animations**     | Framer Motion                 | Smooth, fast animations                                                                  |
+| **Database**       | MongoDB 7.1 (native driver)   | Flexible data structure, location queries                                                |
+| **Authentication** | Auth.js v5 (`next-auth` beta) | Google OAuth + Credentials support                                                       |
+| **Payments**       | Razorpay + RazorpayX          | Indian payment system, escrow payouts                                                    |
+| **Maps**           | Google Maps APIs              | Location, address to coordinates, places                                                 |
+| **SMS OTP**        | Twilio                        | Dependable SMS sending                                                                   |
+| **Email**          | Nodemailer + Email Outbox     | Queued email delivery with retry/backoff. `EMAIL_SEND_IMMEDIATE=1` bypasses queue in dev |
+| **Image Upload**   | Cloudinary                    | Fast image storage with CDN                                                              |
+| **Validation**     | Zod 4                         | Check data types while app runs                                                          |
+| **Forms**          | React Hook Form               | Fast form handling                                                                       |
+| **Data Fetching**  | SWR                           | Client-side data fetching with revalidation                                              |
+| **Logging**        | Pino + pino-pretty            | Structured JSON logging with secret redaction                                            |
+| **Financial Math** | decimal.js                    | Precise monetary calculations (no float bugs)                                            |
+| **Rate Limiting**  | MongoDB-backed counters       | Per-IP/actor rate limiting with TTL cleanup                                              |
+| **Deployment**     | Vercel                        | Serverless, edge functions, scheduled jobs                                               |
 
 ### Q: Why MongoDB instead of SQL databases like MySQL/PostgreSQL?
 
@@ -455,65 +455,65 @@ throw Errors.validation("Bad input"); // 400
 
 ### Q: Quick Reference - "Where is X?"
 
-| Feature                          | File Location                                               |
-| -------------------------------- | ----------------------------------------------------------- |
-| MongoDB connection               | `lib/mongodb.ts`                                            |
-| Database operations              | `lib/db/` (bookings, orders, users, complaints, escrow)     |
-| API routes                       | `app/api/**/*.ts`                                           |
-| Frontend pages                   | `app/(dashboard)/**/*.tsx`                                  |
-| UI components                    | `components/**/*.tsx`                                       |
-| Authentication config            | `app/api/auth/[...nextauth]/route.ts`                       |
-| Auth helpers                     | `lib/api/auth.ts`                                           |
-| Payment integration              | `lib/razorpay.ts`                                           |
-| Payment API                      | `app/api/orders/[id]/payment/route.ts`                      |
-| DB index bootstrap               | `lib/db-indexes.ts`                                         |
-| Webhooks                         | `app/api/webhooks/razorpay/route.ts`                        |
-| OTP logic                        | `lib/otp.ts`                                                |
-| Location/Maps                    | `lib/geocoding.ts`                                          |
-| Distance calculation             | `lib/distance.ts`                                           |
-| Type definitions                 | `types/*.ts`                                                |
-| Environment validation           | `lib/env.ts`                                                |
-| Business constants               | `lib/constants.ts`                                          |
-| Error handling                   | `lib/api/errors.ts`                                         |
-| Request validation               | `lib/api/schemas.ts`                                        |
-| Rate limiting                    | `lib/api/security.ts`                                       |
-| Same-origin protection           | `lib/security/origin.ts`                                    |
-| CSP headers                      | `lib/security/csp.ts`                                       |
-| Escrow payout engine             | `lib/payouts.ts`                                            |
-| Cron job logic                   | `cron/*.ts`                                                 |
-| Cron API endpoints               | `app/api/cron/*.ts`                                         |
-| Cron run tracking                | `lib/cron-tracking.ts`                                      |
-| Audit logging                    | `lib/audit.ts`                                              |
-| Structured logging (Pino)        | `lib/logger.ts`                                             |
-| Email outbox                     | `lib/email-outbox.ts`                                       |
-| Health monitoring                | `lib/ops/health.ts`                                         |
-| Alert delivery                   | `lib/ops/alert-delivery.ts`                                 |
-| Alert channels                   | `lib/ops/alert-channels.ts`                                 |
-| Alert SLA tracking               | `lib/ops/ack-sla.ts`                                        |
-| Alert owner routing              | `lib/ops/owner-routing.ts`                                  |
-| Alert analytics                  | `lib/ops/alerts-analytics.ts`                               |
-| Cloudinary upload                | `lib/cloudinary.ts`                                         |
-| Payout calculations              | `lib/payouts/amounts.ts` (decimal.js commission/split math) |
-| **Cancellation policy engine**   | `lib/bookings/cancellation-policy.ts`                       |
-| **Reschedule request route**     | `app/api/bookings/[id]/reschedule/request/route.ts`         |
-| **Pickup schedule route**        | `app/api/bookings/[id]/schedule/route.ts`                   |
-| **Confirmation dialog**          | `components/ui/confirm-dialog.tsx`                          |
-| **useConfirmDialog hook**        | `components/ui/confirm-dialog.tsx` (exported from same file)|
-| **Settlement summary modal**     | `components/ui/settlement-summary-modal.tsx`                |
-| **Booking action hook**          | `hooks/use-booking-actions.ts`                              |
-| Seeker booking list + tabs       | `app/(dashboard)/seeker/bookings/seeker-booking-list.tsx`   |
-| Seeker booking card (countdown)  | `app/(dashboard)/seeker/bookings/seeker-booking-card.tsx`   |
-| **Forgot password API**          | `app/api/forgot-password/route.ts`                          |
-| **Reset password API**           | `app/api/reset-password/route.ts`                           |
-| **Reset password page (UI)**     | `app/reset-password/page.tsx`                               |
-| **Password reset email template**| `lib/password-reset-email.ts`                               |
-| **Password changed email**       | `lib/password-changed-email.ts`                             |
-| **Password policy rules**        | `lib/auth/password-policy.ts`                               |
-| **Provider password service**    | `lib/services/provider-password.ts`                         |
-| **Seeker profile (pwd change)**  | `app/api/profile/seeker/route.ts`                           |
-| **Provider profile (pwd change)**| `app/api/profile/provider/route.ts`                         |
-| **JWT session invalidation**     | `app/api/auth/[...nextauth]/route.ts` (jwt callback)        |
-| **BaseUser type (passwordChangedAt)** | `types/users.ts`                                       |
+| Feature                               | File Location                                                |
+| ------------------------------------- | ------------------------------------------------------------ |
+| MongoDB connection                    | `lib/mongodb.ts`                                             |
+| Database operations                   | `lib/db/` (bookings, orders, users, complaints, escrow)      |
+| API routes                            | `app/api/**/*.ts`                                            |
+| Frontend pages                        | `app/(dashboard)/**/*.tsx`                                   |
+| UI components                         | `components/**/*.tsx`                                        |
+| Authentication config                 | `app/api/auth/[...nextauth]/route.ts`                        |
+| Auth helpers                          | `lib/api/auth.ts`                                            |
+| Payment integration                   | `lib/razorpay.ts`                                            |
+| Payment API                           | `app/api/orders/[id]/payment/route.ts`                       |
+| DB index bootstrap                    | `lib/db-indexes.ts`                                          |
+| Webhooks                              | `app/api/webhooks/razorpay/route.ts`                         |
+| OTP logic                             | `lib/otp.ts`                                                 |
+| Location/Maps                         | `lib/geocoding.ts`                                           |
+| Distance calculation                  | `lib/distance.ts`                                            |
+| Type definitions                      | `types/*.ts`                                                 |
+| Environment validation                | `lib/env.ts`                                                 |
+| Business constants                    | `lib/constants.ts`                                           |
+| Error handling                        | `lib/api/errors.ts`                                          |
+| Request validation                    | `lib/api/schemas.ts`                                         |
+| Rate limiting                         | `lib/api/security.ts`                                        |
+| Same-origin protection                | `lib/security/origin.ts`                                     |
+| CSP headers                           | `lib/security/csp.ts`                                        |
+| Escrow payout engine                  | `lib/payouts.ts`                                             |
+| Cron job logic                        | `cron/*.ts`                                                  |
+| Cron API endpoints                    | `app/api/cron/*.ts`                                          |
+| Cron run tracking                     | `lib/cron-tracking.ts`                                       |
+| Audit logging                         | `lib/audit.ts`                                               |
+| Structured logging (Pino)             | `lib/logger.ts`                                              |
+| Email outbox                          | `lib/email-outbox.ts`                                        |
+| Health monitoring                     | `lib/ops/health.ts`                                          |
+| Alert delivery                        | `lib/ops/alert-delivery.ts`                                  |
+| Alert channels                        | `lib/ops/alert-channels.ts`                                  |
+| Alert SLA tracking                    | `lib/ops/ack-sla.ts`                                         |
+| Alert owner routing                   | `lib/ops/owner-routing.ts`                                   |
+| Alert analytics                       | `lib/ops/alerts-analytics.ts`                                |
+| Cloudinary upload                     | `lib/cloudinary.ts`                                          |
+| Payout calculations                   | `lib/payouts/amounts.ts` (decimal.js commission/split math)  |
+| **Cancellation policy engine**        | `lib/bookings/cancellation-policy.ts`                        |
+| **Reschedule request route**          | `app/api/bookings/[id]/reschedule/request/route.ts`          |
+| **Pickup schedule route**             | `app/api/bookings/[id]/schedule/route.ts`                    |
+| **Confirmation dialog**               | `components/ui/confirm-dialog.tsx`                           |
+| **useConfirmDialog hook**             | `components/ui/confirm-dialog.tsx` (exported from same file) |
+| **Settlement summary modal**          | `components/ui/settlement-summary-modal.tsx`                 |
+| **Booking action hook**               | `hooks/use-booking-actions.ts`                               |
+| Seeker booking list + tabs            | `app/(dashboard)/seeker/bookings/seeker-booking-list.tsx`    |
+| Seeker booking card (countdown)       | `app/(dashboard)/seeker/bookings/seeker-booking-card.tsx`    |
+| **Forgot password API**               | `app/api/forgot-password/route.ts`                           |
+| **Reset password API**                | `app/api/reset-password/route.ts`                            |
+| **Reset password page (UI)**          | `app/reset-password/page.tsx`                                |
+| **Password reset email template**     | `lib/password-reset-email.ts`                                |
+| **Password changed email**            | `lib/password-changed-email.ts`                              |
+| **Password policy rules**             | `lib/auth/password-policy.ts`                                |
+| **Provider password service**         | `lib/services/provider-password.ts`                          |
+| **Seeker profile (pwd change)**       | `app/api/profile/seeker/route.ts`                            |
+| **Provider profile (pwd change)**     | `app/api/profile/provider/route.ts`                          |
+| **JWT session invalidation**          | `app/api/auth/[...nextauth]/route.ts` (jwt callback)         |
+| **BaseUser type (passwordChangedAt)** | `types/users.ts`                                             |
 
 ---
 
@@ -618,7 +618,7 @@ This stops race conditions where many bookings could go past the provider's limi
 
 ### Q: How does authentication work?
 
-**Answer**: NextAuth v4 with three ways to sign in:
+**Answer**: Auth.js v5 (`next-auth` beta) with three ways to sign in:
 
 1. **Google OAuth**: Sign in with Google accounts
 2. **Credentials**: Email/password with bcrypt password hashing
@@ -722,16 +722,16 @@ flowchart TD
 
 **Key security features**:
 
-| Feature | Implementation |
-| --- | --- |
-| **Token security** | `randomBytes(32)` for token; only SHA-256 hash stored in DB |
-| **Token expiry** | 1-hour TTL with MongoDB TTL index auto-cleanup |
-| **Anti-enumeration** | Same generic "If an account exists..." response for existing and non-existing emails |
-| **Rate limiting** | Per-IP (10/15min) + per-email (4/hour) on forgot; per-IP (15/15min) + per-token (6/hour) on reset |
-| **Session invalidation** | `passwordChangedAt` written → JWT re-check every 5 min invalidates stale tokens |
-| **Token invalidation** | All active tokens for user marked used on successful reset |
-| **Notification** | Branded "password changed" security email sent after every change |
-| **Client-side** | 60-second cooldown on resend, generic messages, 429 special handling |
+| Feature                  | Implementation                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| **Token security**       | `randomBytes(32)` for token; only SHA-256 hash stored in DB                                       |
+| **Token expiry**         | 1-hour TTL with MongoDB TTL index auto-cleanup                                                    |
+| **Anti-enumeration**     | Same generic "If an account exists..." response for existing and non-existing emails              |
+| **Rate limiting**        | Per-IP (10/15min) + per-email (4/hour) on forgot; per-IP (15/15min) + per-token (6/hour) on reset |
+| **Session invalidation** | `passwordChangedAt` written → JWT re-check every 5 min invalidates stale tokens                   |
+| **Token invalidation**   | All active tokens for user marked used on successful reset                                        |
+| **Notification**         | Branded "password changed" security email sent after every change                                 |
+| **Client-side**          | 60-second cooldown on resend, generic messages, 429 special handling                              |
 
 > "We never store the raw reset token — only its SHA-256 hash. So even if someone gets database access, they can't use the tokens. The raw token only exists in the email link."
 
@@ -777,19 +777,19 @@ For providers, the password verification logic is extracted into `lib/services/p
 
 **Answer**:
 
-| Problem             | How We Prevent It                                                                 |
-| ------------------- | --------------------------------------------------------------------------------- |
-| **SQL Injection**   | Not possible (MongoDB), but we clean all inputs with Zod                          |
-| **XSS**             | React escapes output by default                                                   |
-| **CSRF-like abuse** | Same-origin guard (`requireSameOrigin`) on unsafe API methods                     |
-| **CSP hardening**   | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint           |
-| **Timing Attacks**  | `crypto.timingSafeEqual()` for checking signatures                                |
-| **Fake Webhooks**   | HMAC signature check                                                              |
-| **Wrong Access**    | Role checks on every protected route                                              |
-| **User Enumeration**| Forgot-password returns generic response regardless of email existence             |
-| **Token Theft**     | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL                |
-| **Stale Sessions**  | JWT re-check every 5 min invalidates tokens after password change                 |
-| **Brute Force**     | MongoDB-backed rate limiting (per-IP + per-email/token buckets)                   |
+| Problem              | How We Prevent It                                                       |
+| -------------------- | ----------------------------------------------------------------------- |
+| **SQL Injection**    | Not possible (MongoDB), but we clean all inputs with Zod                |
+| **XSS**              | React escapes output by default                                         |
+| **CSRF-like abuse**  | Same-origin guard (`requireSameOrigin`) on unsafe API methods           |
+| **CSP hardening**    | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint |
+| **Timing Attacks**   | `crypto.timingSafeEqual()` for checking signatures                      |
+| **Fake Webhooks**    | HMAC signature check                                                    |
+| **Wrong Access**     | Role checks on every protected route                                    |
+| **User Enumeration** | Forgot-password returns generic response regardless of email existence  |
+| **Token Theft**      | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL      |
+| **Stale Sessions**   | JWT re-check every 5 min invalidates tokens after password change       |
+| **Brute Force**      | MongoDB-backed rate limiting (per-IP + per-email/token buckets)         |
 
 ### Q: How do you check webhook signatures?
 
@@ -1314,6 +1314,7 @@ Escrow action done (release, partial split, or seeker full distributable award)
 Note: The 24-hour complaint window is enforced in `POST /api/complaints` using delivery timestamps (`otp_confirmed_at` / `escrow_started_at`).
 
 **Settlement details modal**: When admin resolves a complaint, instead of an ugly browser `alert()`, the UI shows a `SettlementSummaryModal` with:
+
 - Provider payout card: name, UPI ID, bank account/IFSC, email
 - Seeker refund card: name, payment method, VPA/bank/wallet/card details
 - **Manual transfer warning** banner if Razorpay auto-transfer failed (shown in amber)
@@ -1345,11 +1346,13 @@ HTTP Server (Node.js)
 ```
 
 **Client side** (`components/providers/socket-provider.tsx`):
+
 - `SocketProvider` wraps the dashboard layout and creates one Socket.IO connection per authenticated session
 - `useSocket()` hook gives any component access to `{ socket, isConnected, isReconnecting }`
 - When a message is sent via REST API (`POST /api/orders/[id]/chat`), the route handler calls `emitOrderMessageCreated()` from `lib/realtime/emitter.ts` which pushes the `order:message:created` event to the room
 
 **Security**:
+
 - Every socket connection is authenticated via NextAuth JWT — no connection without a valid session
 - Room joins are verified against MongoDB — you can only join a room for an order/complaint you participate in
 - Provider can only join a complaint room after an admin explicitly grants access (`provider_access_granted = true`)
@@ -1357,17 +1360,17 @@ HTTP Server (Node.js)
 
 **Events** (defined in `lib/realtime/contracts.js`):
 
-| Direction | Event | Purpose |
-| --- | --- | --- |
-| Client → Server | `order:join` / `complaint:join` | Enter a chat room |
-| Client → Server | `room:leave` | Leave a room |
-| Client → Server | `typing:start` / `typing:stop` | Typing indicator |
-| Client → Server | (via REST API) | Post a message or delete (`for_me`, `for_everyone`, `admin_hard_delete`) |
-| Server → Client | `order:message:created` | New order chat message pushed live |
-| Server → Client | `order:message:deleted` | Order message deletion pushed live |
-| Server → Client | `complaint:message:created` | New complaint chat message pushed live |
-| Server → Client | `complaint:message:deleted` | Complaint message deletion pushed live |
-| Server → Client | `complaint:state:updated` | Complaint status change (e.g., provider added) |
+| Direction       | Event                           | Purpose                                                                                                       |
+| --------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Client → Server | `order:join` / `complaint:join` | Enter a chat room                                                                                             |
+| Client → Server | `room:leave`                    | Leave a room                                                                                                  |
+| Client → Server | `typing:start` / `typing:stop`  | Typing indicator                                                                                              |
+| Client → Server | (via REST API)                  | Post a message or delete (`for_me`, `for_everyone`; complaint chat additionally supports `admin_hard_delete`) |
+| Server → Client | `order:message:created`         | New order chat message pushed live                                                                            |
+| Server → Client | `order:message:deleted`         | Order message deletion pushed live                                                                            |
+| Server → Client | `complaint:message:created`     | New complaint chat message pushed live                                                                        |
+| Server → Client | `complaint:message:deleted`     | Complaint message deletion pushed live                                                                        |
+| Server → Client | `complaint:state:updated`       | Complaint status change (e.g., provider added)                                                                |
 
 ---
 
@@ -1499,13 +1502,14 @@ if (!result.success) {
 
 **What we built instead:**
 
-| Old (removed) | New replacement | File |
-| --- | --- | --- |
-| `window.confirm("Cancel booking?")` | `ConfirmDialog` (animated, themed, keyboard-aware) | `components/ui/confirm-dialog.tsx` |
-| `alert("Settlement details: ...")` | `SettlementSummaryModal` (structured cards with bank/UPI info) | `components/ui/settlement-summary-modal.tsx` |
-| `window.prompt("Enter ban reason:")` | Inline `BanUserDialog` with a real text input | `app/(dashboard)/admin/user-management/page.tsx` |
+| Old (removed)                        | New replacement                                                | File                                             |
+| ------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------ |
+| `window.confirm("Cancel booking?")`  | `ConfirmDialog` (animated, themed, keyboard-aware)             | `components/ui/confirm-dialog.tsx`               |
+| `alert("Settlement details: ...")`   | `SettlementSummaryModal` (structured cards with bank/UPI info) | `components/ui/settlement-summary-modal.tsx`     |
+| `window.prompt("Enter ban reason:")` | Inline `BanUserDialog` with a real text input                  | `app/(dashboard)/admin/user-management/page.tsx` |
 
 **`ConfirmDialog` features**:
+
 - 3 variants: `danger` (red), `warning` (amber), `info` (blue)
 - `Escape` key closes, `Enter` key confirms
 - Loading spinner while the async action runs
@@ -1839,22 +1843,22 @@ $unset: { "pickupSlot.confirmedAt": "" }
 
 ## 14. Quick Technical Terms Glossary
 
-| Term            | What It Means                                                            |
-| --------------- | ------------------------------------------------------------------------ |
-| **SSR**         | Server-Side Rendering - pages built on server                            |
-| **SSG**         | Static Site Generation - pages made at build time                        |
-| **ISR**         | Incremental Static Regeneration - static pages refreshed when needed     |
-| **JWT**         | JSON Web Token - login token without storing session                     |
-| **SHA-256**     | Secure Hash Algorithm - one-way function used for token hashing          |
+| Term                 | What It Means                                                               |
+| -------------------- | --------------------------------------------------------------------------- |
+| **SSR**              | Server-Side Rendering - pages built on server                               |
+| **SSG**              | Static Site Generation - pages made at build time                           |
+| **ISR**              | Incremental Static Regeneration - static pages refreshed when needed        |
+| **JWT**              | JSON Web Token - login token without storing session                        |
+| **SHA-256**          | Secure Hash Algorithm - one-way function used for token hashing             |
 | **Anti-enumeration** | Preventing attackers from discovering valid emails via response differences |
-| **Escrow**      | Third party holds money until both sides agree                           |
-| **Webhook**     | HTTP call when something happens                                         |
-| **ACID**        | Atomicity, Consistency, Isolation, Durability (safe database operations) |
-| **OTP**         | One-Time Password - code you can only use once                           |
-| **HMAC**        | Hash-based Message Authentication Code - signature to verify sender      |
-| **Idempotency** | Same action gives same result, even if done many times                   |
-| **Geospatial**  | Data based on map coordinates                                            |
-| **Haversine**   | Math formula to find distance between two map points                     |
+| **Escrow**           | Third party holds money until both sides agree                              |
+| **Webhook**          | HTTP call when something happens                                            |
+| **ACID**             | Atomicity, Consistency, Isolation, Durability (safe database operations)    |
+| **OTP**              | One-Time Password - code you can only use once                              |
+| **HMAC**             | Hash-based Message Authentication Code - signature to verify sender         |
+| **Idempotency**      | Same action gives same result, even if done many times                      |
+| **Geospatial**       | Data based on map coordinates                                               |
+| **Haversine**        | Math formula to find distance between two map points                        |
 
 ---
 
@@ -1924,13 +1928,13 @@ When a signal breaches its threshold, a `system_alerts` document is created/upda
 
 **5 email types supported**:
 
-| Kind | Template | Purpose |
-| --- | --- | --- |
-| `delivery_otp` | `lib/delivery-otp-email.ts` | OTP code for delivery confirmation |
-| `password_reset` | `lib/password-reset-email.ts` | Branded reset link with 1-hour expiry notice |
+| Kind               | Template                        | Purpose                                                        |
+| ------------------ | ------------------------------- | -------------------------------------------------------------- |
+| `delivery_otp`     | `lib/delivery-otp-email.ts`     | OTP code for delivery confirmation                             |
+| `password_reset`   | `lib/password-reset-email.ts`   | Branded reset link with 1-hour expiry notice                   |
 | `password_changed` | `lib/password-changed-email.ts` | Security notification after password change (reset or profile) |
-| `magic_link` | `lib/magic-link-email.ts` | Passwordless login verification link |
-| `otp_email` | `lib/otp-code-email.ts` | Email OTP code for signup verification |
+| `magic_link`       | `lib/magic-link-email.ts`       | Passwordless login verification link                           |
+| `otp_email`        | `lib/otp-code-email.ts`         | Email OTP code for signup verification                         |
 
 **Inline dispatch + cron fallback**: When an email is enqueued, the system immediately attempts to send it inline. If that fails (SMTP down, timeout, etc.), the job stays `pending` and the cron worker (`process-email-outbox`, every 2 min) picks it up with exponential backoff.
 
@@ -2029,6 +2033,7 @@ Use these points if you are asked about differences between the PRD and what is 
 ## Key Features Implemented (Full System — 2026-03-07 Rev 13)
 
 ### Core Workflow
+
 - **Full booking lifecycle**: requested → accepted → pickup_proposed → reschedule_requested → confirmed → invoice_created → completed/cancelled/rejected
 - **Order state machine**: invoiced → processing → washing → ironing → ready → out_for_delivery → delivered — with enforced valid transitions (`lib/orders/status-machine.ts`)
 - **Canonical payment routing**: Unified around `/api/orders/:id/payment` and `/api/bookings/:id/pay` with backward-compatible legacy aliases
@@ -2040,6 +2045,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Cancel at `invoice_created` stage**: Seekers can cancel after provider has created an invoice — the slot-time guard is bypassed and the booking fee is **always forfeited** (provider did physical work). UI shows "Cancel & Reject Invoice" button with a fee-forfeit warning in the confirm dialog. Policy engine, API, and UI all updated consistently.
 
 ### Financial System
+
 - **Escrow**: 24-hour hold after delivery; complaint blocks release; transactional release with audit log
 - **Payout orchestration**: Concurrent batch processing with distributed payout locks, stale-lock recovery, and `decimal.js` precision
 - **Platform commission**: 5% deducted from subtotal (or total if no subtotal) using `decimal.js` — commission preserved even on complaint resolution
@@ -2049,6 +2055,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Financial precision**: `decimal.js` for payout calculations, paise-based Razorpay amounts, `round2()`, `toPaise()`, `formatInr()` helpers
 
 ### Complaint & Dispute Resolution
+
 - **Complaint split settlement**: Admin can split distributable amount between seeker refund and provider payout (`refund_partial`) with commission preserved
 - **4 resolution outcomes**: `refund_full`, `refund_partial`, `release_payout`, `reject` — each with appropriate financial actions
 - **Settlement summary modal**: Admin sees a styled `SettlementSummaryModal` (not a browser `alert()`) showing provider UPI/bank details and seeker refund method, with amber "Manual" warning badge when Razorpay auto-transfer fails
@@ -2057,6 +2064,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **3-way chat**: Seeker, provider (after admin grants access), and admin exchange TEXT/IMAGE/SYSTEM messages; auto-archived after resolution
 
 ### UI & Interaction
+
 - **No native browser dialogs**: Zero `alert()`/`confirm()`/`prompt()` in the codebase — all replaced with styled in-app components
 - **`ConfirmDialog` + `useConfirmDialog` hook** (`components/ui/confirm-dialog.tsx`): 3 variants (danger/warning/info), Escape/Enter keyboard support, Framer Motion animations, loading spinner, dark-mode aware
 - **`SettlementSummaryModal`** (`components/ui/settlement-summary-modal.tsx`): Structured provider payout + seeker refund cards with UPI/bank/card details, manual-transfer amber warning banner, auto vs manual badge
@@ -2067,6 +2075,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **"Cancel & Reject Invoice" button**: At `invoice_created` stage the cancel button changes label and shows a fee-forfeit warning in the confirm dialog — no accidental cancellations after provider has collected items
 
 ### Real-Time Chat (Socket.IO)
+
 - **Custom Node.js server** (`server.js`): Attaches a Socket.IO `Server` to the same HTTP server as Next.js — single port, no separate process
 - **Two chat systems**: **Order chat** (`order:<id>` rooms — seeker ↔ provider on active orders) and **complaint chat** (`complaint:<id>` rooms — 3-way: seeker/provider/admin). Both support rich media like photos and voice notes.
 - **Message Deletion**: Users can delete messages `for_me` or `for_everyone` (within 1 hour window). Admins have an `admin_hard_delete` action for permanent removal in disputes.
@@ -2081,6 +2090,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **All realtime modules unit-tested**: `socket-auth.test.ts` (order + complaint + booking room auth), `emitter.test.ts`, `chat-state.test.ts`
 
 ### Security & Hardening
+
 - **CSP pipeline**: Content-Security-Policy in Report-Only mode with violation capture endpoint; enforce via `CSP_ENFORCE=true`
 - **Security headers**: HSTS (production), X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy
 - **Rate limiting**: MongoDB-backed per-IP with 3 tiers (default 1 min, strict 5 min, auth 15 min) and TTL auto-cleanup
@@ -2094,6 +2104,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Proxy trust model**: Secure IP extraction respecting Vercel/CF/standard proxy headers with `TRUST_PROXY` flag
 
 ### Operational Monitoring
+
 - **10 cron jobs**: auto-reject-bookings (5m), no-show (5m), process-payouts (15m), notify-system-alerts (15m), process-email-outbox (2m), audit-integrity (30m), reconciliation (30m), monitor-operational-health (1h), monitor-abuse (daily 2AM), webhook-cleanup (daily 1AM)
 - **Cron run tracking**: Every cron execution recorded in `cron_runs` with duration, status, result (TTL: 7 days)
 - **Health monitoring**: Hourly cron evaluates overdue held orders (critical, ≥3), payout failures (high, ≥3), overdue complaints (high, ≥2)
@@ -2105,6 +2116,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Data integrity auditing**: 30-minute cron verifies order/payment/booking consistency → system alerts on mismatch
 
 ### Email & Communication
+
 - **Email outbox**: 5 email types (delivery_otp, password_reset, password_changed, magic_link, otp_email) queued through claim-lock-dispatch pattern with inline dispatch attempt + cron fallback, exponential backoff (base 30s, max 30min), max 5 attempts, dead-letter tracking
 - **Password reset email**: Branded HTML + plain text template with masked email, 1-hour expiry notice, fallback URL, security warning for unauthorized requests
 - **Password changed email**: Branded HTML security notification with UTC timestamp, sign-in CTA, unauthorized-change warning
@@ -2112,12 +2124,14 @@ Use these points if you are asked about differences between the PRD and what is 
 - **APM**: Datadog dd-trace (service: `laundryease-web`) + DogStatsD metrics via hot-shots (prefix: `laundryease.`)
 
 ### Demo & Local Development
+
 - **Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`): `DEMO_MODE=1` in `.env` enables in-process invocation of all 10 cron handlers from the admin demo panel — no external scheduler required for local testing or demos
 - Each dispatch creates a fully authorized `NextRequest` with `CRON_SECRET` bearer token and calls the handler directly in-process
 - Results (status, duration, payload) returned to the admin UI for inspection
 - **Must be disabled in production** — set `DEMO_MODE=0` or remove the env var before any public deployment
 
 ### Testing & CI
+
 - **107 test files, 567 unit tests** passing (Vitest + mongodb-memory-server)
 - **Test coverage includes**: `authorizeOrderRoom` — 6 tests (invalid id, not found, forbidden, seeker allowed, provider allowed, admin allowed)
 - **Retained from Rev 11**: realtime socket-auth room authorization, emitter dispatch, chat-state serialization, cancellation policy `invoice_created` forced-forfeit case (11 total)
@@ -2130,6 +2144,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **React Compiler**: Enabled via `reactCompiler: true` for automatic frontend optimizations
 
 ### Provider Search Engine (`lib/services/provider-search.ts`)
+
 - **Primary path**: `$geoNear` aggregation with 2dsphere index on `locationGeoJSON`
 - **Fallback**: Bounding-box filter on `coordinates.lat`/`coordinates.lng` when geo index unavailable
 - **Radius enforcement**: Provider's `radius_km` checked against distance — only shows providers who cover the seeker's location
@@ -2137,6 +2152,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Filters**: Name (regex), service (regex), seeker search radius cap
 
 ### SEO & PWA Foundations
+
 - `app/sitemap.ts` — Dynamic sitemap.xml generation
 - `app/robots.ts` — Robots.txt with admin/API/internal route disallow rules
 - `components/seo/json-ld.tsx` — Structured data for search engines
