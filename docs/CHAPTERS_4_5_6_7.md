@@ -22,24 +22,24 @@ The design follows three guiding principles:
 
 The LaundryEase system is divided into the following independent modules. Each module handles a specific area of functionality and communicates with other modules through well-defined interfaces (API routes and shared database collections).
 
-| Module | Responsibility | Key Files |
-|--------|---------------|-----------|
-| **Authentication Module** | User registration, login, email/phone verification, password management, session handling | `app/api/auth/`, `lib/auth/`, `app/signup/`, `app/auth/` |
-| **Provider Discovery Module** | Location-based provider search using geospatial queries, distance calculation, delivery fee computation | `app/api/providers/`, `lib/distance.ts`, `lib/geocoding.ts` |
-| **Booking Module** | Booking creation, acceptance, rejection, pickup scheduling, rescheduling, cancellation with fee policies (including cancellation at `invoice_created` stage with mandatory fee forfeiture) | `app/api/bookings/`, `lib/bookings/`, `types/bookings.ts` |
-| **Invoice Module** | Item-level invoice creation with photos, discount application, delivery charge calculation, invoice review workflow | `app/(dashboard)/provider/invoice-generation/`, `components/providers/invoice-form.tsx` |
-| **Order Module** | Order lifecycle tracking through process states, deadline monitoring, status updates | `app/api/orders/`, `lib/orders/`, `types/orders.ts` |
-| **Payment Module** | Razorpay order creation, payment capture, signature verification, webhook handling, refund processing | `app/api/payments/`, `lib/razorpay.ts`, `lib/webhooks/` |
-| **Escrow & Payout Module** | Escrow hold after delivery, timed release, payout initiation via RazorpayX, commission calculation, failure handling | `app/api/escrow/`, `lib/payouts.ts`, `lib/payouts/` |
-| **Delivery Module** | OTP generation, OTP email delivery, OTP verification, delivery confirmation, deadline compensation | `lib/delivery-otp-email.ts`, `lib/otp.ts`, `lib/orders/deadline-compensation.ts` |
-| **Complaint Module** | Complaint filing, admin triage, 3-party chat, evidence upload, resolution with settlement | `app/api/complaints/`, `lib/complaints/`, `types/complaints.ts` |
-| **Review Module** | Post-delivery star ratings, comment submission, provider rating aggregation | `app/api/reviews/`, `types/reviews.ts` |
-| **Admin Module** | User management, payment oversight, complaint resolution, operational alerts | `app/(dashboard)/admin/`, `app/api/admin/` |
-| **Notification Module** | Email outbox with retry logic, SMS OTP via Twilio, magic link delivery | `lib/email-outbox.ts`, `lib/email-transporter.ts`, `lib/magic-link-email.ts` |
-| **Cron Module** | Scheduled background tasks — stale booking auto-rejection, no-show detection, email queue processing | `cron/`, `lib/cron-tracking.ts` |
-| **Security Module** | Rate limiting, CSP headers, origin validation, CSRF protection, password policy enforcement | `lib/security/`, `lib/auth/password-policy.ts` |
-| **Audit Module** | Transaction logging, cross-entity anomaly detection, audit trail with TTL cleanup | `lib/audit.ts`, `lib/audit/` |
-| **Real-Time Module** | Socket.IO WebSocket server for live order/complaint chat, typing indicators, connection state management, per-socket rate limiting, voice, photos, and deletion | `server.js`, `components/providers/socket-provider.tsx`, `components/order-chat.tsx`, `components/complaint-chat.tsx`, `lib/realtime/` |
+| Module                        | Responsibility                                                                                                                                                                             | Key Files                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Authentication Module**     | User registration, login, email/phone verification, password management, session handling                                                                                                  | `app/api/auth/`, `lib/auth/`, `app/signup/`, `app/auth/`                                                                               |
+| **Provider Discovery Module** | Location-based provider search using geospatial queries, distance calculation, delivery fee computation                                                                                    | `app/api/providers/`, `lib/distance.ts`, `lib/geocoding.ts`                                                                            |
+| **Booking Module**            | Booking creation, acceptance, rejection, pickup scheduling, rescheduling, cancellation with fee policies (including cancellation at `invoice_created` stage with mandatory fee forfeiture) | `app/api/bookings/`, `lib/bookings/`, `types/bookings.ts`                                                                              |
+| **Invoice Module**            | Item-level invoice creation with photos, discount application, delivery charge calculation, invoice review workflow                                                                        | `app/(dashboard)/provider/invoice-generation/`, `components/providers/invoice-form.tsx`                                                |
+| **Order Module**              | Order lifecycle tracking through process states, deadline monitoring, status updates                                                                                                       | `app/api/orders/`, `lib/orders/`, `types/orders.ts`                                                                                    |
+| **Payment Module**            | Razorpay order creation, payment capture, signature verification, webhook handling, refund processing                                                                                      | `app/api/payments/`, `lib/razorpay.ts`, `lib/webhooks/`                                                                                |
+| **Escrow & Payout Module**    | Escrow hold after delivery, timed release, payout initiation via RazorpayX, commission calculation, failure handling                                                                       | `app/api/escrow/`, `lib/payouts.ts`, `lib/payouts/`                                                                                    |
+| **Delivery Module**           | OTP generation, OTP email delivery, OTP verification, delivery confirmation, deadline compensation                                                                                         | `lib/delivery-otp-email.ts`, `lib/otp.ts`, `lib/orders/deadline-compensation.ts`                                                       |
+| **Complaint Module**          | Complaint filing, admin triage, 3-party chat, evidence upload, resolution with settlement                                                                                                  | `app/api/complaints/`, `lib/complaints/`, `types/complaints.ts`                                                                        |
+| **Review Module**             | Post-delivery star ratings, comment submission, provider rating aggregation                                                                                                                | `app/api/reviews/`, `types/reviews.ts`                                                                                                 |
+| **Admin Module**              | User management, payment oversight, complaint resolution, operational alerts                                                                                                               | `app/(dashboard)/admin/`, `app/api/admin/`                                                                                             |
+| **Notification Module**       | Email outbox with retry logic, SMS OTP via Twilio, magic link delivery                                                                                                                     | `lib/email-outbox.ts`, `lib/email-transporter.ts`, `lib/magic-link-email.ts`                                                           |
+| **Cron Module**               | Scheduled background tasks — stale booking auto-rejection, no-show detection, email queue processing                                                                                       | `cron/`, `lib/cron-tracking.ts`                                                                                                        |
+| **Security Module**           | Rate limiting, CSP headers, origin validation, CSRF protection, password policy enforcement                                                                                                | `lib/security/`, `lib/auth/password-policy.ts`                                                                                         |
+| **Audit Module**              | Transaction logging, cross-entity anomaly detection, audit trail with TTL cleanup                                                                                                          | `lib/audit.ts`, `lib/audit/`                                                                                                           |
+| **Real-Time Module**          | Socket.IO WebSocket server for live order/complaint chat, typing indicators, connection state management, per-socket rate limiting, voice, photos, and deletion                            | `server.js`, `components/providers/socket-provider.tsx`, `components/order-chat.tsx`, `components/complaint-chat.tsx`, `lib/realtime/` |
 
 ---
 
@@ -360,6 +360,7 @@ The landing page is the first screen visitors see when they open the application
 ```
 
 **Key Elements:**
+
 - Fixed navigation bar with backdrop blur effect
 - Interactive grid background animation
 - Dual call-to-action buttons for seekers and providers
@@ -371,6 +372,7 @@ The landing page is the first screen visitors see when they open the application
 The seeker dashboard uses a top navigation bar layout. The main content area shows different pages based on the selected menu item.
 
 **Navigation Bar:**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Logo   Find Providers  Bookings  Invoices  Orders  Profile │
@@ -380,6 +382,7 @@ The seeker dashboard uses a top navigation bar layout. The main content area sho
 ```
 
 **Find Providers Page (Default):**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  ┌──────────────────────────────────────────┐                │
@@ -400,6 +403,7 @@ The seeker dashboard uses a top navigation bar layout. The main content area sho
 ```
 
 **My Bookings Page:**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  My Bookings                                                 │
@@ -430,6 +434,7 @@ The seeker dashboard uses a top navigation bar layout. The main content area sho
 ```
 
 **Orders Page:**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  My Orders                                                   │
@@ -448,6 +453,7 @@ The seeker dashboard uses a top navigation bar layout. The main content area sho
 ```
 
 **Order Detail Page** (with embedded real-time chat):
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Order #ORD-A2B4                                             │
@@ -477,6 +483,7 @@ The seeker dashboard uses a top navigation bar layout. The main content area sho
 The provider dashboard uses a sidebar navigation layout on desktop and a collapsible top navigation on mobile.
 
 **Desktop Layout:**
+
 ```
 ┌──────────┬───────────────────────────────────────────────────┐
 │          │                                                   │
@@ -508,6 +515,7 @@ The provider dashboard uses a sidebar navigation layout on desktop and a collaps
 ```
 
 **Invoice Generation Page:**
+
 ```
 ┌──────────┬───────────────────────────────────────────────────┐
 │          │  Create Invoice for Booking #BK-7F3A              │
@@ -537,6 +545,7 @@ The provider dashboard uses a sidebar navigation layout on desktop and a collaps
 ```
 
 **Order Status Page** (with expandable chat per order):
+
 ```
 ┌──────────┬───────────────────────────────────────────────────┐
 │          │  Order Processing                                 │
@@ -571,6 +580,7 @@ The provider dashboard uses a sidebar navigation layout on desktop and a collaps
 ```
 
 **Key Elements:**
+
 - Each order card has an expandable real-time chat panel powered by Socket.IO
 - Chat uses the shared `SocketProvider` connection — no extra socket per card
 - Typing indicators and disconnect banners appear inside the chat panel
@@ -581,6 +591,7 @@ The provider dashboard uses a sidebar navigation layout on desktop and a collaps
 The admin dashboard also uses a sidebar layout, with sections for operations management.
 
 **Layout:**
+
 ```
 ┌──────────┬───────────────────────────────────────────────────┐
 │          │                                                   │
@@ -613,6 +624,7 @@ The admin dashboard also uses a sidebar layout, with sections for operations man
 ```
 
 **Complaint Resolution Dialog:**
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Resolve Complaint #C-9D2E                                   │
@@ -641,229 +653,229 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 
 **Entity 1: Seeker (Customer)**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| email | String | Email address (unique) |
-| name | String | Full name |
-| phone | String | Phone number |
-| passwordHash | String | Bcrypt-hashed password |
-| emailVerified | Boolean | Email verification status |
-| phoneVerified | Boolean | Phone verification status |
-| address | Object | Street address (line1, city, state, country, postalCode, landmark) |
-| coordinates | Object | Latitude and longitude (lat, lng) |
-| outstanding_fees | Number | Unpaid booking fees balance |
-| blocked_until | Date | Account block expiration (set after cancellation abuse) |
-| isFlagged | Boolean | Admin-flagged status |
-| cancellationCount | Number | Total cancellations by this seeker |
-| createdAt | Date | Registration timestamp |
+| Attribute         | Type     | Description                                                        |
+| ----------------- | -------- | ------------------------------------------------------------------ |
+| \_id              | ObjectId | Unique identifier (primary key)                                    |
+| email             | String   | Email address (unique)                                             |
+| name              | String   | Full name                                                          |
+| phone             | String   | Phone number                                                       |
+| passwordHash      | String   | Bcrypt-hashed password                                             |
+| emailVerified     | Boolean  | Email verification status                                          |
+| phoneVerified     | Boolean  | Phone verification status                                          |
+| address           | Object   | Street address (line1, city, state, country, postalCode, landmark) |
+| coordinates       | Object   | Latitude and longitude (lat, lng)                                  |
+| outstanding_fees  | Number   | Unpaid booking fees balance                                        |
+| blocked_until     | Date     | Account block expiration (set after cancellation abuse)            |
+| isFlagged         | Boolean  | Admin-flagged status                                               |
+| cancellationCount | Number   | Total cancellations by this seeker                                 |
+| createdAt         | Date     | Registration timestamp                                             |
 
 **Entity 2: Provider (Laundry Service)**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| email | String | Email address (unique) |
-| name | String | Owner/operator name |
-| phone | String | Phone number |
-| passwordHash | String | Bcrypt-hashed password |
-| businessName | String | Laundry shop name |
-| bio | String | Short description |
-| services | Array | List of services offered (e.g., wash, dry, iron) |
-| pricing | Number | Base price per item |
-| pricingRates | Object | Service-specific pricing map |
-| location | String | Text address |
-| coordinates | Object | Latitude and longitude |
-| locationGeoJSON | Object | GeoJSON Point for geospatial queries |
-| radius_km | Number | Maximum service radius in kilometers |
-| free_radius_km | Number | Free delivery radius |
-| per_km_rate | Number | Delivery charge per kilometer beyond free radius |
-| capacity | Number | Maximum concurrent active jobs |
-| bankDetails | Object | Bank account (accountNumber, ifsc, accountHolderName, upiId) |
-| razorpay_contact_id | String | Razorpay vendor contact ID |
-| razorpay_fund_account_id | String | Razorpay fund account ID for payouts |
-| profilePicture | String | Profile image URL (Cloudinary) |
-| bannerImage | String | Banner image URL (Cloudinary) |
-| rating | Number | Average star rating (1–5) |
-| ratingTotal | Number | Sum of all ratings received |
-| reviewCount | Number | Total number of reviews |
-| createdAt | Date | Registration timestamp |
+| Attribute                | Type     | Description                                                  |
+| ------------------------ | -------- | ------------------------------------------------------------ |
+| \_id                     | ObjectId | Unique identifier (primary key)                              |
+| email                    | String   | Email address (unique)                                       |
+| name                     | String   | Owner/operator name                                          |
+| phone                    | String   | Phone number                                                 |
+| passwordHash             | String   | Bcrypt-hashed password                                       |
+| businessName             | String   | Laundry shop name                                            |
+| bio                      | String   | Short description                                            |
+| services                 | Array    | List of services offered (e.g., wash, dry, iron)             |
+| pricing                  | Number   | Base price per item                                          |
+| pricingRates             | Object   | Service-specific pricing map                                 |
+| location                 | String   | Text address                                                 |
+| coordinates              | Object   | Latitude and longitude                                       |
+| locationGeoJSON          | Object   | GeoJSON Point for geospatial queries                         |
+| radius_km                | Number   | Maximum service radius in kilometers                         |
+| free_radius_km           | Number   | Free delivery radius                                         |
+| per_km_rate              | Number   | Delivery charge per kilometer beyond free radius             |
+| capacity                 | Number   | Maximum concurrent active jobs                               |
+| bankDetails              | Object   | Bank account (accountNumber, ifsc, accountHolderName, upiId) |
+| razorpay_contact_id      | String   | Razorpay vendor contact ID                                   |
+| razorpay_fund_account_id | String   | Razorpay fund account ID for payouts                         |
+| profilePicture           | String   | Profile image URL (Cloudinary)                               |
+| bannerImage              | String   | Banner image URL (Cloudinary)                                |
+| rating                   | Number   | Average star rating (1–5)                                    |
+| ratingTotal              | Number   | Sum of all ratings received                                  |
+| reviewCount              | Number   | Total number of reviews                                      |
+| createdAt                | Date     | Registration timestamp                                       |
 
 **Entity 3: Admin**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| email | String | Email address (unique) |
-| name | String | Administrator name |
-| passwordHash | String | Bcrypt-hashed password |
-| createdAt | Date | Account creation timestamp |
+| Attribute    | Type     | Description                     |
+| ------------ | -------- | ------------------------------- |
+| \_id         | ObjectId | Unique identifier (primary key) |
+| email        | String   | Email address (unique)          |
+| name         | String   | Administrator name              |
+| passwordHash | String   | Bcrypt-hashed password          |
+| createdAt    | Date     | Account creation timestamp      |
 
 **Entity 4: Booking**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| seeker_id | ObjectId | Reference to seeker (foreign key) |
-| provider_id | ObjectId | Reference to provider (foreign key) |
-| status | String | Current state (requested, accepted, rejected, pickup_proposed, reschedule_requested, confirmed, invoice_created, cancelled, completed). Seekers may cancel at any pre-payment state including `invoice_created`; fee is always forfeited at that stage. |
-| bookingFee | Number | Booking fee amount (₹50) |
-| bookingFeeStatus | String | Fee state (pending, paid, refunded, forfeited, applied) |
-| pickupSlot | Object | Proposed pickup date/time with confirmation |
-| reschedule | Object | Reschedule details (requestedBy, reason, count, previousSlot) |
-| arrivedAt | Date | Provider arrival timestamp |
-| invoice | Object | Embedded invoice data (items, subtotal, discount, total, photos, notes) |
-| deadline | Date | Service completion deadline |
-| seeker_coordinates | Object | Seeker location at time of booking |
-| noShowStatus | Boolean | Provider no-show detected |
-| cancelledBy | String | Who cancelled (seeker or provider) |
-| cancellation_reason | String | Reason for cancellation |
-| razorpay_order_id | String | Razorpay order for booking fee (unique) |
-| razorpay_payment_id | String | Razorpay payment for booking fee (unique) |
-| payout_status | String | Booking fee payout state |
-| payout_id | String | Razorpay payout transaction ID (unique) |
-| platform_commission | Number | Platform's share of booking fee |
-| provider_payout_amount | Number | Provider's share of booking fee |
-| createdAt | Date | Booking creation timestamp |
-| updatedAt | Date | Last modification timestamp |
+| Attribute              | Type     | Description                                                                                                                                                                                                                                             |
+| ---------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| \_id                   | ObjectId | Unique identifier (primary key)                                                                                                                                                                                                                         |
+| seeker_id              | ObjectId | Reference to seeker (foreign key)                                                                                                                                                                                                                       |
+| provider_id            | ObjectId | Reference to provider (foreign key)                                                                                                                                                                                                                     |
+| status                 | String   | Current state (requested, accepted, rejected, pickup_proposed, reschedule_requested, confirmed, invoice_created, cancelled, completed). Seekers may cancel at any pre-payment state including `invoice_created`; fee is always forfeited at that stage. |
+| bookingFee             | Number   | Booking fee amount (₹50)                                                                                                                                                                                                                                |
+| bookingFeeStatus       | String   | Fee state (pending, paid, refunded, forfeited, applied)                                                                                                                                                                                                 |
+| pickupSlot             | Object   | Proposed pickup date/time with confirmation                                                                                                                                                                                                             |
+| reschedule             | Object   | Reschedule details (requestedBy, reason, count, previousSlot)                                                                                                                                                                                           |
+| arrivedAt              | Date     | Provider arrival timestamp                                                                                                                                                                                                                              |
+| invoice                | Object   | Embedded invoice data (items, subtotal, discount, total, photos, notes)                                                                                                                                                                                 |
+| deadline               | Date     | Service completion deadline                                                                                                                                                                                                                             |
+| seeker_coordinates     | Object   | Seeker location at time of booking                                                                                                                                                                                                                      |
+| noShowStatus           | Boolean  | Provider no-show detected                                                                                                                                                                                                                               |
+| cancelledBy            | String   | Who cancelled (seeker or provider)                                                                                                                                                                                                                      |
+| cancellation_reason    | String   | Reason for cancellation                                                                                                                                                                                                                                 |
+| razorpay_order_id      | String   | Razorpay order for booking fee (unique)                                                                                                                                                                                                                 |
+| razorpay_payment_id    | String   | Razorpay payment for booking fee (unique)                                                                                                                                                                                                               |
+| payout_status          | String   | Booking fee payout state                                                                                                                                                                                                                                |
+| payout_id              | String   | Razorpay payout transaction ID (unique)                                                                                                                                                                                                                 |
+| platform_commission    | Number   | Platform's share of booking fee                                                                                                                                                                                                                         |
+| provider_payout_amount | Number   | Provider's share of booking fee                                                                                                                                                                                                                         |
+| createdAt              | Date     | Booking creation timestamp                                                                                                                                                                                                                              |
+| updatedAt              | Date     | Last modification timestamp                                                                                                                                                                                                                             |
 
 **Entity 5: Order**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| booking_id | ObjectId | Reference to parent booking (unique, foreign key) |
-| seeker_id | ObjectId | Reference to seeker (foreign key) |
-| provider_id | ObjectId | Reference to provider (foreign key) |
-| items | Array | Ordered items (name, quantity, unit_price, line_total, photoUrl, notes) |
-| subtotal | Number | Sum of item line totals before discount |
-| discount | Number | Provider-applied discount |
-| delivery_charge | Number | Calculated delivery fee |
-| delivery_distance_km | Number | Distance between seeker and provider |
-| total_price | Number | Final amount (subtotal - discount + delivery_charge) |
-| payment_status | String | Payment state (unpaid, paid, held, released, refunded) |
-| process_status | String | Laundry stage (invoiced, processing, washing, ironing, ready, out_for_delivery, delivered) |
-| delivery_otp | String | One-time password for delivery confirmation |
-| delivery_otp_expires_at | Date | OTP expiration time (10 minutes) |
-| delivery_otp_resend_count | Number | Number of OTP resends |
-| escrow_started_at | Date | When escrow hold began |
-| escrow_release_at | Date | Scheduled escrow release time (24 hours after delivery) |
-| deadline | Date | Service deadline from booking |
-| deadline_breached_at | Date | When deadline was breached |
-| deadline_compensation_mode | String | Compensation type (full_refund or no_charge) |
-| razorpay_order_id | String | Razorpay order for invoice payment (unique) |
-| razorpay_payment_id | String | Razorpay payment ID (unique) |
-| platform_commission | Number | 5% of subtotal |
-| provider_payout_amount | Number | Total minus commission |
-| payout_status | String | Payout state (pending, processing, paid, failed) |
-| payout_id | String | Razorpay payout ID (unique) |
-| createdAt | Date | Order creation timestamp |
-| updatedAt | Date | Last modification timestamp |
+| Attribute                  | Type     | Description                                                                                |
+| -------------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| \_id                       | ObjectId | Unique identifier (primary key)                                                            |
+| booking_id                 | ObjectId | Reference to parent booking (unique, foreign key)                                          |
+| seeker_id                  | ObjectId | Reference to seeker (foreign key)                                                          |
+| provider_id                | ObjectId | Reference to provider (foreign key)                                                        |
+| items                      | Array    | Ordered items (name, quantity, unit_price, line_total, photoUrl, notes)                    |
+| subtotal                   | Number   | Sum of item line totals before discount                                                    |
+| discount                   | Number   | Provider-applied discount                                                                  |
+| delivery_charge            | Number   | Calculated delivery fee                                                                    |
+| delivery_distance_km       | Number   | Distance between seeker and provider                                                       |
+| total_price                | Number   | Final amount (subtotal - discount + delivery_charge)                                       |
+| payment_status             | String   | Payment state (unpaid, paid, held, released, refunded)                                     |
+| process_status             | String   | Laundry stage (invoiced, processing, washing, ironing, ready, out_for_delivery, delivered) |
+| delivery_otp               | String   | One-time password for delivery confirmation                                                |
+| delivery_otp_expires_at    | Date     | OTP expiration time (10 minutes)                                                           |
+| delivery_otp_resend_count  | Number   | Number of OTP resends                                                                      |
+| escrow_started_at          | Date     | When escrow hold began                                                                     |
+| escrow_release_at          | Date     | Scheduled escrow release time (24 hours after delivery)                                    |
+| deadline                   | Date     | Service deadline from booking                                                              |
+| deadline_breached_at       | Date     | When deadline was breached                                                                 |
+| deadline_compensation_mode | String   | Compensation type (full_refund or no_charge)                                               |
+| razorpay_order_id          | String   | Razorpay order for invoice payment (unique)                                                |
+| razorpay_payment_id        | String   | Razorpay payment ID (unique)                                                               |
+| platform_commission        | Number   | 5% of subtotal                                                                             |
+| provider_payout_amount     | Number   | Total minus commission                                                                     |
+| payout_status              | String   | Payout state (pending, processing, paid, failed)                                           |
+| payout_id                  | String   | Razorpay payout ID (unique)                                                                |
+| createdAt                  | Date     | Order creation timestamp                                                                   |
+| updatedAt                  | Date     | Last modification timestamp                                                                |
 
 **Entity 6: Complaint**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| order_id | ObjectId | Reference to disputed order (unique, foreign key) |
-| booking_id | ObjectId | Reference to related booking (foreign key) |
-| seeker_id | ObjectId | Reference to complaining seeker (foreign key) |
-| provider_id | ObjectId | Reference to accused provider (foreign key) |
-| complaint_type | String | Category of complaint |
-| title | String | Short summary |
-| description | String | Detailed complaint text |
-| photos | Array | Evidence image URLs (max 5) |
-| status | String | State (open, accepted, in_review, resolved, rejected) |
-| resolution_outcome | String | Decision (refund_full, refund_partial, release_payout, no_action) |
-| provider_access_granted | Boolean | Whether provider can see complaint chat |
-| response_deadline | Date | Deadline for provider response |
-| participants | Array | ObjectIds of involved parties |
-| acceptedAt | Date | When admin accepted the complaint |
-| resolvedAt | Date | When complaint was resolved |
-| createdAt | Date | Filing timestamp |
+| Attribute               | Type     | Description                                                       |
+| ----------------------- | -------- | ----------------------------------------------------------------- |
+| \_id                    | ObjectId | Unique identifier (primary key)                                   |
+| order_id                | ObjectId | Reference to disputed order (unique, foreign key)                 |
+| booking_id              | ObjectId | Reference to related booking (foreign key)                        |
+| seeker_id               | ObjectId | Reference to complaining seeker (foreign key)                     |
+| provider_id             | ObjectId | Reference to accused provider (foreign key)                       |
+| complaint_type          | String   | Category of complaint                                             |
+| title                   | String   | Short summary                                                     |
+| description             | String   | Detailed complaint text                                           |
+| photos                  | Array    | Evidence image URLs (max 5)                                       |
+| status                  | String   | State (open, accepted, in_review, resolved, rejected)             |
+| resolution_outcome      | String   | Decision (refund_full, refund_partial, release_payout, no_action) |
+| provider_access_granted | Boolean  | Whether provider can see complaint chat                           |
+| response_deadline       | Date     | Deadline for provider response                                    |
+| participants            | Array    | ObjectIds of involved parties                                     |
+| acceptedAt              | Date     | When admin accepted the complaint                                 |
+| resolvedAt              | Date     | When complaint was resolved                                       |
+| createdAt               | Date     | Filing timestamp                                                  |
 
 **Entity 7: Complaint Message**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| complaint_id | ObjectId | Reference to parent complaint (foreign key) |
-| sender_id | ObjectId | Reference to message sender (foreign key) |
-| sender_role | String | Role of sender (seeker, provider, admin, system) |
-| message_type | String | Type (TEXT, VOICE, IMAGE, SYSTEM) |
-| content | String | Message text |
-| attachments | Array | Attached image URLs |
-| voiceUrl | String | Voice note URL |
-| deletedFor | Array | Users who deleted this message locally |
-| deletedForEveryone | Boolean | Whether message is globally deleted |
-| createdAt | Date | Message timestamp |
+| Attribute          | Type     | Description                                      |
+| ------------------ | -------- | ------------------------------------------------ |
+| \_id               | ObjectId | Unique identifier (primary key)                  |
+| complaint_id       | ObjectId | Reference to parent complaint (foreign key)      |
+| sender_id          | ObjectId | Reference to message sender (foreign key)        |
+| sender_role        | String   | Role of sender (seeker, provider, admin, system) |
+| message_type       | String   | Type (TEXT, VOICE, IMAGE, SYSTEM)                |
+| content            | String   | Message text                                     |
+| attachments        | Array    | Attached image URLs                              |
+| voiceUrl           | String   | Voice note URL                                   |
+| deletedFor         | Array    | Users who deleted this message locally           |
+| deletedForEveryone | Boolean  | Whether message is globally deleted              |
+| createdAt          | Date     | Message timestamp                                |
 
 **Entity 8: Order Chat Message**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| order_id | ObjectId | Reference to parent order (foreign key) |
-| sender_id | String | Reference to message sender (user ID) |
-| sender_role | String | Role of sender (seeker, provider) |
-| message_type | String | Type (TEXT, VOICE, IMAGE, SYSTEM) |
-| content | String | Message text |
-| attachments | Array | Photo URLs (max 5) |
-| voiceUrl | String | Voice note URL |
-| deletedFor | Array | Users who deleted this message locally |
-| deletedForEveryone | Boolean | Whether message is globally deleted |
-| createdAt | Date | Message timestamp |
+| Attribute          | Type     | Description                             |
+| ------------------ | -------- | --------------------------------------- |
+| \_id               | ObjectId | Unique identifier (primary key)         |
+| order_id           | ObjectId | Reference to parent order (foreign key) |
+| sender_id          | String   | Reference to message sender (user ID)   |
+| sender_role        | String   | Role of sender (seeker, provider)       |
+| message_type       | String   | Type (TEXT, VOICE, IMAGE, SYSTEM)       |
+| content            | String   | Message text                            |
+| attachments        | Array    | Photo URLs (max 5)                      |
+| voiceUrl           | String   | Voice note URL                          |
+| deletedFor         | Array    | Users who deleted this message locally  |
+| deletedForEveryone | Boolean  | Whether message is globally deleted     |
+| createdAt          | Date     | Message timestamp                       |
 
 **Entity 9: Review**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| order_id | ObjectId | Reference to reviewed order (foreign key) |
-| seeker_id | ObjectId | Reference to reviewer (foreign key) |
+| Attribute   | Type     | Description                                  |
+| ----------- | -------- | -------------------------------------------- |
+| \_id        | ObjectId | Unique identifier (primary key)              |
+| order_id    | ObjectId | Reference to reviewed order (foreign key)    |
+| seeker_id   | ObjectId | Reference to reviewer (foreign key)          |
 | provider_id | ObjectId | Reference to reviewed provider (foreign key) |
-| seeker_name | String | Reviewer display name |
-| rating | Number | Star rating (1 to 5) |
-| comment | String | Optional text feedback |
-| createdAt | Date | Review submission timestamp |
+| seeker_name | String   | Reviewer display name                        |
+| rating      | Number   | Star rating (1 to 5)                         |
+| comment     | String   | Optional text feedback                       |
+| createdAt   | Date     | Review submission timestamp                  |
 
 **Entity 10: Payment**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| razorpay_payment_id | String | Razorpay payment reference (unique) |
-| amount | Number | Payment amount in paise |
-| status | String | Payment status |
-| createdAt | Date | Payment record timestamp |
+| Attribute           | Type     | Description                         |
+| ------------------- | -------- | ----------------------------------- |
+| \_id                | ObjectId | Unique identifier (primary key)     |
+| razorpay_payment_id | String   | Razorpay payment reference (unique) |
+| amount              | Number   | Payment amount in paise             |
+| status              | String   | Payment status                      |
+| createdAt           | Date     | Payment record timestamp            |
 
 **Entity 11: Email Outbox**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| _id | ObjectId | Unique identifier (primary key) |
-| type | String | Email type (delivery_otp, password_reset, magic_link, otp_email) |
-| to | String | Recipient email address |
-| subject | String | Email subject |
-| body | String | Email content |
-| status | String | Delivery state (pending, processing, sent, failed) |
-| attempts | Number | Delivery attempt count |
-| maxAttempts | Number | Maximum retry limit (default: 5) |
-| nextAttemptAt | Date | Next scheduled retry time |
-| lastError | String | Most recent error message |
-| lockedAt | Date | Processing lock timestamp |
-| createdAt | Date | Queue entry timestamp |
+| Attribute     | Type     | Description                                                      |
+| ------------- | -------- | ---------------------------------------------------------------- |
+| \_id          | ObjectId | Unique identifier (primary key)                                  |
+| type          | String   | Email type (delivery_otp, password_reset, magic_link, otp_email) |
+| to            | String   | Recipient email address                                          |
+| subject       | String   | Email subject                                                    |
+| body          | String   | Email content                                                    |
+| status        | String   | Delivery state (pending, processing, sent, failed)               |
+| attempts      | Number   | Delivery attempt count                                           |
+| maxAttempts   | Number   | Maximum retry limit (default: 5)                                 |
+| nextAttemptAt | Date     | Next scheduled retry time                                        |
+| lastError     | String   | Most recent error message                                        |
+| lockedAt      | Date     | Processing lock timestamp                                        |
+| createdAt     | Date     | Queue entry timestamp                                            |
 
 **Supporting Entities:**
 
-| Entity | Key Attributes | Purpose |
-|--------|---------------|---------|
-| Password Reset Token | tokenHash (unique), expiresAt (TTL) | Temporary token for password reset |
-| OTP Code | code, expiresAt (TTL) | Temporary verification code |
-| Webhook Event | event_id (unique), payload | Razorpay webhook deduplication |
-| Audit Log | action, actor, timestamp (TTL: 30 days) | System audit trail |
-| Cron Run | job, status, startedAt (TTL: 7 days), durationMs | Background job tracking |
-| System Alert | severity, status, message, firstSeenAt | Operational alert records |
+| Entity               | Key Attributes                                   | Purpose                            |
+| -------------------- | ------------------------------------------------ | ---------------------------------- |
+| Password Reset Token | tokenHash (unique), expiresAt (TTL)              | Temporary token for password reset |
+| OTP Code             | code, expiresAt (TTL)                            | Temporary verification code        |
+| Webhook Event        | event_id (unique), payload                       | Razorpay webhook deduplication     |
+| Audit Log            | action, actor, timestamp (TTL: 30 days)          | System audit trail                 |
+| Cron Run             | job, status, startedAt (TTL: 7 days), durationMs | Background job tracking            |
+| System Alert         | severity, status, message, firstSeenAt           | Operational alert records          |
 
 #### 4.5.2 E-R Diagram
 
@@ -1074,169 +1086,169 @@ The following tables show the structure of each MongoDB collection as used in th
 
 **Collection: seekers**
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| _id | ObjectId | Primary Key | Auto-generated unique ID |
-| email | String | Unique Index | Login identifier |
-| name | String | — | Display name |
-| phone | String | — | Contact number |
-| passwordHash | String | — | Bcrypt hash (10 rounds) |
-| emailVerified | Boolean | Default: false | Email OTP verified |
-| phoneVerified | Boolean | Default: false | Phone OTP verified |
-| address.line1 | String | — | Street address |
-| address.city | String | — | City |
-| address.state | String | — | State |
-| address.country | String | — | Country |
-| address.postalCode | String | — | PIN/ZIP code |
-| address.landmark | String | Optional | Nearby landmark |
-| coordinates.lat | Number | — | Latitude |
-| coordinates.lng | Number | — | Longitude |
-| outstanding_fees | Number | Default: 0 | Unpaid fees |
-| blocked_until | Date | Optional | Block expiry |
-| isFlagged | Boolean | Default: false | Admin flag |
-| cancellationCount | Number | Default: 0 | Cancel count |
-| createdAt | Date | — | Registration date |
+| Field              | Type     | Constraints    | Description              |
+| ------------------ | -------- | -------------- | ------------------------ |
+| \_id               | ObjectId | Primary Key    | Auto-generated unique ID |
+| email              | String   | Unique Index   | Login identifier         |
+| name               | String   | —              | Display name             |
+| phone              | String   | —              | Contact number           |
+| passwordHash       | String   | —              | Bcrypt hash (10 rounds)  |
+| emailVerified      | Boolean  | Default: false | Email OTP verified       |
+| phoneVerified      | Boolean  | Default: false | Phone OTP verified       |
+| address.line1      | String   | —              | Street address           |
+| address.city       | String   | —              | City                     |
+| address.state      | String   | —              | State                    |
+| address.country    | String   | —              | Country                  |
+| address.postalCode | String   | —              | PIN/ZIP code             |
+| address.landmark   | String   | Optional       | Nearby landmark          |
+| coordinates.lat    | Number   | —              | Latitude                 |
+| coordinates.lng    | Number   | —              | Longitude                |
+| outstanding_fees   | Number   | Default: 0     | Unpaid fees              |
+| blocked_until      | Date     | Optional       | Block expiry             |
+| isFlagged          | Boolean  | Default: false | Admin flag               |
+| cancellationCount  | Number   | Default: 0     | Cancel count             |
+| createdAt          | Date     | —              | Registration date        |
 
 **Collection: providers**
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| _id | ObjectId | Primary Key | Auto-generated unique ID |
-| email | String | Unique Index | Login identifier |
-| name | String | — | Owner name |
-| businessName | String | — | Shop name |
-| phone | String | — | Contact number |
-| passwordHash | String | — | Bcrypt hash |
-| services | Array[String] | — | Offered services |
-| pricing | Number | — | Base price |
-| pricingRates | Object | — | Service-specific rates |
-| location | String | — | Text address |
-| locationGeoJSON | Object | 2dsphere Index | GeoJSON Point for geo queries |
-| radius_km | Number | — | Service coverage radius |
-| free_radius_km | Number | — | Free delivery zone |
-| per_km_rate | Number | — | Extra delivery rate |
-| capacity | Number | Default: 100 | Max concurrent jobs |
-| bankDetails.accountNumber | String | — | Bank account |
-| bankDetails.ifsc | String | — | Bank IFSC code |
-| bankDetails.accountHolderName | String | — | Account holder |
-| bankDetails.upiId | String | Optional | UPI address |
-| razorpay_contact_id | String | — | Razorpay vendor ID |
-| razorpay_fund_account_id | String | — | Razorpay payout account |
-| rating | Number | — | Average rating (1–5) |
-| reviewCount | Number | Default: 0 | Total reviews |
-| createdAt | Date | — | Registration date |
+| Field                         | Type          | Constraints    | Description                   |
+| ----------------------------- | ------------- | -------------- | ----------------------------- |
+| \_id                          | ObjectId      | Primary Key    | Auto-generated unique ID      |
+| email                         | String        | Unique Index   | Login identifier              |
+| name                          | String        | —              | Owner name                    |
+| businessName                  | String        | —              | Shop name                     |
+| phone                         | String        | —              | Contact number                |
+| passwordHash                  | String        | —              | Bcrypt hash                   |
+| services                      | Array[String] | —              | Offered services              |
+| pricing                       | Number        | —              | Base price                    |
+| pricingRates                  | Object        | —              | Service-specific rates        |
+| location                      | String        | —              | Text address                  |
+| locationGeoJSON               | Object        | 2dsphere Index | GeoJSON Point for geo queries |
+| radius_km                     | Number        | —              | Service coverage radius       |
+| free_radius_km                | Number        | —              | Free delivery zone            |
+| per_km_rate                   | Number        | —              | Extra delivery rate           |
+| capacity                      | Number        | Default: 100   | Max concurrent jobs           |
+| bankDetails.accountNumber     | String        | —              | Bank account                  |
+| bankDetails.ifsc              | String        | —              | Bank IFSC code                |
+| bankDetails.accountHolderName | String        | —              | Account holder                |
+| bankDetails.upiId             | String        | Optional       | UPI address                   |
+| razorpay_contact_id           | String        | —              | Razorpay vendor ID            |
+| razorpay_fund_account_id      | String        | —              | Razorpay payout account       |
+| rating                        | Number        | —              | Average rating (1–5)          |
+| reviewCount                   | Number        | Default: 0     | Total reviews                 |
+| createdAt                     | Date          | —              | Registration date             |
 
 **Collection: bookings**
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| _id | ObjectId | Primary Key | Auto-generated |
-| seeker_id | ObjectId | Indexed | References seekers._id |
-| provider_id | ObjectId | Compound Index (+ status + createdAt) | References providers._id |
-| status | String | Compound Index | Booking state |
-| bookingFee | Number | — | Fee amount (₹50) |
-| bookingFeeStatus | String | — | Fee payment state |
-| pickupSlot.proposedBy | String | — | Who proposed (provider/seeker) |
-| pickupSlot.dateTime | Date | — | Proposed pickup time |
-| pickupSlot.confirmedAt | Date | — | Confirmation timestamp |
-| invoice.items | Array | — | Embedded invoice items |
-| invoice.subtotal | Number | — | Items total |
-| invoice.discount | Number | — | Applied discount |
-| invoice.total | Number | — | Final invoice amount |
-| razorpay_order_id | String | Unique Index | Razorpay order reference |
-| razorpay_payment_id | String | Unique Index | Razorpay payment reference |
-| payout_id | String | Unique Index | Payout transaction ID |
-| createdAt | Date | — | Creation timestamp |
+| Field                  | Type     | Constraints                           | Description                    |
+| ---------------------- | -------- | ------------------------------------- | ------------------------------ |
+| \_id                   | ObjectId | Primary Key                           | Auto-generated                 |
+| seeker_id              | ObjectId | Indexed                               | References seekers.\_id        |
+| provider_id            | ObjectId | Compound Index (+ status + createdAt) | References providers.\_id      |
+| status                 | String   | Compound Index                        | Booking state                  |
+| bookingFee             | Number   | —                                     | Fee amount (₹50)               |
+| bookingFeeStatus       | String   | —                                     | Fee payment state              |
+| pickupSlot.proposedBy  | String   | —                                     | Who proposed (provider/seeker) |
+| pickupSlot.dateTime    | Date     | —                                     | Proposed pickup time           |
+| pickupSlot.confirmedAt | Date     | —                                     | Confirmation timestamp         |
+| invoice.items          | Array    | —                                     | Embedded invoice items         |
+| invoice.subtotal       | Number   | —                                     | Items total                    |
+| invoice.discount       | Number   | —                                     | Applied discount               |
+| invoice.total          | Number   | —                                     | Final invoice amount           |
+| razorpay_order_id      | String   | Unique Index                          | Razorpay order reference       |
+| razorpay_payment_id    | String   | Unique Index                          | Razorpay payment reference     |
+| payout_id              | String   | Unique Index                          | Payout transaction ID          |
+| createdAt              | Date     | —                                     | Creation timestamp             |
 
 **Collection: orders**
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| _id | ObjectId | Primary Key | Auto-generated |
-| booking_id | ObjectId | Unique Index | One order per booking |
-| seeker_id | ObjectId | — | References seekers._id |
-| provider_id | ObjectId | — | References providers._id |
-| items | Array[Object] | — | Item details (name, qty, price, photo) |
-| subtotal | Number | — | Pre-discount sum |
-| discount | Number | — | Discount amount |
-| delivery_charge | Number | — | Delivery fee |
-| total_price | Number | — | Final payable amount |
-| payment_status | String | — | unpaid → paid → held → released |
-| process_status | String | — | invoiced → ... → delivered |
-| delivery_otp | String | — | 6-digit OTP |
-| delivery_otp_expires_at | Date | — | OTP expiry (10 min) |
-| escrow_release_at | Date | — | Scheduled release time |
-| platform_commission | Number | — | 5% of subtotal |
-| provider_payout_amount | Number | — | Total minus commission |
-| payout_status | String | — | Payout workflow state |
-| razorpay_order_id | String | Unique Index | Payment order ref |
-| razorpay_payment_id | String | Unique Index | Payment capture ref |
-| payout_id | String | Unique Index | Payout ref |
-| createdAt | Date | — | Creation timestamp |
+| Field                   | Type          | Constraints  | Description                            |
+| ----------------------- | ------------- | ------------ | -------------------------------------- |
+| \_id                    | ObjectId      | Primary Key  | Auto-generated                         |
+| booking_id              | ObjectId      | Unique Index | One order per booking                  |
+| seeker_id               | ObjectId      | —            | References seekers.\_id                |
+| provider_id             | ObjectId      | —            | References providers.\_id              |
+| items                   | Array[Object] | —            | Item details (name, qty, price, photo) |
+| subtotal                | Number        | —            | Pre-discount sum                       |
+| discount                | Number        | —            | Discount amount                        |
+| delivery_charge         | Number        | —            | Delivery fee                           |
+| total_price             | Number        | —            | Final payable amount                   |
+| payment_status          | String        | —            | unpaid → paid → held → released        |
+| process_status          | String        | —            | invoiced → ... → delivered             |
+| delivery_otp            | String        | —            | 6-digit OTP                            |
+| delivery_otp_expires_at | Date          | —            | OTP expiry (10 min)                    |
+| escrow_release_at       | Date          | —            | Scheduled release time                 |
+| platform_commission     | Number        | —            | 5% of subtotal                         |
+| provider_payout_amount  | Number        | —            | Total minus commission                 |
+| payout_status           | String        | —            | Payout workflow state                  |
+| razorpay_order_id       | String        | Unique Index | Payment order ref                      |
+| razorpay_payment_id     | String        | Unique Index | Payment capture ref                    |
+| payout_id               | String        | Unique Index | Payout ref                             |
+| createdAt               | Date          | —            | Creation timestamp                     |
 
 **Collection: complaints**
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| _id | ObjectId | Primary Key | Auto-generated |
-| order_id | ObjectId | Unique Index | One complaint per order |
-| booking_id | ObjectId | — | Related booking |
-| seeker_id | ObjectId | — | Complaining seeker |
-| provider_id | ObjectId | — | Accused provider |
-| complaint_type | String | — | Issue category |
-| title | String | — | Short summary |
-| description | String | — | Full details |
-| photos | Array[String] | Max 5 | Evidence URLs |
-| status | String | Compound Index (+ response_deadline) | Complaint state |
-| resolution_outcome | String | — | Admin decision |
-| provider_access_granted | Boolean | Default: false | Chat visibility |
-| response_deadline | Date | Indexed | Provider response due |
-| createdAt | Date | — | Filing timestamp |
+| Field                   | Type          | Constraints                          | Description             |
+| ----------------------- | ------------- | ------------------------------------ | ----------------------- |
+| \_id                    | ObjectId      | Primary Key                          | Auto-generated          |
+| order_id                | ObjectId      | Unique Index                         | One complaint per order |
+| booking_id              | ObjectId      | —                                    | Related booking         |
+| seeker_id               | ObjectId      | —                                    | Complaining seeker      |
+| provider_id             | ObjectId      | —                                    | Accused provider        |
+| complaint_type          | String        | —                                    | Issue category          |
+| title                   | String        | —                                    | Short summary           |
+| description             | String        | —                                    | Full details            |
+| photos                  | Array[String] | Max 5                                | Evidence URLs           |
+| status                  | String        | Compound Index (+ response_deadline) | Complaint state         |
+| resolution_outcome      | String        | —                                    | Admin decision          |
+| provider_access_granted | Boolean       | Default: false                       | Chat visibility         |
+| response_deadline       | Date          | Indexed                              | Provider response due   |
+| createdAt               | Date          | —                                    | Filing timestamp        |
 
 **Collection: complaint_messages**
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| _id | ObjectId | Primary Key | Auto-generated |
-| complaint_id | ObjectId | Indexed | Parent complaint |
-| sender_id | ObjectId | — | Message author |
-| sender_role | String | — | seeker / provider / admin / system |
-| message_type | String | — | TEXT / VOICE / IMAGE / SYSTEM |
-| content | String | — | Message body |
-| attachments | Array[String] | — | Attached images |
-| voiceUrl | String | — | Voice note URL |
-| deletedFor | Array[String] | — | Users who deleted locally |
-| deletedForEveryone | Boolean | — | Global deletion flag |
-| createdAt | Date | — | Sent timestamp |
+| Field              | Type          | Constraints | Description                        |
+| ------------------ | ------------- | ----------- | ---------------------------------- |
+| \_id               | ObjectId      | Primary Key | Auto-generated                     |
+| complaint_id       | ObjectId      | Indexed     | Parent complaint                   |
+| sender_id          | ObjectId      | —           | Message author                     |
+| sender_role        | String        | —           | seeker / provider / admin / system |
+| message_type       | String        | —           | TEXT / VOICE / IMAGE / SYSTEM      |
+| content            | String        | —           | Message body                       |
+| attachments        | Array[String] | —           | Attached images                    |
+| voiceUrl           | String        | —           | Voice note URL                     |
+| deletedFor         | Array[String] | —           | Users who deleted locally          |
+| deletedForEveryone | Boolean       | —           | Global deletion flag               |
+| createdAt          | Date          | —           | Sent timestamp                     |
 
 **Collection: order_chats**
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| _id | ObjectId | Primary Key | Auto-generated |
-| order_id | ObjectId | Indexed | Parent order |
-| sender_id | String | — | Message author (user ID) |
-| sender_role | String | — | seeker / provider |
-| message_type | String | — | TEXT / VOICE / IMAGE / SYSTEM |
-| content | String | — | Message body |
-| attachments | Array[String] | Max 5 | Photo URLs |
-| voiceUrl | String | — | Voice note URL |
-| deletedFor | Array[String] | — | Users who deleted locally |
-| deletedForEveryone | Boolean | Default: false | Global deletion flag |
-| createdAt | Date | — | Sent timestamp |
+| Field              | Type          | Constraints    | Description                   |
+| ------------------ | ------------- | -------------- | ----------------------------- |
+| \_id               | ObjectId      | Primary Key    | Auto-generated                |
+| order_id           | ObjectId      | Indexed        | Parent order                  |
+| sender_id          | String        | —              | Message author (user ID)      |
+| sender_role        | String        | —              | seeker / provider             |
+| message_type       | String        | —              | TEXT / VOICE / IMAGE / SYSTEM |
+| content            | String        | —              | Message body                  |
+| attachments        | Array[String] | Max 5          | Photo URLs                    |
+| voiceUrl           | String        | —              | Voice note URL                |
+| deletedFor         | Array[String] | —              | Users who deleted locally     |
+| deletedForEveryone | Boolean       | Default: false | Global deletion flag          |
+| createdAt          | Date          | —              | Sent timestamp                |
 
 **Collection: reviews**
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| _id | ObjectId | Primary Key | Auto-generated |
-| order_id | ObjectId | — | Reviewed order |
-| seeker_id | ObjectId | — | Reviewer |
-| provider_id | ObjectId | — | Reviewed provider |
-| seeker_name | String | — | Display name |
-| rating | Number | 1–5 | Star rating |
-| comment | String | Optional | Text feedback |
-| createdAt | Date | — | Submission time |
+| Field       | Type     | Constraints | Description       |
+| ----------- | -------- | ----------- | ----------------- |
+| \_id        | ObjectId | Primary Key | Auto-generated    |
+| order_id    | ObjectId | —           | Reviewed order    |
+| seeker_id   | ObjectId | —           | Reviewer          |
+| provider_id | ObjectId | —           | Reviewed provider |
+| seeker_name | String   | —           | Display name      |
+| rating      | Number   | 1–5         | Star rating       |
+| comment     | String   | Optional    | Text feedback     |
+| createdAt   | Date     | —           | Submission time   |
 
 ---
 
@@ -1340,22 +1352,28 @@ type Booking = {
   _id: ObjectId | string;
   seeker_id: ObjectId | string;
   provider_id: ObjectId | string;
-  status: "requested" | "accepted" | "rejected" | "pickup_proposed"
-    | "reschedule_requested" | "confirmed" | "invoice_created"
-    | "cancelled" | "completed";
+  status:
+    | "requested"
+    | "accepted"
+    | "rejected"
+    | "pickup_proposed"
+    | "reschedule_requested"
+    | "confirmed"
+    | "invoice_created"
+    | "cancelled"
+    | "completed";
   bookingFee?: number;
   // "forfeited" is set when seeker cancels after the 2-hour free window
   // or at invoice_created stage (provider has already done physical work).
   // "applied" means the fee has been released to the provider — no cancellation possible.
-  bookingFeeStatus?: "pending" | "paid" | "refunded"
-    | "forfeited" | "applied";
+  bookingFeeStatus?: "pending" | "paid" | "refunded" | "forfeited" | "applied";
   pickupSlot?: {
     proposedBy: "provider" | "seeker";
     dateTime: Date | string;
     confirmedAt?: Date | string;
   };
-  arrivedAt?: Date | string;    // Provider arrival timestamp
-  invoice?: InvoiceData;        // Embedded after provider creates invoice
+  arrivedAt?: Date | string; // Provider arrival timestamp
+  invoice?: InvoiceData; // Embedded after provider creates invoice
   // ... all fields typed
 };
 ```
@@ -1423,37 +1441,50 @@ On application startup, the system creates 30+ indexes across all collections. C
 
 ```typescript
 // Provider discovery — find providers within seeker's radius
-const providers = await db.collection("providers").find({
-  locationGeoJSON: {
-    $geoWithin: {
-      $centerSphere: [[lng, lat], radiusInRadians]
-    }
-  }
-}).toArray();
+const providers = await db
+  .collection("providers")
+  .find({
+    locationGeoJSON: {
+      $geoWithin: {
+        $centerSphere: [[lng, lat], radiusInRadians],
+      },
+    },
+  })
+  .toArray();
 
 // Capacity check — count active jobs before accepting
 const activeCount = await db.collection("bookings").countDocuments({
   provider_id: providerId,
   status: {
-    $in: ["accepted", "pickup_proposed", "reschedule_requested",
-          "confirmed", "invoice_created"]
-  }
+    $in: [
+      "accepted",
+      "pickup_proposed",
+      "reschedule_requested",
+      "confirmed",
+      "invoice_created",
+    ],
+  },
 });
 ```
 
 **Aggregation pipelines** are used to join data across collections. For example, fetching a seeker's bookings with provider details:
 
 ```typescript
-const bookings = await db.collection("bookings").aggregate([
-  { $match: { seeker_id: seekerId } },
-  { $lookup: {
-      from: "providers",
-      localField: "provider_id",
-      foreignField: "_id",
-      as: "provider"
-  }},
-  { $unwind: "$provider" }
-]).toArray();
+const bookings = await db
+  .collection("bookings")
+  .aggregate([
+    { $match: { seeker_id: seekerId } },
+    {
+      $lookup: {
+        from: "providers",
+        localField: "provider_id",
+        foreignField: "_id",
+        as: "provider",
+      },
+    },
+    { $unwind: "$provider" },
+  ])
+  .toArray();
 ```
 
 #### 5.4.2 Socket.IO Real-Time Layer
@@ -1476,16 +1507,16 @@ LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and at
 
 **Events** (defined in `lib/realtime/contracts.js`):
 
-| Event | Direction | Purpose |
-|-------|-----------|---------|
-| `order:join` | Client → Server | Join an order chat room after participant verification |
-| `complaint:join` | Client → Server | Join a complaint chat room after access validation |
-| `room:leave` | Client → Server | Leave a room |
-| `typing:start` | Client → Server | Relay typing indicator to room |
-| `typing:stop` | Client → Server | Relay typing-stopped indicator to room |
-| `order:message:created` | Server → Client | New order chat message pushed live |
-| `complaint:message:created` | Server → Client | New complaint chat message pushed live |
-| `complaint:state:updated` | Server → Client | Complaint status/access change notification |
+| Event                       | Direction       | Purpose                                                |
+| --------------------------- | --------------- | ------------------------------------------------------ |
+| `order:join`                | Client → Server | Join an order chat room after participant verification |
+| `complaint:join`            | Client → Server | Join a complaint chat room after access validation     |
+| `room:leave`                | Client → Server | Leave a room                                           |
+| `typing:start`              | Client → Server | Relay typing indicator to room                         |
+| `typing:stop`               | Client → Server | Relay typing-stopped indicator to room                 |
+| `order:message:created`     | Server → Client | New order chat message pushed live                     |
+| `complaint:message:created` | Server → Client | New complaint chat message pushed live                 |
+| `complaint:state:updated`   | Server → Client | Complaint status/access change notification            |
 
 **Server-side emitter** (`lib/realtime/emitter.ts`):
 
@@ -1503,7 +1534,7 @@ This prevents the bug of multiple parallel socket connections when navigating be
 
 #### 5.4.3 NextAuth Authentication
 
-LaundryEase uses **NextAuth v4.24.13** for authentication and session management.
+LaundryEase uses **NextAuth v5 (Auth.js beta, v5.0.0-beta.30)** for authentication and session management.
 
 **Authentication methods supported:**
 
@@ -1558,10 +1589,10 @@ Testing ensures that the LaundryEase application works correctly, handles errors
 
 The testing infrastructure consists of:
 
-| Tool | Purpose | Test Count |
-|------|---------|------------|
-| **Vitest** | Unit tests and integration tests | 107 test files, 567 tests |
-| **Playwright** | End-to-end browser tests | 5 test suites |
+| Tool                      | Purpose                                         | Test Count                |
+| ------------------------- | ----------------------------------------------- | ------------------------- |
+| **Vitest**                | Unit tests and integration tests                | 107 test files, 567 tests |
+| **Playwright**            | End-to-end browser tests                        | 5 test suites             |
 | **mongodb-memory-server** | In-memory MongoDB for isolated database testing | Used in integration tests |
 
 ### 6.2 Testing Methods
@@ -1575,20 +1606,20 @@ Unit tests verify that individual functions produce the correct output for given
 
 **What is unit tested:**
 
-| Area | What Is Tested | Example |
-|------|---------------|---------|
-| Cancellation Policy | Fee refund vs. forfeit rules based on timing, role, and booking stage | Seeker cancels within 2h → "refund"; seeker cancels after 2h → "forfeit"; seeker cancels at `invoice_created` (regardless of time window) → always "forfeit"; provider cancels → "refund" |
-| Socket Auth | Room join authorization for order and complaint chat | Order/complaint participant allowed in; non-participant rejected; rate limit enforced; admin always allowed for orders |
-| Chat State | Real-time chat deduplication and archive state | POST response and socket echo deduplicated by message ID; archived thread locks composer |
-| Payout Calculation | Commission math with Decimal.js precision | ₹1000 subtotal → ₹50 commission → ₹950 payout (in paise: 95000) |
-| Order Status Machine | Valid and invalid state transitions | washing → ironing is valid; washing → delivered is rejected |
-| Deadline Compensation | SLA breach detection logic | Order past deadline triggers full_refund compensation mode |
-| Password Policy | Password strength validation | "abc" fails; "Passw0rd!" passes |
-| CSP Builder | Content Security Policy header generation | Verify allowed domains appear in script-src directive |
-| Schema Validation | Zod schema acceptance and rejection | Valid payment signature passes; missing field throws ZodError |
-| Access Control | Role-based permission checks for complaints | Seeker can access own complaint; provider blocked without admin grant |
-| Email Outbox | Queue, retry, and backoff logic | Failed email retries with increasing delay; max 5 attempts |
-| Audit Integrity | Cross-entity anomaly detection | Order with held payment but no matching booking is flagged |
+| Area                  | What Is Tested                                                        | Example                                                                                                                                                                                   |
+| --------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cancellation Policy   | Fee refund vs. forfeit rules based on timing, role, and booking stage | Seeker cancels within 2h → "refund"; seeker cancels after 2h → "forfeit"; seeker cancels at `invoice_created` (regardless of time window) → always "forfeit"; provider cancels → "refund" |
+| Socket Auth           | Room join authorization for order and complaint chat                  | Order/complaint participant allowed in; non-participant rejected; rate limit enforced; admin always allowed for orders                                                                    |
+| Chat State            | Real-time chat deduplication and archive state                        | POST response and socket echo deduplicated by message ID; archived thread locks composer                                                                                                  |
+| Payout Calculation    | Commission math with Decimal.js precision                             | ₹1000 subtotal → ₹50 commission → ₹950 payout (in paise: 95000)                                                                                                                           |
+| Order Status Machine  | Valid and invalid state transitions                                   | washing → ironing is valid; washing → delivered is rejected                                                                                                                               |
+| Deadline Compensation | SLA breach detection logic                                            | Order past deadline triggers full_refund compensation mode                                                                                                                                |
+| Password Policy       | Password strength validation                                          | "abc" fails; "Passw0rd!" passes                                                                                                                                                           |
+| CSP Builder           | Content Security Policy header generation                             | Verify allowed domains appear in script-src directive                                                                                                                                     |
+| Schema Validation     | Zod schema acceptance and rejection                                   | Valid payment signature passes; missing field throws ZodError                                                                                                                             |
+| Access Control        | Role-based permission checks for complaints                           | Seeker can access own complaint; provider blocked without admin grant                                                                                                                     |
+| Email Outbox          | Queue, retry, and backoff logic                                       | Failed email retries with increasing delay; max 5 attempts                                                                                                                                |
+| Audit Integrity       | Cross-entity anomaly detection                                        | Order with held payment but no matching booking is flagged                                                                                                                                |
 
 **Sample unit test:**
 
@@ -1597,7 +1628,7 @@ Unit tests verify that individual functions produce the correct output for given
 describe("evaluateCancellationPolicy", () => {
   it("forfeits booking fee when seeker cancels after 2-hour window", () => {
     const createdAt = localDate(2026, 2, 8, 8); // created at 08:00
-    const now = localDate(2026, 2, 8, 12);       // 4 hours later
+    const now = localDate(2026, 2, 8, 12); // 4 hours later
     const decision = evaluateCancellationPolicy({
       actor: "seeker",
       bookingFeeStatus: "paid",
@@ -1659,34 +1690,35 @@ describe("createBooking", () => {
   it("throws CAPACITY_EXCEEDED when provider is full", async () => {
     // Pre-fill to capacity
     await insertActiveBookings(providerId, 5);
-    await expect(
-      createBooking({ ...params, capacity: 5 })
-    ).rejects.toThrow(/CAPACITY_EXCEEDED/);
+    await expect(createBooking({ ...params, capacity: 5 })).rejects.toThrow(
+      /CAPACITY_EXCEEDED/,
+    );
   });
 });
 ```
 
 **API route tests** verify that HTTP endpoints return correct responses for valid and invalid requests. Each API route has a corresponding `.test.ts` file. Tests use a mock `getServerSession` to simulate authenticated requests without a running auth server:
 
-| API Route | Tests Covered |
-|-----------|--------------|
-| `/api/auth/signup` | Valid registration, duplicate email rejection, weak password rejection |
-| `/api/auth/verify-email` | Valid token acceptance, expired token rejection |
-| `/api/bookings` | Booking creation, authorization checks, capacity validation |
-| `/api/bookings/[id]/cancel` | Seeker/provider cancel, fee refund vs. forfeit, `invoice_created` stage cancel |
-| `/api/bookings/[id]/invoice` | Invoice creation on confirmed booking, rejection on wrong status |
-| `/api/invoices/[id]/review` | Seeker approve (creates order) and reject (cancels booking, forfeits fee) |
-| `/api/complaints` | Complaint filing within window, rejection after window |
-| `/api/complaints/[id]/messages` | Message sending, role-based visibility |
-| `/api/webhooks/razorpay` | Signature verification, duplicate event handling |
-| `/api/upload` | File upload, size limit enforcement |
-| `/api/admin/refund` | Refund processing, authorization, idempotency |
+| API Route                       | Tests Covered                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------ |
+| `/api/auth/signup`              | Valid registration, duplicate email rejection, weak password rejection         |
+| `/api/auth/verify-email`        | Valid token acceptance, expired token rejection                                |
+| `/api/bookings`                 | Booking creation, authorization checks, capacity validation                    |
+| `/api/bookings/[id]/cancel`     | Seeker/provider cancel, fee refund vs. forfeit, `invoice_created` stage cancel |
+| `/api/bookings/[id]/invoice`    | Invoice creation on confirmed booking, rejection on wrong status               |
+| `/api/invoices/[id]/review`     | Seeker approve (creates order) and reject (cancels booking, forfeits fee)      |
+| `/api/complaints`               | Complaint filing within window, rejection after window                         |
+| `/api/complaints/[id]/messages` | Message sending, role-based visibility                                         |
+| `/api/webhooks/razorpay`        | Signature verification, duplicate event handling                               |
+| `/api/upload`                   | File upload, size limit enforcement                                            |
+| `/api/admin/refund`             | Refund processing, authorization, idempotency                                  |
 
 #### 6.2.3 End-to-End (E2E) Testing
 
 End-to-end tests use **Playwright 1.58.2** to automate a real web browser. They simulate actual user actions — clicking buttons, filling forms, navigating pages — and verify that the entire system (frontend + backend + database) works together from the user's perspective.
 
 **Configuration:**
+
 - Browser: Chromium (headless by default, headed mode available for debugging)
 - Timeout: 90 seconds per test (to accommodate server-side processing)
 - Retries: 1 retry in CI, 0 retries locally
@@ -1696,13 +1728,13 @@ End-to-end tests use **Playwright 1.58.2** to automate a real web browser. They 
 
 **E2E test suites:**
 
-| Test Suite | Scenario | What Is Verified |
-|------------|----------|-----------------|
-| **Smoke Role Journeys** | Seeker, provider, and admin can log in and reach their dashboards | Authentication works, role-based redirects are correct, navigation links are functional |
-| **Booking Lifecycle Journey** | Full booking flow from request to provider acceptance to arrival | Booking created, provider accepts, card updates, arrival marked, invoice link appears |
-| **Booking Negative Journeys** | Seeker cancels a requested booking | Cancel button works, status changes to Cancelled, booking disappears from active list |
-| **Complaint Chat Journey** | 3-party message exchange in a dispute | Seeker sends message, provider sees it and replies, admin sees both and replies, seeker sees admin response |
-| **Settlement Chain Journey** | Admin resolves a complaint with payout decision | Complaint resolution triggers correct escrow action |
+| Test Suite                    | Scenario                                                          | What Is Verified                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Smoke Role Journeys**       | Seeker, provider, and admin can log in and reach their dashboards | Authentication works, role-based redirects are correct, navigation links are functional                     |
+| **Booking Lifecycle Journey** | Full booking flow from request to provider acceptance to arrival  | Booking created, provider accepts, card updates, arrival marked, invoice link appears                       |
+| **Booking Negative Journeys** | Seeker cancels a requested booking                                | Cancel button works, status changes to Cancelled, booking disappears from active list                       |
+| **Complaint Chat Journey**    | 3-party message exchange in a dispute                             | Seeker sends message, provider sees it and replies, admin sees both and replies, seeker sees admin response |
+| **Settlement Chain Journey**  | Admin resolves a complaint with payout decision                   | Complaint resolution triggers correct escrow action                                                         |
 
 **Sample E2E test:**
 
@@ -1732,6 +1764,7 @@ test("Seeker sign-in and navigate to disputes", async ({ page }) => {
 Alpha testing was conducted by the development team during the implementation phase. Each feature was tested manually by the developers before being committed to the codebase. The developers acted as seekers, providers, and administrators to verify that all workflows functioned as designed.
 
 Key areas validated during alpha testing:
+
 - Complete booking flow from search to delivery
 - Invoice creation with itemized pricing and photo uploads
 - Razorpay payment capture in test mode
@@ -1748,6 +1781,7 @@ Key areas validated during alpha testing:
 Beta testing involved a small group of external users who tested the application in a staged environment with Razorpay test mode enabled. Beta testers used the system as real seekers and providers, placing actual bookings, generating invoices, and completing deliveries using the OTP flow.
 
 Feedback collected during beta testing was focused on:
+
 - User interface clarity and ease of navigation
 - Error messages and validation feedback
 - Mobile responsiveness on different screen sizes
@@ -1760,49 +1794,49 @@ Issues identified during beta testing were documented, prioritized, and resolved
 
 The following table lists representative test cases covering the major functionalities of the LaundryEase system.
 
-| Test Case ID | Module | Test Description | Input | Expected Output | Status |
-|-------------|--------|-----------------|-------|-----------------|--------|
-| TC-01 | Authentication | Register a new seeker with valid details | Name, email, phone, valid password, address | Account created, verification emails sent | Pass |
-| TC-02 | Authentication | Register with weak password | Password: "abc" | Error: "Password must be at least 8 characters with 1 uppercase, 1 number, 1 special character" | Pass |
-| TC-03 | Authentication | Register with duplicate email | Existing email address | Error: "Email already registered" | Pass |
-| TC-04 | Authentication | Login with valid credentials | Correct email and password | Session created, redirect to role dashboard | Pass |
-| TC-05 | Authentication | Login with wrong password | Correct email, wrong password | Error: "Invalid credentials" | Pass |
-| TC-06 | Provider Discovery | Search providers by location | Valid coordinates (lat, lng) | List of providers within radius, sorted by distance | Pass |
-| TC-07 | Provider Discovery | Search with no nearby providers | Remote coordinates with no coverage | Empty list with "No providers found" message | Pass |
-| TC-08 | Booking | Create booking request | Valid seeker and provider IDs | Booking created with status "requested", fee "pending" | Pass |
-| TC-09 | Booking | Create booking when provider at capacity | Provider with max active jobs | Error: "CAPACITY_EXCEEDED" | Pass |
-| TC-10 | Booking | Pay booking fee via Razorpay | Valid payment details | bookingFeeStatus updated to "paid", Razorpay order linked | Pass |
-| TC-11 | Booking | Provider accepts booking | Booking with fee "paid" | Status changes to "accepted" | Pass |
-| TC-12 | Booking | Provider accepts booking without fee payment | Booking with fee "pending" | Error: "Booking fee must be paid first" | Pass |
-| TC-13 | Booking | Seeker cancels within 2-hour free window | Booking created <2h ago, fee paid | Status "cancelled", fee "refunded" to seeker | Pass |
-| TC-13b | Booking | Seeker cancels after 2-hour free window | Booking created >2h ago, fee paid | Status "cancelled", fee "forfeited" (kept by provider) | Pass |
-| TC-13c | Booking | Seeker cancels at invoice_created stage | Booking at invoice_created, fee paid | Status "cancelled", fee always "forfeited" — provider collected & catalogued items | Pass |
-| TC-14 | Booking | Provider cancels booking | Active booking at any pre-arrival status | Status "cancelled", fee "refunded" to seeker | Pass |
-| TC-15 | Booking | Auto-reject stale booking | Booking in "requested" state for >2 hours | Status "rejected", fee refunded, autoRejected flag set | Pass |
-| TC-16 | Booking | Provider marks arrival within 200m | Provider coordinates near seeker | arrivedAt timestamp set, confirmed | Pass |
-| TC-17 | Invoice | Provider creates invoice with items | 3 items with quantities, prices, photos | Invoice embedded in booking, status "invoice_created" | Pass |
-| TC-18 | Invoice | Provider applies discount | Subtotal ₹500, discount ₹50 | Total = ₹450 + delivery charge | Pass |
-| TC-19 | Order | Seeker approves and pays invoice | Valid Razorpay payment | Order created with payment_status "paid", process_status "invoiced" | Pass |
-| TC-20 | Order | Seeker rejects invoice via review page | Rejection with reason text | Booking status "cancelled", bookingFeeStatus "forfeited", seeker redirected to invoices page | Pass |
-| TC-20b | Booking | Seeker cancels via booking card at invoice_created | "Cancel & Reject Invoice" button with fee warning | Booking status "cancelled", fee "forfeited", card removed from active list | Pass |
-| TC-21 | Order | Provider updates order status | Current: "washing", next: "ironing" | process_status updated to "ironing" | Pass |
-| TC-22 | Order | Invalid status transition | Current: "washing", next: "delivered" | Error: Invalid transition | Pass |
-| TC-23 | Delivery | Generate delivery OTP | Order in "out_for_delivery" status | 6-digit OTP generated, email sent, 10-min expiry set | Pass |
-| TC-24 | Delivery | Verify correct OTP | Matching OTP within validity | Order marked "delivered", payment_status "held", escrow timer starts | Pass |
-| TC-25 | Delivery | Verify expired OTP | OTP entered after 10 minutes | Error: "OTP expired" | Pass |
-| TC-26 | Escrow | Auto-release after 24 hours | Held order past escrow_release_at | payment_status "released", payout initiated | Pass |
-| TC-27 | Payout | Calculate provider payout | Subtotal ₹1000, discount ₹200, delivery ₹50, total ₹850 | Commission ₹50 (5% of ₹1000), payout ₹800 | Pass |
-| TC-28 | Complaint | File complaint within 24 hours | Valid complaint with description and photos | Complaint created with status "open", escrow frozen | Pass |
-| TC-29 | Complaint | File complaint after 24 hours | Complaint filed 25 hours post-delivery | Error: "Complaint window has expired" | Pass |
-| TC-30 | Complaint | Admin resolves with partial refund | Refund ₹150 of ₹800 distributable | Seeker receives ₹150, provider receives ₹650 | Pass |
-| TC-31 | Review | Submit post-delivery review | Rating: 4, comment: "Good service" | Review saved, provider average rating updated | Pass |
-| TC-32 | Security | Rate-limited endpoint | 10+ requests in 60 seconds from same IP | 429 Too Many Requests after limit exceeded | Pass |
-| TC-33 | Security | CSRF protection on POST | POST request without valid Origin header | 403 Forbidden | Pass |
-| TC-34 | No-Show | Detect provider no-show | Confirmed booking, 30+ min past pickup, no order created | noShowStatus set, booking cancelled, fee refunded | Pass |
-| TC-35 | E2E | Full seeker journey | Register → search → book → pay → track → receive → review | All steps complete successfully in browser | Pass |
-| TC-36 | Order Chat | Authorize order room join | Socket emits `order:join` with valid orderId for participant | Room joined, `{ ok: true }` acknowledged | Pass |
-| TC-37 | Order Chat | Reject non-participant from order room | Socket emits `order:join` for order where user is not seeker/provider/admin | `{ ok: false, error: "Forbidden" }` acknowledged, room not joined | Pass |
-| TC-38 | Order Chat | Send and receive order chat message | POST `/api/orders/[id]/chat` with valid message body | Message persisted in `order_chats`, `order:message:created` emitted to room | Pass |
+| Test Case ID | Module             | Test Description                                   | Input                                                                       | Expected Output                                                                                 | Status |
+| ------------ | ------------------ | -------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------ |
+| TC-01        | Authentication     | Register a new seeker with valid details           | Name, email, phone, valid password, address                                 | Account created, verification emails sent                                                       | Pass   |
+| TC-02        | Authentication     | Register with weak password                        | Password: "abc"                                                             | Error: "Password must be at least 8 characters with 1 uppercase, 1 number, 1 special character" | Pass   |
+| TC-03        | Authentication     | Register with duplicate email                      | Existing email address                                                      | Error: "Email already registered"                                                               | Pass   |
+| TC-04        | Authentication     | Login with valid credentials                       | Correct email and password                                                  | Session created, redirect to role dashboard                                                     | Pass   |
+| TC-05        | Authentication     | Login with wrong password                          | Correct email, wrong password                                               | Error: "Invalid credentials"                                                                    | Pass   |
+| TC-06        | Provider Discovery | Search providers by location                       | Valid coordinates (lat, lng)                                                | List of providers within radius, sorted by distance                                             | Pass   |
+| TC-07        | Provider Discovery | Search with no nearby providers                    | Remote coordinates with no coverage                                         | Empty list with "No providers found" message                                                    | Pass   |
+| TC-08        | Booking            | Create booking request                             | Valid seeker and provider IDs                                               | Booking created with status "requested", fee "pending"                                          | Pass   |
+| TC-09        | Booking            | Create booking when provider at capacity           | Provider with max active jobs                                               | Error: "CAPACITY_EXCEEDED"                                                                      | Pass   |
+| TC-10        | Booking            | Pay booking fee via Razorpay                       | Valid payment details                                                       | bookingFeeStatus updated to "paid", Razorpay order linked                                       | Pass   |
+| TC-11        | Booking            | Provider accepts booking                           | Booking with fee "paid"                                                     | Status changes to "accepted"                                                                    | Pass   |
+| TC-12        | Booking            | Provider accepts booking without fee payment       | Booking with fee "pending"                                                  | Error: "Booking fee must be paid first"                                                         | Pass   |
+| TC-13        | Booking            | Seeker cancels within 2-hour free window           | Booking created <2h ago, fee paid                                           | Status "cancelled", fee "refunded" to seeker                                                    | Pass   |
+| TC-13b       | Booking            | Seeker cancels after 2-hour free window            | Booking created >2h ago, fee paid                                           | Status "cancelled", fee "forfeited" (kept by provider)                                          | Pass   |
+| TC-13c       | Booking            | Seeker cancels at invoice_created stage            | Booking at invoice_created, fee paid                                        | Status "cancelled", fee always "forfeited" — provider collected & catalogued items              | Pass   |
+| TC-14        | Booking            | Provider cancels booking                           | Active booking at any pre-arrival status                                    | Status "cancelled", fee "refunded" to seeker                                                    | Pass   |
+| TC-15        | Booking            | Auto-reject stale booking                          | Booking in "requested" state for >2 hours                                   | Status "rejected", fee refunded, autoRejected flag set                                          | Pass   |
+| TC-16        | Booking            | Provider marks arrival within 200m                 | Provider coordinates near seeker                                            | arrivedAt timestamp set, confirmed                                                              | Pass   |
+| TC-17        | Invoice            | Provider creates invoice with items                | 3 items with quantities, prices, photos                                     | Invoice embedded in booking, status "invoice_created"                                           | Pass   |
+| TC-18        | Invoice            | Provider applies discount                          | Subtotal ₹500, discount ₹50                                                 | Total = ₹450 + delivery charge                                                                  | Pass   |
+| TC-19        | Order              | Seeker approves and pays invoice                   | Valid Razorpay payment                                                      | Order created with payment_status "paid", process_status "invoiced"                             | Pass   |
+| TC-20        | Order              | Seeker rejects invoice via review page             | Rejection with reason text                                                  | Booking status "cancelled", bookingFeeStatus "forfeited", seeker redirected to invoices page    | Pass   |
+| TC-20b       | Booking            | Seeker cancels via booking card at invoice_created | "Cancel & Reject Invoice" button with fee warning                           | Booking status "cancelled", fee "forfeited", card removed from active list                      | Pass   |
+| TC-21        | Order              | Provider updates order status                      | Current: "washing", next: "ironing"                                         | process_status updated to "ironing"                                                             | Pass   |
+| TC-22        | Order              | Invalid status transition                          | Current: "washing", next: "delivered"                                       | Error: Invalid transition                                                                       | Pass   |
+| TC-23        | Delivery           | Generate delivery OTP                              | Order in "out_for_delivery" status                                          | 6-digit OTP generated, email sent, 10-min expiry set                                            | Pass   |
+| TC-24        | Delivery           | Verify correct OTP                                 | Matching OTP within validity                                                | Order marked "delivered", payment_status "held", escrow timer starts                            | Pass   |
+| TC-25        | Delivery           | Verify expired OTP                                 | OTP entered after 10 minutes                                                | Error: "OTP expired"                                                                            | Pass   |
+| TC-26        | Escrow             | Auto-release after 24 hours                        | Held order past escrow_release_at                                           | payment_status "released", payout initiated                                                     | Pass   |
+| TC-27        | Payout             | Calculate provider payout                          | Subtotal ₹1000, discount ₹200, delivery ₹50, total ₹850                     | Commission ₹50 (5% of ₹1000), payout ₹800                                                       | Pass   |
+| TC-28        | Complaint          | File complaint within 24 hours                     | Valid complaint with description and photos                                 | Complaint created with status "open", escrow frozen                                             | Pass   |
+| TC-29        | Complaint          | File complaint after 24 hours                      | Complaint filed 25 hours post-delivery                                      | Error: "Complaint window has expired"                                                           | Pass   |
+| TC-30        | Complaint          | Admin resolves with partial refund                 | Refund ₹150 of ₹800 distributable                                           | Seeker receives ₹150, provider receives ₹650                                                    | Pass   |
+| TC-31        | Review             | Submit post-delivery review                        | Rating: 4, comment: "Good service"                                          | Review saved, provider average rating updated                                                   | Pass   |
+| TC-32        | Security           | Rate-limited endpoint                              | 10+ requests in 60 seconds from same IP                                     | 429 Too Many Requests after limit exceeded                                                      | Pass   |
+| TC-33        | Security           | CSRF protection on POST                            | POST request without valid Origin header                                    | 403 Forbidden                                                                                   | Pass   |
+| TC-34        | No-Show            | Detect provider no-show                            | Confirmed booking, 30+ min past pickup, no order created                    | noShowStatus set, booking cancelled, fee refunded                                               | Pass   |
+| TC-35        | E2E                | Full seeker journey                                | Register → search → book → pay → track → receive → review                   | All steps complete successfully in browser                                                      | Pass   |
+| TC-36        | Order Chat         | Authorize order room join                          | Socket emits `order:join` with valid orderId for participant                | Room joined, `{ ok: true }` acknowledged                                                        | Pass   |
+| TC-37        | Order Chat         | Reject non-participant from order room             | Socket emits `order:join` for order where user is not seeker/provider/admin | `{ ok: false, error: "Forbidden" }` acknowledged, room not joined                               | Pass   |
+| TC-38        | Order Chat         | Send and receive order chat message                | POST `/api/orders/[id]/chat` with valid message body                        | Message persisted in `order_chats`, `order:message:created` emitted to room                     | Pass   |
 
 ---
 
@@ -1850,24 +1884,24 @@ The following features are planned for future versions of LaundryEase:
 
 #### 7.2.1 Websites
 
-| Resource | URL | Purpose |
-|----------|-----|---------|
-| Next.js Documentation | https://nextjs.org/docs | Framework reference (App Router, API Routes, SSR) |
-| React Documentation | https://react.dev | Component architecture, hooks, server components |
-| TypeScript Handbook | https://www.typescriptlang.org/docs/handbook | Type system, generics, utility types |
-| MongoDB Documentation | https://www.mongodb.com/docs/manual | Database operations, indexes, aggregation, geospatial |
-| NextAuth.js Documentation | https://next-auth.js.org/getting-started/introduction | Authentication, session management, providers |
-| Razorpay Documentation | https://razorpay.com/docs | Payment integration, orders, payouts, webhooks |
-| Tailwind CSS Documentation | https://tailwindcss.com/docs | Utility-first CSS framework |
-| shadcn/ui Documentation | https://ui.shadcn.com | Accessible React component library |
-| Zod Documentation | https://zod.dev | Schema validation library |
-| Playwright Documentation | https://playwright.dev/docs/intro | End-to-end testing framework |
-| Vitest Documentation | https://vitest.dev/guide | Unit testing framework |
-| Vercel Documentation | https://vercel.com/docs | Deployment platform, serverless functions |
-| Twilio Documentation | https://www.twilio.com/docs | SMS API for OTP delivery |
-| Cloudinary Documentation | https://cloudinary.com/documentation | Image upload and CDN |
-| Google Maps Platform | https://developers.google.com/maps/documentation | Maps, Places, Geocoding APIs |
-| Socket.IO Documentation | https://socket.io/docs/v4 | Real-time bidirectional WebSocket communication for order chat and complaint chat |
+| Resource                   | URL                                                   | Purpose                                                                           |
+| -------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Next.js Documentation      | https://nextjs.org/docs                               | Framework reference (App Router, API Routes, SSR)                                 |
+| React Documentation        | https://react.dev                                     | Component architecture, hooks, server components                                  |
+| TypeScript Handbook        | https://www.typescriptlang.org/docs/handbook          | Type system, generics, utility types                                              |
+| MongoDB Documentation      | https://www.mongodb.com/docs/manual                   | Database operations, indexes, aggregation, geospatial                             |
+| NextAuth.js Documentation  | https://next-auth.js.org/getting-started/introduction | Authentication, session management, providers                                     |
+| Razorpay Documentation     | https://razorpay.com/docs                             | Payment integration, orders, payouts, webhooks                                    |
+| Tailwind CSS Documentation | https://tailwindcss.com/docs                          | Utility-first CSS framework                                                       |
+| shadcn/ui Documentation    | https://ui.shadcn.com                                 | Accessible React component library                                                |
+| Zod Documentation          | https://zod.dev                                       | Schema validation library                                                         |
+| Playwright Documentation   | https://playwright.dev/docs/intro                     | End-to-end testing framework                                                      |
+| Vitest Documentation       | https://vitest.dev/guide                              | Unit testing framework                                                            |
+| Vercel Documentation       | https://vercel.com/docs                               | Deployment platform, serverless functions                                         |
+| Twilio Documentation       | https://www.twilio.com/docs                           | SMS API for OTP delivery                                                          |
+| Cloudinary Documentation   | https://cloudinary.com/documentation                  | Image upload and CDN                                                              |
+| Google Maps Platform       | https://developers.google.com/maps/documentation      | Maps, Places, Geocoding APIs                                                      |
+| Socket.IO Documentation    | https://socket.io/docs/v4                             | Real-time bidirectional WebSocket communication for order chat and complaint chat |
 
 #### 7.2.2 References
 
@@ -1913,7 +1947,7 @@ This section contains representative screenshots of the LaundryEase application.
 24. **Provider Profile** — Business profile with reviews and ratings
 25. **Payment History** — Order payment records with status indicators
 
-*(Insert actual screenshots from the running application here)*
+_(Insert actual screenshots from the running application here)_
 
 ### 7.4 Source Code
 
@@ -2021,4 +2055,4 @@ laundry-ease/
 └── vercel.json                   # Deployment configuration
 ```
 
-*(Attach selected source code files as appendices or submit the complete repository as supplementary material)*
+_(Attach selected source code files as appendices or submit the complete repository as supplementary material)_

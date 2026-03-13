@@ -6,7 +6,6 @@
 
 ## INTRODUCTION
 
-
 Introducing LaundryEase, a comprehensive digital laundry management platform designed for both customers (seekers) and laundry service providers. The application enables customers to effortlessly discover nearby laundry providers, place service orders for washing, drying, and ironing, and track the real-time status of their laundry through every stage—from pickup to delivery. For laundry shop owners and employees, the platform provides robust tools to manage incoming bookings, update order statuses, generate itemized digital invoices, and receive automated payouts through an escrow-backed payment system. With role-based access for customers, providers, and administrators, LaundryEase ensures a seamless, transparent, and trustworthy experience for all users. The platform replaces informal promises and manual record-keeping with a verifiable digital workflow, bringing accountability and convenience to the local laundry service industry.
 
 ### 1.1 LaundryEase Management System
@@ -189,6 +188,7 @@ Requirement analysis is the systematic process of identifying, documenting, and 
 The analysis identified two primary user groups with distinct but interconnected needs:
 
 **Customers (Seekers)** require the ability to:
+
 - Discover laundry providers who serve their geographic area.
 - Place orders with clear service selection (wash, dry, iron).
 - Track the real-time status of their laundry through each processing stage.
@@ -198,6 +198,7 @@ The analysis identified two primary user groups with distinct but interconnected
 - Access their complete order and payment history.
 
 **Service Providers** require the ability to:
+
 - Define their service area, capacity, and pricing.
 - Receive and manage booking requests with fee-gated acceptance.
 - Inspect items and generate itemized digital invoices with optional photos.
@@ -207,6 +208,7 @@ The analysis identified two primary user groups with distinct but interconnected
 - View earnings, payout history, and customer reviews.
 
 **Platform Administrators** require the ability to:
+
 - Monitor all bookings, orders, and transactions across the platform.
 - Resolve disputes through a structured complaint workflow with evidence.
 - Manage user accounts (suspend, flag, block).
@@ -291,35 +293,35 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 
 #### 3.4.3 Environmental Details
 
-| Component          | Technology                                    |
-| ------------------ | --------------------------------------------- |
-| **IDE**            | Visual Studio Code                            |
-| **Framework**      | Next.js 16.1.6 (App Router)                   |
-| **Language**       | TypeScript 5                                   |
-| **Frontend**       | React 19.2.4                                   |
-| **Styling**        | Tailwind CSS 4.1.18 + shadcn/ui               |
-| **UI Components**  | Radix UI primitives + Lucide React icons       |
-| **Animations**     | Framer Motion 12.29.2                          |
-| **Database**       | MongoDB 6.21 (native driver)                   |
-| **Authentication** | NextAuth v4.24.13 (JWT sessions)               |
-| **Payments**       | Razorpay 2.9.6 + RazorpayX                    |
-| **Maps & Location**| Google Maps APIs + use-places-autocomplete     |
-| **SMS**            | Twilio 5.12.0                                  |
-| **Email**          | Nodemailer 7.0.13                              |
-| **Image Hosting**  | Cloudinary 2.9.0                               |
-| **Validation**     | Zod 4.3.6                                      |
-| **Forms**          | React Hook Form 7.71.1                         |
-| **Real-Time**      | Socket.IO 4.8.3 (server + client)              |
-| **Data Fetching**  | SWR 2.4.0                                      |
-| **Logging**        | Pino 10.3.1                                    |
-| **Financial Math** | Decimal.js 10.6.0                              |
-| **APM**            | Datadog (dd-trace 5.87.0 + hot-shots 14.0.0)  |
-| **Unit Testing**   | Vitest 3.2.4                                   |
-| **E2E Testing**    | Playwright 1.58.2                              |
-| **Deployment**     | Vercel (serverless)                            |
-| **Version Control**| Git + GitHub                                   |
-| **Operating System** | Windows / Linux / macOS                      |
-| **Browser Support**| Chrome, Edge, Firefox, Safari (modern versions)|
+| Component            | Technology                                      |
+| -------------------- | ----------------------------------------------- |
+| **IDE**              | Visual Studio Code                              |
+| **Framework**        | Next.js 16.1.6 (App Router)                     |
+| **Language**         | TypeScript 5                                    |
+| **Frontend**         | React 19.2.4                                    |
+| **Styling**          | Tailwind CSS 4.2.1 + shadcn/ui                  |
+| **UI Components**    | Radix UI primitives + Lucide React icons        |
+| **Animations**       | Framer Motion 12.35.2                           |
+| **Database**         | MongoDB 7.1 (native driver)                     |
+| **Authentication**   | NextAuth v5.0.0-beta (Auth.js, JWT sessions)    |
+| **Payments**         | Razorpay 2.9.6 + RazorpayX                      |
+| **Maps & Location**  | Google Maps APIs + use-places-autocomplete      |
+| **SMS**              | Twilio 5.12.2                                   |
+| **Email**            | Nodemailer 8.0.2                                |
+| **Image Hosting**    | Cloudinary 2.9.0                                |
+| **Validation**       | Zod 4.3.6                                       |
+| **Forms**            | React Hook Form 7.71.2                          |
+| **Real-Time**        | Socket.IO 4.8.3 (server + client)               |
+| **Data Fetching**    | SWR 2.4.1                                       |
+| **Logging**          | Pino 10.3.1                                     |
+| **Financial Math**   | Decimal.js 10.6.0                               |
+| **APM**              | Datadog (dd-trace 5.89.0 + hot-shots 14.1.1)    |
+| **Unit Testing**     | Vitest 4.0.18                                   |
+| **E2E Testing**      | Playwright 1.58.2                               |
+| **Deployment**       | Vercel (serverless)                             |
+| **Version Control**  | Git + GitHub                                    |
+| **Operating System** | Windows / Linux / macOS                         |
+| **Browser Support**  | Chrome, Edge, Firefox, Safari (modern versions) |
 
 #### 3.4.4 Hardware Requirements
 
@@ -327,62 +329,62 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 
 **Development Machine (Client):**
 
-| Component         | Minimum Requirement               |
-| ----------------- | --------------------------------- |
-| Processor         | Intel Core i3 or equivalent       |
-| Memory (RAM)      | 4 GB or above                     |
-| Storage           | 10 GB free disk space             |
-| Display           | 1366 × 768 resolution or higher   |
-| Internet          | Stable broadband connection       |
-| Operating System  | Windows 10+ / macOS 12+ / Linux   |
-| Browser           | Chrome 90+, Edge 90+, Firefox 90+ |
+| Component        | Minimum Requirement               |
+| ---------------- | --------------------------------- |
+| Processor        | Intel Core i3 or equivalent       |
+| Memory (RAM)     | 4 GB or above                     |
+| Storage          | 10 GB free disk space             |
+| Display          | 1366 × 768 resolution or higher   |
+| Internet         | Stable broadband connection       |
+| Operating System | Windows 10+ / macOS 12+ / Linux   |
+| Browser          | Chrome 90+, Edge 90+, Firefox 90+ |
 
 **Server (Production — Vercel Serverless):**
 
-| Component         | Specification                                 |
-| ----------------- | --------------------------------------------- |
-| Compute           | Vercel serverless functions (auto-scaling)     |
-| Database          | MongoDB Atlas (cloud-hosted, replica set)      |
-| CDN               | Vercel Edge Network (global distribution)      |
-| Storage           | Cloudinary CDN for image assets                |
-| SSL/TLS           | Automatic HTTPS via Vercel                     |
+| Component | Specification                              |
+| --------- | ------------------------------------------ |
+| Compute   | Vercel serverless functions (auto-scaling) |
+| Database  | MongoDB Atlas (cloud-hosted, replica set)  |
+| CDN       | Vercel Edge Network (global distribution)  |
+| Storage   | Cloudinary CDN for image assets            |
+| SSL/TLS   | Automatic HTTPS via Vercel                 |
 
 **Mobile Device (End User):**
 
-| Component         | Minimum Requirement               |
-| ----------------- | --------------------------------- |
-| Operating System  | Android 8.0+ / iOS 13+            |
-| Memory (RAM)      | 2 GB or above                     |
-| Storage           | 100 MB free space                  |
-| Internet          | Mobile data (3G or above) or Wi-Fi |
-| Browser           | Updated Chrome, Safari, or Firefox |
+| Component        | Minimum Requirement                |
+| ---------------- | ---------------------------------- |
+| Operating System | Android 8.0+ / iOS 13+             |
+| Memory (RAM)     | 2 GB or above                      |
+| Storage          | 100 MB free space                  |
+| Internet         | Mobile data (3G or above) or Wi-Fi |
+| Browser          | Updated Chrome, Safari, or Firefox |
 
 #### 3.4.5 Software Requirements
 
 ##### 3.4.5.1 Web Application Requirements
 
-| Layer              | Technology                   | Purpose                                       |
-| ------------------ | ---------------------------- | --------------------------------------------- |
-| **Framework**      | Next.js 16.1.6 (App Router)  | Full-stack React framework with SSR, SSG, and API routes |
-| **Frontend**       | React 19.2.4 + TypeScript 5  | Type-safe, component-driven user interface     |
-| **Styling**        | Tailwind CSS 4 + shadcn/ui   | Utility-first CSS with accessible component library |
-| **Database**       | MongoDB 6.21 (native driver) | Document-based NoSQL database with geospatial query support |
-| **Authentication** | NextAuth v4                  | Google OAuth + email/password credentials with JWT sessions |
-| **Payment Gateway**| Razorpay + RazorpayX         | Payment capture, escrow holds, signature verification, and automated provider payouts |
-| **Maps & Geocoding**| Google Maps APIs             | Places Autocomplete, Geocoding, Maps JavaScript API for location-based discovery |
-| **SMS Service**    | Twilio                       | Phone OTP delivery for verification and delivery confirmation |
-| **Email Service**  | Nodemailer                   | Transactional emails (OTP, magic links, password reset, delivery codes) via outbox queue |
-| **Image CDN**      | Cloudinary                   | Upload, transform, and serve images for invoices, profiles, and complaint evidence |
-| **Schema Validation** | Zod 4                     | Runtime type validation for API inputs and data integrity |
-| **Form Management**| React Hook Form              | Performant, declarative form state handling     |
+| Layer                   | Technology                        | Purpose                                                                                                                 |
+| ----------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Framework**           | Next.js 16.1.6 (App Router)       | Full-stack React framework with SSR, SSG, and API routes                                                                |
+| **Frontend**            | React 19.2.4 + TypeScript 5       | Type-safe, component-driven user interface                                                                              |
+| **Styling**             | Tailwind CSS 4 + shadcn/ui        | Utility-first CSS with accessible component library                                                                     |
+| **Database**            | MongoDB 7.1 (native driver)       | Document-based NoSQL database with geospatial query support                                                             |
+| **Authentication**      | NextAuth v5 (Auth.js beta)        | Google OAuth + email/password credentials with JWT sessions                                                             |
+| **Payment Gateway**     | Razorpay + RazorpayX              | Payment capture, escrow holds, signature verification, and automated provider payouts                                   |
+| **Maps & Geocoding**    | Google Maps APIs                  | Places Autocomplete, Geocoding, Maps JavaScript API for location-based discovery                                        |
+| **SMS Service**         | Twilio                            | Phone OTP delivery for verification and delivery confirmation                                                           |
+| **Email Service**       | Nodemailer                        | Transactional emails (OTP, magic links, password reset, delivery codes) via outbox queue                                |
+| **Image CDN**           | Cloudinary                        | Upload, transform, and serve images for invoices, profiles, and complaint evidence                                      |
+| **Schema Validation**   | Zod 4                             | Runtime type validation for API inputs and data integrity                                                               |
+| **Form Management**     | React Hook Form                   | Performant, declarative form state handling                                                                             |
 | **Real-Time Messaging** | Socket.IO 4.8.3 (server + client) | Bidirectional WebSocket communication for live order/complaint chat with typing indicators, voice, photos, and deletion |
-| **Client Caching** | SWR                          | Stale-while-revalidate data fetching with automatic cache invalidation |
-| **Financial Math** | Decimal.js                   | Arbitrary-precision decimal arithmetic for monetary calculations |
-| **Logging**        | Pino                         | Structured JSON logging with secret redaction   |
-| **APM & Metrics**  | Datadog (dd-trace + StatsD)  | Application performance monitoring, distributed tracing, and custom metrics |
-| **Unit Testing**   | Vitest + mongodb-memory-server | Fast unit tests with in-memory database isolation |
-| **E2E Testing**    | Playwright                   | Cross-browser end-to-end testing for critical user journeys |
-| **CI/CD**          | GitHub Actions + Vercel      | Automated quality gates (typecheck, lint, test, build) and serverless deployment |
+| **Client Caching**      | SWR                               | Stale-while-revalidate data fetching with automatic cache invalidation                                                  |
+| **Financial Math**      | Decimal.js                        | Arbitrary-precision decimal arithmetic for monetary calculations                                                        |
+| **Logging**             | Pino                              | Structured JSON logging with secret redaction                                                                           |
+| **APM & Metrics**       | Datadog (dd-trace + StatsD)       | Application performance monitoring, distributed tracing, and custom metrics                                             |
+| **Unit Testing**        | Vitest + mongodb-memory-server    | Fast unit tests with in-memory database isolation                                                                       |
+| **E2E Testing**         | Playwright                        | Cross-browser end-to-end testing for critical user journeys                                                             |
+| **CI/CD**               | GitHub Actions + Vercel           | Automated quality gates (typecheck, lint, test, build) and serverless deployment                                        |
 
 ### 3.5 Feasibility Study
 
