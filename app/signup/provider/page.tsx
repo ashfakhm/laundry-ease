@@ -73,6 +73,7 @@ export default function ProviderSignupPage() {
 
   // Client-side validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Email validation
   const isValidEmail = (email: string) =>
@@ -230,6 +231,8 @@ export default function ProviderSignupPage() {
         "Bank account holder name, account number, and IFSC are required",
       );
     }
+    if (!acceptedTerms)
+      return setError("Please agree to the Provider Terms and Conditions");
 
     setLoading(true);
 
@@ -264,6 +267,7 @@ export default function ProviderSignupPage() {
       bankIFSC: form.bankIFSC,
       upiId: form.upiId,
       coordinates: form.coordinates,
+      acceptTerms: acceptedTerms,
     });
     setLoading(false);
     if (!ok) return setError(extractError(data, "Signup failed"));
@@ -895,6 +899,46 @@ export default function ProviderSignupPage() {
               </div>
 
               <div className="pt-4 flex flex-col gap-4">
+                <div className="rounded-xl border border-border bg-background/70 p-4 space-y-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Provider Terms and Conditions
+                  </p>
+                  <ul className="max-h-32 overflow-y-auto space-y-2 pr-2 text-xs text-muted-foreground leading-relaxed list-disc pl-4">
+                    <li>
+                      You must provide accurate business, tax, and payout
+                      details, and keep compliance documents valid at all times.
+                    </li>
+                    <li>
+                      You agree to fulfill accepted bookings on time and notify
+                      seekers promptly about delays, stock issues, or
+                      operational exceptions.
+                    </li>
+                    <li>
+                      You are responsible for service quality, garment safety,
+                      and handling disputes through LaundryEase support and
+                      complaint workflows.
+                    </li>
+                    <li>
+                      Payouts are processed after escrow rules and platform
+                      deductions, and fraudulent activity can result in payout
+                      holds and account termination.
+                    </li>
+                    <li>
+                      You agree to use customer data only for order fulfillment
+                      and never for unrelated marketing or unauthorized sharing.
+                    </li>
+                  </ul>
+                  <label className="flex items-start gap-2 text-xs text-foreground font-medium">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                    />
+                    I have read and agree to the Provider Terms and Conditions.
+                  </label>
+                </div>
+
                 {error && (
                   <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
@@ -904,7 +948,7 @@ export default function ProviderSignupPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || !emailVerified}
+                  disabled={loading || !emailVerified || !acceptedTerms}
                   className="w-full h-12 bg-primary text-primary-foreground font-bold text-base rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
                 >
                   {loading && <Loader2 className="w-5 h-5 animate-spin" />}
@@ -912,10 +956,6 @@ export default function ProviderSignupPage() {
                     ? "Creating Business Account..."
                     : "Create Business Account"}
                 </button>
-
-                <p className="text-center text-xs text-muted-foreground">
-                  By confirming, you agree to our Terms and Privacy Policy.
-                </p>
               </div>
             </form>
           </motion.div>

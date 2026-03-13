@@ -54,6 +54,7 @@ export default function SeekerSignupPage() {
 
   // Client-side validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Email validation
   const isValidEmail = (email: string) =>
@@ -172,11 +173,14 @@ export default function SeekerSignupPage() {
     )
       return setError("All address fields are required");
     if (!emailVerified) return setError("Please verify your email address");
+    if (!acceptedTerms)
+      return setError("Please agree to the Seeker Terms and Conditions");
     setLoading(true);
     const { ok, data } = await postJSON("/api/signup/seeker", {
       ...form,
       phone: normalizePhone(form.phone),
       coordinates: form.coordinates,
+      acceptTerms: acceptedTerms,
     });
     setLoading(false);
     if (!ok) {
@@ -544,6 +548,45 @@ export default function SeekerSignupPage() {
               </div>
 
               <div className="pt-4 flex flex-col gap-4">
+                <div className="rounded-xl border border-border bg-background/70 p-4 space-y-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Seeker Terms and Conditions
+                  </p>
+                  <ul className="max-h-32 overflow-y-auto space-y-2 pr-2 text-xs text-muted-foreground leading-relaxed list-disc pl-4">
+                    <li>
+                      You must provide accurate account details and keep your
+                      phone and email active for booking and delivery updates.
+                    </li>
+                    <li>
+                      Booking requests become binding once a provider accepts,
+                      and cancellations may attract platform charges based on
+                      policy.
+                    </li>
+                    <li>
+                      Payments are processed through LaundryEase escrow, and you
+                      agree to release payment only after service completion or
+                      valid dispute resolution.
+                    </li>
+                    <li>
+                      You agree to treat provider staff respectfully and keep
+                      pickup/drop locations safe and accessible.
+                    </li>
+                    <li>
+                      Misuse, fraudulent claims, or abuse of offers can lead to
+                      account suspension or permanent removal.
+                    </li>
+                  </ul>
+                  <label className="flex items-start gap-2 text-xs text-foreground font-medium">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                    />
+                    I have read and agree to the Seeker Terms and Conditions.
+                  </label>
+                </div>
+
                 {error && (
                   <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
@@ -553,16 +596,12 @@ export default function SeekerSignupPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || !emailVerified}
+                  disabled={loading || !emailVerified || !acceptedTerms}
                   className="w-full h-12 bg-primary text-primary-foreground font-bold text-base rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
                 >
                   {loading && <Loader2 className="w-5 h-5 animate-spin" />}
                   {loading ? "Creating Account..." : "Create Account"}
                 </button>
-
-                <p className="text-center text-xs text-muted-foreground">
-                  By confirming, you agree to our Terms and Privacy Policy.
-                </p>
               </div>
             </form>
           </motion.div>

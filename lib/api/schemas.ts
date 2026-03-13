@@ -117,6 +117,9 @@ export const signupSeekerSchema = z.object({
         .max(180, "Longitude must be between -180 and 180"),
     })
     .optional(),
+  acceptTerms: z.boolean().refine((value) => value === true, {
+    message: "You must accept terms and conditions",
+  }),
 });
 
 export const signupProviderSchema = z.object({
@@ -153,6 +156,9 @@ export const signupProviderSchema = z.object({
         .max(180, "Longitude must be between -180 and 180"),
     })
     .optional(),
+  acceptTerms: z.boolean().refine((value) => value === true, {
+    message: "You must accept terms and conditions",
+  }),
 });
 
 export const otpRequestSchema = z.object({

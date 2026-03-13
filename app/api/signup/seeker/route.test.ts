@@ -39,6 +39,7 @@ const validPayload = {
   email: "Test@Example.com",
   password: "SecurePass123!",
   phone: "+919876543210",
+  acceptTerms: true,
   address: {
     line1: "123 Main St",
     city: "Mumbai",
@@ -74,6 +75,13 @@ describe("POST /api/signup/seeker", () => {
 
   it("returns 400 for invalid payload", async () => {
     const res = await POST(makeReq({}) as never);
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when terms are not accepted", async () => {
+    const res = await POST(
+      makeReq({ ...validPayload, acceptTerms: false }) as never,
+    );
     expect(res.status).toBe(400);
   });
 
