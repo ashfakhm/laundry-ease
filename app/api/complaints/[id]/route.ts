@@ -16,11 +16,15 @@ export async function GET(
   try {
     const { user } = await requireAuth();
     if (!ObjectId.isValid(user.id) || !user.role) {
-      return errorResponse(new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"));
+      return errorResponse(
+        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
+      );
     }
 
     if (!ObjectId.isValid(id)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid complaint ID"),
+      );
     }
 
     const { db } = await getDb();
@@ -30,7 +34,9 @@ export async function GET(
       .collection("complaints")
       .findOne({ _id: complaintId });
     if (!complaint) {
-      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"));
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"),
+      );
     }
 
     const access = canAccessComplaintConversation({
@@ -45,7 +51,9 @@ export async function GET(
     });
 
     if (!access.allowed) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Access Denied"));
+      return errorResponse(
+        new AppError(ErrorCode.FORBIDDEN, 403, "Access Denied"),
+      );
     }
 
     const [seeker, provider] = await Promise.all([
@@ -60,6 +68,20 @@ export async function GET(
         ),
     ]);
 
+    const order = await db.collection("orders").findOne(
+      { _id: complaint.order_id },
+      {
+        projection: {
+          total_price: 1,
+          provider_payout_amount: 1,
+          platform_commission: 1,
+          deadline: 1,
+          otp_confirmed_at: 1,
+          escrow_started_at: 1,
+        },
+      },
+    );
+
     let settlementWindow: {
       total_amount: number;
       distributable_amount: number;
@@ -67,34 +89,26 @@ export async function GET(
       default_provider_payout: number;
     } | null = null;
 
-    if (user.role === Role.ADMIN) {
-      const order = await db.collection("orders").findOne(
-        { _id: complaint.order_id },
-        {
-          projection: {
-            total_price: 1,
-            provider_payout_amount: 1,
-            platform_commission: 1,
-          },
-        },
-      );
+    if (user.role === Role.ADMIN && order) {
+      const payoutAmounts = derivePayoutAmounts({
+        total_price: Number(order.total_price || 0),
+        provider_payout_amount: Number(order.provider_payout_amount ?? NaN),
+        platform_commission: Number(order.platform_commission ?? NaN),
+      });
 
-      if (order) {
-        const payoutAmounts = derivePayoutAmounts({
-          total_price: Number(order.total_price || 0),
-          provider_payout_amount: Number(order.provider_payout_amount ?? NaN),
-          platform_commission: Number(order.platform_commission ?? NaN),
-        });
-
-        settlementWindow = {
-          total_amount: Number(order.total_price || 0),
-          distributable_amount: payoutAmounts.providerPayoutAmountPaise / 100,
-          platform_commission: payoutAmounts.platformCommissionPaise / 100,
-          default_provider_payout:
-            payoutAmounts.providerPayoutAmountPaise / 100,
-        };
-      }
+      settlementWindow = {
+        total_amount: Number(order.total_price || 0),
+        distributable_amount: payoutAmounts.providerPayoutAmountPaise / 100,
+        platform_commission: payoutAmounts.platformCommissionPaise / 100,
+        default_provider_payout: payoutAmounts.providerPayoutAmountPaise / 100,
+      };
     }
+
+    const rawDeliveredAt = order?.otp_confirmed_at ?? order?.escrow_started_at;
+    const deliveredAt =
+      rawDeliveredAt instanceof Date ? rawDeliveredAt.toISOString() : null;
+    const orderDeadline =
+      order?.deadline instanceof Date ? order.deadline.toISOString() : null;
 
     return successResponse({
       ...complaint,
@@ -109,6 +123,8 @@ export async function GET(
             businessName: provider.businessName || null,
           }
         : null,
+      order_deadline: orderDeadline,
+      delivered_at: deliveredAt,
       settlement_window: settlementWindow,
     });
   } catch (error) {
@@ -119,6 +135,8 @@ export async function GET(
     logger.error("COMPLAINTS", "Error fetching complaint", error, {
       complaintId: id,
     });
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Internal Error"),
+    );
   }
 }

@@ -32,6 +32,9 @@ function makeReq() {
   return new Request(`https://laundryease.test/api/complaints/${complaintId}`);
 }
 
+const orderDeadline = new Date("2026-03-14T10:30:00.000Z");
+const deliveredAt = new Date("2026-03-14T12:45:00.000Z");
+
 describe("GET /api/complaints/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -43,6 +46,7 @@ describe("GET /api/complaints/[id]", () => {
       .fn()
       .mockResolvedValueOnce({
         _id: complaintId,
+        order_id: new ObjectId(),
         seeker_id: seekerId,
         provider_id: providerId,
         status: "open",
@@ -51,6 +55,10 @@ describe("GET /api/complaints/[id]", () => {
       .mockResolvedValueOnce({
         name: "Test Provider",
         businessName: "CleanCo",
+      })
+      .mockResolvedValueOnce({
+        deadline: orderDeadline,
+        otp_confirmed_at: deliveredAt,
       });
     mockGetDb.mockResolvedValue({
       db: { collection: () => ({ findOne: mockFindOne }) },
@@ -89,5 +97,7 @@ describe("GET /api/complaints/[id]", () => {
     expect(res.status).toBe(200);
     expect(body.data.seeker.name).toBe("Test Seeker");
     expect(body.data.provider.name).toBe("Test Provider");
+    expect(body.data.order_deadline).toBe(orderDeadline.toISOString());
+    expect(body.data.delivered_at).toBe(deliveredAt.toISOString());
   });
 });

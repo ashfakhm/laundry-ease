@@ -41,6 +41,11 @@ type ComplaintParticipants = {
   providerName: string;
 };
 
+type ComplaintOrderTimeline = {
+  orderDeadline: string | null;
+  deliveredAt: string | null;
+};
+
 type SenderRole = "seeker" | "provider" | "admin" | "system";
 
 const TYPING_DEBOUNCE_MS = 2000;
@@ -113,6 +118,21 @@ function getApiErrorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
+function formatTimelineDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unavailable";
+
+  return date.toLocaleString("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+}
+
 export default function ComplaintChat({
   complaintId,
   selfRole,
@@ -137,6 +157,10 @@ export default function ComplaintChat({
   const [participants, setParticipants] = useState<ComplaintParticipants>({
     seekerName: "Seeker",
     providerName: "Provider",
+  });
+  const [orderTimeline, setOrderTimeline] = useState<ComplaintOrderTimeline>({
+    orderDeadline: null,
+    deliveredAt: null,
   });
   const hasSocketConnectedRef = useRef(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -264,6 +288,8 @@ export default function ComplaintChat({
       const data = unwrapApiData<{
         status?: string | null;
         provider_access_granted?: boolean;
+        order_deadline?: string | null;
+        delivered_at?: string | null;
         seeker?: { name?: string | null } | null;
         provider?: {
           name?: string | null;
@@ -277,6 +303,10 @@ export default function ComplaintChat({
       setParticipants({
         seekerName,
         providerName,
+      });
+      setOrderTimeline({
+        orderDeadline: data?.order_deadline ?? null,
+        deliveredAt: data?.delivered_at ?? null,
       });
 
       const uiState = deriveComplaintUiState({
@@ -300,6 +330,7 @@ export default function ComplaintChat({
     setIsAccessBlocked(false);
     setPendingAttachments([]);
     setPeerTyping(null);
+    setOrderTimeline({ orderDeadline: null, deliveredAt: null });
     void Promise.all([fetchComplaintMeta(), fetchMessages()]);
   }, [complaintId, selfRole]);
 
@@ -589,6 +620,40 @@ export default function ComplaintChat({
         <div className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium px-3 py-2 animate-pulse">
           <WifiOff className="w-3.5 h-3.5" />
           {isReconnecting ? "Reconnecting..." : "Connection lost"}
+        </div>
+      )}
+
+      {(orderTimeline.orderDeadline || orderTimeline.deliveredAt) && (
+        <div className="border-b border-border/50 bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {orderTimeline.orderDeadline && (
+              <span>
+                Service deadline:{" "}
+                {formatTimelineDateTime(orderTimeline.orderDeadline)}
+              </span>
+            )}
+            {orderTimeline.deliveredAt && (
+              <span>
+                Delivered on:{" "}
+                {formatTimelineDateTime(orderTimeline.deliveredAt)}
+              </span>
+            )}
+            {orderTimeline.orderDeadline && orderTimeline.deliveredAt && (
+              <span
+                className={
+                  new Date(orderTimeline.deliveredAt).getTime() <=
+                  new Date(orderTimeline.orderDeadline).getTime()
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+                }
+              >
+                {new Date(orderTimeline.deliveredAt).getTime() <=
+                new Date(orderTimeline.orderDeadline).getTime()
+                  ? "On-time delivery"
+                  : "Deadline exceeded"}
+              </span>
+            )}
+          </div>
         </div>
       )}
 

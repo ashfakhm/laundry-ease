@@ -72,7 +72,7 @@ type OrderWithProcessStatus = Order & {
     | "out_for_delivery"
     | "delivered"
   >;
-  deadline?: Date;
+  deadline?: string | Date;
 };
 
 const STATUS_LABELS: Record<
@@ -118,6 +118,23 @@ function deriveAllowedNextStates(
     | "out_for_delivery"
     | "delivered"
   >;
+}
+
+function formatDateTime(value?: string | Date): string {
+  if (!value) return "N/A";
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleString("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
 }
 
 export default function OrderStatusPage() {
@@ -682,6 +699,39 @@ export default function OrderStatusPage() {
                         ))}
                       </div>
                     </div>
+
+                    {(order.deadline || order.otp_confirmed_at) && (
+                      <div className="rounded-xl border bg-background p-3">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Service Timeline
+                        </p>
+                        {order.deadline && (
+                          <p className="mt-1 text-sm">
+                            Deadline: {formatDateTime(order.deadline)}
+                          </p>
+                        )}
+                        {order.otp_confirmed_at && (
+                          <p className="mt-1 text-sm">
+                            Delivered: {formatDateTime(order.otp_confirmed_at)}
+                          </p>
+                        )}
+                        {order.deadline && order.otp_confirmed_at && (
+                          <p
+                            className={`mt-1 text-xs font-medium ${
+                              new Date(order.otp_confirmed_at).getTime() <=
+                              new Date(order.deadline).getTime()
+                                ? "text-emerald-600"
+                                : "text-amber-600"
+                            }`}
+                          >
+                            {new Date(order.otp_confirmed_at).getTime() <=
+                            new Date(order.deadline).getTime()
+                              ? "Delivered on time"
+                              : "Delivered after deadline"}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col items-end gap-3">
