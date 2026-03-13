@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Package,
@@ -135,6 +135,13 @@ function formatDateTime(value?: string | Date): string {
     hour12: true,
     timeZone: "Asia/Kolkata",
   });
+}
+
+function toEpochOrInfinity(value?: string | Date): number {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const date = value instanceof Date ? value : new Date(value);
+  const time = date.getTime();
+  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
 }
 
 export default function OrderStatusPage() {
@@ -477,19 +484,33 @@ export default function OrderStatusPage() {
     );
   }
 
-  const filteredOrders = orders.filter((order) => {
-    if (filter === "all") return true;
-    if (filter === "cancelled") return !!order.cancellation_status;
-    if (filter === "completed")
-      return order.payment_status === "released" || !!order.otp_confirmed_at;
-    if (filter === "active")
-      return (
-        !order.cancellation_status &&
-        order.payment_status !== "released" &&
-        !order.otp_confirmed_at
-      );
-    return true;
-  });
+  const filteredOrders = useMemo(() => {
+    const visibleOrders = orders.filter((order) => {
+      if (filter === "all") return true;
+      if (filter === "cancelled") return !!order.cancellation_status;
+      if (filter === "completed")
+        return order.payment_status === "released" || !!order.otp_confirmed_at;
+      if (filter === "active")
+        return (
+          !order.cancellation_status &&
+          order.payment_status !== "released" &&
+          !order.otp_confirmed_at
+        );
+      return true;
+    });
+
+    return [...visibleOrders].sort((a, b) => {
+      const deadlineDiff =
+        toEpochOrInfinity(a.deadline) - toEpochOrInfinity(b.deadline);
+      if (deadlineDiff !== 0) return deadlineDiff;
+
+      const createdDiff =
+        toEpochOrInfinity(a.createdAt) - toEpochOrInfinity(b.createdAt);
+      if (createdDiff !== 0) return createdDiff;
+
+      return a._id.localeCompare(b._id);
+    });
+  }, [orders, filter]);
 
   if (loading) {
     return (
