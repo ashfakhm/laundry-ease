@@ -298,7 +298,7 @@ flowchart TB
     P3_5 -- "Check Escrow Window\n(24-hour hold)" --> D5
     P3_5 -- "Calculate Commission\n(5% of subtotal)" --> P3_5
     P3_5 -- "Initiate Payout" --> RAZORPAY
-    P3_5 -- "Update payout_status\n(released / paid)" --> D5
+    P3_5 -- "Update payment_status / payout_status\n(released / processing / paid)" --> D5
     P3_5 -- "Payout Confirmation" --> PROVIDER
 
     %% Submit Review
@@ -1489,7 +1489,7 @@ const bookings = await db
 
 #### 5.4.2 Socket.IO Real-Time Layer
 
-LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and attaches a **Socket.IO 4.8.3** WebSocket server to the same HTTP port. This allows real-time bidirectional events to coexist with Next.js API routes without a separate server process. The system supports two chat systems: **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin). Both chat systems support text messages, voice notes, multiple photo attachments, and a three-tier message deletion system (`for_me`, `for_everyone`, and `admin_hard_delete`).
+LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and attaches a **Socket.IO 4.8.3** WebSocket server to the same HTTP port. This allows real-time bidirectional events to coexist with Next.js API routes without a separate server process. The system supports two chat systems: **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin). Both chat systems support text messages, voice notes, and multiple photo attachments. Order chat supports `for_me` and `for_everyone` deletion modes, while complaint chat additionally supports `admin_hard_delete`.
 
 **Architecture:**
 
@@ -1567,11 +1567,11 @@ Every API route and dashboard page checks the user's role before allowing access
 ```typescript
 // lib/api/auth.ts — Middleware functions
 export async function requireSeeker() {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "seeker") {
-    throw new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden");
+  const { user } = await requireAuth([Role.SEEKER]);
+  if (user.role !== Role.SEEKER) {
+    throw Errors.forbidden("This action requires seeker role");
   }
-  return { user: session.user };
+  return { user };
 }
 ```
 
@@ -1697,7 +1697,7 @@ describe("createBooking", () => {
 });
 ```
 
-**API route tests** verify that HTTP endpoints return correct responses for valid and invalid requests. Each API route has a corresponding `.test.ts` file. Tests use a mock `getServerSession` to simulate authenticated requests without a running auth server:
+**API route tests** verify that HTTP endpoints return correct responses for valid and invalid requests. Each API route has a corresponding `.test.ts` file. Tests typically mock the role guard helpers from `lib/api/auth.ts` such as `requireAuth`, `requireSeeker`, `requireProvider`, or `requireAdmin` to simulate authenticated requests without a running auth server:
 
 | API Route                       | Tests Covered                                                                  |
 | ------------------------------- | ------------------------------------------------------------------------------ |
