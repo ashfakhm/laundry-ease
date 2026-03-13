@@ -308,6 +308,15 @@ If delivery confirmation happens after the booking deadline:
 
 LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node.js entry point (`server.js`). This enables live message push for **order chat** and **complaint chat** without polling.
 
+### Key Capabilities
+
+- **Voice Messages**: Record and send voice notes in order and complaint chats, securely backed by Cloudinary.
+- **Photo Attachments**: Attach up to 5 photos per message in Order Chat.
+- **WhatsApp-style Deletion**: 
+  - `for_me`: Hides the message for the current user across all their devices.
+  - `for_everyone`: Deletes the message for all participants (enforced 1-hour window for users). Shows a "🚫 This message was deleted" placeholder.
+  - `admin_hard_delete`: Permanent record removal by admins in complaint chats with no placeholder trace left behind.
+
 ### Architecture
 
 - `server.js` creates an HTTP server, attaches the Next.js request handler, and then mounts a `socket.io` `Server` instance on the same port.
