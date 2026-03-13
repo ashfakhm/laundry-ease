@@ -80,7 +80,7 @@
 | **Deployment**            | One-click Vercel deployment             | Many services, more complex            |
 | **SEO**                   | Excellent (SSR by default)              | Poor without extra setup               |
 
-**Main benefit**: Next.js gives me a full-stack app in one codebase with API routes, so I don't need a separate Express server. This means less complexity, faster speed, and easier deployment.
+**Main benefit**: Next.js gives me the website and backend in one codebase with built-in API routes, so I do not need a separate Express server. That means less setup, better speed, and easier deployment.
 
 ### Q: What is your complete tech stack?
 
@@ -416,7 +416,7 @@ const envSchema = z.object({
   MONGODB_URI: z.string().min(1),
   RAZORPAY_KEY_ID: z.string().min(1),
   RAZORPAY_KEY_SECRET: z.string().min(1),
-  GOOGLE_ID: z.string().min(1),
+  AUTH_GOOGLE_ID: z.string().min(1),
   // ... all required variables
 });
 
@@ -570,9 +570,9 @@ export async function getDb() {
 
 This stops too many connections from being created when the app reloads during development.
 
-### Q: How do you handle geospatial queries?
+### Q: How do you handle location-based search?
 
-**Answer**: MongoDB's `2dsphere` index with `$geoWithin`:
+**Answer**: We use MongoDB's location index and location-search operators:
 
 ```typescript
 // Find providers who serve the seeker's location
@@ -618,7 +618,7 @@ This stops race conditions where many bookings could go past the provider's limi
 
 ### Q: How does authentication work?
 
-**Answer**: Auth.js v5 (`next-auth` beta) with three ways to sign in:
+**Answer**: Auth.js v5 (`next-auth` beta) gives three ways to sign in:
 
 1. **Google OAuth**: Sign in with Google accounts
 2. **Credentials**: Email/password with bcrypt password hashing
@@ -1107,7 +1107,7 @@ function verifyPaymentSignature(
 
 ### Q: How does provider location matching work?
 
-**Answer**: Providers set a **service radius** (e.g., 5 km). We use MongoDB's geospatial queries:
+**Answer**: Providers set a **service radius** (e.g., 5 km). We use MongoDB's location search:
 
 ```typescript
 // lib/geocoding.ts + MongoDB query
@@ -1658,7 +1658,7 @@ Benefits: Less screen redraws, built-in checking, works with TypeScript.
 ```typescript
 // lib/env.ts
 const envSchema = z.object({
-  GOOGLE_ID: z.string().min(1),
+  AUTH_GOOGLE_ID: z.string().min(1),
   MONGODB_URI: z.string().min(1),
   // ... all required vars
 });
@@ -1714,7 +1714,7 @@ Key test coverage highlights:
 
 - **Cancellation policy**: 11 unit tests — both actors, boundary (exactly 2h), before/after window, all `bookingFeeStatus` values, `invoice_created` forced-forfeit case
 - **Realtime modules** (`lib/realtime/`): socket-auth room authorization, emitter dispatch, chat-state serialization
-- **Reschedule route**: tests for `$unset confirmedAt`, TOCTOU-safe atomic status filter
+- **Reschedule route**: tests for `$unset confirmedAt`, with race-condition-safe status filtering
 - **Schedule route**: propose/confirm TOCTOU guards, `updatedAt` correctness
 - **Dialog/hook behavior**: `useConfirmDialog`, headless `handleCancelBooking` callback
 
@@ -2040,7 +2040,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Invoice finalization**: Atomic order creation with MongoDB transaction + compensating-write fallback for non-replica-set environments (`lib/services/invoice-finalization.ts`)
 - **Delivery OTP**: 6-digit bcrypt-hashed OTP with 10-minute TTL, sent via email outbox, verifiable by both seeker and provider
 - **Deadline compensation**: Automatic full Razorpay refund on late delivery at OTP confirmation — idempotent (checks `deadline_compensated_at`, `razorpay_refund_id`, and payment status)
-- **Booking reschedule (hardened)**: Either side can request reschedule; explicit `reschedule_requested` state stores `requestedBy`, `reason`, `previousPickupSlot`; `pickupSlot.confirmedAt` cleared via MongoDB `$unset` (not `$set: undefined`); propose/confirm writes TOCTOU-safe with atomic status guards
+- **Booking reschedule (hardened)**: Either side can request reschedule; explicit `reschedule_requested` state stores `requestedBy`, `reason`, `previousPickupSlot`; `pickupSlot.confirmedAt` is cleared via MongoDB `$unset` (not `$set: undefined`); propose/confirm writes use race-condition-safe status guards
 - **Cancellation policy engine** (`lib/bookings/cancellation-policy.ts`): Pure function `evaluateCancellationPolicy()` is single source of truth — seeker free-cancel window = **2 hours from booking creation** (`SEEKER_FREE_CANCEL_WINDOW_MS`); after window, fee forfeited; provider cancel always refunds; fully unit-tested (11 cases)
 - **Cancel at `invoice_created` stage**: Seekers can cancel after provider has created an invoice — the slot-time guard is bypassed and the booking fee is **always forfeited** (provider did physical work). UI shows "Cancel & Reject Invoice" button with a fee-forfeit warning in the confirm dialog. Policy engine, API, and UI all updated consistently.
 
@@ -2087,7 +2087,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Server-side emitter** (`lib/realtime/emitter.ts`): API route handlers call `emitOrderMessageCreated()` / `emitComplaintMessageCreated()` / `emitComplaintStateUpdated()` which push events to rooms via `globalThis._socketIoServer`
 - **Shared contracts** (`lib/realtime/contracts.js`): Event name constants + room name helpers + message serializers — CommonJS module used by both `server.js` and TypeScript code
 - **CSP WebSocket support**: `connect-src` includes `ws:` and `wss:`; `upgrade-insecure-requests` is production-only so Socket.IO polling works over plain HTTP on localhost
-- **All realtime modules unit-tested**: `socket-auth.test.ts` (order + complaint + booking room auth), `emitter.test.ts`, `chat-state.test.ts`
+- **All realtime modules unit-tested**: `socket-auth.test.ts` (order + complaint room auth), `emitter.test.ts`, `chat-state.test.ts`
 
 ### Security & Hardening
 
@@ -2132,7 +2132,7 @@ Use these points if you are asked about differences between the PRD and what is 
 
 ### Testing & CI
 
-- **107 test files, 567 unit tests** passing (Vitest + mongodb-memory-server)
+- **Current unit test suite** passing (Vitest + mongodb-memory-server)
 - **Test coverage includes**: `authorizeOrderRoom` — 6 tests (invalid id, not found, forbidden, seeker allowed, provider allowed, admin allowed)
 - **Retained from Rev 11**: realtime socket-auth room authorization, emitter dispatch, chat-state serialization, cancellation policy `invoice_created` forced-forfeit case (11 total)
 - **Retained from Rev 10**: `passwordChangedAt` on profile password change (seeker + provider), password-changed email enqueuing verified
@@ -2165,10 +2165,10 @@ Use these points if you are asked about differences between the PRD and what is 
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
 3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
 4. **Show what's special**: Escrow system, real-time Socket.IO order chat + 3-way complaint chat with split settlement, voice notes, photo attachments, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with WhatsApp style message deletion and session invalidation
-5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO co-hosted with Next.js for real-time order and complaint chat, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes, SHA-256 token hashing for password resets, JWT session invalidation on password change"
-6. **Mention production quality**: "107 test files, 567 tests, 5 E2E specs, only 2 eslint-disable comments, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
+5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO hosted with Next.js for live order and complaint chat, decimal.js for exact money calculations, 10 cron jobs, alert escalation with clear response targets, safe database writes, SHA-256 token hashing for password resets, and automatic session invalidation after password change"
+6. **Mention production quality**: "Current unit test suite passes, 5 E2E specs, only 2 eslint-disable comments, structured logging with secret redaction, distributed locks, safe retry handling for payment callbacks, zero native browser dialogs, anti-enumeration on password reset"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
-8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-min OTP TTL, 1hr reset token TTL, 5-min session re-check, 15-min critical SLA, 30+ DB indexes, 10 cron jobs, 5 email types, 107 test files, 567 tests, only 2 eslint-disable comments
+8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-minute OTP validity, 1-hour reset token validity, 5-minute session re-check, 15-minute critical response target, 30+ DB indexes, 10 cron jobs, 5 email types, and only 2 eslint-disable comments
 9. **Password security talking point**: "We never store raw reset tokens — only SHA-256 hashes. Even if the database is compromised, the tokens are useless. And when a password changes, all existing sessions are invalidated within 5 minutes automatically."
 10. **Real-time talking point**: "Order chat and complaint chat are powered by Socket.IO running on the same server as Next.js. Every connection is JWT-authenticated and room access is verified against MongoDB — seekers can only join rooms for their own orders. Messages are pushed in real time with no polling."
 11. **Cancel-at-invoice talking point**: "We respect both sides. Even after a provider has collected the items and created an invoice, the seeker can still cancel — they just forfeit the ₹50 booking fee as fair compensation for the provider's physical work. The policy engine, the API, and the UI all enforce this consistently."

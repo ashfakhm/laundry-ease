@@ -4,7 +4,7 @@
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6 (App Router), React 19.2.4, TypeScript 5, and MongoDB 7.1 (native driver). It connects seekers with laundry providers through a trust-first workflow: location-verified discovery → booking with upfront fee → provider inspection and invoicing → escrow payment → tracked order lifecycle → OTP-verified delivery → timed payout release. The platform includes real-time Socket.IO messaging for both **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin), commission-aware split settlements, operational health monitoring with SLA-driven alert escalation, a fully custom confirmation dialog system (no native browser `alert`/`confirm`/`prompt` anywhere in the codebase), and a professional password management system with secure token-based reset, session invalidation on password change, and branded security notification emails. The codebase has **107 test files with 567 passing tests**, 5 Playwright E2E specs, and only 2 justified `eslint-disable` comments (both in CommonJS files).
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, and secure password reset and session invalidation. The current test suite passes, there are 5 Playwright end-to-end browser tests, and only 2 justified `eslint-disable` comments remain in CommonJS files.
 
 ```mermaid
 graph LR
@@ -227,7 +227,7 @@ laundry-ease/
 │   ├── realtime/                 # Socket.IO real-time layer
 │   │   ├── contracts.js          # Shared event names + serializers (CommonJS — loaded by server.js)
 │   │   ├── contracts.d.ts        # TypeScript declarations for contracts.js
-│   │   ├── socket-auth.js        # Room authorization helpers (booking + complaint rooms)
+│   │   ├── socket-auth.js        # Room authorization helpers (order + complaint rooms)
 │   │   ├── socket-auth.test.ts   # Auth helper unit tests
 │   │   ├── emitter.ts            # Server-side event emitter (wraps globalThis._socketIoServer)
 │   │   ├── emitter.test.ts       # Emitter unit tests
@@ -904,7 +904,7 @@ All crons:
 - `bookings.razorpay_payment_id` — Unique booking payment ID
 - `password_reset_tokens.tokenHash` — Unique token lookup
 - `seekers.email`, `providers.email`, `admins.email` — Unique email per role
-- `webhook_events.event_id` — Idempotent webhook processing
+- `webhook_events.event_id` — payment callback processing that is safe to retry without duplicates
 - `payments.razorpay_payment_id` — Unique payment tracking
 - `refunds.razorpay_refund_id` — Unique refund tracking
 
@@ -1175,7 +1175,7 @@ flowchart LR
 
 - Razorpay HMAC-SHA256 signature verification
 - Server-side order creation (client never sets amounts)
-- Idempotent webhook processing with event dedup
+- Payment callback processing with duplicate-event protection
 - Escrow hold with complaint-gated release
 - Distributed refund locks (`lib/services/refund-lock.ts`)
 - Distributed payout locks with stale-lock recovery
@@ -1211,16 +1211,16 @@ flowchart LR
 
 ## 13. Testing Strategy
 
-### Unit Tests (Vitest) — 107 files, 567 tests
+### Unit Tests (Vitest)
 
-- **107 test files**, **567 tests** passing
+- The current full unit test suite is passing
 - Located alongside source files as `*.test.ts`
 - In-memory MongoDB via `mongodb-memory-server`
 - Coverage areas:
   - All API route handlers
   - Business logic modules:
     - Cancellation policy — **11 tests** (both actors, boundary 2-hour window, `invoice_created` forced-forfeit, all `bookingFeeStatus` values)
-    - Reschedule route — atomic `$unset` and TOCTOU-safe status guard scenarios
+    - Reschedule route — atomic `$unset` and race-condition-safe status guard scenarios
     - Schedule route — propose/confirm TOCTOU guards, `updatedAt` correctness
     - Deadline compensation, status machine, payout amounts
   - **Real-time modules** — `lib/realtime/`: socket-auth room authorization, emitter dispatch, chat-state serialization
@@ -1280,13 +1280,15 @@ npm run check:docs-sync   # Documentation sync checker
 
 ### Environment Variables
 
-All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern).
+All are checked at startup with a Zod schema in `lib/env.ts`.
 
-**Required** (20):
-`GOOGLE_ID`, `GOOGLE_SECRET`, `MONGODB_URI`, `MONGODB_DB`, `EMAIL_USER`, `EMAIL_PASS`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `NEXT_PUBLIC_RAZORPAY_KEY_ID`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `CRON_SECRET`, `NEXTAUTH_SECRET`
+**Required**:
+`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `MONGODB_URI`, `MONGODB_DB`, `EMAIL_USER`, `EMAIL_PASS`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `NEXT_PUBLIC_RAZORPAY_KEY_ID`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `CRON_SECRET`, `AUTH_SECRET`
 
-**Optional** (20+):
-`NEXTAUTH_URL`, `NEXT_PUBLIC_BASE_URL`, `NEXT_PUBLIC_APP_URL`, `RAZORPAYX_ACCOUNT_NUMBER`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `DATADOG_API_KEY`, `DD_API_KEY`, `OPS_ALERT_EMAIL_TO`, `OPS_ALERT_WEBHOOK_URL`, `OPS_ALERT_WEBHOOK_BEARER`, `OPS_PAGERDUTY_ROUTING_KEY`, `CSP_ENFORCE`, `CSP_ALLOW_UNSAFE_EVAL`, `ADMIN_ALLOWLIST_IPS`, `TRUST_PROXY`, `DEBUG_LOGGING`, `E2E_FAKE_PAYMENTS`, `PROVIDER_SEARCH_DEBUG`, `ALLOW_BASE64_UPLOAD_FALLBACK`, `ALLOW_START_WITH_INDEX_ERRORS`
+**Optional**:
+`AUTH_URL`, `NEXT_PUBLIC_BASE_URL`, `NEXT_PUBLIC_APP_URL`, `RAZORPAYX_ACCOUNT_NUMBER`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `DATADOG_API_KEY`, `DD_API_KEY`, `OPS_ALERT_EMAIL_TO`, `OPS_ALERT_WEBHOOK_URL`, `OPS_ALERT_WEBHOOK_BEARER`, `OPS_PAGERDUTY_ROUTING_KEY`, `CSP_ENFORCE`, `CSP_ALLOW_UNSAFE_EVAL`, `ADMIN_ALLOWLIST_IPS`, `TRUST_PROXY`, `DEBUG_LOGGING`, `E2E_FAKE_PAYMENTS`, `PROVIDER_SEARCH_DEBUG`, `ALLOW_BASE64_UPLOAD_FALLBACK`, `ALLOW_START_WITH_INDEX_ERRORS`
+
+Legacy aliases are still accepted for compatibility: `GOOGLE_ID`, `GOOGLE_SECRET`, `NEXTAUTH_SECRET`, and `NEXTAUTH_URL`.
 
 ---
 
@@ -1370,7 +1372,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 
 **Quality Snapshot (2026-03-07):**
 
-- 107 test files, 567 tests passing (100% core route coverage)
+- The current test suite is passing, including the core route coverage checks
 - 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
@@ -1393,7 +1395,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Geofenced provider arrival checks before booking-fee payout release
 - 24-hour complaint window enforcement at API level
 - Deadline compensation (auto full-refund on late delivery at OTP confirmation)
-- Idempotent webhook reconciliation with retry-safe event tracking
+- Payment callback reconciliation that is safe to retry without double-processing
 - Invoice finalization with transaction + compensating-write fallback
 - Startup DB index bootstrap for 30+ integrity/query/TTL indexes
 - CSP telemetry pipeline (Report-Only + `/api/security/csp-report`)
@@ -1402,7 +1404,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
 - Email outbox with retry/backoff (delivery OTP, password reset, password changed, magic link, email OTP) — 5 email types
-- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` maintains one authenticated connection per session; **order chat** and **complaint chat** rooms with JWT auth and per-socket rate limiting (20 joins/min); supports rich media (voice, photos); order chat supports `for_me` and `for_everyone`, while complaint chat additionally supports `admin_hard_delete`
+- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` keeps one authenticated connection per session; **order chat** and **complaint chat** rooms use signed login token checks and per-socket rate limiting (20 joins/min); both support voice notes and photos; order chat supports `for_me` and `for_everyone`, while complaint chat additionally supports `admin_hard_delete`
 - **Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`) — `DEMO_MODE=1` enables in-process cron invocation for local testing without external scheduler
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
@@ -1715,8 +1717,8 @@ LaundryEase is a production-grade laundry marketplace built with:
 3. **Robust State Machines** — Booking (10 states, including cancel-at-invoice) and Order (7 process states × 5 payment states) with explicit, enforced transitions
 4. **Comprehensive Dispute Resolution** — 3-way real-time Socket.IO complaint chat, commission-aware split settlements, manual fallback for failed auto-actions
 5. **Financial Precision** — decimal.js for calculations, paise integers for Razorpay, distributed locks for concurrent safety
-6. **Production-Ready Infrastructure** — 10 cron jobs (+ in-process demo runner), operational alerting with SLA/escalation/owner routing, email outbox with retry (5 types), MongoDB-backed rate limiting, structured logging with secret redaction, Datadog APM
-7. **Professional Password Management** — Secure token-based reset (SHA-256, 1hr TTL), anti-enumeration, branded email notifications, JWT session invalidation on password change (5-min re-check), password show/hide UX
-8. **Quality Assurance** — 107 test files (567 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows, only 2 `eslint-disable` comments
-9. **Operational Observability** — Cron run tracking, data integrity auditing, abuse monitoring, alert analytics (trend/burn-rate/MTTR), CSP violation reporting
+6. **Production-Ready Infrastructure** — 10 cron jobs (+ in-process demo runner), operational alerting with clear response targets and owner routing, email outbox with retry (5 types), MongoDB-backed rate limiting, structured logging with secret redaction, and Datadog monitoring
+7. **Professional Password Management** — Secure token-based reset (SHA-256, 1-hour expiry), anti-enumeration, branded email notifications, automatic invalidation of old login sessions after a password change (5-minute re-check), and password show/hide controls
+8. **Quality Assurance** — current unit test suite, 5 end-to-end browser specs, React Compiler, strict TypeScript, 3 CI workflows, only 2 `eslint-disable` comments
+9. **Operational Visibility** — Cron run tracking, data integrity checks, abuse monitoring, alert analytics (trend, alert growth, average fix time), and browser security policy reports
 10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); supports voice notes, photo uploads, and WhatsApp-style message deletion; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook

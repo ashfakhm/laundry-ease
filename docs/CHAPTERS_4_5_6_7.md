@@ -25,7 +25,7 @@ The LaundryEase system is divided into the following independent modules. Each m
 | Module                        | Responsibility                                                                                                                                                                             | Key Files                                                                                                                              |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | **Authentication Module**     | User registration, login, email/phone verification, password management, session handling                                                                                                  | `app/api/auth/`, `lib/auth/`, `app/signup/`, `app/auth/`                                                                               |
-| **Provider Discovery Module** | Location-based provider search using geospatial queries, distance calculation, delivery fee computation                                                                                    | `app/api/providers/`, `lib/distance.ts`, `lib/geocoding.ts`                                                                            |
+| **Provider Discovery Module** | Location-based provider search using location queries, distance calculation, delivery fee computation                                                                                      | `app/api/providers/`, `lib/distance.ts`, `lib/geocoding.ts`                                                                            |
 | **Booking Module**            | Booking creation, acceptance, rejection, pickup scheduling, rescheduling, cancellation with fee policies (including cancellation at `invoice_created` stage with mandatory fee forfeiture) | `app/api/bookings/`, `lib/bookings/`, `types/bookings.ts`                                                                              |
 | **Invoice Module**            | Item-level invoice creation with photos, discount application, delivery charge calculation, invoice review workflow                                                                        | `app/(dashboard)/provider/invoice-generation/`, `components/providers/invoice-form.tsx`                                                |
 | **Order Module**              | Order lifecycle tracking through process states, deadline monitoring, status updates                                                                                                       | `app/api/orders/`, `lib/orders/`, `types/orders.ts`                                                                                    |
@@ -686,7 +686,7 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | pricingRates             | Object   | Service-specific pricing map                                 |
 | location                 | String   | Text address                                                 |
 | coordinates              | Object   | Latitude and longitude                                       |
-| locationGeoJSON          | Object   | GeoJSON Point for geospatial queries                         |
+| locationGeoJSON          | Object   | GeoJSON point used for location-based search                 |
 | radius_km                | Number   | Maximum service radius in kilometers                         |
 | free_radius_km           | Number   | Free delivery radius                                         |
 | per_km_rate              | Number   | Delivery charge per kilometer beyond free radius             |
@@ -1428,7 +1428,7 @@ LaundryEase uses **MongoDB 7.1** through the official Node.js driver (not an ORM
 **Why MongoDB was chosen:**
 
 - **Flexible documents** — A booking document embeds its invoice data (items, subtotal, discount, total) directly, avoiding complex joins.
-- **Geospatial queries** — The `$geoWithin` and `$nearSphere` operators with 2dsphere indexes enable the radius-based provider search.
+- **Location queries** — The `$geoWithin` and `$nearSphere` operators with location indexes enable the radius-based provider search.
 - **Atomic operations** — `findOneAndUpdate` with conditions ensures that two concurrent requests cannot both accept the same booking.
 - **TTL indexes** — OTP codes and audit logs automatically expire and delete themselves without cron cleanup.
 - **Transaction support** — Multi-document operations (e.g., creating a booking + checking capacity) use MongoDB transactions to ensure all-or-nothing execution.
@@ -1591,7 +1591,7 @@ The testing infrastructure consists of:
 
 | Tool                      | Purpose                                         | Test Count                |
 | ------------------------- | ----------------------------------------------- | ------------------------- |
-| **Vitest**                | Unit tests and integration tests                | 107 test files, 567 tests |
+| **Vitest**                | Unit tests and integration tests                | Current full test suite   |
 | **Playwright**            | End-to-end browser tests                        | 5 test suites             |
 | **mongodb-memory-server** | In-memory MongoDB for isolated database testing | Used in integration tests |
 
@@ -1854,7 +1854,7 @@ LaundryEase successfully transforms the informal, trust-based local laundry serv
 - **Dispute resolution vacuum** is filled by a structured complaint system with 3-party chat, evidence attachments, response deadlines, and commission-aware settlement.
 - **Data loss** is prevented by a comprehensive MongoDB database with proper indexing, audit trails, and automated backups.
 
-The system is built on a modern, maintainable technology stack (Next.js, React, TypeScript, MongoDB, Razorpay, Socket.IO) with strict coding standards (type safety, Zod validation, Decimal.js for financial math) and a thorough testing pipeline (567 unit tests across 107 test files, 5 E2E test suites, automated CI/CD quality gates).
+The system is built on a modern, maintainable technology stack (Next.js, React, TypeScript, MongoDB, Razorpay, Socket.IO) with strict coding standards and a thorough testing pipeline, including the current unit test suite, 5 end-to-end test suites, and automated CI/CD quality gates.
 
 ### 7.1 Future Enhancements
 

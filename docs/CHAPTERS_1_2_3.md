@@ -47,15 +47,15 @@ Traditional laundry service management in most local businesses relies on the fo
 
 ### 1.4 Area and Category of the Project Work
 
-The LaundryEase project encompasses several key areas and categories:
+The LaundryEase project covers several connected areas:
 
-- **Information Technology (IT):** The platform is built as a full-stack web application using modern technologies including Next.js, React, TypeScript, and MongoDB, following industry-standard software engineering practices.
-- **Web Application Development:** LaundryEase is a responsive web application accessible from both desktop and mobile browsers, with progressive web app (PWA) capabilities.
-- **Service Operations Management:** The system digitizes and automates the end-to-end workflow of laundry service operations, from customer discovery and booking through order processing, delivery, and payment settlement.
-- **Financial Technology (FinTech):** The platform integrates Razorpay for secure payment processing, escrow management, and automated provider payouts, incorporating commission-aware settlement logic.
-- **Geospatial Computing:** Location-based provider discovery, radius-based service matching, and geofence-verified provider arrival use Google Maps APIs and MongoDB geospatial queries.
-- **User Experience (UX) Design:** The interface is designed for ease of use across three distinct user roles, with real-time feedback, accessible UI components (shadcn/ui), and smooth animations (Framer Motion).
-- **Data Management and Security:** The system enforces strict data validation (Zod schemas), role-based access control, password hashing (bcrypt), CSRF protection, Content Security Policy, rate limiting, and secure OTP-based verification.
+- **Software development:** The platform is a full web application built with Next.js, React, TypeScript, and MongoDB.
+- **Web app design:** LaundryEase works on both desktop and mobile browsers, with an app-like experience.
+- **Laundry operations:** The system records the full service flow, from finding a provider to payment and delivery.
+- **Payments:** The platform uses Razorpay for secure payments, escrow, and provider payouts.
+- **Location handling:** Provider search, service-radius matching, and arrival checks use Google Maps and MongoDB location search.
+- **User experience:** The interface is designed to be easy to use for seekers, providers, and admins.
+- **Data safety:** The system checks data carefully, controls access by role, protects passwords, limits repeated misuse, and uses OTP verification.
 
 ---
 
@@ -91,7 +91,7 @@ Specifically, the following problems exist:
 
 The primary objectives of the LaundryEase project are:
 
-1. **To develop a location-aware platform** that enables customers to discover laundry service providers within their geographic area using radius-based search powered by geospatial queries.
+1. **To develop a location-aware platform** that enables customers to discover laundry service providers within their geographic area using radius-based location search.
 
 2. **To implement a verifiable order lifecycle** that tracks every laundry order through explicit states (requested → accepted → confirmed → invoiced → processing → washing → ironing → ready → out for delivery → delivered), providing real-time visibility to both customers and providers.
 
@@ -154,7 +154,7 @@ The development of LaundryEase follows an **iterative, component-driven methodol
 **In Scope:**
 
 - User registration and authentication with email and phone verification (magic links, OTP).
-- Location-based provider discovery using Google Maps geocoding and MongoDB geospatial queries.
+- Location-based provider discovery using Google Maps geocoding and MongoDB location search.
 - Complete booking lifecycle: request, accept/reject, pickup scheduling, reschedule, cancellation with fee policies (including seeker-initiated cancellation at `invoice_created` stage with mandatory booking fee forfeiture).
 - Invoice generation with itemized breakdowns, item photos, and discounts, with delivery charges computed during invoice payment and stored on the resulting order.
 - Order lifecycle tracking through explicit process states (washing, ironing, ready, out for delivery, delivered).
@@ -237,7 +237,7 @@ The existing system in the local laundry service industry is predominantly manua
 
 The proposed system, LaundryEase, is a full-stack web application that digitizes and automates the entire laundry service workflow from customer discovery to payment settlement. It addresses every limitation of the existing manual system through the following architecture:
 
-1. **Location-Based Discovery:** Customers enter their location, and the system returns only providers whose defined service radius covers that coordinate. This is powered by MongoDB geospatial queries (2dsphere indexes) and Google Maps geocoding, ensuring that customers see only providers who can actually serve them.
+1. **Location-Based Discovery:** Customers enter their location, and the system returns only providers whose defined service radius covers that coordinate. This is powered by MongoDB location search and Google Maps geocoding, ensuring that customers see only providers who can actually serve them.
 
 2. **Structured Booking Workflow:** Customers request bookings through the platform. A ₹50 booking fee, paid via Razorpay, gates provider acceptance—ensuring commitment from both sides. Providers accept or reject requests based on their current capacity (configurable limit). Pickup time slots are proposed, negotiated, and confirmed digitally with a minimum 2-hour advance notice.
 

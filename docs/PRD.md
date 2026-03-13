@@ -339,7 +339,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
   Transactional emails must be queued through an outbox pattern with retry/backoff. Five email types supported: delivery OTP, password reset, password changed notification, magic link, and email OTP. Inline dispatch attempted on enqueue with cron fallback.
 
 - **Real-time chat**
-  Booking chat and complaint chat must deliver messages in real time without requiring page refresh. The system must use a persistent WebSocket connection (Socket.IO) co-hosted with the Next.js server. Every connection must be JWT-authenticated. Room access must be validated against MongoDB (participant membership; provider complaint access gate). Per-socket rate limiting must prevent join-event floods.
+  Order chat and complaint chat must deliver messages in real time without requiring page refresh. The system must use a persistent Socket.IO connection hosted with the main Next.js server. Every connection must use a signed login token. Room access must be checked against MongoDB so only the right people can join. Per-socket rate limiting must prevent too many room-join requests.
 
 - **Session security after credential changes**
   Password changes (via reset or profile) must write a `passwordChangedAt` timestamp. JWT sessions must be periodically re-validated against this timestamp to ensure stale sessions are invalidated.
@@ -548,10 +548,12 @@ LaundryEase requires the following environment variables to be configured (see `
 
 **Authentication & OAuth:**
 
-- `GOOGLE_ID` - Google OAuth client ID
-- `GOOGLE_SECRET` - Google OAuth client secret
-- `NEXTAUTH_SECRET` - Secret for NextAuth JWT signing (generate: `openssl rand -base64 32`)
-- `NEXTAUTH_URL` - Application base URL (optional, defaults to localhost:3000)
+- `AUTH_GOOGLE_ID` - Google OAuth client ID
+- `AUTH_GOOGLE_SECRET` - Google OAuth client secret
+- `AUTH_SECRET` - Secret used to sign login sessions (generate: `openssl rand -base64 32`)
+- `AUTH_URL` - Main application URL (optional, defaults to localhost:3000)
+
+Legacy aliases are still accepted: `GOOGLE_ID`, `GOOGLE_SECRET`, `NEXTAUTH_SECRET`, and `NEXTAUTH_URL`.
 
 **Database:**
 
@@ -700,10 +702,10 @@ See `README.md` for detailed setup instructions.
 | Invoice finalization safety | Invoice payment must atomically create order and link booking | Implemented (`lib/services/invoice-finalization.ts` with MongoDB transaction + compensating-write fallback for non-replica-set envs) |
 | Distributed refund locking | Concurrent cancel/reject must not double-refund booking fees | Implemented (`lib/services/refund-lock.ts` with stale-lock timeout and diagnostic recovery) |
 | React Compiler | Frontend should leverage compiler optimizations for performance | Implemented (`reactCompiler: true` in `next.config.ts`) |
-| Real-time chat | Order chat and complaint chat must deliver messages in real time via WebSocket without polling | Implemented — `server.js` co-hosts Socket.IO with Next.js on the same port; JWT auth middleware on every connection; **order** (`order:<id>`) + complaint (`complaint:<id>`) rooms with DB-verified authorization; per-socket rate limiting (20 joins/min); `SocketProvider` + `useSocket()` hook; server-side emitter (`lib/realtime/emitter.ts`) pushes events from API routes; `OrderChat` component replaces the previous booking-scoped `BookingChat`; `/api/orders/[id]/chat` REST endpoint for message history + send |
+| Real-time chat | Order chat and complaint chat must deliver messages in real time via WebSocket without polling | Implemented — `server.js` co-hosts Socket.IO with Next.js on the same port; each connection is checked with a signed login token; **order** (`order:<id>`) + complaint (`complaint:<id>`) rooms use database-backed access checks; per-socket rate limiting (20 joins/min); `SocketProvider` + `useSocket()` hook; server-side emitter (`lib/realtime/emitter.ts`) pushes events from API routes; `OrderChat` replaces the older booking-scoped `BookingChat`; `/api/orders/[id]/chat` handles message history + send |
 | Real-time order chat | Seekers and providers must be able to exchange messages on active orders in real time; messages persisted in `order_chats` | Implemented — `components/order-chat.tsx` joins `order:<id>` Socket.IO room via `order:join` event; `authorizeOrderRoom()` in `lib/realtime/socket-auth.js` verifies participant access against MongoDB; REST endpoint `GET/POST /api/orders/[id]/chat` for history + send; `emitOrderMessageCreated()` pushes `order:message:created` events; provider messages inbox refactored to aggregate from `orders` + `order_chats`; expandable chat panel on provider order-status page |
 | Rich media messaging | Chat should support voice notes and multiple photo attachments | Implemented — Integrates with Cloudinary for audio blob storage and image uploads. Order chat supports up to 5 photos. Complaint chat also supports voice and images. |
-| Message deletion | Users should be able to delete chat messages similar to WhatsApp | Implemented — order chat supports `for_me` (local removal) and `for_everyone` (1-hour window, broadcasts event, strips content leaving placeholder). Complaint chat additionally supports `admin_hard_delete` (DB removal). Endpoint checks and real-time socket propagation are fully mapped. |
+| Message deletion | Users should be able to delete chat messages similar to WhatsApp | Implemented — order chat supports `for_me` (hide only for yourself) and `for_everyone` (within 1 hour, leaving a deleted placeholder). Complaint chat additionally supports `admin_hard_delete` (permanent admin removal). |
 | CSP WebSocket support | CSP must allow WebSocket transport for real-time features without breaking localhost development | Implemented — `connect-src` includes `ws:` and `wss:` in `lib/security/csp.ts`; `upgrade-insecure-requests` is now production-only (`NODE_ENV === "production"`) to avoid breaking Socket.IO polling transport on localhost |
 | Demo cron dispatcher | Local development should be able to trigger all cron jobs without an external scheduler | Implemented — `lib/demo/cron-dispatch.ts` provides in-process runner for all 10 cron handlers; enabled by `DEMO_MODE=1` in `.env`; admin demo panel invokes handlers with `CRON_SECRET`-signed requests; must be disabled (`DEMO_MODE=0`) in production |
 | Provider bank sync | Bank detail changes must sync to Razorpay contact/fund account | Implemented (`lib/services/provider-bank-sync.ts` — creates contact + fund account, masks stored account number) |

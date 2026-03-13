@@ -36,7 +36,7 @@ LaundryEase's escrow-backed workflow system generates rich transactional data th
 | Order lifecycle | `orders` collection               | Delivery prediction, anomaly detection |
 | Location data   | Provider radius, seeker addresses | Geospatial optimization                |
 | Payment records | Razorpay transactions             | Fraud detection                        |
-| Chat messages   | Booking/complaint chat            | Sentiment analysis                     |
+| Chat messages   | Order/complaint chat              | Sentiment analysis                     |
 | Reviews         | Post-delivery feedback            | NLP, recommendation                    |
 | Complaints      | Dispute records                   | Priority scoring, pattern detection    |
 
@@ -263,7 +263,7 @@ Extract insights from text data across the platform.
 
 | Source             | Analysis                             | Action                       |
 | ------------------ | ------------------------------------ | ---------------------------- |
-| Booking chat       | Detect frustration/conflict early    | Alert admin for intervention |
+| Order chat         | Detect frustration or conflict early | Alert admin for intervention |
 | Reviews            | Extract themes, satisfaction drivers | Improve service guidelines   |
 | Complaint messages | Assess severity and urgency          | Priority queue routing       |
 | Provider responses | Monitor professionalism              | Training recommendations     |
@@ -562,7 +562,7 @@ Complete ML infrastructure for advanced use cases.
 ├─────────────────┴─────────────────┴────────────────────┤
 │              Training Pipeline (Kubeflow)               │
 ├─────────────────────────────────────────────────────────┤
-│              Data Lake (MongoDB + S3)                   │
+│      Future shared data storage (MongoDB + S3)         │
 └─────────────────────────────────────────────────────────┘
 ```
 
