@@ -61,7 +61,7 @@
 5. **Custom UI throughout**: No native browser `alert()`/`confirm()`/`prompt()` — all confirmations use designed in-app modals that match the app's look and work on keyboard
 6. **2-hour cancellation window**: Seekers get a clear, timed free-cancel window; a live countdown badge on the booking card tells them exactly how long they have
 7. **Cancel at invoice stage**: Even after the provider has created an invoice, seekers can still cancel using "Cancel & Reject Invoice" — the booking fee is forfeited (provider did physical work), but the seeker is never trapped
-8. **Real-time chat**: Booking and complaint conversations update instantly via Socket.IO — no page refresh needed
+8. **Real-time chat**: Order and complaint conversations update instantly via Socket.IO featuring voice notes, photo attachments, and message deletion — no page refresh needed
 
 ---
 
@@ -1329,7 +1329,7 @@ Operational detail from current code:
 
 ### Q: How does real-time chat work?
 
-**Answer**: LaundryEase uses **Socket.IO** for live message delivery in **order chat** and **complaint chat**. Here's how it works end-to-end:
+**Answer**: LaundryEase uses **Socket.IO** for live message delivery in **order chat** and **complaint chat**. It supports rich media backed by Cloudinary and a robust deletion model. Here's how it works end-to-end:
 
 **Server side** (`server.js`):
 
@@ -1362,8 +1362,11 @@ HTTP Server (Node.js)
 | Client → Server | `order:join` / `complaint:join` | Enter a chat room |
 | Client → Server | `room:leave` | Leave a room |
 | Client → Server | `typing:start` / `typing:stop` | Typing indicator |
+| Client → Server | (via REST API) | Post a message or delete (`for_me`, `for_everyone`, `admin_hard_delete`) |
 | Server → Client | `order:message:created` | New order chat message pushed live |
+| Server → Client | `order:message:deleted` | Order message deletion pushed live |
 | Server → Client | `complaint:message:created` | New complaint chat message pushed live |
+| Server → Client | `complaint:message:deleted` | Complaint message deletion pushed live |
 | Server → Client | `complaint:state:updated` | Complaint status change (e.g., provider added) |
 
 ---
@@ -2065,7 +2068,8 @@ Use these points if you are asked about differences between the PRD and what is 
 
 ### Real-Time Chat (Socket.IO)
 - **Custom Node.js server** (`server.js`): Attaches a Socket.IO `Server` to the same HTTP server as Next.js — single port, no separate process
-- **Two chat systems**: **Order chat** (`order:<id>` rooms — seeker ↔ provider on active orders) and **complaint chat** (`complaint:<id>` rooms — 3-way: seeker/provider/admin)
+- **Two chat systems**: **Order chat** (`order:<id>` rooms — seeker ↔ provider on active orders) and **complaint chat** (`complaint:<id>` rooms — 3-way: seeker/provider/admin). Both support rich media like photos and voice notes.
+- **Message Deletion**: Users can delete messages `for_me` or `for_everyone` (within 1 hour window). Admins have an `admin_hard_delete` action for permanent removal in disputes.
 - **JWT auth on every connection**: `getToken()` from `next-auth/jwt` validates the NextAuth session cookie; unauthenticated connections rejected before any room join
 - **Room authorization** (`lib/realtime/socket-auth.js`): `authorizeOrderRoom()` — DB-verified participant check for order rooms; `authorizeComplaintRoom()` — DB-verified participant + `provider_access_granted` gate for complaint rooms
 - **Per-socket rate limiting**: 20 join events per 60-second window; excess returns `{ ok: false, error: "rate_limited" }` — prevents join-event floods
@@ -2144,7 +2148,7 @@ Use these points if you are asked about differences between the PRD and what is 
 1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
 3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
-4. **Show what's special**: Escrow system, real-time Socket.IO order chat + 3-way complaint chat with split settlement, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with session invalidation
+4. **Show what's special**: Escrow system, real-time Socket.IO order chat + 3-way complaint chat with split settlement, voice notes, photo attachments, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with WhatsApp style message deletion and session invalidation
 5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO co-hosted with Next.js for real-time order and complaint chat, decimal.js for financial precision, 10 cron jobs, SLA-driven alert escalation, atomic TOCTOU-safe DB writes, SHA-256 token hashing for password resets, JWT session invalidation on password change"
 6. **Mention production quality**: "107 test files, 567 tests, 5 E2E specs, only 2 eslint-disable comments, structured logging with secret redaction, distributed locks, idempotent webhook processing, zero native browser dialogs, anti-enumeration on password reset"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
