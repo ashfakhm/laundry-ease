@@ -39,7 +39,7 @@ The LaundryEase system is divided into the following independent modules. Each m
 | **Cron Module** | Scheduled background tasks — stale booking auto-rejection, no-show detection, email queue processing | `cron/`, `lib/cron-tracking.ts` |
 | **Security Module** | Rate limiting, CSP headers, origin validation, CSRF protection, password policy enforcement | `lib/security/`, `lib/auth/password-policy.ts` |
 | **Audit Module** | Transaction logging, cross-entity anomaly detection, audit trail with TTL cleanup | `lib/audit.ts`, `lib/audit/` |
-| **Real-Time Module** | Socket.IO WebSocket server for live order chat and complaint chat, typing indicators, connection state management, per-socket rate limiting | `server.js`, `components/providers/socket-provider.tsx`, `components/order-chat.tsx`, `components/complaint-chat.tsx`, `lib/realtime/` |
+| **Real-Time Module** | Socket.IO WebSocket server for live order/complaint chat, typing indicators, connection state management, per-socket rate limiting, voice, photos, and deletion | `server.js`, `components/providers/socket-provider.tsx`, `components/order-chat.tsx`, `components/complaint-chat.tsx`, `lib/realtime/` |
 
 ---
 
@@ -790,9 +790,12 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | complaint_id | ObjectId | Reference to parent complaint (foreign key) |
 | sender_id | ObjectId | Reference to message sender (foreign key) |
 | sender_role | String | Role of sender (seeker, provider, admin, system) |
-| message_type | String | Type (TEXT, IMAGE, SYSTEM) |
+| message_type | String | Type (TEXT, VOICE, IMAGE, SYSTEM) |
 | content | String | Message text |
 | attachments | Array | Attached image URLs |
+| voiceUrl | String | Voice note URL |
+| deletedFor | Array | Users who deleted this message locally |
+| deletedForEveryone | Boolean | Whether message is globally deleted |
 | createdAt | Date | Message timestamp |
 
 **Entity 8: Order Chat Message**
@@ -803,7 +806,12 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | order_id | ObjectId | Reference to parent order (foreign key) |
 | sender_id | String | Reference to message sender (user ID) |
 | sender_role | String | Role of sender (seeker, provider) |
-| message | String | Message text |
+| message_type | String | Type (TEXT, VOICE, IMAGE, SYSTEM) |
+| content | String | Message text |
+| attachments | Array | Photo URLs (max 5) |
+| voiceUrl | String | Voice note URL |
+| deletedFor | Array | Users who deleted this message locally |
+| deletedForEveryone | Boolean | Whether message is globally deleted |
 | createdAt | Date | Message timestamp |
 
 **Entity 9: Review**
@@ -992,6 +1000,9 @@ erDiagram
         string message_type
         string content
         array attachments
+        string voiceUrl
+        array deletedFor
+        boolean deletedForEveryone
         date createdAt
     }
 
@@ -1000,7 +1011,12 @@ erDiagram
         ObjectId order_id FK
         string sender_id FK
         string sender_role
-        string message
+        string message_type
+        string content
+        array attachments
+        string voiceUrl
+        array deletedFor
+        boolean deletedForEveryone
         date createdAt
     }
 
@@ -1185,9 +1201,12 @@ The following tables show the structure of each MongoDB collection as used in th
 | complaint_id | ObjectId | Indexed | Parent complaint |
 | sender_id | ObjectId | — | Message author |
 | sender_role | String | — | seeker / provider / admin / system |
-| message_type | String | — | TEXT / IMAGE / SYSTEM |
+| message_type | String | — | TEXT / VOICE / IMAGE / SYSTEM |
 | content | String | — | Message body |
 | attachments | Array[String] | — | Attached images |
+| voiceUrl | String | — | Voice note URL |
+| deletedFor | Array[String] | — | Users who deleted locally |
+| deletedForEveryone | Boolean | — | Global deletion flag |
 | createdAt | Date | — | Sent timestamp |
 
 **Collection: order_chats**
@@ -1198,7 +1217,12 @@ The following tables show the structure of each MongoDB collection as used in th
 | order_id | ObjectId | Indexed | Parent order |
 | sender_id | String | — | Message author (user ID) |
 | sender_role | String | — | seeker / provider |
-| message | String | — | Message body |
+| message_type | String | — | TEXT / VOICE / IMAGE / SYSTEM |
+| content | String | — | Message body |
+| attachments | Array[String] | Max 5 | Photo URLs |
+| voiceUrl | String | — | Voice note URL |
+| deletedFor | Array[String] | — | Users who deleted locally |
+| deletedForEveryone | Boolean | Default: false | Global deletion flag |
 | createdAt | Date | — | Sent timestamp |
 
 **Collection: reviews**
@@ -1222,7 +1246,7 @@ The following tables show the structure of each MongoDB collection as used in th
 
 ### 5.1 Introduction
 
-This chapter describes the technologies, frameworks, and coding practices used to build the LaundryEase application. The system is implemented as a full-stack web application using a single codebase — the same framework (Next.js) handles both the frontend user interface and the backend API logic. A custom Node.js server (`server.js`) wraps Next.js and adds a Socket.IO WebSocket layer for real-time **order chat** and **complaint chat**; this replaces the default Next.js HTTP server while preserving all routing behaviour.
+This chapter describes the technologies, frameworks, and coding practices used to build the LaundryEase application. The system is implemented as a full-stack web application using a single codebase — the same framework (Next.js) handles both the frontend user interface and the backend API logic. A custom Node.js server (`server.js`) wraps Next.js and adds a Socket.IO WebSocket layer for real-time **order chat** and **complaint chat** (with voice, photo, and deletion support); this replaces the default Next.js HTTP server while preserving all routing behaviour.
 
 The codebase follows these coding principles:
 
@@ -1434,7 +1458,7 @@ const bookings = await db.collection("bookings").aggregate([
 
 #### 5.4.2 Socket.IO Real-Time Layer
 
-LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and attaches a **Socket.IO 4.8.3** WebSocket server to the same HTTP port. This allows real-time bidirectional events to coexist with Next.js API routes without a separate server process. The system supports two chat systems: **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin).
+LaundryEase uses a custom Node.js server (`server.js`) that wraps Next.js and attaches a **Socket.IO 4.8.3** WebSocket server to the same HTTP port. This allows real-time bidirectional events to coexist with Next.js API routes without a separate server process. The system supports two chat systems: **order chat** (seeker ↔ provider on active orders) and **complaint chat** (3-way: seeker/provider/admin). Both chat systems support text messages, voice notes, multiple photo attachments, and a three-tier message deletion system (`for_me`, `for_everyone`, and `admin_hard_delete`).
 
 **Architecture:**
 
@@ -1712,7 +1736,7 @@ Key areas validated during alpha testing:
 - Invoice creation with itemized pricing and photo uploads
 - Razorpay payment capture in test mode
 - Delivery OTP generation, email delivery, and verification
-- Real-time order chat between seeker and provider on active orders (message send/receive, typing indicators, disconnect/reconnect banner)
+- Real-time order chat between seeker and provider on active orders (message send/receive, voice notes, photo attachments, message deletion, typing indicators, disconnect/reconnect banner)
 - Complaint filing and 3-party chat functionality
 - Admin complaint resolution with partial/full refund calculations
 - Provider profile setup with bank account linking
