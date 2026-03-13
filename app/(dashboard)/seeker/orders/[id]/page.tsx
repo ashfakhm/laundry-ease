@@ -143,6 +143,17 @@ export default async function OrderDetailsPage({
                   day: "numeric",
                 })}
               </p>
+              {order.deadline && (
+                <p className={cn(
+                  "text-sm font-bold mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border",
+                  isDelivered 
+                    ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50" 
+                    : "text-amber-700 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50"
+                )}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Expected Delivery: {new Date(order.deadline).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <div

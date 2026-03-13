@@ -62,6 +62,12 @@ export default async function CreateInvoicePage({
         <p className="mt-2 text-muted-foreground">
           Add items and photos for {seeker?.name || "customer"}
         </p>
+        {booking.deadline && (
+          <p className="mt-1 text-sm font-medium text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/30 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-900/50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Due: {new Date(booking.deadline).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+          </p>
+        )}
       </header>
       <div className="bg-card border border-border rounded-2xl p-6 mb-8">
         <InvoiceForm bookingId={id} />

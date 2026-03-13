@@ -47,6 +47,7 @@ export default async function InvoiceReviewPage({
         invoice={invoice}
         bookingId={id}
         readOnly={isReadOnly}
+        deadline={booking.deadline?.toString()}
       />
     </div>
   );

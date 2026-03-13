@@ -30,12 +30,14 @@ interface InvoiceReviewFormProps {
   invoice: Invoice;
   bookingId: string;
   readOnly?: boolean;
+  deadline?: string;
 }
 
 export default function InvoiceReviewForm({
   invoice,
   bookingId,
   readOnly = false,
+  deadline,
 }: InvoiceReviewFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -182,9 +184,19 @@ export default function InvoiceReviewForm({
       {/* Header Card */}
       <div className="bg-card/50 backdrop-blur-md p-6 rounded-2xl border border-border shadow-lg">
         <h2 className="text-xl font-heading font-bold mb-1">Invoice Details</h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground mb-4">
           Please review the items added by your provider.
         </p>
+
+        {deadline && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl text-amber-700 dark:text-amber-400">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold uppercase tracking-wider opacity-80">Expected Delivery</span>
+              <span className="text-sm font-semibold">{new Date(deadline).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Items List */}
