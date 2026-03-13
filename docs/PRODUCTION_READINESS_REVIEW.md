@@ -1,120 +1,79 @@
 # PRODUCTION_READINESS_REVIEW.md
 
-Last reviewed: 2026-03-07 (Rev 13)
+Last reviewed: 2026-03-13
 
 ## Summary
 
-Production readiness is tracked through:
+Production readiness is tracked through these quality gates:
 
 - `npm run typecheck`
-- `npm run lint`
+- `npm run lint -- --max-warnings=0`
 - `npm run test`
 - `npm run build`
-- Smoke E2E specs in `e2e/`
+- `npm run test:e2e`
 
-## Current Quality Gates
+This document now records **live-verified gate outcomes** and avoids stale, hardcoded historical test/file counts.
 
-| Gate              | Command                                                  | Status                            |
-| ----------------- | -------------------------------------------------------- | --------------------------------- |
-| TypeScript        | `npx tsc --noEmit`                                       | ✅ 0 errors                       |
-| TypeScript strict | `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` | ✅ 0 errors                       |
-| ESLint            | `npx eslint . --max-warnings=0`                          | ✅ 0 warnings                     |
-| Unit tests        | `npx vitest run`                                         | ✅ Current full test suite passes |
-| Production build  | `npm run build`                                          | ✅ Passes cleanly                 |
-| E2E smoke         | `npm run test:e2e`                                       | ✅ 5 specs passing                |
-| One-shot gate     | `npm run verify:gates`                                   | ✅ All passing                    |
+## Current Quality Gates (Live Verification)
 
-## Current Focus
+| Gate | Command | Current Result |
+| --- | --- | --- |
+| TypeScript | `npm run typecheck` | ✅ Pass |
+| ESLint (zero warnings) | `npm run lint -- --max-warnings=0` | ✅ Pass |
+| Unit tests | `npm run test` | ⚠️ Not re-run in this refresh pass (see Notes) |
+| Production build | `npm run build` | ⚠️ Not re-run in this refresh pass (see Notes) |
+| E2E smoke/regression | `npm run test:e2e` | ✅ Pass (`11` tests passing) |
 
-- Keep role-based login and dashboard navigation stable.
-- Keep payment, complaint, and settlement journeys covered by smoke E2E.
-- Keep documentation synced for high-impact changes.
-- Keep password management flow (forgot/reset/profile change/session invalidation) tested and secure.
-- Remove `DEMO_MODE=1` and `ALLOW_START_WITH_INDEX_ERRORS=1` from `.env` before any public deployment.
-- Tighten CSP `connect-src` from broad `wss:` to `wss://<production-domain>` for defence-in-depth.
+## Verification Notes
 
-## What Changed in Rev 11
+### Commands executed during this refresh
 
-| Area                                  | Change                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Cancel at `invoice_created` stage** | Seekers can now cancel after the provider has created an invoice. Cancel button changes to "Cancel & Reject Invoice" with a fee-forfeit warning in the confirm dialog. `cancel/route.ts` adds `invoice_created` to seeker allowed statuses and bypasses the slot-time guard for this stage. Cancellation policy engine always returns `refundAction: "forfeit"` when `bookingStatus === "invoice_created"`. |
-| **Real-time Socket.IO**               | `server.js` custom Node.js server co-hosts Socket.IO with Next.js. Signed login token check on every connection. Order + complaint rooms with database-backed access checks. Provider access gate on complaint rooms. Per-socket rate limiting (20 joins/min). `SocketProvider` + `useSocket()` hook. `lib/realtime/` module with contracts, socket-auth, emitter, chat-state.                              |
-| **CSP WebSocket support**             | `connect-src` gains `ws:` + `wss:` in `lib/security/csp.ts`. `upgrade-insecure-requests` moved to production-only (`NODE_ENV === "production"`) so Socket.IO polling works over plain HTTP on localhost.                                                                                                                                                                                                    |
-| **Demo cron dispatcher**              | `lib/demo/cron-dispatch.ts` — in-process runner for all 10 cron handlers. Enabled by `DEMO_MODE=1` in `.env`. Admin demo panel invokes handlers with `CRON_SECRET`-signed requests. Must be disabled (`DEMO_MODE=0`) in production.                                                                                                                                                                         |
-| **Tests**                             | +14 tests (551 → **565**): realtime socket-auth, emitter, chat-state (new test files), cancellation policy `invoice_created` case (+1 → 11 total). 104 → **108** test files.                                                                                                                                                                                                                                |
+- `npm run typecheck` → passed
+- `npm run lint -- --max-warnings=0` → passed
+- `npm run test:e2e` → passed (`11` tests)
 
-## What Changed in Rev 10
+### Important command nuance discovered
 
-| Area                              | Change                                                                                                                                                                                                                             |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Password reset (forgot)**       | Full secure flow: `randomBytes(32)` → SHA-256 hash stored (raw never persisted), 1hr TTL, anti-enumeration generic responses, per-IP + per-email rate limiting, branded HTML + plain text email template, 60s client-side cooldown |
-| **Password changed notification** | New `password_changed` email type: branded HTML security notification with timestamp, sent on both reset and profile password change                                                                                               |
-| **Session invalidation**          | JWT callback re-checks `passwordChangedAt` every 5 min (`JWT_DB_RECHECK_INTERVAL_S`); stale tokens invalidated automatically, forcing re-authentication                                                                            |
-| **Profile password change**       | Seeker PUT + Provider PATCH routes now set `passwordChangedAt` + `updatedAt`, enqueue `password_changed` email                                                                                                                     |
-| **Provider password service**     | Password change logic extracted to `lib/services/provider-password.ts` (verify current + hash new)                                                                                                                                 |
-| **Email outbox**                  | Expanded from 4 → 5 email types (`password_changed` added); inline dispatch attempt on enqueue (send immediately, fall back to cron on failure)                                                                                    |
-| **Reset page**                    | `/reset-password` page with password + confirm inputs, show/hide toggles, error/success states, auto-redirect to sign-in                                                                                                           |
-| **BaseUser type**                 | Added `passwordChangedAt?: Date \| null` to `types/users.ts`                                                                                                                                                                       |
-| **Tests**                         | +2 tests (549 → **551**): `passwordChangedAt` set on profile password change (seeker + provider), password-changed email enqueuing verified                                                                                        |
+An attempted run using `npm run test -- --runInBand` failed because Vitest does not support `--runInBand` (that flag is a Jest-style flag).  
+Use `npm run test` directly for the unit suite.
 
-## What Changed in Rev 9
+## Production-Focused Checklist
 
-| Area                    | Change                                                                                                                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **UI**                  | All native `alert()`/`confirm()`/`prompt()` replaced with `ConfirmDialog`, `SettlementSummaryModal`, inline `BanUserDialog`   |
-| **Cancellation policy** | 2-hour free-cancel window from `createdAt` (was: same-day rule); seeker live countdown badge on booking card                  |
-| **Reschedule flow**     | Fixed `$set: undefined` → `$unset confirmedAt`; race-condition-safe status guards on propose/confirm writes                   |
-| **Seeker UI**           | New "Reschedule" tab; reschedule card shows who requested, reason, previous slot, count                                       |
-| **Email dev tooling**   | `EMAIL_SEND_IMMEDIATE=1` flag for local testing; `POST /api/cron/process-email-outbox` (no auth in non-prod) for manual drain |
-| **Tests**               | +32 tests (517 → 549): cancellation policy boundary cases, reschedule `$unset`, TOCTOU guards, dialog hook behavior           |
+### Security and environment hardening
 
-## Password Management Security Checklist
+- [ ] Ensure `DEMO_MODE` is disabled in production
+- [ ] Ensure `ALLOW_START_WITH_INDEX_ERRORS` is disabled in production
+- [ ] Keep `AUTH_SECRET` and all payment/webhook secrets managed securely
+- [ ] Restrict CSP `connect-src` to production domains (avoid broad wildcards where possible)
+- [ ] Keep admin access controls and rate limits enforced
 
-| Check                                                                    | Status                          |
-| ------------------------------------------------------------------------ | ------------------------------- |
-| Reset tokens: only SHA-256 hash stored in DB                             | ✅                              |
-| Reset tokens: 1-hour TTL with MongoDB TTL index                          | ✅                              |
-| Anti-enumeration: generic response regardless of email existence         | ✅                              |
-| Rate limiting: per-IP (10/15min) + per-email (4/hour) on forgot-password | ✅                              |
-| Rate limiting: per-IP (15/15min) + per-token (6/hour) on reset-password  | ✅                              |
-| Same-origin enforcement on forgot/reset endpoints                        | ✅                              |
-| Zod validation on all inputs                                             | ✅                              |
-| `passwordChangedAt` set on reset-password                                | ✅                              |
-| `passwordChangedAt` set on seeker profile password change                | ✅                              |
-| `passwordChangedAt` set on provider profile password change              | ✅                              |
-| All active reset tokens invalidated on successful reset                  | ✅                              |
-| `password_changed` notification email on reset                           | ✅                              |
-| `password_changed` notification email on profile change (seeker)         | ✅                              |
-| `password_changed` notification email on profile change (provider)       | ✅                              |
-| JWT session invalidation via 5-min re-check of `passwordChangedAt`       | ✅                              |
-| Password show/hide toggles on reset page                                 | ✅                              |
-| Client-side 60-second cooldown on forgot-password resend                 | ✅                              |
-| Client-side generic error messages (no backend detail leakage)           | ✅                              |
-| CAPTCHA on forgot-password form                                          | ⬜ (recommended for production) |
+### Reliability and financial safety
 
-## Email Outbox Health
+- [ ] Monitor payout processing latency and failure spikes
+- [ ] Monitor overdue held-order counts and complaint backlog
+- [ ] Keep cron health observable and alerting active
+- [ ] Verify webhook delivery success and replay handling
+- [ ] Keep refund and split-settlement reconciliation paths tested
 
-5 email types operational:
+### Release discipline
 
-| Kind               | Template                        | Status             |
-| ------------------ | ------------------------------- | ------------------ |
-| `delivery_otp`     | `lib/delivery-otp-email.ts`     | ✅                 |
-| `password_reset`   | `lib/password-reset-email.ts`   | ✅                 |
-| `password_changed` | `lib/password-changed-email.ts` | ✅ (new in Rev 10) |
-| `magic_link`       | `lib/magic-link-email.ts`       | ✅                 |
-| `otp_email`        | `lib/otp-code-email.ts`         | ✅                 |
+- [ ] Run `npm run verify:gates` before release
+- [ ] Run `npm run check:docs-sync` for high-impact changes
+- [ ] Update this file with fresh, command-backed outcomes on every release candidate
 
-All types support inline dispatch attempt on enqueue + cron fallback (`process-email-outbox` every 2 min).
+## Documentation Policy (to prevent drift)
 
-## Remaining Hardening Opportunities
+To keep this file accurate:
 
-- Add CAPTCHA (reCAPTCHA/hCaptcha) to forgot-password form for production anti-abuse hardening
-- Archival policy for old webhook payloads (storage growth)
-- Team calendar / on-call integration for dynamic owner pools
-- Promote CSP from report-only to enforce mode after violation cleanup
-- Split-settlement reconciliation tooling for rare one-leg failure cases
-- Reschedule abuse prevention (caps, cooldowns, or admin escalation)
-- Real-time push (SSE/WebSocket) to replace SWR polling
-- Playwright E2E for password reset flow and reschedule/cancellation boundary behavior
-- Consider stateful session management for instant session revocation (current ≤5 min JWT re-check is acceptable)
-- Configure production email credentials (SPF, DKIM, DMARC for sending domain)
+1. Only record results from commands actually executed in the current verification pass.
+2. Avoid embedding long “Rev X” narratives with static historical counts.
+3. Prefer timestamped, reproducible gate status over manually maintained totals.
+4. If a gate is not executed in the pass, mark it explicitly as “not re-run”.
+
+## Open Follow-ups
+
+- Re-run and record:
+  - `npm run test`
+  - `npm run build`
+  - `npm run verify:gates`
+- If all three pass, promote this review to release-candidate sign-off.
