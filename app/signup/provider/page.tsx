@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { AppHeader } from "@/components/ui/app-header";
 import { motion } from "framer-motion";
@@ -935,7 +936,18 @@ export default function ProviderSignupPage() {
                       onChange={(e) => setAcceptedTerms(e.target.checked)}
                       className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
                     />
-                    I have read and agree to the Provider Terms and Conditions.
+                    <span>
+                      I have read and agree to the{" "}
+                      <Link
+                        href="/terms/provider"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline underline-offset-2"
+                      >
+                        Provider Terms and Conditions
+                      </Link>
+                      .
+                    </span>
                   </label>
                 </div>
 
