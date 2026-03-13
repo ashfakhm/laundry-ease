@@ -1012,8 +1012,8 @@ RootLayout (app/layout.tsx)
 | Component                       | Purpose                                                                                                                                                                                                                               |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `landing-page-client.tsx`       | Animated landing with spotlight cards, text-generate effect                                                                                                                                                                           |
-| `order-chat.tsx`                | Real-time order chat (seeker ↔ provider) — uses `useSocket()` for live message push via `order:message:created` events, typing indicators, disconnect banner                                                                         |
-| `complaint-chat.tsx`            | 3-way complaint chat (seeker/provider/admin) — uses `useSocket()` for live message push and complaint state updates                                                                                                                   |
+| `order-chat.tsx`                | Real-time order chat (seeker ↔ provider) — uses `useSocket()` for live message push via `order:message:created` events, typing indicators, photo attachments, voice notes, and WhatsApp-style message deletion                                              |
+| `complaint-chat.tsx`            | 3-way complaint chat (seeker/provider/admin) — uses `useSocket()` for live message push, complaint state updates, voice notes, and message deletion                                                                                             |
 | `socket-provider.tsx`           | `SocketProvider` context + `useSocket()` hook — maintains one Socket.IO connection per authenticated session, exposes `{ socket, isConnected, isReconnecting }`                                                                      |
 | `invoice-form.tsx`              | Provider invoice creation with line items and photos                                                                                                                                                                                  |
 | `invoice-review-form.tsx`       | Seeker invoice approval/rejection                                                                                                                                                                                                     |
@@ -1300,8 +1300,8 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 | `lib/realtime/socket-auth.js`          | `authorizeBookingRoom()`, `authorizeComplaintRoom()`, `authorizeOrderRoom()`, `resolveRealtimeUserFromToken()` |
 | `lib/realtime/emitter.ts`             | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()` — API route → Socket.IO bridge |
 | `lib/realtime/chat-state.ts`          | Chat message state helpers (sort, dedup, archive detection)                |
-| `components/order-chat.tsx`           | Real-time order chat component (Socket.IO push)                            |
-| `components/complaint-chat.tsx`       | 3-way complaint chat component (Socket.IO push)                            |
+| `components/order-chat.tsx`           | Real-time order chat component (Socket.IO push, voice, photos, delete)     |
+| `components/complaint-chat.tsx`       | 3-way complaint chat component (Socket.IO push, voice, delete)             |
 | `components/providers/socket-provider.tsx` | `SocketProvider` context + `useSocket()` hook                          |
 | `app/api/orders/[id]/chat/route.ts`   | Order chat REST endpoint (GET history + POST message)                      |
 | `lib/mongodb.ts`                       | Database connection + index bootstrap                                      |
@@ -1402,7 +1402,7 @@ All validated at startup via Zod schema in `lib/env.ts` (lazy singleton pattern)
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
 - Email outbox with retry/backoff (delivery OTP, password reset, password changed, magic link, email OTP) — 5 email types
-- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` maintains one authenticated connection per session; **order chat** and **complaint chat** rooms with JWT auth and per-socket rate limiting (20 joins/min); order chat replaced the previous booking-scoped chat system
+- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` maintains one authenticated connection per session; **order chat** and **complaint chat** rooms with JWT auth and per-socket rate limiting (20 joins/min); supports rich media (voice, photos) and a 3-tier deletion model (`for_me`, `for_everyone`, `admin_hard_delete`)
 - **Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`) — `DEMO_MODE=1` enables in-process cron invocation for local testing without external scheduler
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
@@ -1612,6 +1612,29 @@ gantt
     webhook-cleanup (1 AM) :0, 60
 ```
 
+### Real-Time Chat System Architecture
+
+```mermaid
+flowchart TD
+    A[Client User] -->|Join Room| B(Socket.IO Server)
+    B --> C{Action?}
+    
+    C -->|Send Text| D[Save to MongoDB]
+    C -->|Upload Photo/Voice| E[Upload to Cloudinary]
+    E -->|URL returned| D
+    
+    D --> F[Emit 'message:created']
+    F --> G[All clients in room receive message]
+    
+    C -->|Delete Message| H{Deletion Type?}
+    H -->|for_me| I[Update Local State]
+    H -->|for_everyone| J[Mark deletedForEveryone in DB]
+    H -->|admin_hard_delete| K[Remove from DB completely]
+    
+    J --> L[Emit 'message:deleted']
+    L --> M[Clients update UI to 'Message Deleted']
+```
+
 ### Database Collection Relationships
 
 ```mermaid
@@ -1696,4 +1719,4 @@ LaundryEase is a production-grade laundry marketplace built with:
 7. **Professional Password Management** — Secure token-based reset (SHA-256, 1hr TTL), anti-enumeration, branded email notifications, JWT session invalidation on password change (5-min re-check), password show/hide UX
 8. **Quality Assurance** — 107 test files (567 tests), 5 E2E browser specs, React Compiler, strict TypeScript, 3 CI workflows, only 2 `eslint-disable` comments
 9. **Operational Observability** — Cron run tracking, data integrity auditing, abuse monitoring, alert analytics (trend/burn-rate/MTTR), CSP violation reporting
-10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
+10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); supports voice notes, photo uploads, and WhatsApp-style message deletion; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
