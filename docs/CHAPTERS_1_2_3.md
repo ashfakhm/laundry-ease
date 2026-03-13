@@ -97,9 +97,9 @@ The primary objectives of the LaundryEase project are:
 
 3. **To integrate an escrow-backed payment system** using Razorpay that ensures providers are guaranteed payment before starting work and customers are protected until delivery is confirmed via OTP.
 
-4. **To automate invoicing and billing** so that providers can generate accurate, itemized digital invoices with item photos, quantities, unit prices, and discounts, while delivery charges are computed consistently during invoice payment and order creation, eliminating manual calculation errors.
-
+4. **To secure payments** utilizing Razorpay Route for automated escrow holding and commission-deducted payouts.
 5. **To create a structured complaint and dispute resolution system** with a 3-party chat workflow (seeker, provider, admin), evidence attachments, response deadlines, and commission-aware settlement options.
+   - **Deadline tracking functionality:** Expected deadlines are now visible directly in the UI for providers (during invoicing and order management) and seekers (during invoice review and order tracking), enforcing SLA expectations transparently.
 
 6. **To provide role-based dashboards** for seekers, providers, and administrators, each tailored to their specific operational needs and responsibilities.
 
