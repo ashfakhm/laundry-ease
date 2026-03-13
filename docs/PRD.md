@@ -471,6 +471,12 @@ Alert rules:
 - **Response deadline tracking**
   System tracks provider response deadline (default 7 days from acceptance) and surfaces overdue complaints to admin.
 
+#### 5. User Interface Extensions
+- **Deadline Visibility**: The expected delivery deadline is exposed to both seekers and providers across the order lifecycle.
+  - **Seeker**: Sees deadline on booking history cards, invoice review screen, and order tracking dashboard (next to 'placed on' date).
+  - **Provider**: Sees deadline during invoice generation and sorted list of order statuses, flagging orders that are 'overdue'.
+  - **Admin**: Sees response deadlines on complaint detail pages with visual 'overdue' indicators.
+
 - **Progress requires authorization**
   Only the provider assigned to the order can advance lifecycle states.
 
