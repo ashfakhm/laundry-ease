@@ -49,7 +49,7 @@ export default function InvoiceGenerationPage() {
   const { data: session, status } = useSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [provider, setProvider] = useState<ProviderProfile | null>(null);
+  const [_provider, setProvider] = useState<ProviderProfile | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -87,56 +87,6 @@ export default function InvoiceGenerationPage() {
 
     fetchData();
   }, [session, status]);
-
-  function generateInvoiceText(order: Order) {
-    const invoiceDate = new Date(order.createdAt).toLocaleDateString();
-    const deliveryDate = order.otp_confirmed_at
-      ? new Date(order.otp_confirmed_at).toLocaleDateString()
-      : "N/A";
-
-    let invoice = `
-═══════════════════════════════════════════════
-              INVOICE - ${provider?.businessName || provider?.name}
-═══════════════════════════════════════════════
-
-Invoice #: ${order._id.slice(-8)}
-Date: ${invoiceDate}
-Delivery Date: ${deliveryDate}
-
-───────────────────────────────────────────────
-BILL TO:
-───────────────────────────────────────────────
-${order.seeker?.name || "Customer"}
-${order.seeker?.email || ""}
-${order.seeker?.phone ? order.seeker.phone : ""}
-
-───────────────────────────────────────────────
-ITEMS
-───────────────────────────────────────────────
-`;
-
-    order.items.forEach((item) => {
-      invoice += `${item.name.padEnd(30)} ${item.quantity} × ₹${
-        item.unit_price
-      }  ₹${item.line_total}\n`;
-    });
-
-    invoice += `\n───────────────────────────────────────────────\n`;
-    invoice += `Subtotal:                           ₹${order.total_price}\n`;
-    invoice += `Delivery Charge:                    ₹${order.delivery_charge}\n`;
-    invoice += `───────────────────────────────────────────────\n`;
-    invoice += `TOTAL:                              ₹${
-      order.total_price + order.delivery_charge
-    }\n`;
-    invoice += `═══════════════════════════════════════════════\n`;
-    invoice += `\nPayment Status: ${order.payment_status.toUpperCase()}\n`;
-    invoice += `\nThank you for your business!\n`;
-    invoice += `${provider?.businessName || provider?.name}\n`;
-    invoice += `${provider?.phone || ""}\n`;
-    invoice += `${provider?.email || ""}\n`;
-
-    return invoice;
-  }
 
   async function downloadInvoice(order: Order) {
     try {

@@ -57,7 +57,7 @@ export async function GET(
     // Generate PDF
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([420, 595]); // A5 size (portrait)
-    const { width, height } = page.getSize();
+    const { width: _width, height } = page.getSize();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     let y = height - 40;
