@@ -167,7 +167,7 @@ export default function ProviderDashboardPage() {
               </button>
             </div>
 
-            <div className="flex bg-muted/30 h-[240px] items-center justify-center rounded-2xl border border-dashed border-border text-center p-6">
+            <div className="flex bg-muted/30 h-60 items-center justify-center rounded-2xl border border-dashed border-border text-center p-6">
               <div className="space-y-2">
                 <Clock className="w-8 h-8 text-muted-foreground/40 mx-auto" />
                 <p className="text-sm font-medium text-muted-foreground">
@@ -200,7 +200,7 @@ export default function ProviderDashboardPage() {
               </button>
             </div>
 
-            <div className="flex bg-muted/30 h-[240px] items-center justify-center rounded-2xl border border-dashed border-border text-center p-6">
+            <div className="flex bg-muted/30 h-60 items-center justify-center rounded-2xl border border-dashed border-border text-center p-6">
               <div className="space-y-2">
                 <div className="w-16 h-1 bg-muted-foreground/10 rounded-full mx-auto" />
                 <p className="text-sm font-medium text-muted-foreground pt-4">
