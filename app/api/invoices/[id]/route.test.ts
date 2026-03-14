@@ -24,10 +24,11 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const BOOKING_ID = "507f1f77bcf86cd799439091";
 const PROVIDER_ID = "507f1f77bcf86cd799439092";
+const SEEKER_ID = "507f1f77bcf86cd799439093";
 
 function makeDbMock() {
   const invoicesUpdateOne = vi.fn();
@@ -65,6 +66,12 @@ function makeRequest(body: unknown) {
       origin: "https://laundryease.test",
     },
     body: JSON.stringify(body),
+  });
+}
+
+function makeGetRequest(id: string) {
+  return new Request(`https://laundryease.test/api/invoices/${id}`, {
+    method: "GET",
   });
 }
 
@@ -183,5 +190,220 @@ describe("POST /api/invoices/[id]", () => {
     expect(filter.booking_id).toBeInstanceOf(ObjectId);
     expect(String(filter.provider_id)).toBe(PROVIDER_ID);
     expect(String(filter.booking_id)).toBe(BOOKING_ID);
+  });
+});
+
+describe("GET /api/invoices/[id]", () => {
+  beforeEach(() => {
+    mockGetDb.mockReset();
+    mockRequireProvider.mockReset();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns PDF when booking has embedded invoice", async () => {
+    const bookingId = new ObjectId(BOOKING_ID);
+    const providerId = new ObjectId(PROVIDER_ID);
+    const seekerId = new ObjectId(SEEKER_ID);
+
+    const bookingsFindOne = vi.fn().mockResolvedValue({
+      _id: bookingId,
+      provider_id: providerId,
+      seeker_id: seekerId,
+      status: "completed",
+      invoice: {
+        items: [{ itemType: "Shirt", quantity: 2, unitPrice: 120 }],
+        subtotal: 240,
+        discount: 0,
+        total: 240,
+        createdAt: new Date(),
+      },
+      createdAt: new Date(),
+    });
+
+    const ordersFindOne = vi.fn().mockResolvedValue(null);
+    const invoicesFindOne = vi.fn().mockResolvedValue(null);
+    const providersFindOne = vi.fn().mockResolvedValue({
+      _id: providerId,
+      name: "Smoke Provider",
+      email: "provider@laundryease.test",
+    });
+    const seekersFindOne = vi.fn().mockResolvedValue({
+      _id: seekerId,
+      name: "Smoke Seeker",
+      email: "seeker@laundryease.test",
+    });
+
+    const db = {
+      collection: vi.fn((name: string) => {
+        if (name === "bookings") return { findOne: bookingsFindOne };
+        if (name === "orders") return { findOne: ordersFindOne };
+        if (name === "invoices") return { findOne: invoicesFindOne };
+        if (name === "providers") return { findOne: providersFindOne };
+        if (name === "seekers") return { findOne: seekersFindOne };
+        throw new Error(`Unexpected collection ${name}`);
+      }),
+    };
+
+    mockGetDb.mockResolvedValue({ db });
+    mockRequireProvider.mockResolvedValue({
+      user: { id: PROVIDER_ID, email: "provider@laundryease.test" },
+    });
+
+    const res = await GET(makeGetRequest(BOOKING_ID), {
+      params: Promise.resolve({ id: BOOKING_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+    const buffer = Buffer.from(await res.arrayBuffer());
+    expect(buffer.slice(0, 4).toString()).toBe("%PDF");
+  });
+
+  it("returns PDF when only order exists (legacy string id)", async () => {
+    const providerId = new ObjectId(PROVIDER_ID);
+    const seekerId = new ObjectId(SEEKER_ID);
+    const legacyOrderId = BOOKING_ID;
+
+    const bookingsFindOne = vi.fn().mockResolvedValue(null);
+    const ordersFindOne = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        _id: legacyOrderId,
+        booking_id: null,
+        provider_id: providerId,
+        seeker_id: seekerId,
+        items: [
+          { name: "Wash", quantity: 1, unit_price: 100, line_total: 100 },
+        ],
+        subtotal: 100,
+        discount: 0,
+        total_price: 100,
+        delivery_charge: 0,
+        createdAt: new Date(),
+      });
+    const invoicesFindOne = vi.fn().mockResolvedValue(null);
+    const providersFindOne = vi.fn().mockResolvedValue({
+      _id: providerId,
+      name: "Smoke Provider",
+    });
+    const seekersFindOne = vi.fn().mockResolvedValue({
+      _id: seekerId,
+      name: "Smoke Seeker",
+    });
+
+    const db = {
+      collection: vi.fn((name: string) => {
+        if (name === "bookings") return { findOne: bookingsFindOne };
+        if (name === "orders") return { findOne: ordersFindOne };
+        if (name === "invoices") return { findOne: invoicesFindOne };
+        if (name === "providers") return { findOne: providersFindOne };
+        if (name === "seekers") return { findOne: seekersFindOne };
+        throw new Error(`Unexpected collection ${name}`);
+      }),
+    };
+
+    mockGetDb.mockResolvedValue({ db });
+    mockRequireProvider.mockResolvedValue({
+      user: { id: PROVIDER_ID, email: "provider@laundryease.test" },
+    });
+
+    const res = await GET(makeGetRequest(legacyOrderId), {
+      params: Promise.resolve({ id: legacyOrderId }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+  });
+
+  it("falls back to order when booking exists without invoice", async () => {
+    const bookingId = new ObjectId(BOOKING_ID);
+    const providerId = new ObjectId(PROVIDER_ID);
+    const seekerId = new ObjectId(SEEKER_ID);
+
+    const bookingsFindOne = vi.fn().mockResolvedValue({
+      _id: bookingId,
+      provider_id: providerId,
+      seeker_id: seekerId,
+      status: "accepted",
+      createdAt: new Date(),
+    });
+
+    const ordersFindOne = vi.fn().mockResolvedValueOnce({
+      _id: new ObjectId(),
+      booking_id: bookingId,
+      provider_id: providerId,
+      seeker_id: seekerId,
+      items: [{ name: "Iron", quantity: 3, unit_price: 50, line_total: 150 }],
+      subtotal: 150,
+      discount: 0,
+      total_price: 150,
+      delivery_charge: 0,
+      createdAt: new Date(),
+    });
+
+    const invoicesFindOne = vi.fn().mockResolvedValue(null);
+    const providersFindOne = vi.fn().mockResolvedValue({
+      _id: providerId,
+      name: "Smoke Provider",
+    });
+    const seekersFindOne = vi.fn().mockResolvedValue({
+      _id: seekerId,
+      name: "Smoke Seeker",
+    });
+
+    const db = {
+      collection: vi.fn((name: string) => {
+        if (name === "bookings") return { findOne: bookingsFindOne };
+        if (name === "orders") return { findOne: ordersFindOne };
+        if (name === "invoices") return { findOne: invoicesFindOne };
+        if (name === "providers") return { findOne: providersFindOne };
+        if (name === "seekers") return { findOne: seekersFindOne };
+        throw new Error(`Unexpected collection ${name}`);
+      }),
+    };
+
+    mockGetDb.mockResolvedValue({ db });
+    mockRequireProvider.mockResolvedValue({
+      user: { id: PROVIDER_ID, email: "provider@laundryease.test" },
+    });
+
+    const res = await GET(makeGetRequest(BOOKING_ID), {
+      params: Promise.resolve({ id: BOOKING_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+  });
+
+  it("returns 404 when booking/order is missing", async () => {
+    const bookingsFindOne = vi.fn().mockResolvedValue(null);
+    const ordersFindOne = vi.fn().mockResolvedValue(null);
+    const db = {
+      collection: vi.fn((name: string) => {
+        if (name === "bookings") return { findOne: bookingsFindOne };
+        if (name === "orders") return { findOne: ordersFindOne };
+        if (name === "invoices") return { findOne: vi.fn() };
+        if (name === "providers") return { findOne: vi.fn() };
+        if (name === "seekers") return { findOne: vi.fn() };
+        throw new Error(`Unexpected collection ${name}`);
+      }),
+    };
+
+    mockGetDb.mockResolvedValue({ db });
+    mockRequireProvider.mockResolvedValue({
+      user: { id: PROVIDER_ID, email: "provider@laundryease.test" },
+    });
+
+    const res = await GET(makeGetRequest(BOOKING_ID), {
+      params: Promise.resolve({ id: BOOKING_ID }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(data.error.message).toBe("Booking not found");
   });
 });
