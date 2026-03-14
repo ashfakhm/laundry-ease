@@ -1922,8 +1922,8 @@ The following features are planned for future versions of LaundryEase:
 This section contains representative screenshots of the LaundryEase application. Screenshots should be captured from the running application showing each of the following screens:
 
 1. **Landing Page** — Home page with hero section, feature cards, and navigation
-2. **Registration Page** — Seeker signup form with validation feedback
-3. **Provider Registration** — Provider signup with business details and service selection
+2. **Registration Page** — Seeker signup form with validation feedback and T&C acceptance
+3. **Provider Registration** — Provider signup with business details, service selection, and T&C acceptance
 4. **Login Page** — Authentication page with email/password and Google OAuth
 5. **Email Verification** — OTP verification screen
 6. **Role Selection** — Choose Role page (Seeker vs. Provider)

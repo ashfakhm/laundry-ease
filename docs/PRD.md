@@ -89,6 +89,7 @@ All users (Seeker and Provider) must complete a verified registration:
 - Name, email, phone number
 - Password with confirmation
 - Role-specific details (address for seekers, business info for providers)
+- Explicit acceptance of Terms and Conditions via checkbox
 
 **Verification Requirements:**
 
@@ -476,6 +477,8 @@ Alert rules:
   - **Seeker**: Sees deadline on booking history cards, invoice review screen, and order tracking dashboard (next to 'placed on' date).
   - **Provider**: Sees deadline during invoice generation and sorted list of order statuses, flagging orders that are 'overdue'.
   - **Admin**: Sees response deadlines on complaint detail pages with visual 'overdue' indicators.
+
+- **Printable Invoice**: Providers can view and print a beautifully formatted HTML invoice for any completed booking on a dedicated print page.
 
 - **Progress requires authorization**
   Only the provider assigned to the order can advance lifecycle states.

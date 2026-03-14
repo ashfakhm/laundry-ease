@@ -261,7 +261,7 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 
 #### 3.4.1 Functional Requirements
 
-- **User Registration and Authentication:** Multi-step registration with email and phone OTP verification, Google OAuth support, and password policy enforcement (minimum 8 characters, 1 uppercase, 1 number, 1 special character). Magic link email authentication as an alternative login method.
+- **User Registration and Authentication:** Multi-step registration with email and phone OTP verification, Google OAuth support, password policy enforcement (minimum 8 characters, 1 uppercase, 1 number, 1 special character), and explicit acceptance of Terms and Conditions. Magic link email authentication as an alternative login method.
 - **Role-Based Access Control:** Three distinct roles (seeker, provider, admin) with role-specific dashboards, API authorization, and data visibility rules.
 - **Location-Based Provider Discovery:** Geospatial search using customer coordinates to find providers within their defined service radius. Results include provider ratings, reviews, and service details.
 - **Booking Management:** Full booking lifecycle with states (requested, accepted, rejected, pickup_proposed, reschedule_requested, confirmed, invoice_created, completed, cancelled). Booking fee payment (₹50) gates provider acceptance.

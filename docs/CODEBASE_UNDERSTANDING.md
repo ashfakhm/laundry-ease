@@ -390,8 +390,8 @@ flowchart TD
 
 ### Post-Auth Flow
 
-- New OAuth users → `/choose-role` → role selection → `/complete-signup/{seeker|provider}` → profile completion
-- New credential users → `/signup/{seeker|provider}` → OTP verification (email + phone) → account creation
+- New OAuth users → `/choose-role` → role selection → `/complete-signup/{seeker|provider}` → profile completion (including T&C acceptance)
+- New credential users → `/signup/{seeker|provider}` → OTP verification (email + phone) + T&C acceptance → account creation
 
 ### Session Management
 
