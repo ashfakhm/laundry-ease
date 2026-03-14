@@ -1,15 +1,33 @@
 import { defineConfig } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
 if (process.env.FORCE_COLOR && process.env.NO_COLOR) {
   delete process.env.NO_COLOR;
 }
 
 const e2ePort = Number(process.env.E2E_PORT || 3405);
-const baseURL = process.env.E2E_BASE_URL || `http://127.0.0.1:${e2ePort}`;
-const useExternalBaseUrl = Boolean(process.env.E2E_BASE_URL);
+const devLockPath = path.join(process.cwd(), ".next", "dev", "lock");
+const hasDevLock = fs.existsSync(devLockPath);
+const forceWebServer = process.env.E2E_FORCE_WEB_SERVER === "1";
+const baseURLFromEnv =
+  process.env.E2E_BASE_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  process.env.NEXTAUTH_URL;
+const baseURL =
+  baseURLFromEnv ||
+  (hasDevLock ? "http://127.0.0.1:3000" : `http://127.0.0.1:${e2ePort}`);
+const useExternalBaseUrl = Boolean(baseURLFromEnv) || (hasDevLock && !forceWebServer);
 // Fresh servers are slower, but reusing an arbitrary local process can point
 // Playwright at stale code or env and create false failures.
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === "1";
+
+if (hasDevLock && !baseURLFromEnv && !forceWebServer) {
+  console.warn(
+    "[Playwright] Detected .next/dev/lock. Skipping managed webServer. " +
+      "Set E2E_BASE_URL if your dev server is not on http://127.0.0.1:3000.",
+  );
+}
 
 export default defineConfig({
   testDir: "./e2e",
@@ -43,6 +61,11 @@ export default defineConfig({
         reuseExistingServer,
         env: {
           ...process.env,
+          HOST: process.env.E2E_HOST || "127.0.0.1",
+          WATCHPACK_POLLING: process.env.WATCHPACK_POLLING || "true",
+          CHOKIDAR_USEPOLLING: process.env.CHOKIDAR_USEPOLLING || "1",
+          CHOKIDAR_INTERVAL: process.env.CHOKIDAR_INTERVAL || "1000",
+          E2E_DISABLE_DEV_LOCK: process.env.E2E_DISABLE_DEV_LOCK || "1",
           AUTH_URL: process.env.AUTH_URL || process.env.NEXTAUTH_URL || baseURL,
           NEXTAUTH_URL: process.env.NEXTAUTH_URL || baseURL,
           NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || baseURL,

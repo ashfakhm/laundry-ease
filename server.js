@@ -353,7 +353,7 @@ async function bootstrap() {
     });
   });
 
-  httpServer.listen(port, () => {
+  httpServer.listen(port, process.env.HOST, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
 
     // Start local cron jobs

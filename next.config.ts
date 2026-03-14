@@ -8,6 +8,9 @@ const shouldSendHsts =
 const nextConfig: NextConfig = {
   reactCompiler: true,
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  experimental: {
+    lockDistDir: process.env.E2E_DISABLE_DEV_LOCK === "1" ? false : undefined,
+  },
   images: {
     remotePatterns: [
       {
