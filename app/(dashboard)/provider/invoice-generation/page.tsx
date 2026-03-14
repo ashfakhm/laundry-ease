@@ -138,15 +138,20 @@ ITEMS
     return invoice;
   }
 
-  function downloadInvoice(order: Order) {
-    const invoiceText = generateInvoiceText(order);
-    const blob = new Blob([invoiceText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `invoice-${order._id.slice(-8)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function downloadInvoice(order: Order) {
+    try {
+      const res = await fetch(`/api/invoices/${order._id}`);
+      if (!res.ok) throw new Error("Failed to fetch PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${order._id.slice(-8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      reportError("InvoiceDownloadError", err);
+    }
   }
 
   if (loading) {
