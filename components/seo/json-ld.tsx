@@ -10,10 +10,25 @@ export default function JsonLd() {
       "LaundryEase connects busy professionals with trusted laundry providers. Doorstep pickup, delivery, and escrow-protected payments.",
     applicationCategory: "LifestyleApplication",
     operatingSystem: "Web",
+    image: `${APP_URL}/og-image.png`,
+    publisher: {
+      "@type": "Organization",
+      name: "LaundryEase",
+      url: APP_URL,
+      logo: {
+        "@type": "ImageObject",
+        url: `${APP_URL}/icon.svg`,
+      },
+    },
     offers: {
       "@type": "Offer",
       price: "0",
       priceCurrency: "INR",
+    },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${APP_URL}/seeker/search?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
     },
   };
 

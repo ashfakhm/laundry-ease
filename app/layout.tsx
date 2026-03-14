@@ -55,7 +55,7 @@ export const metadata: Metadata = {
       "Book doorstep laundry pickups, track orders in real-time, and pay securely. Deadline-guaranteed service with escrow protection.",
     images: [
       {
-        url: "/og-image.png",
+        url: `${APP_URL}/og-image.png`,
         width: 1200,
         height: 630,
         alt: "LaundryEase - Laundry handled end-to-end",
@@ -67,7 +67,15 @@ export const metadata: Metadata = {
     title: "LaundryEase - Doorstep Laundry Service",
     description:
       "Book pickups, track orders, pay securely. Deadline-guaranteed laundry service.",
-    images: ["/og-image.png"],
+    images: [
+      {
+        url: `${APP_URL}/og-image.png`,
+        alt: "LaundryEase - Laundry handled end-to-end",
+      },
+    ],
+  },
+  alternates: {
+    canonical: APP_URL,
   },
   robots: {
     index: true,

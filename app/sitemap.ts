@@ -4,7 +4,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://laundryease.in";
 
   // Static routes
-  const routes = [
+  const staticRoutes = [
     "",
     "/auth",
     "/signup/seeker",
@@ -12,9 +12,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/seeker",
     "/seeker/search",
     "/provider",
-  ].map((route) => ({
+  ];
+  const routes = staticRoutes.map((route) => ({
     url: `${baseUrl}${route}`,
-    lastModified: new Date(),
+    lastModified: new Date().toISOString(),
     changeFrequency: "daily" as const,
     priority: route === "" ? 1 : 0.8,
   }));
