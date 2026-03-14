@@ -53,3 +53,7 @@ todo.md
 
 #docs References
 docs/MealMatch-final (1).pdf
+
+#
+.vscode/
+.github/hooks/
