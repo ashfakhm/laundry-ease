@@ -79,8 +79,15 @@ export default function ProviderTermsPage() {
             </h2>
             <p>
               You agree to cooperate with complaint workflows and provide
-              evidence when requested. LaundryEase may issue operational
-              warnings, temporary restrictions, or termination for violations.
+              evidence when requested.{" "}
+              <strong>
+                Seekers may only raise complaints within 24 hours after delivery
+                of an order. After this period, LaundryEase will not accept new
+                complaints, and any further issues must be resolved directly
+                between you and the seeker.
+              </strong>{" "}
+              LaundryEase may issue operational warnings, temporary
+              restrictions, or termination for violations.
             </p>
           </section>
 

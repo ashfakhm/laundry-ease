@@ -68,8 +68,16 @@ export default function SeekerTermsPage() {
             </h2>
             <p>
               If service issues arise, you must raise complaints honestly with
-              relevant details and evidence. LaundryEase may review both sides
-              and issue a final platform decision under policy.
+              relevant details and evidence.{" "}
+              <strong>
+                Complaints must be raised within 24 hours after delivery of your
+                order. After this 24-hour window, you will not be able to raise
+                a complaint through LaundryEase, and any further issues must be
+                resolved directly with the provider.
+              </strong>{" "}
+              LaundryEase may review both sides and issue a final platform
+              decision under policy for complaints submitted within the allowed
+              time frame.
             </p>
           </section>
 

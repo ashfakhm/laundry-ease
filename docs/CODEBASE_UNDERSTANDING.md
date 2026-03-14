@@ -54,6 +54,7 @@ graph LR
 | Nodemailer               | 8.0.2                 | Email delivery (SMTP)                             |
 | Twilio                   | 5.12.2                | SMS OTP delivery                                  |
 | Cloudinary               | 2.9.0                 | CDN-backed image uploads                          |
+| pdf-lib                  | 1.17.1                | Native PDF invoice generation                     |
 | bcrypt                   | 6.0.0                 | Password hashing                                  |
 | jose                     | 6.2.1                 | JWT operations                                    |
 | dd-trace                 | 5.89.0                | Datadog APM tracing                               |

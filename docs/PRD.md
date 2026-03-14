@@ -478,7 +478,7 @@ Alert rules:
   - **Provider**: Sees deadline during invoice generation and sorted list of order statuses, flagging orders that are 'overdue'.
   - **Admin**: Sees response deadlines on complaint detail pages with visual 'overdue' indicators.
 
-- **Printable Invoice**: Providers can view and print a beautifully formatted HTML invoice for any completed booking on a dedicated print page.
+- **PDF Invoices**: Providers can generate and download beautifully formatted PDF invoices (powered by `pdf-lib`) for any completed booking directly from the browser.
 
 - **Progress requires authorization**
   Only the provider assigned to the order can advance lifecycle states.
