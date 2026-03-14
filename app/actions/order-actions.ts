@@ -53,10 +53,12 @@ export async function getProviderOrders() {
       {
         $project: {
           _id: { $toString: "$_id" },
+          booking_id: { $toString: "$booking_id" },
           items: 1,
           total_price: 1,
           delivery_charge: 1,
           payment_status: 1,
+          process_status: 1,
           status: 1,
           createdAt: { $toString: "$createdAt" },
           otp_confirmed_at: {
