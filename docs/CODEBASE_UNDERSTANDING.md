@@ -178,7 +178,8 @@ laundry-ease/
 │   │       │   └── page.tsx
 │   │       ├── provider
 │   │       │   └── [id]
-│   │       │       └── page.tsx
+│   │       │       ├── page.tsx
+│   │       │       └── provider-detail-client.tsx
 │   │       └── view-orders
 │   │           └── page.tsx
 │   ├── (root)
@@ -528,6 +529,7 @@ laundry-ease/
 │   │   ├── delivery-otp-form.tsx
 │   │   └── invoice-review-form.tsx
 │   ├── seo
+│   │   ├── breadcrumb-json-ld.tsx
 │   │   └── json-ld.tsx
 │   └── ui
 │       ├── app-header.tsx
@@ -1502,7 +1504,8 @@ RootLayout (app/layout.tsx)
 | `password-input.tsx`            | Password field with visibility toggle                                                                                                                                                                                                 |
 | `skeleton.tsx`                  | Loading skeleton components                                                                                                                                                                                                           |
 | `toast.tsx`                     | Toast notification system                                                                                                                                                                                                             |
-| `json-ld.tsx`                   | SEO structured data                                                                                                                                                                                                                   |
+| `json-ld.tsx`                   | SEO structured data — 5 JSON-LD schemas (SoftwareApplication, LocalBusiness, Service, Organization, FAQPage), injected at root layout                                                                                                 |
+| `breadcrumb-json-ld.tsx`        | SEO breadcrumb structured data — Schema.org BreadcrumbList, used on provider profile pages with dynamic breadcrumb items                                                                                                              |
 | `use-booking-actions.ts` (hook) | Headless booking actions — `handleCancelBooking` accepts optional `requestConfirm` callback so caller owns the confirmation UI while the hook owns the network call. `executeCancelBooking` extracted as a separate internal callback |
 | `interactive-grid.tsx`          | Animated grid background                                                                                                                                                                                                              |
 | `spotlight-card.tsx`            | Animated spotlight card                                                                                                                                                                                                               |
@@ -1838,7 +1841,137 @@ Legacy aliases are still accepted for compatibility: `GOOGLE_ID`, `GOOGLE_SECRET
 
 ---
 
-## 16. Current Project Status (Rev 15)
+## 16. SEO Implementation (Rev 15)
+
+LaundryEase implements comprehensive SEO with Next.js App Router metadata API and Schema.org structured data.
+
+### Root Layout Metadata (`app/layout.tsx`)
+
+The root layout defines comprehensive metadata that applies site-wide:
+
+- **Title**: `LaundryEase - Doorstep Laundry Service Marketplace | India` with template `%s | LaundryEase`
+- **Description**: "LaundryEase connects busy professionals with trusted laundry providers. Book doorstep pickups, track orders in real-time, and pay securely with escrow protection. Deadline-guaranteed laundry service across India."
+- **Keywords** (13): laundry service, doorstep pickup, dry cleaning, wash and fold, laundry delivery, online laundry, laundry app, escrow payment, laundry near me, ironing service, premium laundry, express laundry, India
+- **OpenGraph**: Type `website`, locale `en_IN`, branded OG image (1200×630), site name, description
+- **Twitter Card**: `summary_large_image`, @laundryease handle, branded image
+- **Alternate Languages**: Canonical URL + en-IN, en, hi-IN language alternates
+- **Robots**: Index/follow enabled, googleBot max-snippet/-1, max-video-preview/-1, max-image-preview:large
+- **Verification**: Google site verification tag
+- **Manifest**: PWA manifest at `/manifest.json`
+- **Icons**: favicon.ico (48x48, 32x32, 16x16), icon.svg (SVG), apple-touch-icon.png (180x180), mask-icon with color
+- **Viewport**: Device-width, initial-scale 1, maximum-scale 5, theme-color meta tags
+- **Other**: MSApplication tile config, apple-mobile-web-app-capable, mobile-web-app-capable
+
+### Dynamic Per-Page Metadata
+
+Provider profile pages use `generateMetadata()` API for dynamic SEO:
+
+```typescript
+// app/(dashboard)/seeker/provider/[id]/page.tsx
+export async function generateMetadata(
+  { params }: Props,
+  _parent: ResolvingMetadata,
+): Promise<Metadata>;
+```
+
+Generates unique:
+
+- Title: `{businessName || name} - Laundry Service Provider | {location}`
+- Description: Provider bio/services/pricing
+- Keywords: Location-based + provider-specific terms
+- OpenGraph type: `profile` with provider profile picture or fallback OG image
+- Twitter card with provider image
+- Canonical URL: `{APP_URL}/seeker/provider/{id}`
+
+### JSON-LD Structured Data (`components/seo/json-ld.tsx`)
+
+Injected at root layout level via `<JsonLd />` component — **5 Schema.org schemas**:
+
+1. **SoftwareApplication**: Main app schema with name, description, category (LifestyleApplication), operating systems (Web/Android/iOS), publisher (Organization), offers (free), search action potential, aggregate rating (4.5/5 from 1000 reviews), feature list (5 features), version 1.0
+
+2. **LocalBusiness**: Service area coverage (India), service types (Laundry, Dry Cleaning, Wash and Fold, Ironing), price range $$
+
+3. **Service**: Laundry service catalog with offer catalog (Wash and Fold, Dry Cleaning, Ironing) — each with descriptions
+
+4. **Organization**: Logo, sameAs social links (empty array ready for Facebook/Twitter/Instagram), contact point (customer support, English/Hindi languages)
+
+5. **FAQPage**: 3 FAQ questions with answers (How it works, Payment security, Service areas)
+
+All schemas use `https://laundryease.in` as base URL (from `NEXT_PUBLIC_APP_URL`).
+
+### Breadcrumb Structured Data (`components/seo/breadcrumb-json-ld.tsx`)
+
+Client component generating Schema.org `BreadcrumbList` JSON-LD:
+
+```typescript
+<BreadcrumbJsonLd items={[
+  { name: "Home", item: "https://laundryease.in" },
+  { name: "Find Providers", item: "https://laundryease.in/seeker/search" },
+  { name: "Provider Name", item: "https://laundryease.in/seeker/provider/{id}" },
+]} />
+```
+
+Predefined breadcrumb paths exported for common routes (home, seeker dashboard, search, bookings, orders, invoices, profile, provider dashboard, admin, auth, signup, terms pages).
+
+Used on provider profile pages (`app/(dashboard)/seeker/provider/[id]/page.tsx`) with dynamic breadcrumb items based on provider business name.
+
+### Sitemap (`app/sitemap.ts`)
+
+Comprehensive XML sitemap with 34 defined routes:
+
+- **Static routes**: Landing page, auth, choose-role, complete-signup (seeker/provider), reset-password, terms (seeker/provider)
+- **Seeker dashboard**: Search, bookings, invoices, orders, disputes, profile, provider detail (`/seeker/provider/{id}`)
+- **Provider dashboard**: Bookings, manage-booking, order-status, invoice-generation, profile, reviews-manage, disputes, messages
+- **Admin dashboard**: Dashboard, complaints, user-management, payment-management
+- **Priority levels**: 1.0 (landing), 0.8 (auth/dashboard pages), 0.6 (terms)
+- **Change frequency**: Daily (landing/auth), weekly (dashboards), monthly (terms)
+- **Last modified**: BUILD_DATE = `2026-03-15T00:00:00.000Z`
+
+Sitemap accessible at `{APP_URL}/sitemap.xml`.
+
+### Robots Configuration (`app/robots.ts`)
+
+```typescript
+export default function robots(): Metadata {
+  return {
+    rules: [
+      {
+        userAgent: "*",
+        disallow: ["/admin/", "/api/", "/complete-signup/", "/choose-role/"],
+      },
+    ],
+    sitemap: `${baseUrl}/sitemap.xml`,
+  };
+}
+```
+
+Disallow rules:
+
+- `/admin/` — Admin dashboard (authenticated only)
+- `/api/` — All API endpoints
+- `/complete-signup/` — Profile completion flow
+- `/choose-role/` — Role selection page
+
+Allowed:
+
+- Landing page, auth pages, terms pages, all seeker/provider dashboards
+
+### Key Features
+
+| Feature                       | Implementation                                             |
+| ----------------------------- | ---------------------------------------------------------- |
+| **Dynamic metadata per page** | `generateMetadata()` API on provider profile pages         |
+| **Structured data injection** | 5 JSON-LD schemas at root layout level                     |
+| **Breadcrumb navigation**     | Schema.org BreadcrumbList for provider pages               |
+| **Sitemap generation**        | 34 routes with priority + changeFrequency                  |
+| **Robots directives**         | Disallow authenticated/admin routes                        |
+| **OG/Twitter cards**          | Branded images (1200×630), profile type for provider pages |
+| **Multi-language support**    | Alternate URLs for en-IN, en, hi-IN                        |
+| **PWA support**               | Manifest, icons, viewport, theme-color                     |
+
+---
+
+## 17. Current Project Status (Rev 15)
 
 **Quality Snapshot (2026-03-15):**
 
@@ -1913,7 +2046,7 @@ Legacy aliases are still accepted for compatibility: `GOOGLE_ID`, `GOOGLE_SECRET
 
 ---
 
-## 17. Architecture Diagrams
+## 18. Architecture Diagrams
 
 ### High-Level System Architecture
 
@@ -2193,5 +2326,6 @@ LaundryEase is a production-grade laundry marketplace built with:
 7. **Professional Password Management** — Secure token-based reset (SHA-256, 1-hour expiry), anti-enumeration, branded email notifications, automatic invalidation of old login sessions after a password change (5-minute re-check), and password show/hide controls
 8. **Quality Assurance** — 110+ unit test files + 6 end-to-end browser specs, React Compiler, strict TypeScript, 3 CI workflows, only 2 `eslint-disable` comments
 9. **Operational Visibility** — Cron run tracking, data integrity checks, abuse monitoring, alert analytics (trend, alert growth, average fix time), and browser security policy reports
-10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); supports voice notes, photo uploads, and WhatsApp-style message deletion; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
-11. **Provider Capacity Management** — Atomic capacity checks during booking creation and acceptance, configurable max concurrent bookings per provider
+10. **Comprehensive SEO** — Next.js App Router metadata API, dynamic per-page metadata (`generateMetadata`), 5 JSON-LD schemas (SoftwareApplication, LocalBusiness, Service, Organization, FAQPage), Schema.org BreadcrumbList for provider pages, XML sitemap (34 routes), robots.txt configuration, OG/Twitter cards, multi-language support
+11. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); supports voice notes, photo uploads, and WhatsApp-style message deletion; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
+12. **Provider Capacity Management** — Atomic capacity checks during booking creation and acceptance, configurable max concurrent bookings per provider
