@@ -22,11 +22,11 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://laundryease.in";
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: "LaundryEase - Doorstep Laundry Service Marketplace",
+    default: "LaundryEase - Doorstep Laundry Service Marketplace | India",
     template: "%s | LaundryEase",
   },
   description:
-    "LaundryEase connects busy professionals with trusted laundry providers. Book pickups, track orders, and pay securely with escrow protection. Deadline-guaranteed service.",
+    "LaundryEase connects busy professionals with trusted laundry providers. Book doorstep pickups, track orders in real-time, and pay securely with escrow protection. Deadline-guaranteed laundry service across India.",
   keywords: [
     "laundry service",
     "doorstep pickup",
@@ -36,10 +36,18 @@ export const metadata: Metadata = {
     "online laundry",
     "laundry app",
     "escrow payment",
+    "laundry near me",
+    "ironing service",
+    "premium laundry",
+    "express laundry",
+    "India",
   ],
   authors: [{ name: "LaundryEase" }],
   creator: "LaundryEase",
   publisher: "LaundryEase",
+  generator: "Next.js",
+  applicationName: "LaundryEase",
+  referrer: "origin-when-cross-origin",
   formatDetection: {
     email: false,
     address: false,
@@ -58,43 +66,75 @@ export const metadata: Metadata = {
         url: `${APP_URL}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: "LaundryEase - Laundry handled end-to-end",
+        alt: "LaundryEase - Premium laundry service marketplace with escrow protection",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
+    site: "@laundryease",
+    creator: "@laundryease",
     title: "LaundryEase - Doorstep Laundry Service",
     description:
       "Book pickups, track orders, pay securely. Deadline-guaranteed laundry service.",
     images: [
       {
         url: `${APP_URL}/og-image.png`,
-        alt: "LaundryEase - Laundry handled end-to-end",
+        alt: "LaundryEase - Premium laundry service marketplace with escrow protection",
       },
     ],
   },
   alternates: {
     canonical: APP_URL,
+    languages: {
+      "en-IN": APP_URL,
+      en: APP_URL,
+      "hi-IN": `${APP_URL}/hi`,
+    },
   },
   robots: {
     index: true,
     follow: true,
+    nocache: false,
     googleBot: {
       index: true,
       follow: true,
+      noimageindex: false,
       "max-video-preview": -1,
       "max-image-preview": "large",
       "max-snippet": -1,
     },
   },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  },
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.ico", sizes: "48x48 32x32 16x16", type: "image/x-icon" },
       { url: "/icon.svg", type: "image/svg+xml" },
     ],
-    apple: "/apple-touch-icon.png",
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    other: [
+      {
+        rel: "mask-icon",
+        url: "/icon.svg",
+        color: "#0a0a0a",
+      },
+    ],
+  },
+  category: "lifestyle",
+  classification: "Laundry Service Marketplace",
+  other: {
+    "msapplication-TileColor": "#0a0a0a",
+    "msapplication-config": "/browserconfig.xml",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "LaundryEase",
+    "mobile-web-app-capable": "yes",
+    "theme-color": "#0a0a0a",
   },
 };
 
