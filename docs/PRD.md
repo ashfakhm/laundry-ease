@@ -652,7 +652,7 @@ See `README.md` for detailed setup instructions.
 - **Team calendar / on-call integration**
   Alert owner routing currently uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`). Real dynamic on-call scheduling requires external calendar integration.
 
-## 14. Implementation Alignment Matrix (2026-03-15 — Rev 14)
+## 14. Implementation Alignment Matrix (2026-03-15 — Rev 15)
 
 | PRD Requirement                   | Expected Behavior                                                                                                                                                                                                                                                                               | Current System Status                                                                                                                                                                                                                                                                                                                                                 |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -720,7 +720,7 @@ See `README.md` for detailed setup instructions.
 | Demo cron dispatcher | Local development should be able to trigger all cron jobs without an external scheduler | Implemented — `lib/demo/cron-dispatch.ts` provides in-process runner for all 10 cron handlers; enabled by `DEMO_MODE=1` in `.env`; admin demo panel invokes handlers with `CRON_SECRET`-signed requests; must be disabled (`DEMO_MODE=0`) in production |
 | Provider bank sync | Bank detail changes must sync to Razorpay contact/fund account | Implemented (`lib/services/provider-bank-sync.ts` — creates contact + fund account, masks stored account number) |
 | Delivery charge calculation | Charges must be distance-based with free radius and per-km rate | Implemented (`lib/utils/delivery-charge.ts` — Haversine distance, configurable free radius and per-km rate) |
-| SEO foundations | Platform should have sitemap, robots.txt, and structured data | Implemented (`app/sitemap.ts`, `app/robots.ts`, `components/seo/json-ld.tsx`) |
+| SEO foundations | Platform should have sitemap, robots.txt, and structured data | Implemented (`app/sitemap.ts` — 34 routes, `app/robots.ts` — disallow rules, `components/seo/json-ld.tsx` — 5 schemas: SoftwareApplication/LocalBusiness/Service/Organization/FAQPage, `components/seo/breadcrumb-json-ld.tsx` — BreadcrumbList for provider pages, `app/(dashboard)/seeker/provider/[id]/page.tsx` — dynamic metadata via `generateMetadata()` API) |
 
 ### Remaining Hardening Opportunities
 
