@@ -1,10 +1,10 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-03-07 (Rev 13)
+**Last Updated:** 2026-03-15 (Rev 14)
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, and secure password reset and session invalidation. The current test suite passes, there are 5 Playwright end-to-end browser tests, and only 2 justified `eslint-disable` comments remain in CommonJS files.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, and secure password reset and session invalidation. The current test suite passes, there are 6 Playwright end-to-end browser tests, and only 2 justified `eslint-disable` comments remain in CommonJS files.
 
 ```mermaid
 graph LR
@@ -90,158 +90,620 @@ graph LR
 
 ```
 laundry-ease/
-├── app/                          # Next.js App Router
-│   ├── (auth)/                   # Auth route group
-│   │   ├── verify-email/         # Email verification flow
-│   │   └── verify-phone/         # Phone verification flow
-│   ├── (dashboard)/              # Protected dashboard routes
-│   │   ├── admin/                # Admin panel
-│   │   │   ├── complaints/       # Complaint management
-│   │   │   ├── payment-management/ # Payment oversight
-│   │   │   └── user-management/  # User administration
-│   │   ├── provider/             # Provider dashboard
-│   │   │   ├── bookings/         # Booking management
-│   │   │   ├── disputes/         # Dispute view
-│   │   │   ├── invoice-generation/ # Invoice creation
-│   │   │   ├── manage-booking/   # Booking details
-│   │   │   ├── messages/         # Chat interface
-│   │   │   ├── order-status/     # Order lifecycle
-│   │   │   ├── profile/          # Provider profile
-│   │   │   └── reviews-manage/   # Review management
-│   │   └── seeker/               # Seeker dashboard
-│   │       ├── bookings/         # Booking list & details
-│   │       ├── disputes/         # Dispute view
-│   │       ├── invoices/         # Invoice review
-│   │       ├── orders/           # Order tracking
-│   │       ├── profile/          # Seeker profile
-│   │       ├── provider/         # Provider discovery
-│   │       └── view-orders/      # Order history
-│   ├── (root)/                   # Root layout group
-│   ├── actions/                  # Server Actions
+
+.
+├── app
+│   ├── (auth)
+│   │   ├── verify-email
+│   │   │   └── page.tsx
+│   │   └── verify-phone
+│   │       └── page.tsx
+│   ├── (dashboard)
+│   │   ├── admin
+│   │   │   ├── complaints
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── error.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── loading.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── payment-management
+│   │   │   │   └── page.tsx
+│   │   │   └── user-management
+│   │   │       └── page.tsx
+│   │   ├── provider
+│   │   │   ├── bookings
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── invoice
+│   │   │   │   │       └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── disputes
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── error.tsx
+│   │   │   ├── invoice-generation
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── print
+│   │   │   │   │       └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── loading.tsx
+│   │   │   ├── manage-booking
+│   │   │   │   ├── booking-card.tsx
+│   │   │   │   ├── booking-list.tsx
+│   │   │   │   ├── booking-status-badge.tsx
+│   │   │   │   ├── loading.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── messages
+│   │   │   │   └── page.tsx
+│   │   │   ├── order-status
+│   │   │   │   └── page.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── profile
+│   │   │   │   ├── edit
+│   │   │   │   │   ├── page.tsx
+│   │   │   │   │   └── profile-sections.tsx
+│   │   │   │   └── page.tsx
+│   │   │   └── reviews-manage
+│   │   │       └── page.tsx
+│   │   └── seeker
+│   │       ├── bookings
+│   │       │   ├── [id]
+│   │       │   │   └── invoice-review
+│   │       │   │       └── page.tsx
+│   │       │   ├── page.tsx
+│   │       │   ├── seeker-booking-card.tsx
+│   │       │   └── seeker-booking-list.tsx
+│   │       ├── disputes
+│   │       │   ├── [id]
+│   │       │   │   └── page.tsx
+│   │       │   └── page.tsx
+│   │       ├── error.tsx
+│   │       ├── invoices
+│   │       │   └── page.tsx
+│   │       ├── layout.tsx
+│   │       ├── loading.tsx
+│   │       ├── orders
+│   │       │   └── [id]
+│   │       │       ├── confirm-delivery
+│   │       │       │   └── page.tsx
+│   │       │       └── page.tsx
+│   │       ├── page.tsx
+│   │       ├── profile
+│   │       │   └── page.tsx
+│   │       ├── provider
+│   │       │   └── [id]
+│   │       │       └── page.tsx
+│   │       └── view-orders
+│   │           └── page.tsx
+│   ├── (root)
+│   │   ├── error.tsx
+│   │   ├── layout.tsx
+│   │   └── terms
+│   │       ├── provider
+│   │       │   └── page.tsx
+│   │       └── seeker
+│   │           └── page.tsx
+│   ├── actions
 │   │   ├── booking-actions.ts
 │   │   ├── order-actions.ts
 │   │   └── profile-actions.ts
-│   ├── api/                      # API routes (20+ domains)
-│   │   ├── admin/                # Admin endpoints
-│   │   │   ├── complaints/       # CRUD + accept/access/add-provider/resolve
-│   │   │   ├── dashboard-stats/  # Admin dashboard statistics
-│   │   │   ├── orders/           # Order management (extend-complaint)
-│   │   │   ├── payments/         # Payment oversight
-│   │   │   ├── refund/           # Manual refund processing
-│   │   │   ├── system-alerts/    # Alert acknowledge/manage
-│   │   │   └── users/            # User management + ban
-│   │   ├── auth/                 # NextAuth + magic link + email verification
-│   │   ├── bookings/             # Full booking lifecycle
-│   │   │   └── [id]/             # accept/reject/cancel/arrive/schedule/
-│   │   │                         # reschedule/dispute/chat/invoice/pay/pay-invoice
-│   │   ├── complaints/           # Complaint creation + messages
-│   │   ├── cron/                 # 10 scheduled job endpoints
-│   │   ├── escrow/               # Escrow release
-│   │   ├── forgot-password/      # Password reset request
-│   │   ├── invoices/             # Invoice review
-│   │   ├── orders/               # Order lifecycle
-│   │   │   └── [id]/             # status/payment/pay/confirm-delivery/
-│   │   │                         # otp/schedule-delivery/cancel
-│   │   ├── otp/                  # OTP send/verify
-│   │   ├── payments/             # Razorpay order creation
-│   │   ├── profile/              # Profile management
-│   │   ├── provider/             # Provider dashboard stats
-│   │   ├── providers/            # Provider search + discovery
-│   │   ├── reset-password/       # Password reset execution
-│   │   ├── reviews/              # Review submission
-│   │   ├── security/             # CSP report endpoint
-│   │   ├── signup/               # Registration endpoints
-│   │   ├── upload/               # Image upload (Cloudinary)
-│   │   └── webhooks/             # Razorpay webhook handler
-│   ├── auth/                     # Login page
-│   ├── choose-role/              # Role selection after OAuth
-│   ├── complete-signup/          # Profile completion (provider/seeker)
-│   ├── reset-password/           # Password reset page
-│   ├── signup/                   # Registration pages (provider/seeker)
-│   ├── forbidden.tsx             # 403 page
-│   ├── global-error.tsx          # Global error boundary
-│   ├── globals.css               # Tailwind global styles
-│   ├── layout.tsx                # Root layout
-│   ├── loading.tsx               # Global loading skeleton
-│   ├── not-found.tsx             # 404 page
-│   ├── page.tsx                  # Landing page
-│   ├── robots.ts                 # SEO robots.txt
-│   ├── sitemap.ts                # SEO sitemap.xml
-│   └── unauthorized.tsx          # 401 page
-│
-├── components/                   # React components
-│   ├── navigation/               # Role-based navigation
+│   ├── api
+│   │   ├── admin
+│   │   │   ├── complaints
+│   │   │   │   ├── [id]
+│   │   │   │   │   ├── accept
+│   │   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── access
+│   │   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── add-provider
+│   │   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── resolve
+│   │   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── dashboard-stats
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── demo
+│   │   │   │   └── cron
+│   │   │   │       ├── route.test.ts
+│   │   │   │       └── route.ts
+│   │   │   ├── orders
+│   │   │   │   └── [id]
+│   │   │   │       └── extend-complaint
+│   │   │   │           ├── route.test.ts
+│   │   │   │           └── route.ts
+│   │   │   ├── payments
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── refund
+│   │   │   │   ├── route.integration.test.ts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── system-alerts
+│   │   │   │   └── [id]
+│   │   │   │       └── acknowledge
+│   │   │   │           ├── route.test.ts
+│   │   │   │           └── route.ts
+│   │   │   └── users
+│   │   │       ├── [id]
+│   │   │       │   ├── ban
+│   │   │       │   │   ├── route.test.ts
+│   │   │       │   │   └── route.ts
+│   │   │       │   ├── route.test.ts
+│   │   │       │   └── route.ts
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── auth
+│   │   │   ├── [...nextauth]
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── send-magic-link
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   └── verify-email
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── bookings
+│   │   │   ├── [id]
+│   │   │   │   ├── accept
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── arrive
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── cancel
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── dispute
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── invoice
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── pay-invoice
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── pay
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── reject
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── reschedule
+│   │   │   │   │   └── request
+│   │   │   │   │       ├── route.test.ts
+│   │   │   │   │       └── route.ts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   │   └── schedule
+│   │   │   │       ├── route.test.ts
+│   │   │   │       └── route.ts
+│   │   │   ├── payment
+│   │   │   │   ├── init
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── verify
+│   │   │   │       ├── route.test.ts
+│   │   │   │       └── route.ts
+│   │   │   ├── provider
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── route.test.ts
+│   │   │   ├── route.ts
+│   │   │   └── seeker
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── complaints
+│   │   │   ├── [id]
+│   │   │   │   ├── messages
+│   │   │   │   │   ├── [messageId]
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── lifecycle.test.ts
+│   │   │   ├── route.test.ts
+│   │   │   └── route.ts
+│   │   ├── cron
+│   │   │   ├── audit-integrity
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── auto-reject-bookings
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── monitor-abuse
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── monitor-operational-health
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── no-show
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── notify-system-alerts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── process-email-outbox
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── process-payouts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── reconciliation
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   └── webhook-cleanup
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── escrow
+│   │   │   └── release
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── forgot-password
+│   │   │   ├── route.test.ts
+│   │   │   └── route.ts
+│   │   ├── invoices
+│   │   │   └── [id]
+│   │   │       ├── review
+│   │   │       │   ├── route.test.ts
+│   │   │       │   └── route.ts
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── orders
+│   │   │   ├── [id]
+│   │   │   │   ├── cancel
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── chat
+│   │   │   │   │   ├── [messageId]
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── confirm-delivery
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── otp
+│   │   │   │   │   ├── resend
+│   │   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   └── verify
+│   │   │   │   │       ├── route.test.ts
+│   │   │   │   │       └── route.ts
+│   │   │   │   ├── pay
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── payment
+│   │   │   │   │   ├── init
+│   │   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   ├── route.ts
+│   │   │   │   │   └── verify
+│   │   │   │   │       ├── route.test.ts
+│   │   │   │   │       └── route.ts
+│   │   │   │   ├── schedule-delivery
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── status
+│   │   │   │       ├── route.test.ts
+│   │   │   │       └── route.ts
+│   │   │   ├── provider
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── route.test.ts
+│   │   │   ├── route.ts
+│   │   │   └── seeker
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── otp
+│   │   │   ├── request
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   └── verify
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── payments
+│   │   │   └── create-order
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── profile
+│   │   │   ├── provider
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   └── seeker
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── provider
+│   │   │   ├── chats
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   └── dashboard-stats
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── providers
+│   │   │   ├── [id]
+│   │   │   │   ├── reviews
+│   │   │   │   │   ├── route.test.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── bank-details
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── route.test.ts
+│   │   │   └── route.ts
+│   │   ├── reset-password
+│   │   │   ├── route.test.ts
+│   │   │   └── route.ts
+│   │   ├── reviews
+│   │   │   ├── route.test.ts
+│   │   │   └── route.ts
+│   │   ├── security
+│   │   │   └── csp-report
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── signup
+│   │   │   ├── provider
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   └── seeker
+│   │   │       ├── route.test.ts
+│   │   │       └── route.ts
+│   │   ├── upload
+│   │   │   ├── audio
+│   │   │   │   └── route.ts
+│   │   │   ├── image
+│   │   │   │   ├── route.test.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── route.test.ts
+│   │   │   └── route.ts
+│   │   └── webhooks
+│   │       └── razorpay
+│   │           ├── route.test.ts
+│   │           └── route.ts
+│   ├── auth
+│   │   └── page.tsx
+│   ├── choose-role
+│   │   └── page.tsx
+│   ├── complete-signup
+│   │   ├── provider
+│   │   │   └── page.tsx
+│   │   └── seeker
+│   │       └── page.tsx
+│   ├── favicon.ico
+│   ├── forbidden.tsx
+│   ├── global-error.tsx
+│   ├── globals.css
+│   ├── layout.tsx
+│   ├── loading.tsx
+│   ├── not-found.tsx
+│   ├── page.tsx
+│   ├── reset-password
+│   │   └── page.tsx
+│   ├── robots.ts
+│   ├── signup
+│   │   ├── provider
+│   │   │   └── page.tsx
+│   │   └── seeker
+│   │       └── page.tsx
+│   ├── sitemap.ts
+│   └── unauthorized.tsx
+├── components
+│   ├── complaint-chat.tsx
+│   ├── landing-page-client.tsx
+│   ├── navigation
 │   │   ├── admin-sidebar.tsx
 │   │   ├── provider-sidebar.tsx
 │   │   └── seeker-topnav.tsx
-│   ├── orders/                   # Order UI components
+│   ├── order-chat.tsx
+│   ├── orders
 │   │   ├── live-status-refresh.tsx
 │   │   ├── order-actions.tsx
 │   │   ├── payment-button.tsx
 │   │   └── post-delivery-actions.tsx
-│   ├── provider/                 # Provider components
+│   ├── provider
 │   │   ├── provider-header.tsx
 │   │   └── reviews-list.tsx
-│   ├── providers/                # Shared provider components
+│   ├── providers
 │   │   ├── google-maps-provider.tsx
 │   │   ├── invoice-form.tsx
 │   │   ├── provider-booking-list.tsx
-│   │   └── session-provider.tsx
-│   ├── seeker/                   # Seeker components
+│   │   ├── session-provider.tsx
+│   │   └── socket-provider.tsx
+│   ├── seeker
 │   │   ├── delivery-otp-form.tsx
 │   │   └── invoice-review-form.tsx
-│   ├── seo/                      # SEO
+│   ├── seo
 │   │   └── json-ld.tsx
-│   ├── ui/                       # shadcn/ui + custom components (18 files)
-│   │   ├── confirm-dialog.tsx    # ConfirmDialog + useConfirmDialog hook (replaces window.confirm)
-│   │   ├── settlement-summary-modal.tsx # Settlement details modal (replaces alert dumps)
-│   │   └── [16 other ui components]
-│   ├── order-chat.tsx            # Real-time order chat (Socket.IO)
-│   ├── complaint-chat.tsx        # 3-way complaint chat (Socket.IO)
-│   └── landing-page-client.tsx   # Landing page client component
-│
-├── hooks/
-│   ├── use-booking-actions.ts    # Headless booking action handlers (accept/reject/cancel/arrive/reschedule/propose-slot)
-│   └── use-live-data.ts          # SWR-based live polling hook
-│
-├── cron/                         # Cron job logic
-│   ├── auto-reject-bookings.ts   # Auto-reject expired bookings
-│   └── no-show-check.ts          # No-show detection + refund
-│
-├── lib/                          # Core business logic & utilities
-│   ├── api/                      # API layer (auth, errors, response, schemas, security, cron-auth)
-│   ├── audit/                    # Data integrity checks
-│   ├── auth/                     # Password policy
-│   ├── bookings/                 # Booking logic (cancellation policy, arrival)
-│   │   ├── cancellation-policy.ts  # Pure function: 2-hour free-cancel window, invoice_created forfeit, role-aware
-│   │   └── cancellation-policy.test.ts  # 11 unit tests (both actors, boundary times, invoice_created stage, all fee states)
-│   ├── complaints/               # Complaint access control
-│   ├── data/                     # Data access helpers
-│   ├── db/                       # Database CRUD (bookings, orders, users, complaints, escrow, transaction)
-│   │   ├── bookings.ts           # updateBookingPickupSlot uses atomic status filter + $unset confirmedAt
-│   │   └── [5 other db modules]
-│   ├── demo/
-│   │   └── cron-dispatch.ts      # In-process demo cron runner (DEMO_MODE=1) — calls all 10 cron handlers directly
-│   ├── ops/                      # Operational monitoring (6 modules + tests)
-│   ├── orders/                   # Order state machine, delivery confirmation, deadline compensation
-│   ├── payouts/                  # Payout calculation with decimal.js
-│   ├── realtime/                 # Socket.IO real-time layer
-│   │   ├── contracts.js          # Shared event names + serializers (CommonJS — loaded by server.js)
-│   │   ├── contracts.d.ts        # TypeScript declarations for contracts.js
-│   │   ├── socket-auth.js        # Room authorization helpers (order + complaint rooms)
-│   │   ├── socket-auth.test.ts   # Auth helper unit tests
-│   │   ├── emitter.ts            # Server-side event emitter (wraps globalThis._socketIoServer)
-│   │   ├── emitter.test.ts       # Emitter unit tests
-│   │   ├── chat-state.ts         # Chat message helpers
-│   │   └── chat-state.test.ts    # Chat state unit tests
-│   ├── security/                 # CSP policy, origin validation
-│   ├── services/                 # Domain services (8 modules)
-│   ├── utils/                    # Delivery charge, monetary helpers
-│   ├── webhooks/                 # Razorpay event handlers
-│   └── [20+ root modules]       # audit, cloudinary, constants, cron-tracking, db-indexes,
-│                                 # email-outbox, env, logger, mongodb, otp, payouts, razorpay,
-│                                 # telemetry, utils, distance, geocoding, email templates...
-│
+│   └── ui
+│       ├── app-header.tsx
+│       ├── confirm-dialog.tsx
+│       ├── error-boundary.tsx
+│       ├── evidence-upload.tsx
+│       ├── global-footer.tsx
+│       ├── go-back-button.tsx
+│       ├── image-upload.tsx
+│       ├── interactive-grid.tsx
+│       ├── location-autocomplete.tsx
+│       ├── password-input.tsx
+│       ├── select.tsx
+│       ├── settlement-summary-modal.tsx
+│       ├── skeleton.tsx
+│       ├── spotlight-card.tsx
+│       ├── text-generate-effect.tsx
+│       ├── theme-provider.tsx
+│       ├── theme-toggle.tsx
+│       └── toast.tsx
+├── cron
+│   ├── auto-reject-bookings.ts
+│   └── no-show-check.ts
+├── docs
+│   ├── CHAPTERS_1_2_3.md
+│   ├── CHAPTERS_4_5_6_7.md
+│   ├── CODEBASE_UNDERSTANDING.md
+│   ├── HONEST_ASSESSMENT.md
+│   ├── ML_AI_INTEGRATION.md
+│   ├── OPERATIONS_RUNBOOK.md
+│   ├── PRD.md
+│   ├── PRESENTATION_HELPER.md
+│   └── PRODUCTION_READINESS_REVIEW.md
+├── e2e
+│   ├── booking-lifecycle-journey.spec.ts
+│   ├── booking-negative-journeys.spec.ts
+│   ├── complaint-chat-journey.spec.ts
+│   ├── invoice-download.spec.ts
+│   ├── settlement-chain-journey.spec.ts
+│   ├── smoke-role-journeys.spec.ts
+│   └── support
+│       ├── auth.ts
+│       └── smoke-seed.ts
+├── hooks
+│   ├── use-booking-actions.ts
+│   ├── use-live-data.ts
+│   └── use-voice-recorder.ts
+├── lib
+│   ├── api
+│   │   ├── auth.test.ts
+│   │   ├── auth.ts
+│   │   ├── cron-auth.ts
+│   │   ├── errors.ts
+│   │   ├── response.ts
+│   │   ├── schemas.contract.test.ts
+│   │   ├── schemas.ts
+│   │   ├── security.test.ts
+│   │   └── security.ts
+│   ├── audit.ts
+│   ├── audit
+│   │   ├── integrity.test.ts
+│   │   └── integrity.ts
+│   ├── auth
+│   │   ├── password-policy.ts
+│   │   └── request-token.js
+│   ├── bookings
+│   │   ├── arrive-handler.ts
+│   │   ├── cancellation-policy.test.ts
+│   │   ├── cancellation-policy.ts
+│   │   └── mark-arrived.ts
+│   ├── client-api.ts
+│   ├── client-error.ts
+│   ├── cloudinary.ts
+│   ├── complaints
+│   │   ├── access.test.ts
+│   │   └── access.ts
+│   ├── constants.ts
+│   ├── cron-tracking.ts
+│   ├── data
+│   │   └── bookings.ts
+│   ├── db-indexes.test.ts
+│   ├── db-indexes.ts
+│   ├── db.test.ts
+│   ├── db
+│   │   ├── bookings.ts
+│   │   ├── complaints.ts
+│   │   ├── escrow.ts
+│   │   ├── index.ts
+│   │   ├── orders.ts
+│   │   ├── transaction.ts
+│   │   └── users.ts
+│   ├── delivery-otp-email.ts
+│   ├── demo
+│   │   └── cron-dispatch.ts
+│   ├── distance.ts
+│   ├── email-outbox.test.ts
+│   ├── email-outbox.ts
+│   ├── email-transporter.ts
+│   ├── env.normalize.test.ts
+│   ├── env.ts
+│   ├── geocoding.ts
+│   ├── local-cron.js
+│   ├── logger.ts
+│   ├── magic-link-email.ts
+│   ├── mongodb.ts
+│   ├── ops
+│   │   ├── ack-sla.test.ts
+│   │   ├── ack-sla.ts
+│   │   ├── alert-channels.ts
+│   │   ├── alert-delivery.test.ts
+│   │   ├── alert-delivery.ts
+│   │   ├── alert-lifecycle.ts
+│   │   ├── alerts-analytics.test.ts
+│   │   ├── alerts-analytics.ts
+│   │   ├── health.test.ts
+│   │   ├── health.ts
+│   │   ├── owner-routing.test.ts
+│   │   └── owner-routing.ts
+│   ├── orders
+│   │   ├── confirm-delivery-core.ts
+│   │   ├── deadline-compensation.test.ts
+│   │   ├── deadline-compensation.ts
+│   │   ├── status-machine.test.ts
+│   │   └── status-machine.ts
+│   ├── otp-code-email.ts
+│   ├── otp.ts
+│   ├── password-changed-email.ts
+│   ├── password-reset-email.ts
+│   ├── payouts.ts
+│   ├── payouts
+│   │   ├── amounts.test.ts
+│   │   └── amounts.ts
+│   ├── razorpay.ts
+│   ├── realtime
+│   │   ├── chat-state.test.ts
+│   │   ├── chat-state.ts
+│   │   ├── contracts.d.ts
+│   │   ├── contracts.js
+│   │   ├── emitter.test.ts
+│   │   ├── emitter.ts
+│   │   ├── socket-auth.js
+│   │   └── socket-auth.test.ts
+│   ├── security
+│   │   ├── csp.test.ts
+│   │   ├── csp.ts
+│   │   ├── origin.test.ts
+│   │   └── origin.ts
+│   ├── services
+│   │   ├── admin-stats.ts
+│   │   ├── complaint-resolution.ts
+│   │   ├── invoice-finalization.ts
+│   │   ├── provider-bank-sync.ts
+│   │   ├── provider-password.ts
+│   │   ├── provider-search.ts
+│   │   ├── refund-lock.ts
+│   │   └── system-alerts.ts
+│   ├── telemetry.ts
+│   ├── utils.ts
+│   ├── utils
+│   │   ├── delivery-charge.ts
+│   │   └── monetary.ts
+│   └── webhooks
+│       └── razorpay-handlers.ts
+├── scripts
+│   ├── audit-branch-protection.mjs
+│   ├── check-doc-sync.mjs
+│   ├── run-playwright.mjs
+│   └── verify-gates.mjs
+└── types
+    ├── bookings.ts
+    ├── complaints.ts
+    ├── css.d.ts
+    ├── enums.ts
+    ├── next-auth.d.ts
+    ├── orders.ts
+    ├── razorpay.d.ts
+    ├── reviews.ts
+    └── users.ts
+
 ├── server.js                     # Custom Node.js server: attaches Socket.IO to Next.js HTTP server
 ├── scripts/                      # CI/CD scripts (4 files)
 ├── types/                        # TypeScript definitions (8 files)
@@ -345,7 +807,7 @@ type ComplaintStatus =
 
 Key fields: order_id, booking_id, seeker_id, provider_id, complaint_type, title, description, photos, status, resolution_outcome (`refund_full`/`refund_partial`/`release_payout`/`no_action`), acceptedAt, response_deadline, participants, provider_access_granted, resolvedAt
 
-**ComplaintMessage**: complaint_id, sender_id, sender_role (`seeker`/`provider`/`admin`/`system`), message_type (`TEXT`/`IMAGE`/`SYSTEM`), content, attachments
+**ComplaintMessage**: complaint_id, sender_id, sender_role (`seeker`/`provider`/`admin`/`system`), message_type (`TEXT`/`IMAGE`/`VOICE`/`SYSTEM`), content, attachments, voiceMessage (Cloudinary URL), deletedForEveryone, deletedBy (Map of userId→date for per-user soft-delete)
 
 #### Review (`types/reviews.ts`)
 
@@ -749,20 +1211,21 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 
 **Order API:**
 
-| Route                                | Method   | Purpose                         |
-| ------------------------------------ | -------- | ------------------------------- |
-| `/api/orders`                        | GET      | List orders                     |
-| `/api/orders/[id]/chat`              | GET/POST | Order chat messages (real-time) |
-| `/api/orders/[id]/status`            | PATCH    | Update order process status     |
-| `/api/orders/[id]/payment`           | POST     | Initialize/verify order payment |
-| `/api/orders/[id]/pay`               | POST     | Legacy payment alias            |
-| `/api/orders/[id]/confirm-delivery`  | POST     | Seeker confirms delivery (OTP)  |
-| `/api/orders/[id]/otp`               | POST     | Generate/resend delivery OTP    |
-| `/api/orders/[id]/otp/verify`        | POST     | Provider verifies delivery OTP  |
-| `/api/orders/[id]/schedule-delivery` | POST     | Propose/confirm delivery slot   |
-| `/api/orders/[id]/cancel`            | POST     | Cancel order                    |
-| `/api/orders/provider`               | GET      | Provider's orders               |
-| `/api/orders/seeker`                 | GET      | Seeker's orders                 |
+| Route                                     | Method   | Purpose                                       |
+| ----------------------------------------- | -------- | --------------------------------------------- |
+| `/api/orders`                             | GET      | List orders                                   |
+| `/api/orders/[id]/chat`                   | GET/POST | Order chat messages (real-time)               |
+| `/api/orders/[id]/chat/[messageId]`       | DELETE   | Delete message (for_me / for_everyone)        |
+| `/api/orders/[id]/status`                 | PATCH    | Update order process status                   |
+| `/api/orders/[id]/payment`                | POST     | Initialize/verify order payment               |
+| `/api/orders/[id]/pay`                    | POST     | Legacy payment alias                          |
+| `/api/orders/[id]/confirm-delivery`       | POST     | Seeker confirms delivery (OTP)                |
+| `/api/orders/[id]/otp`                    | POST     | Generate/resend delivery OTP                  |
+| `/api/orders/[id]/otp/verify`             | POST     | Provider verifies delivery OTP                |
+| `/api/orders/[id]/schedule-delivery`      | POST     | Propose/confirm delivery slot                 |
+| `/api/orders/[id]/cancel`                 | POST     | Cancel order                                  |
+| `/api/orders/provider`                    | GET      | Provider's orders                             |
+| `/api/orders/seeker`                      | GET      | Seeker's orders                               |
 
 **Admin API:**
 
@@ -787,9 +1250,10 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 
 | Route                           | Method    | Purpose                  |
 | ------------------------------- | --------- | ------------------------ |
-| `/api/complaints`               | POST      | Create complaint         |
-| `/api/complaints/[id]`          | GET       | Get complaint details    |
-| `/api/complaints/[id]/messages` | GET/POST  | Chat messages            |
+| `/api/complaints`                          | POST      | Create complaint                              |
+| `/api/complaints/[id]`                     | GET       | Get complaint details                         |
+| `/api/complaints/[id]/messages`            | GET/POST  | Chat messages                                 |
+| `/api/complaints/[id]/messages/[messageId]`| DELETE    | Delete message (for_me / for_everyone / admin_hard_delete) |
 | `/api/escrow/release`           | POST      | Manual escrow release    |
 | `/api/invoices/[id]`            | GET/POST  | Invoice review           |
 | `/api/providers`                | GET       | Provider search          |
@@ -973,6 +1437,7 @@ All crons:
 | `RATE_LIMIT_AUTH_WINDOW_MS`          | 15 min    | Auth rate limit window                             |
 | `REFUND_LOCK_TIMEOUT_MS`             | 5 min     | Stale refund lock timeout                          |
 | `PAYOUT_LOCK_TTL_MS`                 | 5 min     | Stale payout lock timeout                          |
+| `DELETE_FOR_EVERYONE_WINDOW_MS`      | 1 hour    | Window for sender to delete message for everyone   |
 | `MAX_PROFILE_IMAGE_BYTES`            | 2 MB      | Profile image size limit                           |
 | `MAX_UPLOAD_FILE_BYTES`              | 5 MB      | General upload size limit                          |
 | `MAX_EVIDENCE_FILES`                 | 5         | Max complaint evidence photos                      |
@@ -1236,12 +1701,13 @@ flowchart LR
 
 ### E2E Tests (Playwright)
 
-- **5 spec files** in `e2e/`:
+- **6 spec files** in `e2e/`:
   - `smoke-role-journeys.spec.ts` — Role-based authentication flows
   - `complaint-chat-journey.spec.ts` — Complaint filing and chat
   - `settlement-chain-journey.spec.ts` — Split, reject, and full-refund outcomes
   - `booking-lifecycle-journey.spec.ts` — Complete booking flow
   - `booking-negative-journeys.spec.ts` — Edge cases and error paths
+  - `invoice-download.spec.ts` — Invoice PDF download and print flow
 - Support utilities in `e2e/support/`
 - Playwright runner with env sanitization (`scripts/run-playwright.mjs`)
 
@@ -1301,8 +1767,8 @@ Legacy aliases are still accepted for compatibility: `GOOGLE_ID`, `GOOGLE_SECRET
 | `lib/realtime/contracts.js`                | Shared event names, room helpers, message serializers (CommonJS)                                                           |
 | `lib/realtime/contracts.d.ts`              | TypeScript declarations for contracts                                                                                      |
 | `lib/realtime/socket-auth.js`              | `authorizeBookingRoom()`, `authorizeComplaintRoom()`, `authorizeOrderRoom()`, `resolveRealtimeUserFromToken()`             |
-| `lib/realtime/emitter.ts`                  | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()` — API route → Socket.IO bridge |
-| `lib/realtime/chat-state.ts`               | Chat message state helpers (sort, dedup, archive detection)                                                                |
+| `lib/realtime/emitter.ts`                  | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()`, `emitOrderMessageDeleted()`, `emitComplaintMessageDeleted()` — API route → Socket.IO bridge |
+| `lib/realtime/chat-state.ts`               | Chat message state helpers (sort, dedup, archive detection, `applyMessageDeletion()`, `removeMessageLocally()`)            |
 | `components/order-chat.tsx`                | Real-time order chat component (Socket.IO push, voice, photos, delete)                                                     |
 | `components/complaint-chat.tsx`            | 3-way complaint chat component (Socket.IO push, voice, delete)                                                             |
 | `components/providers/socket-provider.tsx` | `SocketProvider` context + `useSocket()` hook                                                                              |
@@ -1369,12 +1835,12 @@ Legacy aliases are still accepted for compatibility: `GOOGLE_ID`, `GOOGLE_SECRET
 
 ---
 
-## 16. Current Project Status (Rev 13)
+## 16. Current Project Status (Rev 14)
 
-**Quality Snapshot (2026-03-07):**
+**Quality Snapshot (2026-03-15):**
 
-- The current test suite is passing, including the core route coverage checks
-- 5 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
+- The current test suite is passing (110 unit test files + 6 E2E spec files), including the core route coverage checks
+- 6 Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - All quality gates passing (typecheck, lint, test, build, e2e)
 - Strict escrow paise precision enforced
 - System webhooks fully mutex-locked
@@ -1405,7 +1871,7 @@ Legacy aliases are still accepted for compatibility: `GOOGLE_ID`, `GOOGLE_SECRET
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
 - Email outbox with retry/backoff (delivery OTP, password reset, password changed, magic link, email OTP) — 5 email types
-- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` keeps one authenticated connection per session; **order chat** and **complaint chat** rooms use signed login token checks and per-socket rate limiting (20 joins/min); both support voice notes and photos; order chat supports `for_me` and `for_everyone`, while complaint chat additionally supports `admin_hard_delete`
+- **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` keeps one authenticated connection per session; **order chat** and **complaint chat** rooms use signed login token checks and per-socket rate limiting (20 joins/min); both support voice notes (recorded via `use-voice-recorder.ts` hook with `MediaRecorder` API, uploaded to Cloudinary) and photos; order chat supports `for_me` and `for_everyone` message deletion, while complaint chat additionally supports `admin_hard_delete`; deletion events propagated in real-time via `emitOrderMessageDeleted()` / `emitComplaintMessageDeleted()` and handled client-side by `applyMessageDeletion()` / `removeMessageLocally()` in `chat-state.ts`
 - **Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`) — `DEMO_MODE=1` enables in-process cron invocation for local testing without external scheduler
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)
 - Structured Pino logging with native secret redaction
@@ -1709,7 +2175,7 @@ erDiagram
 
 ---
 
-## Summary (Rev 13)
+## Summary (Rev 14)
 
 LaundryEase is a production-grade laundry marketplace built with:
 
@@ -1720,6 +2186,6 @@ LaundryEase is a production-grade laundry marketplace built with:
 5. **Financial Precision** — decimal.js for calculations, paise integers for Razorpay, distributed locks for concurrent safety
 6. **Production-Ready Infrastructure** — 10 cron jobs (+ in-process demo runner), operational alerting with clear response targets and owner routing, email outbox with retry (5 types), MongoDB-backed rate limiting, structured logging with secret redaction, and Datadog monitoring
 7. **Professional Password Management** — Secure token-based reset (SHA-256, 1-hour expiry), anti-enumeration, branded email notifications, automatic invalidation of old login sessions after a password change (5-minute re-check), and password show/hide controls
-8. **Quality Assurance** — current unit test suite, 5 end-to-end browser specs, React Compiler, strict TypeScript, 3 CI workflows, only 2 `eslint-disable` comments
+8. **Quality Assurance** — 110 unit test files + 6 end-to-end browser specs, React Compiler, strict TypeScript, 3 CI workflows, only 2 `eslint-disable` comments
 9. **Operational Visibility** — Cron run tracking, data integrity checks, abuse monitoring, alert analytics (trend, alert growth, average fix time), and browser security policy reports
 10. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); supports voice notes, photo uploads, and WhatsApp-style message deletion; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
