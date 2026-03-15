@@ -41,7 +41,7 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
   Seekers stop calling providers who don't actually serve their area. The system filters by coverage before the first message.
 
 - **Invoice then controlled settlement**
-  Providers stop debating price after pickup. They issue a precise invoice and get a verified payment commitment before they spend time and supplies.
+  Providers stop debating price after pickup. They issue a precise invoice and get a verified payment commitment before they spend time and supplies. Professional PDF invoices can be downloaded directly.
 
 - **Deterministic order tracking**
   Seekers stop chasing updates. Providers stop answering the same question all day. The job tells its own story through state.
@@ -103,6 +103,7 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 | **SMS**             | Twilio                              | OTP delivery via SMS                                       |
 | **Email**           | Nodemailer 8 + Email Outbox         | Queued email delivery with retry/backoff (5 types)         |
 | **Images**          | Cloudinary                          | CDN-backed image uploads                                   |
+| **Documents**       | pdf-lib                             | Native PDF invoice generation                              |
 | **Validation**      | Zod 4                               | Runtime schema validation                                  |
 | **Forms**           | React Hook Form                     | Fast form handling                                         |
 | **Data Fetching**   | SWR                                 | Client-side caching with revalidation                      |
@@ -347,7 +348,9 @@ LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node
 | Client → Server | `room:leave`                   | Leave a room                       |
 | Client → Server | `typing:start` / `typing:stop` | Typing indicator relay             |
 | Server → Client | `order:message:created`        | New order chat message             |
+| Server → Client | `order:message:deleted`        | Order message deleted              |
 | Server → Client | `complaint:message:created`    | New complaint chat message         |
+| Server → Client | `complaint:message:deleted`    | Complaint message deleted          |
 | Server → Client | `complaint:state:updated`      | Complaint status/access change     |
 | Server → Client | `typing:start` / `typing:stop` | Typing indicator forwarded to room |
 
@@ -358,11 +361,14 @@ LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node
 | `server.js`                                | Custom Node.js server — HTTP + Socket.IO + Next.js                                                                   |
 | `lib/realtime/contracts.js`                | Shared event names, room helpers, message serializers                                                                |
 | `lib/realtime/socket-auth.js`              | `authorizeOrderRoom()`, `authorizeComplaintRoom()`, `resolveRealtimeUserFromToken()`                                 |
-| `lib/realtime/emitter.ts`                  | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()` — called from API routes |
+| `lib/realtime/emitter.ts`                  | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()`, `emitOrderMessageDeleted()`, `emitComplaintMessageDeleted()` — called from API routes |
 | `components/providers/socket-provider.tsx` | React context + `useSocket()` hook                                                                                   |
 | `components/order-chat.tsx`                | Order chat UI component with Socket.IO push                                                                          |
 | `components/complaint-chat.tsx`            | 3-way complaint chat UI component with Socket.IO push                                                                |
+| `lib/realtime/chat-state.ts`               | Chat message state helpers (sort, dedup, archive detection, `applyMessageDeletion()`, `removeMessageLocally()`)      |
 | `app/api/orders/[id]/chat/route.ts`        | Order chat REST endpoint (GET history + POST message)                                                                |
+| `app/api/orders/[id]/chat/[messageId]/route.ts` | Order message deletion (for_me / for_everyone)                                                                 |
+| `app/api/complaints/[id]/messages/[messageId]/route.ts` | Complaint message deletion (for_me / for_everyone / admin_hard_delete)                                 |
 
 ---
 
@@ -402,6 +408,7 @@ Admin can extend the complaint filing window for exceptional cases via `POST /ap
 | `POST /api/complaints`                          | File a new complaint            |
 | `GET /api/complaints/[id]`                      | Get complaint details           |
 | `GET/POST /api/complaints/[id]/messages`        | Read/send chat messages         |
+| `DELETE /api/complaints/[id]/messages/[messageId]` | Delete message (for_me / for_everyone / admin_hard_delete) |
 | `PATCH /api/admin/complaints/[id]/accept`       | Accept complaint, set deadline  |
 | `PATCH /api/admin/complaints/[id]/add-provider` | Grant provider chat access      |
 | `PATCH /api/admin/complaints/[id]/access`       | Toggle provider access          |
@@ -488,7 +495,7 @@ All cron runs are tracked in the `cron_runs` collection with job name, start tim
 - **X-Frame-Options**: `DENY`
 - **X-Content-Type-Options**: `nosniff`
 - **Referrer-Policy**: `strict-origin-when-cross-origin`
-- **Permissions-Policy**: camera/microphone disabled, geolocation self-only
+- **Permissions-Policy**: camera disabled, microphone self-only, geolocation self-only
 
 - **WebSocket CSP**: `connect-src` includes `ws:` and `wss:` to allow Socket.IO WebSocket transport. `upgrade-insecure-requests` is only applied in production (`NODE_ENV === "production"`) — on localhost it is omitted to prevent the browser from silently rewriting `http:` polling requests to `https:`, which would break Socket.IO.
 
@@ -598,7 +605,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 **Quality Snapshot (current):**
 
 - Current unit test suite passes in CI and local verification
-- `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
+- `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
 - TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`, only 2 `eslint-disable` comments (both in CommonJS files)
 - Zero production type casts
@@ -750,7 +757,8 @@ laundry-ease/
 │
 ├── hooks/                        # Custom React hooks
 │   ├── use-booking-actions.ts    # Headless booking action handlers (accept/reject/cancel/arrive/reschedule/propose-slot)
-│   └── use-live-data.ts          # SWR-based live polling hook
+│   ├── use-live-data.ts          # SWR-based live polling hook
+│   └── use-voice-recorder.ts     # Voice message recording (MediaRecorder API) + Cloudinary upload
 │
 ├── cron/                         # Cron job logic
 │   ├── auto-reject-bookings.ts   # Auto-reject expired bookings
@@ -770,6 +778,7 @@ laundry-ease/
 │   ├── booking-lifecycle-journey.spec.ts
 │   ├── booking-negative-journeys.spec.ts
 │   ├── complaint-chat-journey.spec.ts
+│   ├── invoice-download.spec.ts
 │   ├── settlement-chain-journey.spec.ts
 │   └── smoke-role-journeys.spec.ts
 │
@@ -859,7 +868,7 @@ laundry-ease/
 │   ├── db.test.ts                # DB connection tests
 │   ├── delivery-otp-email.ts     # Delivery OTP email template
 │   ├── distance.ts               # Haversine distance calculation
-│   ├── email-outbox.ts           # Queued email system (4 email types, claim-lock-dispatch)
+│   ├── email-outbox.ts           # Queued email system (5 email types, claim-lock-dispatch)
 │   ├── email-outbox.test.ts      # Outbox tests
 │   ├── email-transporter.ts      # Nodemailer SMTP transport
 │   ├── env.ts                    # Zod environment validation (lazy singleton)
@@ -869,6 +878,7 @@ laundry-ease/
 │   ├── mongodb.ts                # Shared MongoDB client pool + index init (App Router + Socket.IO server)
 │   ├── otp.ts                    # OTP generation + verification
 │   ├── otp-code-email.ts         # OTP code email template
+│   ├── password-changed-email.ts # Password changed notification email template
 │   ├── password-reset-email.ts   # Password reset email template
 │   ├── payouts.ts                # Payout orchestration engine (batch + lock)
 │   ├── razorpay.ts               # Razorpay SDK wrapper (payments, refunds, payouts, contacts, fund accounts)
