@@ -1,5 +1,8 @@
 # LaundryEase
 
+> **Document Revision**: Rev 15 — 2026-03-15
+> **Scope**: Chapters 1, 2, 3 — Introduction, Problem Definition & Methodology, Analysis
+
 ---
 
 ## CHAPTER 1
