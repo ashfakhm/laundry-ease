@@ -356,19 +356,19 @@ LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node
 
 ### Key files
 
-| File                                       | Purpose                                                                                                              |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `server.js`                                | Custom Node.js server — HTTP + Socket.IO + Next.js                                                                   |
-| `lib/realtime/contracts.js`                | Shared event names, room helpers, message serializers                                                                |
-| `lib/realtime/socket-auth.js`              | `authorizeOrderRoom()`, `authorizeComplaintRoom()`, `resolveRealtimeUserFromToken()`                                 |
-| `lib/realtime/emitter.ts`                  | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()`, `emitOrderMessageDeleted()`, `emitComplaintMessageDeleted()` — called from API routes |
-| `components/providers/socket-provider.tsx` | React context + `useSocket()` hook                                                                                   |
-| `components/order-chat.tsx`                | Order chat UI component with Socket.IO push                                                                          |
-| `components/complaint-chat.tsx`            | 3-way complaint chat UI component with Socket.IO push                                                                |
-| `lib/realtime/chat-state.ts`               | Chat message state helpers (sort, dedup, archive detection, `applyMessageDeletion()`, `removeMessageLocally()`)      |
-| `app/api/orders/[id]/chat/route.ts`        | Order chat REST endpoint (GET history + POST message)                                                                |
-| `app/api/orders/[id]/chat/[messageId]/route.ts` | Order message deletion (for_me / for_everyone)                                                                 |
-| `app/api/complaints/[id]/messages/[messageId]/route.ts` | Complaint message deletion (for_me / for_everyone / admin_hard_delete)                                 |
+| File                                                    | Purpose                                                                                                                                                                            |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server.js`                                             | Custom Node.js server — HTTP + Socket.IO + Next.js                                                                                                                                 |
+| `lib/realtime/contracts.js`                             | Shared event names, room helpers, message serializers                                                                                                                              |
+| `lib/realtime/socket-auth.js`                           | `authorizeOrderRoom()`, `authorizeComplaintRoom()`, `resolveRealtimeUserFromToken()`                                                                                               |
+| `lib/realtime/emitter.ts`                               | `emitOrderMessageCreated()`, `emitComplaintMessageCreated()`, `emitComplaintStateUpdated()`, `emitOrderMessageDeleted()`, `emitComplaintMessageDeleted()` — called from API routes |
+| `components/providers/socket-provider.tsx`              | React context + `useSocket()` hook                                                                                                                                                 |
+| `components/order-chat.tsx`                             | Order chat UI component with Socket.IO push                                                                                                                                        |
+| `components/complaint-chat.tsx`                         | 3-way complaint chat UI component with Socket.IO push                                                                                                                              |
+| `lib/realtime/chat-state.ts`                            | Chat message state helpers (sort, dedup, archive detection, `applyMessageDeletion()`, `removeMessageLocally()`)                                                                    |
+| `app/api/orders/[id]/chat/route.ts`                     | Order chat REST endpoint (GET history + POST message)                                                                                                                              |
+| `app/api/orders/[id]/chat/[messageId]/route.ts`         | Order message deletion (for_me / for_everyone)                                                                                                                                     |
+| `app/api/complaints/[id]/messages/[messageId]/route.ts` | Complaint message deletion (for_me / for_everyone / admin_hard_delete)                                                                                                             |
 
 ---
 
@@ -403,17 +403,17 @@ Admin can extend the complaint filing window for exceptional cases via `POST /ap
 
 ### API endpoints
 
-| Endpoint                                        | Purpose                         |
-| ----------------------------------------------- | ------------------------------- |
-| `POST /api/complaints`                          | File a new complaint            |
-| `GET /api/complaints/[id]`                      | Get complaint details           |
-| `GET/POST /api/complaints/[id]/messages`        | Read/send chat messages         |
+| Endpoint                                           | Purpose                                                    |
+| -------------------------------------------------- | ---------------------------------------------------------- |
+| `POST /api/complaints`                             | File a new complaint                                       |
+| `GET /api/complaints/[id]`                         | Get complaint details                                      |
+| `GET/POST /api/complaints/[id]/messages`           | Read/send chat messages                                    |
 | `DELETE /api/complaints/[id]/messages/[messageId]` | Delete message (for_me / for_everyone / admin_hard_delete) |
-| `PATCH /api/admin/complaints/[id]/accept`       | Accept complaint, set deadline  |
-| `PATCH /api/admin/complaints/[id]/add-provider` | Grant provider chat access      |
-| `PATCH /api/admin/complaints/[id]/access`       | Toggle provider access          |
-| `PATCH /api/admin/complaints/[id]/resolve`      | Resolve with settlement outcome |
-| `POST /api/admin/orders/[id]/extend-complaint`  | Extend complaint filing window  |
+| `PATCH /api/admin/complaints/[id]/accept`          | Accept complaint, set deadline                             |
+| `PATCH /api/admin/complaints/[id]/add-provider`    | Grant provider chat access                                 |
+| `PATCH /api/admin/complaints/[id]/access`          | Toggle provider access                                     |
+| `PATCH /api/admin/complaints/[id]/resolve`         | Resolve with settlement outcome                            |
+| `POST /api/admin/orders/[id]/extend-complaint`     | Extend complaint filing window                             |
 
 ## 14. Operational Monitoring & Alerting
 
@@ -602,6 +602,15 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Local release parity: `npm run verify:gates`
 - Docs sync guardrails: `npm run check:docs-sync`
 
+**SEO Implementation (Rev 15):**
+
+- **Comprehensive metadata** — Root layout (`app/layout.tsx`) with title template, description (13 keywords), OG tags (type/locale/url/siteName/images), Twitter Card large image, alternate languages (en-IN/en/hi-IN), robots config, Google verification, PWA manifest, multi-format icons
+- **Dynamic per-page metadata** — Provider profile pages use `generateMetadata()` API for unique titles, descriptions, OG profile type, Twitter cards, canonical URLs
+- **JSON-LD structured data** — 5 Schema.org schemas injected at root: SoftwareApplication, LocalBusiness, Service, Organization, FAQPage
+- **Breadcrumb navigation** — Schema.org BreadcrumbList JSON-LD on provider pages with dynamic breadcrumb items
+- **XML sitemap** — 34 routes with priority + changeFrequency (`app/sitemap.ts`)
+- **Robots configuration** — Disallows `/admin/`, `/api/`, `/complete-signup/`, `/choose-role/` (`app/robots.ts`)
+
 **Quality Snapshot (current):**
 
 - Current unit test suite passes in CI and local verification
@@ -659,6 +668,9 @@ laundry-ease/
 │   ├── orders/           # Order tracking
 │   ├── profile/          # Seeker profile
 │   ├── provider/         # Provider discovery
+│   │   └── [id]/         # Provider detail page with dynamic metadata + breadcrumbs
+│   │       ├── page.tsx
+│   │   └── provider-detail-client.tsx
 │   └── view-orders/      # Order history
 │   ├── (root)/                   # Root layout group
 │   ├── actions/                  # Server actions
@@ -731,7 +743,8 @@ laundry-ease/
 │   │   ├── delivery-otp-form.tsx # OTP confirmation form
 │   │   └── invoice-review-form.tsx # Invoice approval/rejection
 │   ├── seo/                      # SEO components
-│   │   └── json-ld.tsx           # Structured data
+│   │   ├── breadcrumb-json-ld.tsx  # Breadcrumb structured data (Schema.org BreadcrumbList)
+│   │   └── json-ld.tsx           # 5 JSON-LD schemas (SoftwareApplication, LocalBusiness, Service, Organization, FAQPage)
 │   ├── ui/                       # shadcn/ui + custom components
 │   │   ├── app-header.tsx        # Application header bar
 │   │   ├── confirm-dialog.tsx    # Custom confirmation modal + useConfirmDialog hook (replaces window.confirm)
