@@ -1,4 +1,4 @@
-# LaundryEase — Product Requirements Document (Rev 14)
+# LaundryEase — Product Requirements Document (Rev 15)
 
 ## 1. Executive Summary
 
@@ -473,6 +473,7 @@ Alert rules:
   System tracks provider response deadline (default 7 days from acceptance) and surfaces overdue complaints to admin.
 
 #### 5. User Interface Extensions
+
 - **Deadline Visibility**: The expected delivery deadline is exposed to both seekers and providers across the order lifecycle.
   - **Seeker**: Sees deadline on booking history cards, invoice review screen, and order tracking dashboard (next to 'placed on' date).
   - **Provider**: Sees deadline during invoice generation and sorted list of order statuses, flagging orders that are 'overdue'.

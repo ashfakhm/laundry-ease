@@ -1,6 +1,6 @@
-# LaundryEase — Honest Assessment (Rev 14 — Post-Cleanup Verification)
+# LaundryEase — Honest Assessment (Rev 15 — Post-Cleanup Verification)
 
-**Date:** 2026-03-15 (Rev 14 supersedes Rev 13)
+**Date:** 2026-03-15 (Rev 15 supersedes Rev 14)
 **Auditor:** Full codebase review across files, patterns, tests, and documentation
 **Scope:** Every `.ts`, `.tsx`, `.json`, config, doc, asset, test file in the project
 **Method:** Executed all quality gates, grepped every problematic pattern, verified test parity, route coverage, dead code, unused imports, partial implementations
@@ -11,7 +11,13 @@
 
 This is a **well-engineered, production-grade codebase** with comprehensive test coverage, clean type safety, and genuine operational tooling. The backend is strong. All previously identified issues have been resolved.
 
-**Rev 13 changes (what changed since Rev 12):**
+**Rev 15 changes (what changed since Rev 14):**
+
+- **Provider capacity management**: Added atomic capacity checks during booking creation and acceptance via MongoDB transactions. Providers can configure `capacity` (default 100) for max concurrent bookings.
+- **Documentation updates**: All documentation refreshed to reflect latest codebase state (CODEBASE_UNDERSTANDING.md, README.md, PRD.md, CHAPTERS).
+- **No new issues identified**: Codebase remains stable with same 2 `eslint-disable` comments and 3 `console.log` debug statements.
+
+**Rev 14 changes (what changed since Rev 13):**
 
 - **`eslint-disable` cleanup**: Reduced from 5 → **2** `eslint-disable` comments. The 3 TypeScript-file `eslint-disable` comments (in `reconciliation/route.test.ts`, `location-autocomplete.tsx`, `theme-toggle.tsx`, `instrumentation.ts`, `telemetry.ts`) have been cleaned up. Only 2 remain — both `@typescript-eslint/no-require-imports` in CommonJS files (`server.js`, `lib/local-cron.js`) where `require()` is structurally necessary.
 - **Test count adjusted**: The current test suite is slightly smaller than the previous revision after some tests were combined.
@@ -270,19 +276,19 @@ The `output/` directory was empty and gitignored. Deleted in Rev 6.
 
 ### Operational Maturity
 
-| Capability              | Implementation                                                                                                                                                                      |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **10 cron jobs**        | All in `app/api/cron/`, all in `vercel.json`, all tracked in `CRON_JOB_NAMES`, all have tests                                                                                       |
-| **Cron observability**  | `lib/cron-tracking.ts` — every run logged to `cron_runs` collection with duration, status, result                                                                                   |
-| **Alert pipeline**      | `lib/services/system-alerts.ts` + `lib/ops/alert-delivery.ts` — email, webhook, PagerDuty integration                                                                               |
-| **SLA tracking**        | `lib/ops/ack-sla.ts` — critical: 15min ack, 30min escalation; high: 60min ack, 2hr escalation                                                                                       |
-| **Alert routing**       | `lib/ops/owner-routing.ts` — severity-based escalation to tech lead after persistent non-acknowledgment                                                                             |
-| **Email outbox**        | `lib/email-outbox.ts` — 5 email types (delivery_otp, password_reset, password_changed, magic_link, otp_email), inline dispatch + cron retry, dead-letter handling, batch processing |
-| **Webhook idempotency** | `lib/webhooks/razorpay-handlers.ts` — mutex lock, dedup, signature verification                                                                                                     |
-| **Audit trail**         | `lib/audit.ts` — entity, previous state, next state, actor, timestamp, payment correlation IDs                                                                                      |
-| **Integrity checks**    | `lib/audit/integrity.ts` — detects order/payout anomalies, stale locks, deadline breaches                                                                                           |
-| **Telemetry**           | `lib/telemetry.ts` — Datadog StatsD metrics with graceful fallback to structured logs                                                                                               |
-| **APM**                 | `instrumentation.ts` — Datadog dd-trace initialization hook                                                                                                                         |
+| Capability              | Implementation                                                                                                                                                                                                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **10 cron jobs**        | All in `app/api/cron/`, all in `vercel.json`, all tracked in `CRON_JOB_NAMES`, all have tests. Schedules: 2min (email), 5min (auto-reject, no-show), 15min (payouts, alerts), 30min (audit, reconciliation), hourly (health), daily 1AM (webhook cleanup), daily 2AM (abuse monitoring) |
+| **Cron observability**  | `lib/cron-tracking.ts` — every run logged to `cron_runs` collection with duration, status, result                                                                                                                                                                                       |
+| **Alert pipeline**      | `lib/services/system-alerts.ts` + `lib/ops/alert-delivery.ts` — email, webhook, PagerDuty integration                                                                                                                                                                                   |
+| **SLA tracking**        | `lib/ops/ack-sla.ts` — critical: 15min ack, 30min escalation; high: 60min ack, 2hr escalation                                                                                                                                                                                           |
+| **Alert routing**       | `lib/ops/owner-routing.ts` — severity-based escalation to tech lead after persistent non-acknowledgment                                                                                                                                                                                 |
+| **Email outbox**        | `lib/email-outbox.ts` — 5 email types (delivery_otp, password_reset, password_changed, magic_link, otp_email), inline dispatch + cron retry, dead-letter handling, batch processing                                                                                                     |
+| **Webhook idempotency** | `lib/webhooks/razorpay-handlers.ts` — mutex lock, dedup, signature verification                                                                                                                                                                                                         |
+| **Audit trail**         | `lib/audit.ts` — entity, previous state, next state, actor, timestamp, payment correlation IDs                                                                                                                                                                                          |
+| **Integrity checks**    | `lib/audit/integrity.ts` — detects order/payout anomalies, stale locks, deadline breaches                                                                                                                                                                                               |
+| **Telemetry**           | `lib/telemetry.ts` — Datadog StatsD metrics with graceful fallback to structured logs                                                                                                                                                                                                   |
+| **APM**                 | `instrumentation.ts` — Datadog dd-trace initialization hook                                                                                                                                                                                                                             |
 
 ### Security
 
@@ -313,7 +319,7 @@ The `output/` directory was empty and gitignored. Deleted in Rev 6.
 | Integration tests         | `admin/refund/route.integration.test.ts` (3 tests, 4.5s — real DB interaction)                                                                                                                                                                                                                                                                                              |
 | Security tests            | `api/security.test.ts` (9), `security/csp.test.ts` (7), `security/origin.test.ts` (implicit in response tests)                                                                                                                                                                                                                                                              |
 | Ops tests                 | `ops/ack-sla` (3), `ops/alert-delivery` (4), `ops/alerts-analytics` (3), `ops/owner-routing` (4), `ops/health` (3)                                                                                                                                                                                                                                                          |
-| E2E specs                 | 6 Playwright specs: smoke-role-journeys, booking-lifecycle, booking-negative, complaint-chat, settlement-chain, invoice-download                                                                                                                                                                                                                                                            |
+| E2E specs                 | 6 Playwright specs: smoke-role-journeys, booking-lifecycle, booking-negative, complaint-chat, settlement-chain, invoice-download                                                                                                                                                                                                                                            |
 | Schema contract tests     | `lib/api/schemas.contract.test.ts` (12) — validates Zod schemas against expected shapes                                                                                                                                                                                                                                                                                     |
 
 ---
@@ -326,7 +332,7 @@ The `output/` directory was empty and gitignored. Deleted in Rev 6.
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`eslint-disable` cleanup** | Reduced from 5 → **2** comments. All 3 TypeScript-file disables removed. Only CommonJS `@typescript-eslint/no-require-imports` in `server.js` and `lib/local-cron.js` remain. |
 | **`console.log` regression** | 3 debug `console.log` statements found in `components/seeker/invoice-review-form.tsx` — payment flow debugging. New P3-6 finding.                                             |
-| **Test count**               | 108 → **107** test files; 571 → **567** tests. Minor test consolidation. (Rev 14: 107 → **110** with new E2E + voice/deletion route tests)                                                                                                   |
+| **Test count**               | 108 → **107** test files; 571 → **567** tests. Minor test consolidation. (Rev 14: 107 → **110** with new E2E + voice/deletion route tests)                                    |
 | **Docs**                     | All docs bumped from Rev 12 to Rev 13 with accurate counts.                                                                                                                   |
 
 ### Rev 11 → Rev 12 Changes
