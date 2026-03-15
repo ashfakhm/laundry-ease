@@ -50,7 +50,13 @@ export function buildCspPolicy(options: CspBuildOptions = {}): string {
       // ws: covers http/localhost dev; wss: covers production HTTPS.
       // CORS on the Socket.IO server already restricts which origins may connect.
       "ws:",
-      "wss:",
+      process.env.NODE_ENV === "production" &&
+      (process.env.NEXT_PUBLIC_APP_URL || process.env.AUTH_URL)
+        ? (process.env.NEXT_PUBLIC_APP_URL || process.env.AUTH_URL)!.replace(
+            /^http/,
+            "ws",
+          )
+        : "wss:",
       "https://api.razorpay.com",
       "https://lumberjack.razorpay.com",
       "https://maps.googleapis.com",
