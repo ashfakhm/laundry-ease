@@ -49,7 +49,6 @@ if (fs.existsSync(lockPath)) {
 
   let reachableUrl;
   for (const url of candidateUrls) {
-    // eslint-disable-next-line no-await-in-loop
     if (await pingServer(url)) {
       reachableUrl = url;
       break;
