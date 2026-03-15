@@ -1,4 +1,4 @@
-# LaundryEase — Product Requirements Document (Rev 13)
+# LaundryEase — Product Requirements Document (Rev 14)
 
 ## 1. Executive Summary
 
@@ -651,7 +651,7 @@ See `README.md` for detailed setup instructions.
 - **Team calendar / on-call integration**
   Alert owner routing currently uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`). Real dynamic on-call scheduling requires external calendar integration.
 
-## 14. Implementation Alignment Matrix (2026-03-07 — Rev 13)
+## 14. Implementation Alignment Matrix (2026-03-15 — Rev 14)
 
 | PRD Requirement                   | Expected Behavior                                                                                                                                                                                                                                                                               | Current System Status                                                                                                                                                                                                                                                                                                                                                 |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
