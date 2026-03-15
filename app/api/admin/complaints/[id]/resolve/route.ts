@@ -254,7 +254,11 @@ export async function POST(
       }
     }
 
-    if (providerPayoutAmount <= EPSILON) {
+    // Always set payment_status to 'refunded' for full refund outcome, regardless of payout rounding
+    if (resolved.dbOutcome === "refund_full") {
+      orderSetFields.payment_status = "refunded";
+    } else if (providerPayoutAmount <= EPSILON) {
+      // For partial refund where provider payout is zero, also treat as refunded
       orderSetFields.payment_status = "refunded";
     }
 
@@ -292,7 +296,9 @@ export async function POST(
       createdAt: new Date(),
     };
 
-    const insertResult = await db.collection("complaint_messages").insertOne(systemMsg);
+    const insertResult = await db
+      .collection("complaint_messages")
+      .insertOne(systemMsg);
     emitComplaintMessageCreated({
       _id: insertResult.insertedId,
       ...systemMsg,
