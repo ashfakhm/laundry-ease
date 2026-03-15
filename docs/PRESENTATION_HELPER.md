@@ -1,4 +1,4 @@
-# LaundryEase — Presentation Q&A Helper (Rev 13)
+# LaundryEase — Presentation Q&A Helper (Rev 14)
 
 > **Purpose**: This document helps you answer any question your HODs and teachers may ask about your project. Read it fully before your mock presentation.
 
@@ -1703,9 +1703,9 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 
 Current quality snapshot:
 
-- `107` test files
+- `110` test files
 - `567` tests passing (100% core route coverage)
-- `5` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, and negative paths
+- `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
 - One-shot local verification: `npm run verify:gates`
@@ -2030,7 +2030,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **E2E test for Socket.IO chat and cancel-at-invoice**: No Playwright E2E coverage for real-time chat flows or the cancel-at-invoice-stage scenario yet.
 - **DEMO_MODE in .env**: `DEMO_MODE=1` is set in the local `.env` for development — must be removed before any public deployment (demo cron panel bypasses external scheduler auth).
 
-## Key Features Implemented (Full System — 2026-03-07 Rev 13)
+## Key Features Implemented (Full System — 2026-03-15 Rev 14)
 
 ### Core Workflow
 
@@ -2040,6 +2040,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Invoice finalization**: Atomic order creation with MongoDB transaction + compensating-write fallback for non-replica-set environments (`lib/services/invoice-finalization.ts`)
 - **Delivery OTP**: 6-digit bcrypt-hashed OTP with 10-minute TTL, sent via email outbox, verifiable by both seeker and provider
 - **Deadline compensation**: Automatic full Razorpay refund on late delivery at OTP confirmation — idempotent (checks `deadline_compensated_at`, `razorpay_refund_id`, and payment status)
+- **Order Pipeline Sorting**: Orders are natively sorted by closeness to deadline, ensuring providers prioritize the most urgent tasks.
 - **Booking reschedule (hardened)**: Either side can request reschedule; explicit `reschedule_requested` state stores `requestedBy`, `reason`, `previousPickupSlot`; `pickupSlot.confirmedAt` is cleared via MongoDB `$unset` (not `$set: undefined`); propose/confirm writes use race-condition-safe status guards
 - **Cancellation policy engine** (`lib/bookings/cancellation-policy.ts`): Pure function `evaluateCancellationPolicy()` is single source of truth — seeker free-cancel window = **2 hours from booking creation** (`SEEKER_FREE_CANCEL_WINDOW_MS`); after window, fee forfeited; provider cancel always refunds; fully unit-tested (11 cases)
 - **Cancel at `invoice_created` stage**: Seekers can cancel after provider has created an invoice — the slot-time guard is bypassed and the booking fee is **always forfeited** (provider did physical work). UI shows "Cancel & Reject Invoice" button with a fee-forfeit warning in the confirm dialog. Policy engine, API, and UI all updated consistently.
@@ -2047,6 +2048,7 @@ Use these points if you are asked about differences between the PRD and what is 
 ### Financial System
 
 - **Escrow**: 24-hour hold after delivery; complaint blocks release; transactional release with audit log
+- **Professional PDF Invoices**: Auto-generated printable PDF invoices using `pdf-lib` for providers to download or print directly from the browser.
 - **Payout orchestration**: Concurrent batch processing with distributed payout locks, stale-lock recovery, and `decimal.js` precision
 - **Platform commission**: 5% deducted from subtotal (or total if no subtotal) using `decimal.js` — commission preserved even on complaint resolution
 - **Delivery charges**: Distance-based (Haversine), free within provider's free radius, per-km rate applied beyond
@@ -2137,7 +2139,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Retained from Rev 11**: realtime socket-auth room authorization, emitter dispatch, chat-state serialization, cancellation policy `invoice_created` forced-forfeit case (11 total)
 - **Retained from Rev 10**: `passwordChangedAt` on profile password change (seeker + provider), password-changed email enqueuing verified
 - **Retained from Rev 9**: cancellation policy — 11 tests (both actors, 2h boundary, `invoice_created` stage, all fee states); reschedule `$unset`/TOCTOU; schedule route atomic guards; `useConfirmDialog` hook; headless `handleCancelBooking` callback
-- **5 Playwright E2E specs**: smoke-role-journeys, complaint-chat-journey, settlement-chain-journey, booking-lifecycle-journey, booking-negative-journeys
+- **6 Playwright E2E specs**: smoke-role-journeys, complaint-chat-journey, settlement-chain-journey, booking-lifecycle-journey, booking-negative-journeys, invoice-download
 - **3 GitHub CI workflows**: Quality Gates (typecheck → lint → test → build → E2E), Real Gateway Smoke (live Razorpay), Governance Audit (branch protection)
 - **Local release parity**: `npm run verify:gates`
 - **Documentation sync guardrails**: `npm run check:docs-sync`
@@ -2159,14 +2161,14 @@ Use these points if you are asked about differences between the PRD and what is 
 - `public/manifest.json` — PWA manifest
 - `public/og-image.png` — Open Graph image
 
-## Quick Presentation Tips (Updated 2026-03-07 Rev 13)
+## Quick Presentation Tips (Updated 2026-03-15 Rev 14)
 
 1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
 3. **Demo the flow**: Live demo of booking → arrival → invoice → payment → order tracking → delivery OTP → escrow release
-4. **Show what's special**: Escrow system, real-time Socket.IO order chat + 3-way complaint chat with split settlement, voice notes, photo attachments, location-verified provider discovery, deadline auto-compensation, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with WhatsApp style message deletion and session invalidation
+4. **Show what's special**: Escrow system, real-time Socket.IO order chat + 3-way complaint chat with split settlement, printable PDF invoices, voice notes, photo attachments, message deletion capabilities, location-verified provider discovery, deadline auto-compensation and sorting, custom confirmation dialogs, 2-hour free-cancel window with live countdown, cancel-at-invoice-stage with fee-forfeit protection, secure password management with WhatsApp style message deletion and session invalidation
 5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO hosted with Next.js for live order and complaint chat, decimal.js for exact money calculations, 10 cron jobs, alert escalation with clear response targets, safe database writes, SHA-256 token hashing for password resets, and automatic session invalidation after password change"
-6. **Mention production quality**: "Current unit test suite passes, 5 E2E specs, only 2 eslint-disable comments, structured logging with secret redaction, distributed locks, safe retry handling for payment callbacks, zero native browser dialogs, anti-enumeration on password reset"
+6. **Mention production quality**: "Current unit test suite passes, 6 E2E specs, only 2 eslint-disable comments, structured logging with secret redaction, distributed locks, safe retry handling for payment callbacks, zero native browser dialogs, anti-enumeration on password reset"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
 8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-minute OTP validity, 1-hour reset token validity, 5-minute session re-check, 15-minute critical response target, 30+ DB indexes, 10 cron jobs, 5 email types, and only 2 eslint-disable comments
 9. **Password security talking point**: "We never store raw reset tokens — only SHA-256 hashes. Even if the database is compromised, the tokens are useless. And when a password changes, all existing sessions are invalidated within 5 minutes automatically."
