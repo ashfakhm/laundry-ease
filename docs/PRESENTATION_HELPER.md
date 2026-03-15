@@ -236,45 +236,66 @@ app/
 
 ### Q: Where is the MongoDB connection code?
 
-**Answer**: `lib/mongodb.ts` - This file handles database connection:
+**Answer**: `lib/mongodb.ts` - This file handles database connection with production-grade resilience:
 
 ```typescript
 // lib/mongodb.ts
-import { MongoClient } from "mongodb";
+import dns from "node:dns";
+import {
+  MongoClient,
+  ServerApiVersion,
+  type MongoClientOptions,
+} from "mongodb";
 import { env } from "./env";
 import { ensureDbIndexes } from "./db-indexes";
 
+// Force public DNS servers for SRV record resolution.
+// Some ISPs/networks/firewalls block or don't support SRV DNS queries,
+// causing `querySrv ECONNREFUSED` with mongodb+srv:// URIs.
+if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) {
+  dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4", "1.0.0.1"]);
+}
+
 declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
-  var _mongoIndexInitPromise: Promise<void> | undefined;
+  var __laundryEaseMongoClientPromise: Promise<MongoClient> | undefined;
+  var __laundryEaseMongoIndexInitPromise: Promise<void> | undefined;
 }
 
-let clientPromise: Promise<MongoClient> | undefined;
-
-function createClientPromise(): Promise<MongoClient> {
-  const client = new MongoClient(env.MONGODB_URI);
-  if (process.env.NODE_ENV === "development") {
-    // Reuse in dev to avoid too many connections
-    if (!global._mongoClientPromise)
-      global._mongoClientPromise = client.connect();
-    return global._mongoClientPromise;
-  }
-  return client.connect();
-}
+const clientOptions: MongoClientOptions = {
+  serverApi: { version: ServerApiVersion.v1 },
+  serverSelectionTimeoutMS: 8000,
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+};
 
 export async function getDb() {
-  if (!clientPromise) clientPromise = createClientPromise();
-  const client = await clientPromise;
+  if (!globalThis.__laundryEaseMongoClientPromise) {
+    const client = new MongoClient(env.MONGODB_URI, clientOptions);
+    globalThis.__laundryEaseMongoClientPromise = client.connect();
+  }
+  const client = await globalThis.__laundryEaseMongoClientPromise;
   const db = client.db(env.MONGODB_DB);
 
-  if (!global._mongoIndexInitPromise) {
-    global._mongoIndexInitPromise = ensureDbIndexes(db);
+  if (!globalThis.__laundryEaseMongoIndexInitPromise) {
+    globalThis.__laundryEaseMongoIndexInitPromise = ensureDbIndexes(db).catch(
+      (err) => {
+        globalThis.__laundryEaseMongoIndexInitPromise = undefined;
+        throw err;
+      },
+    );
   }
 
-  await global._mongoIndexInitPromise;
+  await globalThis.__laundryEaseMongoIndexInitPromise;
   return { db, client };
 }
 ```
+
+Key production features:
+
+- Forces Google/Cloudflare public DNS (`8.8.8.8`, `1.1.1.1`) for SRV record resolution — bypasses ISPs that block `mongodb+srv://`
+- Prefixed globals (`__laundryEaseMongoClientPromise`) prevent collision with other libraries
+- `serverSelectionTimeoutMS: 8000` fails fast instead of hanging 30 s when DB is unreachable
+- Index init is cached globally and resets on failure so the next request retries
 
 ### Q: Where is the backend code written?
 
@@ -545,30 +566,46 @@ throw Errors.validation("Bad input"); // 400
 
 ### Q: How do you handle database connections?
 
-**Answer**: Connection pooling with one shared connection:
+**Answer**: Connection pooling with one globally shared client (prefixed globals to avoid collisions):
 
 ```typescript
 // lib/mongodb.ts
-import { ensureDbIndexes } from "./db-indexes";
+declare global {
+  var __laundryEaseMongoClientPromise: Promise<MongoClient> | undefined;
+  var __laundryEaseMongoIndexInitPromise: Promise<void> | undefined;
+}
 
-let clientPromise: Promise<MongoClient> | undefined;
+const clientOptions: MongoClientOptions = {
+  serverApi: { version: ServerApiVersion.v1 },
+  serverSelectionTimeoutMS: 8000, // Fail fast, not hang for 30s
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+};
 
 export async function getDb() {
-  if (!clientPromise) clientPromise = createClientPromise();
-  const client = await clientPromise;
+  if (!globalThis.__laundryEaseMongoClientPromise) {
+    const client = new MongoClient(env.MONGODB_URI, clientOptions);
+    globalThis.__laundryEaseMongoClientPromise = client.connect();
+  }
+  const client = await globalThis.__laundryEaseMongoClientPromise;
   const db = client.db(env.MONGODB_DB);
 
   // One-time startup index initialization
-  if (!global._mongoIndexInitPromise) {
-    global._mongoIndexInitPromise = ensureDbIndexes(db);
+  if (!globalThis.__laundryEaseMongoIndexInitPromise) {
+    globalThis.__laundryEaseMongoIndexInitPromise = ensureDbIndexes(db).catch(
+      (err) => {
+        globalThis.__laundryEaseMongoIndexInitPromise = undefined;
+        throw err;
+      },
+    );
   }
-  await global._mongoIndexInitPromise;
+  await globalThis.__laundryEaseMongoIndexInitPromise;
 
   return { db, client };
 }
 ```
 
-This stops too many connections from being created when the app reloads during development.
+This gives a single shared connection per Node.js process. Index init runs once and resets on failure so the next request retries instead of hanging forever on a broken promise.
 
 ### Q: How do you handle location-based search?
 
@@ -592,25 +629,112 @@ Providers save their `coordinates` and `radius_km`. The query finds all provider
 
 ### Q: Do you use database transactions?
 
-**Answer**: Yes, for important operations like creating bookings:
+**Answer**: Yes, for critical operations like creating bookings. The real implementation in `lib/db/bookings.ts` counts **both** active bookings and active orders to get the true load on a provider:
 
 ```typescript
-// Check capacity AND create booking at the same time (safely)
-await session.withTransaction(async () => { {
-  const activeCount = await db.collection("bookings").countDocuments(
-    { provider_id, status: { $in: ["requested", "accepted", ...] } },
-    { session }
-  );
+// lib/db/bookings.ts — createBooking()
+export async function createBooking(data: {
+  seeker_id: ObjectId;
+  provider_id: ObjectId;
+  deadline?: Date;
+  bookingFee: number;
+  seeker_coordinates?: { lat: number; lng: number };
+  capacity: number; // Provider's max capacity - must be passed in
+}) {
+  const { db, client } = await getDb();
+  const session = client.startSession();
 
-  if (activeCount >= provider.capacity) {
-    throw new Error("CAPACITY_EXCEEDED");
+  try {
+    let insertedBooking: Booking | undefined;
+
+    await session.withTransaction(async () => {
+      const now = new Date();
+
+      // Atomic capacity check within transaction
+      const activeBookings = await db.collection("bookings").countDocuments(
+        {
+          provider_id: data.provider_id,
+          status: {
+            $in: ["requested", "accepted", "pickup_proposed", "confirmed"],
+          },
+        },
+        { session },
+      );
+
+      const activeOrders = await db.collection("orders").countDocuments(
+        {
+          provider_id: data.provider_id,
+          process_status: {
+            $in: [
+              "invoiced",
+              "processing",
+              "washing",
+              "ironing",
+              "ready",
+              "out_for_delivery",
+            ],
+          },
+        },
+        { session },
+      );
+
+      const totalActive = activeBookings + activeOrders;
+      if (totalActive >= data.capacity) {
+        throw new Error(
+          `CAPACITY_EXCEEDED:Provider is currently at full capacity (${totalActive}/${data.capacity}). Please try again later or choose another provider.`,
+        );
+      }
+
+      // Insert booking within same transaction
+      const booking: Omit<Booking, "_id"> = {
+        seeker_id: data.seeker_id,
+        provider_id: data.provider_id,
+        status: "requested",
+        bookingFee: data.bookingFee,
+        bookingFeeStatus: "pending",
+        deadline: data.deadline,
+        seeker_coordinates: data.seeker_coordinates,
+        createdAt: now,
+      };
+
+      const res = await db
+        .collection<Omit<Booking, "_id">>("bookings")
+        .insertOne(booking, { session });
+
+      insertedBooking = { ...booking, _id: res.insertedId };
+    });
+
+    if (!insertedBooking) {
+      throw new Error("Failed to create booking");
+    }
+
+    // Audit log - booking created (fire-and-forget, non-blocking)
+    auditBookingStateChange({
+      booking_id: insertedBooking._id as ObjectId,
+      previous_state: null,
+      next_state: "requested",
+      action: "booking_created",
+      actor_type: "seeker",
+      actor_id: data.seeker_id,
+      metadata: {
+        provider_id: data.provider_id.toString(),
+        booking_fee: data.bookingFee,
+      },
+    });
+
+    return insertedBooking;
+  } finally {
+    await session.endSession();
   }
-
-  await db.collection("bookings").insertOne(booking, { session });
-});
+}
 ```
 
-This stops race conditions where many bookings could go past the provider's limit at the same time.
+Key design points:
+
+- The `countDocuments` calls include `{ session }` — they read inside the same transaction, so no other write can sneak in between the check and the insert
+- Both `bookings` **and** `orders` collections are counted — a provider at invoice-stage or processing-stage still occupies a slot
+- The `CAPACITY_EXCEEDED` error aborts the transaction automatically via `withTransaction`
+- The audit log fires after the transaction commits, as a non-blocking background call
 
 ---
 
@@ -1271,17 +1395,44 @@ After `delivered`:
 
 ### Q: How does provider capacity work?
 
-**Answer**: Providers set a `capacity` (max jobs at once). Before accepting:
+**Answer**: Providers set a `capacity` (max jobs at once). When a seeker creates a booking, the system counts **both** active bookings and active orders in a single MongoDB transaction:
 
 ```typescript
-const activeJobs =
-  bookings.count({ status: active }) + orders.count({ status: active });
-if (activeJobs >= provider.capacity) {
-  throw new Error("CAPACITY_EXCEEDED");
+// lib/db/bookings.ts — createBooking(), inside session.withTransaction()
+const activeBookings = await db.collection("bookings").countDocuments(
+  {
+    provider_id: data.provider_id,
+    status: { $in: ["requested", "accepted", "pickup_proposed", "confirmed"] },
+  },
+  { session },
+);
+
+const activeOrders = await db.collection("orders").countDocuments(
+  {
+    provider_id: data.provider_id,
+    process_status: {
+      $in: [
+        "invoiced",
+        "processing",
+        "washing",
+        "ironing",
+        "ready",
+        "out_for_delivery",
+      ],
+    },
+  },
+  { session },
+);
+
+const totalActive = activeBookings + activeOrders;
+if (totalActive >= data.capacity) {
+  throw new Error(
+    `CAPACITY_EXCEEDED:Provider is currently at full capacity (${totalActive}/${data.capacity}).`,
+  );
 }
 ```
 
-This is checked in a transaction so many requests can't break the limit at the same time.
+Both checks are inside the same MongoDB session so no concurrent booking can slip through between the read and the insert. The same dual-collection check also runs on `acceptBookingWithCapacityCheck()` via `lib/db/bookings.ts`.
 
 ### Q: How does location-based discovery work?
 
@@ -1704,7 +1855,7 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 Current quality snapshot:
 
 - `110` test files
-- `567` tests passing (100% core route coverage)
+- `587` tests passing (100% core route coverage)
 - `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
@@ -2030,7 +2181,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **E2E test for Socket.IO chat and cancel-at-invoice**: No Playwright E2E coverage for real-time chat flows or the cancel-at-invoice-stage scenario yet.
 - **DEMO_MODE in .env**: `DEMO_MODE=1` is set in the local `.env` for development — must be removed before any public deployment (demo cron panel bypasses external scheduler auth).
 
-## Key Features Implemented (Full System — 2026-03-15 Rev 14)
+## Key Features Implemented (Full System — 2026-03-15 Rev 15)
 
 ### Core Workflow
 
@@ -2155,13 +2306,16 @@ Use these points if you are asked about differences between the PRD and what is 
 
 ### SEO & PWA Foundations
 
-- `app/sitemap.ts` — Dynamic sitemap.xml generation
-- `app/robots.ts` — Robots.txt with admin/API/internal route disallow rules
-- `components/seo/json-ld.tsx` — Structured data for search engines
+- `app/sitemap.ts` — Dynamic sitemap.xml generation (**34 routes** with priorities and change frequencies)
+- `app/robots.txt` — Robots.txt with admin/API/internal route disallow rules
+- `components/seo/json-ld.tsx` — **5 JSON-LD schemas** (SoftwareApplication, LocalBusiness, Service, Organization, FAQPage) for structured data
+- `components/seo/breadcrumb-json-ld.tsx` — **BreadcrumbList schema** for provider profile pages with dynamic breadcrumb items
+- `app/layout.tsx` — Comprehensive root metadata (OG tags, Twitter Cards, multi-language support, PWA manifest, verification tags)
+- `app/(dashboard)/seeker/provider/[id]/page.tsx` — Per-page dynamic metadata via `generateMetadata()` API
 - `public/manifest.json` — PWA manifest
-- `public/og-image.png` — Open Graph image
+- `public/og-image.png` — Open Graph image (1200×630 branded gradient card)
 
-## Quick Presentation Tips (Updated 2026-03-15 Rev 14)
+## Quick Presentation Tips (Updated 2026-03-15 Rev 15)
 
 1. **Start with the problem**: "Local laundry services run on informal promises. Neither side can prove what happened mid-transaction."
 2. **Show the contract model**: "LaundryEase turns a laundry job into a verifiable contract: money committed before work starts, progress tracked as facts, delivery verified before settlement."
