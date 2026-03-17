@@ -28,13 +28,13 @@ vi.mock("@/lib/logger", () => ({
 import { DELETE } from "./route";
 
 function makeDbMock() {
-  const deleteOne = vi.fn();
+  const updateOne = vi.fn();
   const db = {
     collection: vi.fn(() => ({
-      deleteOne,
+      updateOne,
     })),
   };
-  return { db, deleteOne };
+  return { db, updateOne };
 }
 
 function makeRequest(body: unknown) {
@@ -79,7 +79,7 @@ describe("DELETE /api/admin/users/[id]", () => {
 
   it("returns 404 when user does not exist", async () => {
     const dbMock = makeDbMock();
-    dbMock.deleteOne.mockResolvedValue({ deletedCount: 0 });
+    dbMock.updateOne.mockResolvedValue({ matchedCount: 0 });
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
     const res = await DELETE(makeRequest({ role: Role.PROVIDER }), {
@@ -94,7 +94,7 @@ describe("DELETE /api/admin/users/[id]", () => {
   it("returns 200 when delete succeeds", async () => {
     const userId = new ObjectId().toString();
     const dbMock = makeDbMock();
-    dbMock.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    dbMock.updateOne.mockResolvedValue({ matchedCount: 1 });
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
     const res = await DELETE(makeRequest({ role: Role.SEEKER }), {
@@ -105,9 +105,10 @@ describe("DELETE /api/admin/users/[id]", () => {
     expect(res.status).toBe(200);
     expect(data.ok).toBe(true);
     expect(dbMock.db.collection).toHaveBeenCalledWith("seekers");
-    expect(dbMock.deleteOne).toHaveBeenCalledWith({
-      _id: expect.any(ObjectId),
-    });
+    expect(dbMock.updateOne).toHaveBeenCalledWith(
+      { _id: expect.any(ObjectId) },
+      { $set: { isDeleted: true, deletedAt: expect.any(Date) } }
+    );
   });
 
   it("returns AppError status when auth helper throws", async () => {

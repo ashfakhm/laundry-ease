@@ -23,6 +23,9 @@ function makeDb(failingIndexNames: Set<string>): Db {
           }
           return name;
         },
+        updateMany: vi.fn().mockResolvedValue({ matchedCount: 0, modifiedCount: 0 }),
+        updateOne: vi.fn().mockResolvedValue({ matchedCount: 0, modifiedCount: 0 }),
+        dropIndex: vi.fn().mockResolvedValue(""),
       };
     },
   } as unknown as Db;
