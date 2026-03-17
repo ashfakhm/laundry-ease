@@ -1,6 +1,6 @@
 # LaundryEase
 
-> **Document Revision**: Rev 15 — 2026-03-15
+> **Document Revision**: Rev 16 — 2026-03-17
 > **Scope**: Chapters 1, 2, 3 — Introduction, Problem Definition & Methodology, Analysis
 
 ---
@@ -22,7 +22,7 @@ Customers can register on the platform, verify their identity via email and phon
 Providers register their business, set a service radius and capacity limits, and link their bank account for automated payouts. They receive booking requests from nearby customers, accept or reject them based on availability, and propose pickup time slots. After pickup and item inspection, providers generate printable PDF invoices with detailed item breakdowns and optional photos. Once the customer pays, the provider advances the order through the laundry workflow stages, which are inherently sorted by deadline to ensure timely processing, and completes the transaction by delivering the laundry and collecting the delivery OTP. Payouts are processed automatically after the escrow window, with a 5% platform commission deducted from the subtotal. Providers can also manage their profiles, respond to dispute messages, and view their earnings and payout history.
 
 **For Administrators:**
-Administrators oversee the entire platform, managing complaints and disputes through a structured workflow with 3-party chat (seeker, provider, admin). They can issue full or partial refunds, release or hold escrow funds, manage users (suspend, flag, or block accounts), and monitor platform health through operational alerts covering overdue payouts, failure spikes, and complaint backlogs.
+Administrators oversee the entire platform, managing complaints and disputes through a structured workflow with 3-party chat (seeker, provider, admin). They can issue full or partial refunds, release or hold escrow funds, manage users (ban with required reason and expiry date, suspend, or flag accounts), and monitor platform health through operational alerts covering overdue payouts, failure spikes, and complaint backlogs.
 
 ### 1.2 Features of Existing Systems
 
@@ -280,7 +280,7 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 - **Cancellation Policies:** Seeker cancels within 2 hours of booking creation → full refund of booking fee. Seeker cancels after 2-hour window (statuses: accepted, pickup_proposed, reschedule_requested, confirmed) → booking fee forfeited as compensation to provider. Seeker cancels at `invoice_created` stage (before paying the invoice) → booking fee always forfeited regardless of time window, because the provider has already physically collected and catalogued items. Provider cancellation at any pre-arrival stage → full refund to seeker. Post-pickup-slot-time cancellation blocked for seekers except at `invoice_created` stage (where the slot is necessarily in the past). Once an invoice is paid and an order is created, cancellation is permanently blocked for both parties.
 - **Real-Time Order Chat:** Seekers and providers can exchange messages on active orders in real time via Socket.IO (`order:<id>` rooms). Messages are persisted in the `order_chats` MongoDB collection and pushed live to connected participants. Features include typing indicators, voice notes, up to 5 photo attachments per message, and the ability to delete messages. The provider messages inbox aggregates recent order chats. The provider order-status page and seeker order detail page embed inline chat panels.
 - **Notification System:** Email notifications for booking updates, invoice creation, payment confirmations, delivery OTP, and complaint status changes via email outbox with retry.
-- **Admin Operations:** User management (suspend, flag, block), complaint triage, manual payout intervention, and operational health monitoring with automated alerts.
+- **Admin Operations:** User management (ban with expiry and reason, suspend, flag), complaint triage, manual payout intervention, and operational health monitoring with automated alerts.
 - **Cron Automation:** Auto-rejection of stale bookings (2-hour timeout), no-show detection (30 minutes past pickup), and email outbox batch processing.
 
 #### 3.4.2 Non-Functional Requirements
