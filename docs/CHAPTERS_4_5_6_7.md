@@ -1360,34 +1360,90 @@ The entire LaundryEase codebase is written in **TypeScript 5**, a typed extensio
 Every database entity has a corresponding TypeScript type. This means that when a developer works with a booking object, the editor shows exactly which fields are available and their types.
 
 ```typescript
-// types/bookings.ts — Every field is explicitly typed
-type Booking = {
+// types/bookings.ts — Complete TypeScript types for bookings
+import { ObjectId } from "mongodb";
+
+export type BookingStatus =
+  | "requested"
+  | "accepted"
+  | "rejected"
+  | "pickup_proposed"
+  | "reschedule_requested"
+  | "confirmed"
+  | "invoice_created"
+  | "cancelled"
+  | "completed";
+
+export interface InvoiceItem {
+  itemType: string;
+  quantity: number;
+  unitPrice: number;
+  photoUrl?: string;
+}
+
+export interface InvoiceData {
+  items: InvoiceItem[];
+  notes?: string;
+  photos?: string[];
+  subtotal?: number;
+  discount?: number;
+  total?: number;
+  createdAt: Date | string;
+}
+
+export type Booking = {
   _id: ObjectId | string;
   seeker_id: ObjectId | string;
   provider_id: ObjectId | string;
-  status:
-    | "requested"
-    | "accepted"
-    | "rejected"
-    | "pickup_proposed"
-    | "reschedule_requested"
-    | "confirmed"
-    | "invoice_created"
-    | "cancelled"
-    | "completed";
+  status: BookingStatus;
   bookingFee?: number;
-  // "forfeited" is set when seeker cancels after the 2-hour free window
-  // or at invoice_created stage (provider has already done physical work).
-  // "applied" means the fee has been released to the provider — no cancellation possible.
   bookingFeeStatus?: "pending" | "paid" | "refunded" | "forfeited" | "applied";
   pickupSlot?: {
     proposedBy: "provider" | "seeker";
     dateTime: Date | string;
     confirmedAt?: Date | string;
   };
+
+  reschedule?: {
+    requestedBy: "seeker" | "provider";
+    requestedAt: Date | string;
+    reason?: string;
+    count: number;
+    previousPickupSlot?: {
+      dateTime: Date | string;
+      confirmedAt?: Date | string;
+    };
+  };
   arrivedAt?: Date | string; // Provider arrival timestamp
-  invoice?: InvoiceData; // Embedded after provider creates invoice
-  // ... all fields typed
+  cancelledAt?: Date | string;
+  cancelledBy?: "seeker" | "provider";
+  cancellation_reason?: string;
+
+  invoice?: InvoiceData;
+  seeker_coordinates?: { lat: number; lng: number };
+  noShowStatus?: boolean;
+  deadline?: Date | string;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+
+  // Payment & Payout Fields
+  platform_commission?: number;
+  provider_payout_amount?: number;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  payout_status?: "pending" | "processing" | "paid" | "failed";
+  payout_id?: string;
+  payout_utr?: string;
+  payout_lock_at?: Date | string;
+  payout_failure_reason?: string;
+  payout_failure_at?: Date | string;
+  payout_initiated_at?: Date | string;
+  payout_updated_at?: Date | string;
+  booking_fee_released_at?: Date | string;
+  booking_fee_applied_at?: Date | string;
+  refundProcessedAt?: Date | string;
+  booking_fee_refund_id?: string;
+  refund_in_progress_at?: Date | string;
 };
 ```
 
@@ -1409,27 +1465,139 @@ const paymentVerifySchema = z.object({
 Order status transitions are validated against a typed map. Attempting an invalid transition (e.g., jumping from "washing" to "delivered") is caught both by TypeScript at compile time and by runtime validation:
 
 ```typescript
-// lib/orders/status-machine.ts
-const VALID_TRANSITIONS: Record<string, string[]> = {
+// lib/orders/status-machine.ts — Order process state machine
+export type OrderProcessStatus =
+  | "invoiced"
+  | "processing"
+  | "washing"
+  | "ironing"
+  | "ready"
+  | "out_for_delivery"
+  | "delivered";
+
+/**
+ * Server-authoritative order process lifecycle.
+ * Keep this centralized so API + UI can stay consistent.
+ */
+export const ORDER_STATUS_TRANSITIONS: Readonly<
+  Record<OrderProcessStatus, readonly OrderProcessStatus[]>
+> = {
   invoiced: ["processing"],
   processing: ["washing", "ready"],
   washing: ["ironing", "ready"],
   ironing: ["ready"],
   ready: ["out_for_delivery"],
   out_for_delivery: ["delivered"],
-};
+  delivered: [],
+} as const;
+
+export function getAllowedNextStates(
+  current: OrderProcessStatus,
+): readonly OrderProcessStatus[] {
+  return ORDER_STATUS_TRANSITIONS[current] ?? [];
+}
+
+export function isValidTransition(args: {
+  from: OrderProcessStatus;
+  to: OrderProcessStatus;
+}): boolean {
+  return getAllowedNextStates(args.from).includes(args.to);
+}
 ```
 
 **4. Precise financial calculations** with Decimal.js:
 
 ```typescript
-// lib/payouts/amounts.ts — No floating-point errors
+// lib/payouts/amounts.ts — Precise financial calculations with Decimal.js
+import { PLATFORM_COMMISSION_RATE } from "@/lib/constants";
 import Decimal from "decimal.js";
 
-const subtotal = new Decimal(order.subtotal);
-const commission = subtotal.times(COMMISSION_RATE);
-const payout = new Decimal(order.total_price).minus(commission);
-// Returns amounts in paise (×100) for Razorpay
+type PayoutAmountInput = {
+  total_price?: number | null;
+  subtotal?: number | null;
+  provider_payout_amount?: number | null;
+  platform_commission?: number | null;
+};
+
+export type PayoutAmountBreakdown = {
+  providerPayoutAmountPaise: number;
+  platformCommissionPaise: number;
+};
+
+function toDecimal(value: unknown): Decimal | null {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  return new Decimal(num);
+}
+
+/**
+ * Ensures a decimal is not negative and is a mathematically precise integer for paise.
+ */
+function normalizeToPaiseInteger(dec: Decimal): number {
+  return Decimal.max(0, dec).times(100).toDecimalPlaces(0).toNumber();
+}
+
+/**
+ * Derives payout split with a deterministic fallback:
+ * 1) respect stored provider payout when present
+ * 2) otherwise respect stored platform commission when present
+ * 3) otherwise fallback to default platform commission (e.g. 5%)
+ */
+export function derivePayoutAmounts(
+  order: PayoutAmountInput,
+): PayoutAmountBreakdown {
+  const total = toDecimal(order.total_price) ?? new Decimal(0);
+  const normalizedTotal = Decimal.max(0, total);
+
+  const storedPayout = toDecimal(order.provider_payout_amount);
+  const storedCommission = toDecimal(order.platform_commission);
+
+  if (storedPayout !== null) {
+    const normalizedPayout = Decimal.max(0, storedPayout);
+    const derivedCommission = Decimal.max(
+      0,
+      normalizedTotal.minus(normalizedPayout),
+    );
+
+    return {
+      providerPayoutAmountPaise: normalizeToPaiseInteger(normalizedPayout),
+      platformCommissionPaise:
+        storedCommission !== null
+          ? normalizeToPaiseInteger(storedCommission)
+          : normalizeToPaiseInteger(derivedCommission),
+    };
+  }
+
+  if (storedCommission !== null) {
+    const normalizedCommission = Decimal.max(0, storedCommission);
+    return {
+      providerPayoutAmountPaise: normalizeToPaiseInteger(
+        normalizedTotal.minus(normalizedCommission),
+      ),
+      platformCommissionPaise: normalizeToPaiseInteger(normalizedCommission),
+    };
+  }
+
+  // When subtotal (pre-discount item total) is available, compute commission
+  // on subtotal so the platform always takes 5% of the undiscounted amount.
+  const storedSubtotal = toDecimal(order.subtotal);
+  const commissionBase =
+    storedSubtotal !== null ? Decimal.max(0, storedSubtotal) : normalizedTotal;
+
+  const defaultCommissionRate = new Decimal(PLATFORM_COMMISSION_RATE);
+  const defaultCommission = Decimal.max(
+    0,
+    commissionBase.times(defaultCommissionRate),
+  );
+
+  return {
+    providerPayoutAmountPaise: normalizeToPaiseInteger(
+      normalizedTotal.minus(defaultCommission),
+    ),
+    platformCommissionPaise: normalizeToPaiseInteger(defaultCommission),
+  };
+}
 ```
 
 ### 5.4 Backend and Infrastructure
@@ -1619,13 +1787,37 @@ The system checks if a user is currently banned during the `signIn` callback. If
 Every API route and dashboard page checks the user's role before allowing access:
 
 ```typescript
-// lib/api/auth.ts — Middleware functions
-export async function requireSeeker() {
-  const { user } = await requireAuth([Role.SEEKER]);
-  if (user.role !== Role.SEEKER) {
-    throw Errors.forbidden("This action requires seeker role");
+// lib/api/auth.ts — Role-based access control middleware
+export async function requireSeeker(): Promise<AuthResult> {
+  return requireAuth([Role.SEEKER]);
+}
+
+export async function requireProvider(): Promise<AuthResult> {
+  return requireAuth([Role.PROVIDER]);
+}
+
+export async function requireAdmin(): Promise<AuthResult> {
+  return requireAuth([Role.ADMIN]);
+}
+
+/**
+ * Helper: Require Admin role and validate active admin record in DB.
+ * Use this on high-risk administrative routes.
+ */
+export async function requireAdminWithDbCheck(): Promise<AuthResult> {
+  const auth = await requireAdmin();
+  const dbUser = await getUserByEmail(auth.user.email);
+  if (!dbUser?._id || dbUser.role !== Role.ADMIN) {
+    throw Errors.forbidden("Admin access required");
   }
-  return { user };
+
+  return {
+    user: {
+      ...auth.user,
+      id: dbUser._id.toString(),
+      role: Role.ADMIN,
+    },
+  };
 }
 ```
 
@@ -1848,19 +2040,21 @@ Build date: `2026-03-15T00:00:00.000Z`
 Intelligent crawl control:
 
 ```typescript
-import { Metadata } from "next";
+import { MetadataRoute } from "next";
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://laundryease.in";
+export default function robots(): MetadataRoute.Robots {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://laundryease.in";
 
-export default function robots(): Metadata {
   return {
     rules: [
       {
         userAgent: "*",
+        allow: ["/"],
         disallow: ["/admin/", "/api/", "/complete-signup/", "/choose-role/"],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
+    host: baseUrl,
   };
 }
 ```
@@ -1991,24 +2185,58 @@ Integration tests verify that multiple parts of the system work together correct
 **Database integration tests** use `mongodb-memory-server` to spin up a real MongoDB instance in memory. This provides a genuine database without requiring an external server:
 
 ```typescript
-// lib/db.test.ts — Tests with real MongoDB transactions
+// lib/db.test.ts — Database integration tests with MongoDB transactions
+import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { ObjectId } from "mongodb";
+
 describe("createBooking", () => {
   it("creates a booking when capacity is available", async () => {
+    const seekerId = new ObjectId();
+    const providerId = new ObjectId();
+    const capacity = 5;
+
     const booking = await createBooking({
       seeker_id: seekerId,
       provider_id: providerId,
       bookingFee: 149,
-      capacity: 5,
+      capacity,
     });
+
+    expect(booking).toBeDefined();
     expect(booking?.status).toBe("requested");
+    expect(booking?.seeker_id.toString()).toBe(seekerId.toString());
+
+    const count = await db.collection("bookings").countDocuments();
+    expect(count).toBe(1);
   });
 
-  it("throws CAPACITY_EXCEEDED when provider is full", async () => {
-    // Pre-fill to capacity
-    await insertActiveBookings(providerId, 5);
-    await expect(createBooking({ ...params, capacity: 5 })).rejects.toThrow(
-      /CAPACITY_EXCEEDED/,
-    );
+  it("throws error when provider capacity is reached (bookings + orders)", async () => {
+    const seekerId = new ObjectId();
+    const providerId = new ObjectId();
+    const capacity = 2;
+
+    // Fill capacity: 1 active booking + 1 active order
+    await db.collection("bookings").insertOne({
+      provider_id: providerId,
+      status: "accepted",
+    });
+    await db.collection("orders").insertOne({
+      provider_id: providerId,
+      process_status: "processing",
+    });
+
+    await expect(
+      createBooking({
+        seeker_id: seekerId,
+        provider_id: providerId,
+        bookingFee: 149,
+        capacity,
+      }),
+    ).rejects.toThrow(/CAPACITY_EXCEEDED/);
+
+    // Verify no new booking was created
+    const count = await db.collection("bookings").countDocuments();
+    expect(count).toBe(1);
   });
 });
 ```
@@ -2056,23 +2284,81 @@ End-to-end tests use **Playwright 1.58.2** to automate a real web browser. They 
 **Sample E2E test:**
 
 ```typescript
-// e2e/smoke-role-journeys.spec.ts
-test("Seeker sign-in and navigate to disputes", async ({ page }) => {
-  // Step 1: Log in as seeker
-  await page.goto("/auth");
-  await page.fill('input[name="email"]', seekerEmail);
-  await page.fill('input[name="password"]', seekerPassword);
-  await page.click('button[type="submit"]');
+// e2e/smoke-role-journeys.spec.ts — Critical role smoke journeys
+import { test, expect } from "@playwright/test";
+import { seedSmokeData, smokeUsers } from "./support/smoke-seed";
+import { loginViaCredentials } from "./support/auth";
 
-  // Step 2: Verify redirect to seeker dashboard
-  await page.waitForURL("/seeker");
+test.describe("critical role smoke journeys", () => {
+  test.beforeAll(async () => {
+    await seedSmokeData({ namespace: "role-smoke" });
+  });
 
-  // Step 3: Navigate to disputes
-  await page.click('a:has-text("Disputes")');
-  await page.waitForURL("/seeker/disputes");
+  test("seeker can sign in and access disputes journey", async ({ page }) => {
+    await loginViaCredentials(
+      page,
+      smokeUsers.seeker.email,
+      smokeUsers.seeker.password,
+    );
 
-  // Step 4: Verify page loaded
-  await expect(page.locator("h1")).toContainText("Active Disputes");
+    await page.waitForURL("**/seeker");
+    await expect(
+      page.getByRole("heading", { name: "Find Laundry Providers" }),
+    ).toBeVisible();
+
+    const disputesLink = page.getByRole("link", { name: /Disputes/ });
+    await expect(disputesLink).toBeVisible();
+    await disputesLink.click();
+
+    await page.waitForURL("**/seeker/disputes");
+    await expect(
+      page.getByRole("heading", { name: "Active Disputes" }),
+    ).toBeVisible();
+  });
+
+  test("provider can sign in and open dispute cases", async ({ page }) => {
+    await loginViaCredentials(
+      page,
+      smokeUsers.provider.email,
+      smokeUsers.provider.password,
+    );
+
+    await page.waitForURL("**/provider");
+    await expect(
+      page.getByRole("heading", { name: "Provider Dashboard" }),
+    ).toBeVisible();
+
+    const disputesLink = page.getByRole("link", { name: /^Disputes/ });
+    await expect(disputesLink).toBeVisible();
+    await disputesLink.click();
+
+    await page.waitForURL("**/provider/disputes");
+    await expect(
+      page.getByRole("heading", { name: "Dispute Cases" }),
+    ).toBeVisible();
+  });
+
+  test("admin can sign in and review complaints queue", async ({ page }) => {
+    await loginViaCredentials(
+      page,
+      smokeUsers.admin.email,
+      smokeUsers.admin.password,
+    );
+
+    await page.waitForURL("**/admin");
+    await expect(
+      page.getByRole("heading", { name: "Admin Overview" }),
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "Complaints" }).click();
+    await page.waitForURL("**/admin/complaints");
+    await expect(
+      page.getByRole("heading", { name: "Complaints Management" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "View Details" }).first(),
+    ).toBeVisible();
+  });
 });
 ```
 
