@@ -13,6 +13,7 @@ export interface BaseUser {
   blocked_until?: Date;
   blocked_reason?: string;
   createdAt: Date;
+  isDeleted?: boolean;
 }
 
 export interface Seeker extends BaseUser {

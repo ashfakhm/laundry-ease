@@ -33,8 +33,11 @@ export async function DELETE(
     const collection = role === Role.PROVIDER ? "providers" : "seekers";
     const result = await db
       .collection(collection)
-      .deleteOne({ _id: new ObjectId(id) });
-    if (result.deletedCount === 1) {
+      .updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { isDeleted: true, deletedAt: new Date() } }
+      );
+    if (result.matchedCount === 1) {
       return successResponse({
         success: true
       }, 200);

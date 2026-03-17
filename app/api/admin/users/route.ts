@@ -38,11 +38,11 @@ export async function GET(req: Request) {
     const [seekers, providers] = await Promise.all([
       db
         .collection<UserDocument>("seekers")
-        .find({}, { projection: { password: 0 } })
+        .find({ isDeleted: { $ne: true } }, { projection: { password: 0 } })
         .toArray(),
       db
         .collection<UserDocument>("providers")
-        .find({}, { projection: { password: 0 } })
+        .find({ isDeleted: { $ne: true } }, { projection: { password: 0 } })
         .toArray(),
     ]);
 

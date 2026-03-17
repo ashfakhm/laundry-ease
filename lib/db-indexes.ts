@@ -86,7 +86,7 @@ const INDEX_SPECS: IndexSpec[] = [
     options: {
       name: "seekers_email_unique",
       unique: true,
-      partialFilterExpression: { email: { $type: "string" } },
+      partialFilterExpression: { email: { $type: "string" }, isDeleted: false },
     },
     critical: true,
   },
@@ -96,7 +96,7 @@ const INDEX_SPECS: IndexSpec[] = [
     options: {
       name: "providers_email_unique",
       unique: true,
-      partialFilterExpression: { email: { $type: "string" } },
+      partialFilterExpression: { email: { $type: "string" }, isDeleted: false },
     },
     critical: true,
   },
@@ -312,6 +312,14 @@ async function createIndexSafe(
 }
 
 export async function ensureDbIndexes(db: Db) {
+  // Migration for Soft Delete: Set isDeleted: false for all existing users
+  await db.collection("seekers").updateMany({ isDeleted: { $exists: false } }, { $set: { isDeleted: false } });
+  await db.collection("providers").updateMany({ isDeleted: { $exists: false } }, { $set: { isDeleted: false } });
+
+  // Drop old email indexes if they exist to allow recreation with new partialFilterExpression
+  try { await db.collection("seekers").dropIndex("seekers_email_unique"); } catch { /* ignore */ }
+  try { await db.collection("providers").dropIndex("providers_email_unique"); } catch { /* ignore */ }
+
   const failures: IndexCreateResult[] = [];
   for (const spec of INDEX_SPECS) {
     const result = await createIndexSafe(db, spec);

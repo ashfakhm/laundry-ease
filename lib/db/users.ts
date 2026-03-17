@@ -18,14 +18,14 @@ export async function getUserByEmail(
 
   const seeker = await db
     .collection<Seeker>("seekers")
-    .findOne({ email: normalizedEmail });
+    .findOne({ email: normalizedEmail, isDeleted: { $ne: true } });
   if (seeker) {
     return { ...seeker, role: Role.SEEKER };
   }
 
   const provider = await db
     .collection<Provider>("providers")
-    .findOne({ email: normalizedEmail });
+    .findOne({ email: normalizedEmail, isDeleted: { $ne: true } });
   if (provider) {
     return { ...provider, role: Role.PROVIDER };
   }
@@ -83,6 +83,7 @@ export async function createSeeker(data: {
     address: data.address ?? null,
     coordinates: data.coordinates,
     createdAt: now,
+    isDeleted: false, // Initial state for soft delete uniqueness
   };
 
   const res = await db.collection<Seeker>("seekers").insertOne(seeker);
@@ -149,6 +150,7 @@ export async function createProvider(data: {
     profilePicture: data.profilePicture,
     bannerImage: data.bannerImage,
     coordinates: data.coordinates,
+    isDeleted: false, // Initial state for soft delete uniqueness
     ...(data.coordinates
       ? {
           locationGeoJSON: {
