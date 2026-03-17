@@ -138,6 +138,7 @@ export const signupProviderSchema = z.object({
   bio: z.string().optional(),
   description: z.string().optional(),
   radius_km: z.number().positive().max(50).default(10),
+  free_radius_km: z.number().nonnegative().default(0),
   per_km_rate: z.number().nonnegative().default(10),
   pricing: z.number().nonnegative().default(0), // "Booking Price"
   pricingRates: z.record(z.string(), z.number().nonnegative()).optional(),

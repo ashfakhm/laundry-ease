@@ -261,7 +261,7 @@ export default function ProviderSignupPage() {
       location: form.location,
       radius_km: Number(form.radius_km) || 10,
       free_radius_km: Number(form.free_radius_km) || 0,
-      price_per_km: Number(form.price_per_km) || 0,
+      per_km_rate: Number(form.price_per_km) || 0,
       pricing: Number(form.pricing) || 0,
       bankAccountHolder: form.bankAccountHolder,
       bankAccountNumber: form.bankAccountNumber,
