@@ -68,12 +68,6 @@ export const authOptions = {
           throw new Error("INVALID_CREDENTIALS");
         }
 
-        if (user.blocked_until && new Date(user.blocked_until) > new Date()) {
-          throw new Error(
-            `BANNED|${user.blocked_until.toISOString()}|${user.blocked_reason || ""}`,
-          );
-        }
-
         if (!user._id) {
           throw new Error("User ID not found");
         }
@@ -93,18 +87,17 @@ export const authOptions = {
   },
   callbacks: {
     async signIn({ user, account }) {
-      // For Google OAuth, check if user exists in database
+      if (!user.email) {
+        return false;
+      }
+
+      const dbUser = await getUserByEmail(user.email);
+      
+      if (dbUser?.blocked_until && new Date(dbUser.blocked_until) > new Date()) {
+        return `/banned?until=${dbUser.blocked_until.toISOString()}&reason=${encodeURIComponent(dbUser.blocked_reason || "")}`;
+      }
+
       if (account?.provider === "google") {
-        if (!user.email) {
-          return false;
-        }
-
-        const dbUser = await getUserByEmail(user.email);
-        
-        if (dbUser?.blocked_until && new Date(dbUser.blocked_until) > new Date()) {
-          return `/banned?until=${dbUser.blocked_until.toISOString()}&reason=${encodeURIComponent(dbUser.blocked_reason || "")}`;
-        }
-
         if (!dbUser?._id) {
           // Redirect to choose role page
           return "/choose-role";
@@ -112,10 +105,8 @@ export const authOptions = {
         // Sync role and canonical DB id for OAuth logins.
         user.role = dbUser.role;
         user.id = dbUser._id.toString();
-        return true;
       }
 
-      // Allow credentials provider (already validated in authorize)
       return true;
     },
     async jwt({ token, user }): Promise<JWT | null> {

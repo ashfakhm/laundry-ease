@@ -61,6 +61,12 @@ function AuthPageContent() {
       password,
       redirect: false,
     });
+
+    if (res?.url && res.url.includes("/banned")) {
+      window.location.href = res.url;
+      return;
+    }
+
     if (res?.ok) {
       // Resolve role from canonical session and hard-redirect so server components
       // pick up the fresh auth cookie before rendering dashboard routes.
@@ -89,12 +95,6 @@ function AuthPageContent() {
         setError("Invalid email or password.");
       } else if (res?.error === "SERVICE_UNAVAILABLE") {
         setError("Unable to connect to the server. Please try again later.");
-      } else if (res?.error?.startsWith("BANNED|")) {
-        const parts = res.error.split("|");
-        const until = parts[1];
-        const reason = parts[2] || "";
-        window.location.href = `/banned?until=${until}&reason=${encodeURIComponent(reason)}`;
-        return;
       } else {
         // Never display raw error strings — they may contain infrastructure details.
         setError("Something went wrong. Please try again.");
