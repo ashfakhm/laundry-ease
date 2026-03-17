@@ -1,10 +1,10 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-03-15 (Rev 15)
+**Last Updated:** 2026-03-17 (Rev 16)
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, secure password reset with session invalidation, and provider capacity management. The current test suite passes with 110+ unit test files and 6 Playwright E2E specs, with only 2 justified `eslint-disable` comments in CommonJS files.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, secure password reset with session invalidation, provider capacity management, and user ban enforcement. The current test suite passes with **588 tests across 110 unit test files** and 6 Playwright E2E specs, with only 2 justified `eslint-disable` comments in CommonJS files.
 
 ```mermaid
 graph LR
@@ -91,7 +91,7 @@ graph LR
 
 ### Directory Structure
 
-```
+```text
 laundry-ease/
 
 .
@@ -478,6 +478,8 @@ laundry-ease/
 │   │           └── route.ts
 │   ├── auth
 │   │   └── page.tsx
+│   ├── banned
+│   │   └── page.tsx
 │   ├── choose-role
 │   │   └── page.tsx
 │   ├── complete-signup
@@ -709,6 +711,9 @@ laundry-ease/
     ├── reviews.ts
     └── users.ts
 
+├── auth.ts                       # NextAuth v5 configuration and callbacks
+├── instrumentation.ts             # Node/Edge runtime initialization and diagnostics
+├── proxy.ts                       # Reverse proxy for local webhook simulation (Razorpay)
 ├── server.js                     # Custom Node.js server: attaches Socket.IO to Next.js HTTP server
 ├── scripts/                      # CI/CD scripts (4 files)
 ├── types/                        # TypeScript definitions (8 files)
@@ -752,9 +757,9 @@ enum Role {
 }
 ```
 
-**Seeker** (`types/users.ts`): BaseUser + address, coordinates, outstanding_fees, blocked_until, isFlagged, flagReason, flaggedAt, cancellationCount
+**Seeker** (`types/users.ts`): BaseUser + address, coordinates, outstanding_fees, blocked_until, blocked_reason, isFlagged, flagReason, flaggedAt, cancellationCount
 
-**Provider** (`types/users.ts`): BaseUser + services, pricing, location, coordinates, locationGeoJSON, documents, radius_km, per_km_rate, covers_beyond_radius, businessName, bio, description, pricingRates, free_radius_km, capacity, bankDetails (accountNumber, ifsc, accountHolderName, upiId), razorpay_fund_account_id, razorpay_contact_id, profilePicture, bannerImage, rating, ratingTotal, reviewCount
+**Provider** (`types/users.ts`): BaseUser + services, pricing, location, coordinates, locationGeoJSON, documents, radius_km, per_km_rate, covers_beyond_radius, businessName, bio, description, pricingRates, free_radius_km, capacity, bankDetails (accountNumber, ifsc, accountHolderName, upiId), razorpay_fund_account_id, razorpay_contact_id, profilePicture, bannerImage, rating, ratingTotal, reviewCount, blocked_until, blocked_reason
 
 **Admin** (`types/users.ts`): BaseUser only
 
@@ -828,6 +833,7 @@ Fields: order_id, seeker_id, provider_id, seeker_name, rating (1-5), comment
 2. **Email/Password**: Signup with OTP verification → bcrypt password hash → NextAuth credentials provider
 3. **Magic Link**: Email-based passwordless login via token
 4. **Session**: JWT token stored in cookie, 7-day max age
+5. **User Ban Verification**: `signIn` callback checks `blocked_until`; if active, sign-in is denied and user is redirected with ban details.
 
 ```mermaid
 flowchart TD
@@ -997,7 +1003,7 @@ flowchart LR
 
 ### 5.1 Booking Lifecycle
 
-```
+```text
 Seeker                          Provider                         System
   │                                │                                │
   ├── POST /api/bookings ──────────┤ (status: requested)            │
@@ -1065,7 +1071,7 @@ The policy is a pure function `evaluateCancellationPolicy()` that returns `{ all
 
 **State Machine** (`lib/orders/status-machine.ts`):
 
-```
+```text
 invoiced → processing → washing → ironing → ready → out_for_delivery → delivered
                      ↘ ready (shortcut)
           washing ───↘ ready (shortcut)
@@ -1083,7 +1089,7 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 
 ### 5.3 Payment & Escrow Flow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      PAYMENT FLOW                            │
 ├─────────────────────────────────────────────────────────────┤
@@ -1140,7 +1146,7 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 
 ### 5.4 Complaint Resolution
 
-```
+```text
 ┌────────────────────────────────────────────────────────────────┐
 │                    COMPLAINT LIFECYCLE                          │
 ├────────────────────────────────────────────────────────────────┤
@@ -1248,7 +1254,7 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 | `/api/admin/refund`                         | POST      | Manual refund           |
 | `/api/admin/system-alerts/[id]/acknowledge` | PATCH     | Acknowledge alert       |
 | `/api/admin/users`                          | GET       | User management         |
-| `/api/admin/users/[id]`                     | GET/PATCH | User details/update     |
+| `/api/admin/users/[id]`                     | GET/PATCH/DELETE | User details/update/delete |
 | `/api/admin/users/[id]/ban`                 | POST      | Ban user                |
 
 **Other API Routes:**
@@ -1457,7 +1463,7 @@ Wash, Fold, Dry Cleaning, Ironing, Shoe Cleaning, Stain Removal, Bedding & Linen
 
 ### Component Hierarchy
 
-```
+```text
 RootLayout (app/layout.tsx)
 ├── SessionProvider (NextAuth)
 ├── SocketProvider (Socket.IO — single shared connection)
@@ -1466,6 +1472,7 @@ RootLayout (app/layout.tsx)
 └── Route Groups
     ├── (root) → Landing page
     ├── (auth) → Verification flows
+    ├── banned/ → Account suspension info page
     └── (dashboard) → Protected dashboards
         ├── admin/layout.tsx → AdminSidebar
         ├── provider/layout.tsx → ProviderSidebar + ProviderHeader
@@ -1628,6 +1635,7 @@ flowchart TD
 - Google OAuth as alternative auth flow
 - **Secure password reset**: Token-based with SHA-256 hashing (raw token never stored), 1-hour expiry, TTL auto-cleanup
 - **Session invalidation on password change**: JWT callback re-checks `passwordChangedAt` every 5 minutes; stale tokens invalidated automatically
+- **User Ban Enforcement**: Sign-in verification flow blocks users with `blocked_until` > now, displaying reason and expiry feedback to prevent platform abuse
 - **Anti-enumeration**: Forgot-password endpoint returns generic responses regardless of email existence
 - **Password change notifications**: Branded security emails sent on both reset and profile-driven password changes
 
@@ -1932,15 +1940,19 @@ Sitemap accessible at `{APP_URL}/sitemap.xml`.
 ### Robots Configuration (`app/robots.ts`)
 
 ```typescript
-export default function robots(): Metadata {
+export default function robots(): MetadataRoute.Robots {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://laundryease.in";
+
   return {
     rules: [
       {
         userAgent: "*",
+        allow: ["/"],
         disallow: ["/admin/", "/api/", "/complete-signup/", "/choose-role/"],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
+    host: baseUrl,
   };
 }
 ```
@@ -2072,6 +2084,7 @@ graph TB
         PY[Payout Orchestration]
         CR[Complaint Resolution]
         PW[Password Management]
+        UB[User Ban Enforcement]
         RT[Realtime Emitter]
     end
 
@@ -2262,6 +2275,8 @@ erDiagram
         string passwordHash
         date passwordChangedAt
         object coordinates
+        date blocked_until
+        string blocked_reason
     }
     providers {
         ObjectId _id
@@ -2270,6 +2285,8 @@ erDiagram
         date passwordChangedAt
         object locationGeoJSON
         object bankDetails
+        date blocked_until
+        string blocked_reason
     }
     bookings {
         ObjectId _id
@@ -2327,5 +2344,6 @@ LaundryEase is a production-grade laundry marketplace built with:
 8. **Quality Assurance** — 110+ unit test files + 6 end-to-end browser specs, React Compiler, strict TypeScript, 3 CI workflows, only 2 `eslint-disable` comments
 9. **Operational Visibility** — Cron run tracking, data integrity checks, abuse monitoring, alert analytics (trend, alert growth, average fix time), and browser security policy reports
 10. **Comprehensive SEO** — Next.js App Router metadata API, dynamic per-page metadata (`generateMetadata`), 5 JSON-LD schemas (SoftwareApplication, LocalBusiness, Service, Organization, FAQPage), Schema.org BreadcrumbList for provider pages, XML sitemap (34 routes), robots.txt configuration, OG/Twitter cards, multi-language support
-11. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); supports voice notes, photo uploads, and WhatsApp-style message deletion; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
-12. **Provider Capacity Management** — Atomic capacity checks during booking creation and acceptance, configurable max concurrent bookings per provider
+11. **User Ban Enforcement** — Strict authentication-level blocking with descriptive feedback (reason, expiry date) for banned accounts, preventing unauthorized access and enforcing platform guidelines
+12. **Real-Time Layer** — Socket.IO server co-hosted with Next.js via `server.js`; JWT-authenticated room joins for **order chat** (`order:<id>`) and **complaint chat** (`complaint:<id>`); supports voice notes, photo uploads, and WhatsApp-style message deletion; per-socket rate limiting; `SocketProvider` context with `useSocket()` hook
+13. **Provider Capacity Management** — Atomic capacity checks during booking creation and acceptance, configurable max concurrent bookings per provider
