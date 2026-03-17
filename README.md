@@ -61,6 +61,9 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
 - **Custom confirmation dialogs (no native browser dialogs)**
   All user-facing confirmations (cancel booking, ban user, resolve complaint, settlement details) use styled in-app modals (`ConfirmDialog`, `SettlementSummaryModal`, `BanUserDialog`) instead of browser `alert()`/`confirm()`/`prompt()` calls. Keyboard accessible, dark-mode aware, animated with Framer Motion.
 
+- **User Ban Enforcement**
+  Admins can enforce abuse policy by banning users with an expiry date and required reason. The authentication flow strictly blocks sign-in for banned accounts and displays descriptive feedback with reason and expiry time.
+
 - **Operational health monitoring & alerting**
   Platform automatically detects overdue payouts, failure spikes, and complaint backlogs. Alerts are sent by email or callback URL, with clear response targets and automatic owner assignment.
 
@@ -613,7 +616,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 
 **Quality Snapshot (current):**
 
-- Current unit test suite passes in CI and local verification
+- Current unit test suite passes in CI and local verification — **588 tests across 110 files**
 - `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
 - TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`, only 2 `eslint-disable` comments (both in CommonJS files)
@@ -624,6 +627,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 - Reschedule flow: atomic `$unset confirmedAt` on request, with race-condition-safe status checks in database writes
 - Password management: `passwordChangedAt` tested on both seeker/provider profile routes, password-changed email enqueuing verified
 - Real-time chat layer: room access checks, event sending, and local chat state are unit-tested
+- Code hygiene: Clean codebase with zero `console.log` debug statements, zero TODO/FIXME/HACK comments in production code
 
 **Remaining Hardening Opportunities:**
 
@@ -706,6 +710,7 @@ laundry-ease/
 │   │   ├── upload/               # Image upload (Cloudinary)
 │   │   └── webhooks/             # Razorpay webhook handler
 │   ├── auth/                     # Login page
+│   ├── banned/                   # Banned account informational page
 │   ├── choose-role/              # Role selection after OAuth
 │   ├── complete-signup/          # Profile completion (provider/seeker)
 │   ├── reset-password/           # Password reset page

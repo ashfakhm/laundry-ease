@@ -1,7 +1,7 @@
 # LaundryEase
 
-**Document Revision:** Rev 15  
-**Last Updated:** March 15, 2026  
+**Document Revision:** Rev 16  
+**Last Updated:** March 17, 2026  
 **Chapters:** 4 (Design), 5 (Implementation), 6 (Testing), 7 (Coding)
 
 ---
@@ -670,6 +670,7 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | coordinates       | Object   | Latitude and longitude (lat, lng)                                  |
 | outstanding_fees  | Number   | Unpaid booking fees balance                                        |
 | blocked_until     | Date     | Account block expiration (set after cancellation abuse)            |
+| blocked_reason    | String   | Reason provided for the account block                              |
 | isFlagged         | Boolean  | Admin-flagged status                                               |
 | cancellationCount | Number   | Total cancellations by this seeker                                 |
 | createdAt         | Date     | Registration timestamp                                             |
@@ -703,6 +704,8 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 | rating                   | Number   | Average star rating (1–5)                                    |
 | ratingTotal              | Number   | Sum of all ratings received                                  |
 | reviewCount              | Number   | Total number of reviews                                      |
+| blocked_until            | Date     | Account block expiration                                     |
+| blocked_reason           | String   | Reason provided for the account block                        |
 | createdAt                | Date     | Registration timestamp                                       |
 
 **Entity 3: Admin**
@@ -855,20 +858,20 @@ LaundryEase uses MongoDB, a document-based NoSQL database. Data is organized int
 
 **Entity 11: Email Outbox**
 
-| Attribute     | Type     | Description                                                      |
-| ------------- | -------- | ---------------------------------------------------------------- |
-| \_id          | ObjectId | Unique identifier (primary key)                                  |
-| type          | String   | Email type (delivery_otp, password_reset, magic_link, otp_email) |
-| to            | String   | Recipient email address                                          |
-| subject       | String   | Email subject                                                    |
-| body          | String   | Email content                                                    |
-| status        | String   | Delivery state (pending, processing, sent, failed)               |
-| attempts      | Number   | Delivery attempt count                                           |
-| maxAttempts   | Number   | Maximum retry limit (default: 5)                                 |
-| nextAttemptAt | Date     | Next scheduled retry time                                        |
-| lastError     | String   | Most recent error message                                        |
-| lockedAt      | Date     | Processing lock timestamp                                        |
-| createdAt     | Date     | Queue entry timestamp                                            |
+| Attribute     | Type     | Description                                                                        |
+| ------------- | -------- | ---------------------------------------------------------------------------------- |
+| \_id          | ObjectId | Unique identifier (primary key)                                                    |
+| type          | String   | Email type (delivery_otp, password_reset, password_changed, magic_link, otp_email) |
+| to            | String   | Recipient email address                                                            |
+| subject       | String   | Email subject                                                                      |
+| body          | String   | Email content                                                                      |
+| status        | String   | Delivery state (pending, processing, sent, failed)                                 |
+| attempts      | Number   | Delivery attempt count                                                             |
+| maxAttempts   | Number   | Maximum retry limit (default: 5)                                                   |
+| nextAttemptAt | Date     | Next scheduled retry time                                                          |
+| lastError     | String   | Most recent error message                                                          |
+| lockedAt      | Date     | Processing lock timestamp                                                          |
+| createdAt     | Date     | Queue entry timestamp                                                              |
 
 **Supporting Entities:**
 
@@ -899,6 +902,7 @@ erDiagram
         object coordinates
         number outstanding_fees
         date blocked_until
+        string blocked_reason
         boolean isFlagged
         number cancellationCount
         date createdAt
@@ -930,6 +934,8 @@ erDiagram
         number rating
         number ratingTotal
         number reviewCount
+        date blocked_until
+        string blocked_reason
         date createdAt
     }
 
@@ -1109,6 +1115,7 @@ The following tables show the structure of each MongoDB collection as used in th
 | coordinates.lng    | Number   | —              | Longitude                |
 | outstanding_fees   | Number   | Default: 0     | Unpaid fees              |
 | blocked_until      | Date     | Optional       | Block expiry             |
+| blocked_reason     | String   | Optional       | Reason for block         |
 | isFlagged          | Boolean  | Default: false | Admin flag               |
 | cancellationCount  | Number   | Default: 0     | Cancel count             |
 | createdAt          | Date     | —              | Registration date        |
@@ -1140,6 +1147,8 @@ The following tables show the structure of each MongoDB collection as used in th
 | razorpay_fund_account_id      | String        | —              | Razorpay payout account       |
 | rating                        | Number        | —              | Average rating (1–5)          |
 | reviewCount                   | Number        | Default: 0     | Total reviews                 |
+| blocked_until                 | Date          | Optional       | Block expiry                  |
+| blocked_reason                | String        | Optional       | Reason for block              |
 | createdAt                     | Date          | —              | Registration date             |
 
 **Collection: bookings**
@@ -1591,6 +1600,10 @@ LaundryEase uses **NextAuth v5 (Auth.js beta, v5.0.0-beta.30)** for authenticati
 - Each session contains the user's `id`, `email`, `name`, and `role` (seeker, provider, or admin).
 - Sessions are valid for **7 days** (604,800 seconds).
 - Every API route checks the session to determine who is making the request and whether they are authorized.
+
+**User Ban Enforcement:**
+
+The system checks if a user is currently banned during the `signIn` callback. If the user's `blocked_until` date is in the future, the sign-in is denied and the user is redirected to a custom page displaying the ban expiry date and the reason for the ban.
 
 **Verification flow:**
 
