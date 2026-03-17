@@ -1,4 +1,4 @@
-# LaundryEase — Presentation Q&A Helper (Rev 15)
+# LaundryEase — Presentation Q&A Helper (Rev 16)
 
 > **Purpose**: This document helps you answer any question your HODs and teachers may ask about your project. Read it fully before your mock presentation.
 
@@ -209,6 +209,15 @@
 - **`e2e/`**: End-to-end tests (Playwright)
 
 Each part has one job and doesn't depend much on other parts.
+
+### Q: How do you guarantee the system is scalable and safe for production triggers (e.g. Cron Jobs)?
+
+**Answer**:
+We use explicit **architectural safeguards** to prevent serverless execution failures and race conditions:
+
+1. **Self-Limiting Batch Loops**: Workflows like `processEligibleEscrowPayouts` (`lib/payouts.ts`) limit candidate processing to 20 orders per trigger cycle. This definitively protects against hitting Vercel execution timeouts or memory exhaust conditions as lookup arrays expand.
+2. **Deterministic Idempotency**: Payment triggers use deterministic bindings (`createRazorpayPayout` passes internal `order_id` string on `reference_id` inputs). This makes execution state collisions impossible avoiding duplicate payouts under race conditions.
+3. **Isolated Edge Compliance**: Middleware helpers separating heavy static Node environments inside `proxy.ts` strictly retain speed capability for runtime filters.
 
 ### Q: Explain the App Router structure
 
@@ -914,6 +923,20 @@ For providers, the password verification logic is extracted into `lib/services/p
 | **Token Theft**      | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL      |
 | **Stale Sessions**   | JWT re-check every 5 min invalidates tokens after password change       |
 | **Brute Force**      | MongoDB-backed rate limiting (per-IP + per-email/token buckets)         |
+| **Banned Accounts**  | Authentication blocked with reason + expiry feedback                    |
+
+### Q: Can administrators ban users and how is that enforced?
+
+**Answer**: Yes, administrators can ban users (Seekers or Providers) via the Admin Dashboard to prevent platform abuse.
+
+**Enforcement Workflow**:
+
+1. **Admin Action**: Creates a ban with a **Reason** and an **Expiry Date** (`blocked_until`).
+2. **Sign-In Verification**: During the authentication flow, the system queries the user's `blocked_until` status.
+3. **Strict Blocking**: If `blocked_until` is in the future, the sign-in is aborted _before_ issuing a session token.
+4. **Descriptive Feedback**: The user is shown a clear message: `"You are banned until [Date]. Reason: [Reason]"`.
+
+This ensures banned users cannot access any dashboard or perform operations since they lack a valid session.
 
 ### Q: How do you check webhook signatures?
 
@@ -1855,7 +1878,7 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 Current quality snapshot:
 
 - `110` test files
-- `587` tests passing (100% core route coverage)
+- `588` tests passing (100% core route coverage)
 - `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
@@ -2247,6 +2270,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **CSP pipeline**: Content-Security-Policy in Report-Only mode with violation capture endpoint; enforce via `CSP_ENFORCE=true`
 - **Security headers**: HSTS (production), X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy
 - **Rate limiting**: MongoDB-backed per-IP with 3 tiers (default 1 min, strict 5 min, auth 15 min) and TTL auto-cleanup
+- **User Ban Enforcement**: Strict authentication blocking during sign-in for users with `blocked_until` in the future. Displays dynamic `blocked_reason` and expiry feedback to prevent platform abuse.
 - **Same-origin enforcement**: `requireSameOrigin()` validates Origin/Referer on unsafe HTTP methods
 - **Password policy**: 8+ chars, uppercase, number, special char — enforced on signup, profile update, reset
 - **Secure password reset**: Token-based (SHA-256 hash stored, raw never persisted), 1hr TTL, anti-enumeration, per-IP + per-email rate limiting, all tokens invalidated on success
