@@ -1,10 +1,10 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-03-17 (Rev 16)
+**Last Updated:** 2026-03-17 (Rev 17)
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, secure password reset with session invalidation, provider capacity management, and user ban enforcement. The current test suite passes with **588 tests across 110 unit test files** and 6 Playwright E2E specs, with only 2 justified `eslint-disable` comments in CommonJS files.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, secure password reset with session invalidation, provider capacity management, and user ban enforcement. The current test suite passes with **591 tests across 111 unit test files** and 6 Playwright E2E specs, with only 2 justified `eslint-disable` comments in CommonJS files.
 
 ```mermaid
 graph LR
@@ -1240,22 +1240,22 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 
 **Admin API:**
 
-| Route                                       | Method    | Purpose                 |
-| ------------------------------------------- | --------- | ----------------------- |
-| `/api/admin/complaints`                     | GET       | List all complaints     |
-| `/api/admin/complaints/[id]`                | GET       | Get complaint details   |
-| `/api/admin/complaints/[id]/accept`         | PATCH     | Accept complaint        |
-| `/api/admin/complaints/[id]/access`         | PATCH     | Toggle provider access  |
-| `/api/admin/complaints/[id]/add-provider`   | PATCH     | Add provider to chat    |
-| `/api/admin/complaints/[id]/resolve`        | PATCH     | Resolve with outcome    |
-| `/api/admin/dashboard-stats`                | GET       | Dashboard statistics    |
-| `/api/admin/orders/[id]/extend-complaint`   | POST      | Extend complaint window |
-| `/api/admin/payments`                       | GET       | Payment management      |
-| `/api/admin/refund`                         | POST      | Manual refund           |
-| `/api/admin/system-alerts/[id]/acknowledge` | PATCH     | Acknowledge alert       |
-| `/api/admin/users`                          | GET       | User management         |
+| Route                                       | Method           | Purpose                    |
+| ------------------------------------------- | ---------------- | -------------------------- |
+| `/api/admin/complaints`                     | GET              | List all complaints        |
+| `/api/admin/complaints/[id]`                | GET              | Get complaint details      |
+| `/api/admin/complaints/[id]/accept`         | PATCH            | Accept complaint           |
+| `/api/admin/complaints/[id]/access`         | PATCH            | Toggle provider access     |
+| `/api/admin/complaints/[id]/add-provider`   | PATCH            | Add provider to chat       |
+| `/api/admin/complaints/[id]/resolve`        | PATCH            | Resolve with outcome       |
+| `/api/admin/dashboard-stats`                | GET              | Dashboard statistics       |
+| `/api/admin/orders/[id]/extend-complaint`   | POST             | Extend complaint window    |
+| `/api/admin/payments`                       | GET              | Payment management         |
+| `/api/admin/refund`                         | POST             | Manual refund              |
+| `/api/admin/system-alerts/[id]/acknowledge` | PATCH            | Acknowledge alert          |
+| `/api/admin/users`                          | GET              | User management            |
 | `/api/admin/users/[id]`                     | GET/PATCH/DELETE | User details/update/delete |
-| `/api/admin/users/[id]/ban`                 | POST      | Ban user                |
+| `/api/admin/users/[id]/ban`                 | POST             | Ban user                   |
 
 **Other API Routes:**
 

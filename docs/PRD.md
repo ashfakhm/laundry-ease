@@ -1,4 +1,4 @@
-# LaundryEase — Product Requirements Document (Rev 16)
+# LaundryEase — Product Requirements Document (Rev 17)
 
 ## 1. Executive Summary
 

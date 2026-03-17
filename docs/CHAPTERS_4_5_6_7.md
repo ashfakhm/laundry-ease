@@ -1,6 +1,6 @@
 # LaundryEase
 
-**Document Revision:** Rev 16  
+**Document Revision:** Rev 17  
 **Last Updated:** March 17, 2026  
 **Chapters:** 4 (Design), 5 (Implementation), 6 (Testing), 7 (Coding)
 
