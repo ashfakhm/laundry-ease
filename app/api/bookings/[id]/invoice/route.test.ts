@@ -450,6 +450,43 @@ describe("POST /api/bookings/[id]/invoice", () => {
         },
       );
     });
+
+    it("rejects negative discount values", async () => {
+      const providerId = new ObjectId(PROVIDER_ID);
+      const bookingId = new ObjectId(BOOKING_ID);
+
+      mockRequireProvider.mockResolvedValue({
+        user: {
+          id: providerId.toString(),
+          role: Role.PROVIDER,
+        },
+      });
+
+      dbMock.bookingFindOne.mockResolvedValue({
+        _id: bookingId,
+        provider_id: providerId,
+        status: "confirmed",
+      });
+
+      dbMock.providerFindOne.mockResolvedValue({
+        _id: providerId,
+      });
+
+      dbMock.bookingUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+      const invoicePayload = {
+        items: [{ itemType: "Shirt", quantity: 5, unitPrice: 50 }],
+        discount: -100, // Negative discount should be rejected
+      };
+
+      const res = await POST(makeRequest(invoicePayload), {
+        params: Promise.resolve({ id: BOOKING_ID }),
+      });
+
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.message).toMatch(/Invalid invoice data/i);
+    });
   });
 
   describe("error handling", () => {

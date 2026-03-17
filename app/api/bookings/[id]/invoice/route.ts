@@ -45,6 +45,14 @@ export async function POST(
     }
 
     const { items, notes, photos, discount, total, subtotal } = parsed.data;
+    // Explicitly reject negative discounts (defense-in-depth)
+    if (typeof discount === "number" && discount < 0) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        400,
+        "Discount cannot be negative",
+      );
+    }
 
     const { db } = await getDb();
 

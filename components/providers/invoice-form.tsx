@@ -21,6 +21,7 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
   const router = useRouter();
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [discount, setDiscount] = useState<number>(0);
+  const [discountError, setDiscountError] = useState<string | null>(null);
   const [pricingRates, setPricingRates] = useState<Record<string, number>>({});
   const [loadingRates, setLoadingRates] = useState(true);
 
@@ -415,13 +416,27 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
                 min={0}
                 max={subtotal}
                 value={discount}
-                onChange={(e) =>
-                  setDiscount(
-                    Math.max(0, Math.min(Number(e.target.value), subtotal)),
-                  )
-                }
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val < 0) {
+                    setDiscountError("Discount cannot be negative");
+                    setDiscount(0);
+                  } else if (val > subtotal) {
+                    setDiscountError("Discount cannot exceed subtotal");
+                    setDiscount(subtotal);
+                  } else {
+                    setDiscountError(null);
+                    setDiscount(val);
+                  }
+                }}
                 className="input input-sm input-bordered w-24 text-right bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground focus:bg-primary-foreground/20 focus:border-primary-foreground/40 rounded-lg ml-2"
+                aria-invalid={!!discountError}
               />
+              {discountError && (
+                <span className="text-xs text-red-500 ml-2">
+                  {discountError}
+                </span>
+              )}
             </div>
           </div>
           <div>
