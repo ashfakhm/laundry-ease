@@ -140,6 +140,45 @@ export default function UserManagementPage() {
     }
   }
 
+  function executeUnban(user: User) {
+    showConfirm({
+      title: "Unban User",
+      message: `Are you sure you want to lift the ban for ${user.name}?`,
+      confirmText: "Yes, Unban",
+      cancelText: "Cancel",
+      variant: "info",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/users/${user._id}/unban`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: user.role }),
+          });
+          if (res.ok) {
+            toast({
+              title: "User unbanned",
+              description: `${user.name}'s ban has been lifted.`,
+              type: "success",
+            });
+            fetchUsers();
+          } else {
+            toast({
+              title: "Failed to unban user",
+              description: "Please try again.",
+              type: "error",
+            });
+          }
+        } catch {
+          toast({
+            title: "Failed to unban user",
+            description: "Network error.",
+            type: "error",
+          });
+        }
+      },
+    });
+  }
+
   function deleteUser(user: User) {
     showConfirm({
       title: "Delete User",
@@ -471,13 +510,23 @@ export default function UserManagementPage() {
 
               {/* Action Buttons */}
               <div className="flex gap-3 mt-auto pt-4 border-t border-border/50">
-                <button
-                  className="flex-1 rounded-xl border border-red-200 bg-red-50/80 text-red-700 px-3 py-2.5 text-sm font-semibold hover:bg-red-100 hover:border-red-300 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/40 dark:hover:border-red-500/50 dark:hover:shadow-[0_0_15px_-3px_rgba(239,68,68,0.15)] transition-all duration-200 flex items-center justify-center gap-2 group/btn"
-                  onClick={() => banUser(user)}
-                >
-                  <ShieldAlert className="w-4 h-4 transition-transform group-hover/btn:scale-110" />
-                  Ban User
-                </button>
+                {user.blocked_until && new Date(user.blocked_until) > new Date() ? (
+                  <button
+                    className="flex-1 rounded-xl border border-emerald-200 bg-emerald-50/80 text-emerald-700 px-3 py-2.5 text-sm font-semibold hover:bg-emerald-100 hover:border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-900/40 dark:hover:border-emerald-500/50 transition-all duration-200 flex items-center justify-center gap-2 group/btn"
+                    onClick={() => executeUnban(user)}
+                  >
+                    <UserCheck className="w-4 h-4 transition-transform group-hover/btn:scale-110" />
+                    Unban User
+                  </button>
+                ) : (
+                  <button
+                    className="flex-1 rounded-xl border border-red-200 bg-red-50/80 text-red-700 px-3 py-2.5 text-sm font-semibold hover:bg-red-100 hover:border-red-300 dark:bg-red-950/20 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/40 dark:hover:border-red-500/50 transition-all duration-200 flex items-center justify-center gap-2 group/btn"
+                    onClick={() => banUser(user)}
+                  >
+                    <ShieldAlert className="w-4 h-4 transition-transform group-hover/btn:scale-110" />
+                    Ban User
+                  </button>
+                )}
                 <button
                   className="flex-1 rounded-xl border border-transparent bg-transparent text-muted-foreground px-3 py-2.5 text-sm font-semibold hover:bg-muted/50 hover:text-foreground hover:border-border/50 dark:hover:bg-slate-800/50 dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center gap-2 group/btn2"
                   onClick={() => deleteUser(user)}
