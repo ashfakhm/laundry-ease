@@ -67,6 +67,7 @@ describe("PATCH /api/admin/users/[id]/ban", () => {
       makeRequest({
         role: Role.SEEKER,
         blocked_until: new Date(Date.now() + 60_000).toISOString(),
+        reason: "Test reason",
       }),
       {
         params: Promise.resolve({ id: "bad-id" }),
@@ -80,6 +81,7 @@ describe("PATCH /api/admin/users/[id]/ban", () => {
       makeRequest({
         role: Role.SEEKER,
         blocked_until: "not-a-date",
+        reason: "Test reason",
       }),
       {
         params: Promise.resolve({ id: new ObjectId().toString() }),
@@ -93,6 +95,7 @@ describe("PATCH /api/admin/users/[id]/ban", () => {
       makeRequest({
         role: "admin",
         blocked_until: new Date(Date.now() + 60_000).toISOString(),
+        reason: "Test reason",
       }),
       {
         params: Promise.resolve({ id: new ObjectId().toString() }),
@@ -113,6 +116,7 @@ describe("PATCH /api/admin/users/[id]/ban", () => {
       makeRequest({
         role: Role.PROVIDER,
         blocked_until: blockedUntilIso,
+        reason: "Test reason for provider",
       }),
       {
         params: Promise.resolve({ id: userId }),
@@ -128,6 +132,7 @@ describe("PATCH /api/admin/users/[id]/ban", () => {
       {
         $set: {
           blocked_until: expect.any(Date),
+          blocked_reason: "Test reason for provider",
         },
       },
     );

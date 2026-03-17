@@ -89,6 +89,12 @@ function AuthPageContent() {
         setError("Invalid email or password.");
       } else if (res?.error === "SERVICE_UNAVAILABLE") {
         setError("Unable to connect to the server. Please try again later.");
+      } else if (res?.error?.startsWith("BANNED|")) {
+        const parts = res.error.split("|");
+        const until = parts[1];
+        const reason = parts[2] || "";
+        window.location.href = `/banned?until=${until}&reason=${encodeURIComponent(reason)}`;
+        return;
       } else {
         // Never display raw error strings — they may contain infrastructure details.
         setError("Something went wrong. Please try again.");

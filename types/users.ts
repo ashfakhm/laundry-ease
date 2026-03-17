@@ -10,6 +10,8 @@ export interface BaseUser {
   phoneVerified?: boolean;
   passwordHash?: string | null;
   passwordChangedAt?: Date | null;
+  blocked_until?: Date;
+  blocked_reason?: string;
   createdAt: Date;
 }
 
@@ -24,7 +26,6 @@ export interface Seeker extends BaseUser {
   } | null;
   coordinates?: { lat: number; lng: number };
   outstanding_fees?: number;
-  blocked_until?: Date;
   isFlagged?: boolean;
   flagReason?: string;
   flaggedAt?: Date;

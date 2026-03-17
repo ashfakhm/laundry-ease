@@ -45,8 +45,9 @@ export default function UserManagementPage() {
     isOpen: boolean;
     user: User | null;
     days: string;
+    reason: string;
     submitting: boolean;
-  }>({ isOpen: false, user: null, days: "7", submitting: false });
+  }>({ isOpen: false, user: null, days: "7", reason: "", submitting: false });
 
   useEffect(() => {
     fetchUsers();
@@ -94,12 +95,12 @@ export default function UserManagementPage() {
   }
 
   function banUser(user: User) {
-    setBanDialog({ isOpen: true, user, days: "7", submitting: false });
+    setBanDialog({ isOpen: true, user, days: "7", reason: "", submitting: false });
   }
 
   async function executeBan() {
-    const { user, days } = banDialog;
-    if (!user || !days || isNaN(Number(days)) || Number(days) <= 0) return;
+    const { user, days, reason } = banDialog;
+    if (!user || !days || isNaN(Number(days)) || Number(days) <= 0 || !reason.trim()) return;
     setBanDialog((prev) => ({ ...prev, submitting: true }));
     const until = new Date(
       Date.now() + Number(days) * 24 * 60 * 60 * 1000,
@@ -108,7 +109,11 @@ export default function UserManagementPage() {
       const res = await fetch(`/api/admin/users/${user._id}/ban`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocked_until: until, role: user.role }),
+        body: JSON.stringify({ 
+          blocked_until: until, 
+          role: user.role,
+          reason: reason.trim()
+        }),
       });
       if (res.ok) {
         toast({
@@ -131,7 +136,7 @@ export default function UserManagementPage() {
         type: "error",
       });
     } finally {
-      setBanDialog({ isOpen: false, user: null, days: "7", submitting: false });
+      setBanDialog({ isOpen: false, user: null, days: "7", reason: "", submitting: false });
     }
   }
 
@@ -183,6 +188,7 @@ export default function UserManagementPage() {
                 isOpen: false,
                 user: null,
                 days: "7",
+                reason: "",
                 submitting: false,
               })
             }
@@ -216,19 +222,26 @@ export default function UserManagementPage() {
                   setBanDialog((prev) => ({ ...prev, days: e.target.value }))
                 }
                 disabled={banDialog.submitting}
-                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 transition-all mb-5 disabled:opacity-50"
+                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 transition-all mb-4 disabled:opacity-50"
                 autoFocus
+              />
+
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                Reason for Ban
+              </label>
+              <textarea
+                value={banDialog.reason}
+                onChange={(e) =>
+                  setBanDialog((prev) => ({ ...prev, reason: e.target.value }))
+                }
+                disabled={banDialog.submitting}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 transition-all mb-5 disabled:opacity-50 resize-none h-20"
+                placeholder="e.g., Policy violation, unpaid fees..."
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !banDialog.submitting) executeBan();
-                  if (e.key === "Escape")
-                    setBanDialog({
-                      isOpen: false,
-                      user: null,
-                      days: "7",
-                      submitting: false,
-                    });
+                  if (e.key === "Enter" && e.ctrlKey && !banDialog.submitting) executeBan();
                 }}
               />
+
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() =>
@@ -236,6 +249,7 @@ export default function UserManagementPage() {
                       isOpen: false,
                       user: null,
                       days: "7",
+                      reason: "",
                       submitting: false,
                     })
                   }
@@ -250,7 +264,8 @@ export default function UserManagementPage() {
                     banDialog.submitting ||
                     !banDialog.days ||
                     isNaN(Number(banDialog.days)) ||
-                    Number(banDialog.days) <= 0
+                    Number(banDialog.days) <= 0 ||
+                    !banDialog.reason.trim()
                   }
                   className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >

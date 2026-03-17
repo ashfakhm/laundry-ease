@@ -11,6 +11,7 @@ import { requireSameOrigin } from "@/lib/api/security";
 const banUserSchema = z.object({
   blocked_until: z.string().datetime(),
   role: z.enum([Role.SEEKER, Role.PROVIDER]),
+  reason: z.string().min(1, "Reason is required"),
 });
 
 export async function PATCH(
@@ -38,7 +39,12 @@ export async function PATCH(
       .collection(collection)
       .updateOne(
         { _id: new ObjectId(id) },
-        { $set: { blocked_until: blockedUntil } },
+        { 
+          $set: { 
+            blocked_until: blockedUntil,
+            blocked_reason: parsed.data.reason,
+          } 
+        },
       );
 
     if (result.modifiedCount === 1) {

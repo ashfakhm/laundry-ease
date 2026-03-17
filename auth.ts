@@ -68,6 +68,12 @@ export const authOptions = {
           throw new Error("INVALID_CREDENTIALS");
         }
 
+        if (user.blocked_until && new Date(user.blocked_until) > new Date()) {
+          throw new Error(
+            `BANNED|${user.blocked_until.toISOString()}|${user.blocked_reason || ""}`,
+          );
+        }
+
         if (!user._id) {
           throw new Error("User ID not found");
         }
@@ -94,6 +100,11 @@ export const authOptions = {
         }
 
         const dbUser = await getUserByEmail(user.email);
+        
+        if (dbUser?.blocked_until && new Date(dbUser.blocked_until) > new Date()) {
+          return `/banned?until=${dbUser.blocked_until.toISOString()}&reason=${encodeURIComponent(dbUser.blocked_reason || "")}`;
+        }
+
         if (!dbUser?._id) {
           // Redirect to choose role page
           return "/choose-role";
