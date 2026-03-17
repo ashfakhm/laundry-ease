@@ -115,7 +115,6 @@ export default function AdminComplaintDetailPage({
         const payload = await res.json();
         const data = unwrapApiData<ComplaintData>(payload);
         setComplaint(data);
-        updateSeekerRefundAmount(0);
       } else {
         toast.error("Failed to load complaint");
       }
@@ -125,7 +124,7 @@ export default function AdminComplaintDetailPage({
     } finally {
       setLoading(false);
     }
-  }, [id, toast, updateSeekerRefundAmount]);
+  }, [id, toast]);
 
   useEffect(() => {
     fetchComplaint();
