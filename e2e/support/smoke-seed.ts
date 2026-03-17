@@ -136,6 +136,7 @@ async function upsertSeeker(
           lat: 12.9716,
           lng: 77.5946,
         },
+        isDeleted: false,
         updatedAt: now,
       },
       $setOnInsert: {
@@ -179,6 +180,7 @@ async function upsertProvider(
           lat: 12.9716,
           lng: 77.5946,
         },
+        isDeleted: false,
         updatedAt: now,
       },
       $setOnInsert: {
@@ -209,6 +211,7 @@ async function upsertAdmin(
         email: smokeUsers.admin.email,
         name: smokeUsers.admin.name,
         passwordHash: hashedPassword,
+        isDeleted: false,
         updatedAt: now,
       },
       $setOnInsert: {

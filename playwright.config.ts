@@ -55,12 +55,13 @@ export default defineConfig({
   webServer: useExternalBaseUrl
     ? undefined
     : {
-        command: `npm run dev -- --port ${e2ePort}`,
+        command: `npm run start -- --port ${e2ePort}`,
         url: baseURL,
         timeout: 180_000,
         reuseExistingServer,
         env: {
           ...process.env,
+          E2E_TEST_RUN: "1",
           HOST: process.env.E2E_HOST || "127.0.0.1",
           WATCHPACK_POLLING: process.env.WATCHPACK_POLLING || "true",
           CHOKIDAR_USEPOLLING: process.env.CHOKIDAR_USEPOLLING || "1",
