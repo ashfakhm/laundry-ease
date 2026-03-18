@@ -120,7 +120,8 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return data.url as string;
+    const unwrapped = unwrapApiData<{ url: string }>(data);
+    return unwrapped.url;
   }
 
   const subtotal = items.reduce(
