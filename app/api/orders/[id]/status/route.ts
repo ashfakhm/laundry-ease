@@ -12,8 +12,7 @@ import {
 } from "@/lib/orders/status-machine";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { DELIVERY_OTP_TTL_MS, RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
-import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
+import { RATE_LIMIT_STRICT_WINDOW_MS } from "@/lib/constants";
 
 // POST: Update Order Process Status
 export async function POST(
@@ -86,63 +85,10 @@ export async function POST(
     // Let's calculate it when status becomes "delivered".
 
     // OTP Logic
-    const updateData: {
-      process_status: OrderProcessStatus;
-      updatedAt: Date;
-      delivery_otp?: string;
-      delivery_otp_sent_at?: Date;
-      delivery_otp_expires_at?: Date;
-      delivery_otp_resend_count?: number;
-    } = {
+    const updateData = {
       process_status: status as OrderProcessStatus,
       updatedAt: new Date(),
     };
-
-    if (status === "out_for_delivery") {
-      // Generate OTP for delivery confirmation
-      const crypto = await import("crypto");
-      const otp = crypto.randomInt(100000, 1000000).toString();
-
-      // Hash the OTP securely for database storage
-      const bcrypt = await import("bcrypt");
-      const { BCRYPT_SALT_ROUNDS } = await import("@/lib/constants");
-      const hashedOtp = await bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
-
-      const otpSentAt = new Date();
-      const otpExpiresAt = new Date(otpSentAt.getTime() + DELIVERY_OTP_TTL_MS);
-      updateData.delivery_otp = hashedOtp;
-      updateData.delivery_otp_sent_at = otpSentAt;
-      updateData.delivery_otp_expires_at = otpExpiresAt;
-      updateData.delivery_otp_resend_count = 0;
-      // Send OTP to seeker via email (Gmail)
-      const seeker = await db
-        .collection("seekers")
-        .findOne({ _id: order.seeker_id });
-      if (seeker?.email) {
-        try {
-          await enqueueEmailOutboxJob({
-            kind: "delivery_otp",
-            payload: {
-              to: String(seeker.email),
-              otp,
-              orderId: id,
-              ttlMinutes: Math.floor(DELIVERY_OTP_TTL_MS / 60_000),
-            },
-          });
-          logger.info("ORDERS", "Delivery OTP email queued", {
-            orderId: id,
-          });
-        } catch (err) {
-          logger.error("ORDERS", "Failed to queue delivery OTP email", err, {
-            orderId: id,
-          });
-        }
-      } else {
-        logger.warn("ORDERS", "Seeker email not found, cannot send OTP email", {
-          orderId: id,
-        });
-      }
-    }
 
     // CRITICAL: "delivered" status can ONLY be set through confirm-delivery endpoint
     // This endpoint handles workflow status (processing → washing → ironing → ready → out_for_delivery)
