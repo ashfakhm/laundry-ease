@@ -56,7 +56,8 @@ export function EvidenceUpload({
 
         if (!res.ok) throw new Error("Upload failed");
         const data = await res.json();
-        return data.url;
+        return data.data?.url || data.url; // Safe fallback
+
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);
