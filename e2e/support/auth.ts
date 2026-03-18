@@ -33,6 +33,5 @@ export async function loginViaCredentials(
     )
     .toBe(expectedRole);
 
-  const expectedPath = `/${expectedRole}`;
   await expect(page).toHaveURL(new RegExp(`/${expectedRole}(/|$)`));
 }
