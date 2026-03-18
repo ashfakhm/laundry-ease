@@ -154,6 +154,12 @@ export default async function OrderDetailsPage({
                   Expected Delivery: {new Date(order.deadline).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
                 </p>
               )}
+              {isDelivered && order.otp_confirmed_at && (
+                <p className="text-sm font-bold mt-1 sm:ml-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Delivered On: {new Date(order.otp_confirmed_at).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} at {new Date(order.otp_confirmed_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <div

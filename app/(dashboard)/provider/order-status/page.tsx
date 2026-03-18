@@ -732,7 +732,7 @@ export default function OrderStatusPage() {
                           </p>
                         )}
                         {order.otp_confirmed_at && (
-                          <p className="mt-1 text-sm">
+                          <p className="mt-1 text-sm font-bold text-emerald-600">
                             Delivered: {formatDateTime(order.otp_confirmed_at)}
                           </p>
                         )}
