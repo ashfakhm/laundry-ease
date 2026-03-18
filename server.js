@@ -8,6 +8,9 @@
  *
  * @module server
  */
+process.env.NEXT_TURBOPACK = "0";
+process.env.NEXT_WEBPACK = "1";
+
 const dns = require("node:dns");
 const { createServer } = require("node:http");
 
@@ -210,7 +213,7 @@ function isRateLimited(socket) {
 /* ------------------------------------------------------------------ */
 
 async function bootstrap() {
-  const app = next({ dev, hostname, port, turbopack: false });
+  const app = next({ dev, hostname, port, turbopack: false, webpack: true });
   const handle = app.getRequestHandler();
 
   await app.prepare();
