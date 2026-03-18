@@ -416,9 +416,6 @@ export async function updateBookingPickupSlot(
         },
         updatedAt: new Date(),
       },
-      // Remove any previously-confirmed slot timestamp so the seeker is
-      // required to confirm the new time.
-      $unset: { "pickupSlot.confirmedAt": "" },
     },
   );
   return res.modifiedCount > 0;
