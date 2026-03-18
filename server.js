@@ -210,7 +210,7 @@ function isRateLimited(socket) {
 /* ------------------------------------------------------------------ */
 
 async function bootstrap() {
-  const app = next({ dev, hostname, port });
+  const app = next({ dev, hostname, port, turbopack: false });
   const handle = app.getRequestHandler();
 
   await app.prepare();
