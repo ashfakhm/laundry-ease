@@ -747,6 +747,7 @@ describe("complaint ticket lifecycle", () => {
         complaint_type: "late_delivery",
         title: "Arrived late and some items still damp",
         description: "Need partial compensation for the issue.",
+        photos: ["https://example.com/evidence-1.jpg"],
       }),
     );
     expect(createRes.status).toBe(201);
@@ -821,6 +822,7 @@ describe("complaint ticket lifecycle", () => {
         complaint_type: "quality_issue",
         title: "Reject flow regression guard",
         description: "Used to validate reject behavior end-to-end.",
+        photos: ["https://example.com/evidence-2.jpg"],
       }),
     );
     expect(createRes.status).toBe(201);

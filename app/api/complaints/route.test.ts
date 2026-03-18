@@ -88,7 +88,7 @@ function makeDbMock() {
   };
 }
 
-function makeRequest(body: any) {
+function makeRequest(body: Record<string, unknown>) {
   const defaultBody = {
     photos: ["https://example.com/photo1.jpg"],
   };
