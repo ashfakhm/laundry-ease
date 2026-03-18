@@ -34,7 +34,5 @@ export async function loginViaCredentials(
     .toBe(expectedRole);
 
   const expectedPath = `/${expectedRole}`;
-  if (!page.url().includes(expectedPath)) {
-    await page.goto(expectedPath);
-  }
+  await expect(page).toHaveURL(new RegExp(`/${expectedRole}(/|$)`));
 }
