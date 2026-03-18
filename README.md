@@ -1,5 +1,10 @@
 # LaundryEase
 
+![Lighthouse Performance](https://img.shields.io/badge/Performance-89-orange?style=for-the-badge&logo=lighthouse)
+![Lighthouse Accessibility](https://img.shields.io/badge/Accessibility-94-brightgreen?style=for-the-badge&logo=lighthouse)
+![Lighthouse Best Practices](https://img.shields.io/badge/Best%20Practices-92-brightgreen?style=for-the-badge&logo=lighthouse)
+![Lighthouse SEO](https://img.shields.io/badge/SEO-100-brightgreen?style=for-the-badge&logo=lighthouse)
+
 ## 1. One-Paragraph Product Story
 
 Laundry runs on informal promises: "I'll pick it up," "I'll start tonight," "I'll pay when it's delivered." Those promises break because neither side can prove what happened and neither side wants to take the first risk. Customers hand over personal clothing with no visibility. Providers spend time, water, electricity, and labor with no payment guarantee. Existing marketplaces paper over the gap with reviews and chat, but the failure happens mid-transaction, not after it. LaundryEase exists because local services need a contract you can see: money committed before work starts, progress tracked as facts, and delivery verified before settlement.
@@ -616,6 +621,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 
 **Quality Snapshot (current):**
 
+- **Lighthouse Scores**: 100 SEO, 94 Accessibility, 92 Best Practices, 89 Performance. Achieved exceptional accessibility and a perfect SEO score.
 - Current unit test suite passes in CI and local verification — **591 tests across 111 files**
 - `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
