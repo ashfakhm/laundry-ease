@@ -78,42 +78,56 @@ export const POST = withErrorHandling(async (req: Request) => {
     );
   }
 
-  if (order.process_status !== "delivered") {
+  const allowedStatuses = [
+    "invoiced",
+    "processing",
+    "washing",
+    "ironing",
+    "ready",
+    "out_for_delivery",
+    "delivered",
+  ];
+
+  if (!allowedStatuses.includes(order.process_status)) {
     throw Errors.validation(
-      "Complaints can only be raised after delivery is confirmed",
+      "Complaints can only be raised for active or delivered orders",
     );
   }
 
-  const deliveredAtRaw = order.otp_confirmed_at || order.escrow_started_at;
-  if (!deliveredAtRaw) {
-    throw Errors.validation("Delivery timestamp missing for this order");
-  }
+  // 3. Deadline Check (Only for delivered orders)
+  if (order.process_status === "delivered") {
+    const deliveredAtRaw = order.otp_confirmed_at || order.escrow_started_at;
+    if (!deliveredAtRaw) {
+      throw Errors.validation("Delivery timestamp missing for this order");
+    }
 
-  const deliveredAt = new Date(deliveredAtRaw);
-  if (Number.isNaN(deliveredAt.getTime())) {
-    throw Errors.validation("Invalid delivery timestamp");
-  }
+    const deliveredAt = new Date(deliveredAtRaw);
+    if (Number.isNaN(deliveredAt.getTime())) {
+      throw Errors.validation("Invalid delivery timestamp");
+    }
 
-  let complaintDeadline = new Date(
-    deliveredAt.getTime() + COMPLAINT_FILING_WINDOW_MS,
-  );
+    let complaintDeadline = new Date(
+      deliveredAt.getTime() + COMPLAINT_FILING_WINDOW_MS,
+    );
 
-  // Allow explicit admin extension of the SLA window
-  if (order.extended_complaint_window_until) {
-    const extendedDeadline = new Date(order.extended_complaint_window_until);
-    if (
-      !Number.isNaN(extendedDeadline.getTime()) &&
-      extendedDeadline.getTime() > complaintDeadline.getTime()
-    ) {
-      complaintDeadline = extendedDeadline;
+    // Allow explicit admin extension of the SLA window
+    if (order.extended_complaint_window_until) {
+      const extendedDeadline = new Date(order.extended_complaint_window_until);
+      if (
+        !Number.isNaN(extendedDeadline.getTime()) &&
+        extendedDeadline.getTime() > complaintDeadline.getTime()
+      ) {
+        complaintDeadline = extendedDeadline;
+      }
+    }
+
+    if (Date.now() > complaintDeadline.getTime()) {
+      throw Errors.conflict(
+        "Complaint window expired. Complaints must be raised within 24 hours of delivery, or by the granted extension deadline.",
+      );
     }
   }
 
-  if (Date.now() > complaintDeadline.getTime()) {
-    throw Errors.conflict(
-      "Complaint window expired. Complaints must be raised within 24 hours of delivery, or by the granted extension deadline.",
-    );
-  }
 
   // 2. Create Complaint
   const complaint = await createComplaint({

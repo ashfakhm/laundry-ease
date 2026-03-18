@@ -315,7 +315,9 @@ export default async function OrderDetailsPage({
                 deliveredAt={order.otp_confirmed_at}
                 isDelivered={isDelivered}
                 hasReviewed={hasReviewed}
+                processStatus={processStatus}
               />
+
             </div>
 
             {/* 4. Chat Section */}

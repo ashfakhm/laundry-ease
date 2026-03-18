@@ -70,7 +70,11 @@ export const createComplaintSchema = z
     description: z
       .string()
       .min(10, "Description must be at least 10 characters"),
-    photos: z.array(z.url()).max(5, "Maximum 5 photos allowed").optional(),
+    photos: z
+      .array(z.url())
+      .min(1, "At least one evidence photo is required")
+      .max(5, "Maximum 5 photos allowed"),
+
   })
   .refine((data) => data.order_id || data.booking_id, {
     message: "Either order_id or booking_id is required",

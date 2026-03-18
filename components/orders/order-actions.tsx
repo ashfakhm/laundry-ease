@@ -160,6 +160,11 @@ export function ComplaintModal({
       toast.error("Title must be at least 5 characters");
       return;
     }
+    if (photos.length === 0) {
+      toast.error("At least one evidence photo is required");
+      return;
+    }
+
 
     setSubmitting(true);
     try {
@@ -263,7 +268,7 @@ export function ComplaintModal({
 
           <div>
             <label className="block text-xs font-bold uppercase text-muted-foreground mb-1.5">
-              Evidence (Optional)
+              Evidence (At least 1 photo required)
             </label>
             <EvidenceUpload
               value={photos}

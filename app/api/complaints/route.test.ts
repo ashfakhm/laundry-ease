@@ -88,16 +88,20 @@ function makeDbMock() {
   };
 }
 
-function makeRequest(body: unknown) {
+function makeRequest(body: any) {
+  const defaultBody = {
+    photos: ["https://example.com/photo1.jpg"],
+  };
   return new Request("https://laundryease.test/api/complaints", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       origin: "https://laundryease.test",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...defaultBody, ...body }),
   });
 }
+
 
 describe("POST /api/complaints", () => {
   let dbMock: ReturnType<typeof makeDbMock>;
@@ -255,7 +259,24 @@ describe("POST /api/complaints", () => {
       expect(res.status).toBe(400);
       expect(data.error.message).toBe("Invalid complaint data");
     });
+
+    it("returns 400 for invalid payload - missing photos", async () => {
+      const res = await POST(
+        makeRequest({
+          order_id: ORDER_ID,
+          complaint_type: "late_delivery",
+          title: "Late delivery",
+          description: "The delivery was very late",
+          photos: [], // Empty photos array
+        }),
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error.message).toBe("Invalid complaint data");
+    });
   });
+
 
   describe("order lookup", () => {
     it("returns 404 when order not found", async () => {
@@ -333,13 +354,13 @@ describe("POST /api/complaints", () => {
       });
     });
 
-    it("returns 400 when order is not delivered", async () => {
+    it("creates complaint when order is not delivered but active", async () => {
       mockGetOrderById.mockResolvedValue({
         _id: new ObjectId(ORDER_ID),
         booking_id: new ObjectId(BOOKING_ID),
         seeker_id: new ObjectId(SEEKER_ID),
         provider_id: new ObjectId(PROVIDER_ID),
-        process_status: "processing", // Not delivered
+        process_status: "processing", // Not delivered but active
       });
 
       const res = await POST(
@@ -352,9 +373,10 @@ describe("POST /api/complaints", () => {
       );
       const data = await res.json();
 
-      expect(res.status).toBe(400);
-      expect(data.error.message).toContain("only be raised after delivery");
+      expect(res.status).toBe(201);
+      expect(data.success).toBe(true);
     });
+
 
     it("returns 400 when delivery timestamp is missing", async () => {
       mockGetOrderById.mockResolvedValue({
