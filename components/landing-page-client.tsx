@@ -4,9 +4,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, MapPin, ShieldCheck, Clock } from "lucide-react";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { SpotlightCard } from "@/components/ui/spotlight-card";
-import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
+
+const FeatureCard = dynamic(() => import("./ui/feature-card").then(mod => mod.FeatureCard), { ssr: false });
+const WorkflowStep = dynamic(() => import("./ui/workflow-step").then(mod => mod.WorkflowStep), { ssr: false });
 
 export function LandingPageClient() {
   return (
@@ -22,6 +24,7 @@ export function LandingPageClient() {
                 width={32}
                 height={32}
                 className="object-cover"
+                priority
               />
             </div>
             <span className="font-heading font-semibold text-lg tracking-tight">
@@ -59,19 +62,12 @@ export function LandingPageClient() {
       </header>
 
       <main className="flex-1 pt-24 relative">
-        {/* Interactive Background */}
-        <InteractiveGridPattern />
 
         {/* Hero Section */}
         <section className="relative px-6 py-24 md:py-32 overflow-hidden">
           <div className="container mx-auto max-w-6xl relative z-10">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <motion.div
-                initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="text-left space-y-8"
-              >
+              <div className="text-left space-y-8 animate-in fade-in duration-700 slide-in-from-bottom-5">
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -111,7 +107,7 @@ export function LandingPageClient() {
                     </button>
                   </Link>
                 </div>
-              </motion.div>
+              </div>
 
               {/* Minimalist Abstract Visual */}
               <motion.div
@@ -295,74 +291,3 @@ export function LandingPageClient() {
   );
 }
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-  delay,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  delay: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay, duration: 0.5 }}
-      whileHover={{ y: -5 }}
-      className="h-full"
-    >
-      <SpotlightCard className="h-full p-8 rounded-2xl bg-card/40 backdrop-blur-md border border-white/10 hover:border-primary/20 transition-all shadow-sm hover:shadow-md group">
-        <div className="mb-6 p-4 bg-primary/5 rounded-2xl inline-block border border-primary/10 group-hover:bg-primary/10 transition-colors">
-          {icon}
-        </div>
-        <h3 className="font-heading text-xl font-bold mb-3 tracking-tight text-foreground/90">
-          {title}
-        </h3>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {description}
-        </p>
-      </SpotlightCard>
-    </motion.div>
-  );
-}
-
-function WorkflowStep({
-  number,
-  title,
-  description,
-}: {
-  number: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      className="md:flex items-start gap-8 relative pl-8 md:pl-0 group"
-    >
-      <div className="hidden md:block absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-background border-[3px] border-primary rounded-full z-10 shadow-[0_0_10px_rgba(45,212,191,0.6)] group-hover:scale-125 transition-transform duration-300" />
-
-      <div className="md:w-1/2 md:text-right md:pr-12">
-        <span className="text-xs font-bold text-primary tracking-widest uppercase mb-2 block opacity-80">
-          Step {number}
-        </span>
-        <h3 className="font-heading text-2xl font-bold mb-2 group-hover:text-primary transition-colors duration-300">
-          {title}
-        </h3>
-      </div>
-      <div className="md:w-1/2 md:pl-12 pb-16 md:pb-0 md:ml-0 pl-8">
-        {/* Mobile dot */}
-        <div className="md:hidden absolute -left-1.5 top-1 w-3 h-3 bg-background border-[3px] border-primary rounded-full z-10 shadow-[0_0_10px_rgba(45,212,191,0.6)]" />
-        <p className="text-muted-foreground leading-relaxed max-w-sm">
-          {description}
-        </p>
-      </div>
-    </motion.div>
-  );
-}
