@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { X, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,7 +29,18 @@ export function ImageUpload({
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  // Local preview to immediately reflect upload results without depending
+  // on the parent's re-render cycle (e.g. react-hook-form watch)
+  const [preview, setPreview] = useState<string>(value);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Stable ref for onChange to avoid stale closures in async callbacks
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Sync preview when the parent value changes (e.g. on initial load)
+  useEffect(() => {
+    setPreview(value);
+  }, [value]);
 
   const maxSize =
     variant === "profile" ? MAX_PROFILE_IMAGE_BYTES : MAX_UPLOAD_FILE_BYTES;
@@ -62,6 +73,7 @@ export function ImageUpload({
   const uploadFile = useCallback(
     async (file: File) => {
       setUploading(true);
+      setError(null);
       try {
         const formData = new FormData();
         formData.append("file", file);
@@ -81,7 +93,11 @@ export function ImageUpload({
           throw new Error(data.error?.message || "Upload failed");
         }
 
-        onChange(data.data.url);
+        const url = data.data?.url || data.url;
+        // Update local preview immediately so the image shows
+        setPreview(url);
+        // Also notify the parent via stable ref
+        onChangeRef.current(url);
       } catch (err: unknown) {
         reportError("ImageUploadError", err);
         const message =
@@ -93,7 +109,7 @@ export function ImageUpload({
         setUploading(false);
       }
     },
-    [variant, onChange],
+    [variant],
   );
 
   const handleCropConfirm = useCallback(
@@ -116,13 +132,16 @@ export function ImageUpload({
   }, [cropSrc]);
 
   const handleRemove = () => {
-    onChange("");
+    setPreview("");
+    onChangeRef.current("");
     if (inputRef.current) {
       inputRef.current.value = "";
     }
   };
 
   const isProfile = variant === "profile";
+  // Use local preview as the source of truth for display
+  const displayValue = preview;
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -143,10 +162,10 @@ export function ImageUpload({
               Uploading...
             </span>
           </div>
-        ) : value ? (
+        ) : displayValue ? (
           <>
             <Image
-              src={value}
+              src={displayValue}
               alt={label}
               fill
               sizes={isProfile ? "160px" : "(max-width: 1024px) 100vw, 1024px"}
@@ -197,7 +216,7 @@ export function ImageUpload({
         disabled={uploading}
       />
 
-      {value && !error && !uploading && (
+      {displayValue && !error && !uploading && (
         <button
           type="button"
           onClick={() => inputRef.current?.click()}

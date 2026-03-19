@@ -46,7 +46,12 @@ const providerProfileSchema = z
     // Bank Details
     bankAccountHolder: z.string().min(2, "Account holder name is required"),
     bankAccountNumber: z.string().min(6, "Account number is required"),
-    bankIFSC: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code"),
+    bankIFSC: z.string().refine((val) => {
+      return (
+        /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(val) || 
+        (val.includes("*") && val.length >= 8)
+      );
+    }, "Invalid IFSC code"),
     upiId: z.string().optional(),
     // Images
     profilePicture: z.string().optional(),
@@ -117,6 +122,8 @@ export default function ProviderEditProfilePage() {
       pricing: 0,
       capacity: 100,
       items: [],
+      profilePicture: "",
+      bannerImage: "",
       bankAccountHolder: "",
       bankAccountNumber: "",
       bankIFSC: "",
@@ -148,6 +155,8 @@ export default function ProviderEditProfilePage() {
           pricing?: number;
           capacity?: number;
           pricingRates?: Record<string, number>;
+          profilePicture?: string;
+          bannerImage?: string;
           bankDetails?: {
             accountHolderName?: string;
             accountNumber?: string;
@@ -176,6 +185,8 @@ export default function ProviderEditProfilePage() {
                 price: Number(price),
               }))
             : [],
+          profilePicture: data.profilePicture || "",
+          bannerImage: data.bannerImage || "",
           bankAccountHolder: data.bankDetails?.accountHolderName || "",
           bankAccountNumber: data.bankDetails?.accountNumber || "",
           bankIFSC: data.bankDetails?.ifsc || "",
@@ -269,7 +280,14 @@ export default function ProviderEditProfilePage() {
         </p>
       </header>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+        const firstError = Object.entries(errors)[0];
+        if (firstError) {
+          const [field, err] = firstError;
+          const message = typeof err?.message === "string" ? err.message : `Validation error in ${field}`;
+          toast.error(message);
+        }
+      })} className="space-y-8">
         <div className="grid md:grid-cols-2 gap-8">
           <BusinessInfoSection form={form} />
           <ServicesOfferedSection form={form} />

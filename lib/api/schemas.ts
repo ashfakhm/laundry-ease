@@ -242,14 +242,20 @@ export const updateProviderProfileSchema = z.object({
     .optional(),
   capacity: z.number().int().positive().max(100).optional(),
   phone: phoneSchema.optional(),
-  profilePicture: z.string().url().optional(),
-  bannerImage: z.string().url().optional(),
+  profilePicture: z.string().url().or(z.literal("")).optional(),
+  bannerImage: z.string().url().or(z.literal("")).optional(),
   bankAccountHolder: z.string().min(2).optional(),
   bankAccountNumber: z.string().min(6).optional(),
   bankIFSC: z
     .string()
-    .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/i, "Invalid IFSC code")
-    .optional(),
+    .optional()
+    .refine((val) => {
+      if (!val) return true;
+      return (
+        /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(val) || 
+        (val.includes("*") && val.length >= 4)
+      );
+    }, "Invalid IFSC code"),
   upiId: z.string().optional(),
 });
 

@@ -139,19 +139,28 @@ export async function PATCH(req: Request) {
     if (bannerImage !== undefined) updateFields.bannerImage = bannerImage;
 
     // Bank Details Update
-    if (
-      bankAccountHolder !== undefined ||
-      bankAccountNumber !== undefined ||
-      bankIFSC !== undefined ||
-      upiId !== undefined
-    ) {
-      if (bankAccountHolder !== undefined)
-        updateFields["bankDetails.accountHolderName"] = bankAccountHolder;
-      if (bankAccountNumber !== undefined)
-        updateFields["bankDetails.accountNumber"] = bankAccountNumber;
-      if (bankIFSC !== undefined) updateFields["bankDetails.ifsc"] = bankIFSC;
-      if (upiId !== undefined) updateFields["bankDetails.upiId"] = upiId;
+    const isMasked = (val: unknown) => 
+      typeof val === "string" && (val.includes("*") || val.includes("X"));
 
+    let hasBankUpdate = false;
+
+    if (bankAccountHolder !== undefined) {
+      updateFields["bankDetails.accountHolderName"] = bankAccountHolder;
+      hasBankUpdate = true;
+    }
+    if (bankAccountNumber !== undefined && !isMasked(bankAccountNumber)) {
+      updateFields["bankDetails.accountNumber"] = bankAccountNumber;
+      hasBankUpdate = true;
+    }
+    if (bankIFSC !== undefined && !isMasked(bankIFSC)) {
+      updateFields["bankDetails.ifsc"] = bankIFSC;
+      hasBankUpdate = true;
+    }
+    if (upiId !== undefined && !isMasked(upiId)) {
+      updateFields["bankDetails.upiId"] = upiId;
+    }
+
+    if (hasBankUpdate) {
       const { db: bankDb } = await getDb();
       await syncBankDetailsOrFail(bankDb, {
         providerId,

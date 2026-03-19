@@ -60,23 +60,27 @@ export async function syncBankDetailsWithRazorpay(
     updateFields.razorpay_contact_id = contactId;
   }
 
-  // 2. Create Fund Account (bank) if all required fields present
-  const accName =
-    (updateFields["bankDetails.accountHolderName"] as string) ||
-    currentProvider.bankDetails?.accountHolderName;
-  const accNumber =
-    (updateFields["bankDetails.accountNumber"] as string) ||
-    currentProvider.bankDetails?.accountNumber;
-  const accIfsc =
-    (updateFields["bankDetails.ifsc"] as string) ||
-    currentProvider.bankDetails?.ifsc;
+  // 2. Create Fund Account (bank) ONLY if explicit, unmasked changes are provided
+  const hasUnmaskedValue = (val: unknown) => 
+    typeof val === "string" && !val.includes("*") && !val.includes("X") && val.trim() !== "";
 
-  if (contactId && accName && accNumber && accIfsc) {
+  const accName = updateFields["bankDetails.accountHolderName"] as string;
+  const accNumber = updateFields["bankDetails.accountNumber"] as string;
+  const accIfsc = updateFields["bankDetails.ifsc"] as string;
+
+  const shouldSyncFund = 
+    hasUnmaskedValue(accNumber) && 
+    hasUnmaskedValue(accIfsc) && 
+    (hasUnmaskedValue(accName) || currentProvider.bankDetails?.accountHolderName);
+
+  if (contactId && shouldSyncFund) {
+    const finalName = accName || currentProvider.bankDetails?.accountHolderName || contactName;
+    
     const fundAccount = await createRazorpayFundAccount({
       contact_id: contactId,
       account_type: "bank_account",
       bank_account: {
-        name: accName,
+        name: finalName,
         account_number: accNumber,
         ifsc: accIfsc,
       },

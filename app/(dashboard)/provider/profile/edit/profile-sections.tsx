@@ -137,14 +137,24 @@ export function BusinessInfoSection({ form }: FormProps) {
                 value={
                   (form.watch("profilePicture") as unknown as string) || ""
                 }
-                onChange={(val) => form.setValue("profilePicture", val)}
+                onChange={(val) =>
+                  form.setValue("profilePicture", val, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
                 variant="profile"
               />
               <div className="md:col-span-2">
                 <ImageUpload
                   label="Banner Image"
                   value={(form.watch("bannerImage") as unknown as string) || ""}
-                  onChange={(val) => form.setValue("bannerImage", val)}
+                  onChange={(val) =>
+                    form.setValue("bannerImage", val, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
                   variant="banner"
                 />
               </div>
