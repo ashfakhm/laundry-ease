@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { X, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MAX_PROFILE_IMAGE_BYTES, MAX_UPLOAD_FILE_BYTES } from "@/lib/constants";
+import {
+  MAX_PROFILE_IMAGE_BYTES,
+  MAX_UPLOAD_FILE_BYTES,
+} from "@/lib/constants";
 import { reportError } from "@/lib/client-error";
 import Image from "next/image";
+import { ImageCropModal } from "./image-crop-modal";
 
 interface ImageUploadProps {
   label: string;
@@ -24,12 +28,14 @@ export function ImageUpload({
 }: ImageUploadProps) {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const maxSize = variant === "profile" ? MAX_PROFILE_IMAGE_BYTES : MAX_UPLOAD_FILE_BYTES;
+  const maxSize =
+    variant === "profile" ? MAX_PROFILE_IMAGE_BYTES : MAX_UPLOAD_FILE_BYTES;
   const acceptedFormats = ["image/jpeg", "image/png", "image/webp"];
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -48,39 +54,66 @@ export function ImageUpload({
       return;
     }
 
-    // Upload to Cloudinary
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append(
-        "folder",
-        variant === "profile" ? "provider-profiles" : "provider-banners",
-      );
-
-      const response = await fetch("/api/upload/image", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error?.message || "Upload failed");
-      }
-
-      onChange(data.url);
-    } catch (err: unknown) {
-      reportError("ImageUploadError", err);
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Failed to upload image. Please try again.";
-      setError(message);
-    } finally {
-      setUploading(false);
-    }
+    // Open crop modal with the selected image
+    const objectUrl = URL.createObjectURL(file);
+    setCropSrc(objectUrl);
   };
+
+  const uploadFile = useCallback(
+    async (file: File) => {
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append(
+          "folder",
+          variant === "profile" ? "provider-profiles" : "provider-banners",
+        );
+
+        const response = await fetch("/api/upload/image", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error?.message || "Upload failed");
+        }
+
+        onChange(data.url);
+      } catch (err: unknown) {
+        reportError("ImageUploadError", err);
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to upload image. Please try again.";
+        setError(message);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [variant, onChange],
+  );
+
+  const handleCropConfirm = useCallback(
+    (croppedFile: File) => {
+      // Clean up object URL
+      if (cropSrc) URL.revokeObjectURL(cropSrc);
+      setCropSrc(null);
+      // Reset file input so the same file can be re-selected
+      if (inputRef.current) inputRef.current.value = "";
+      // Upload the cropped file
+      uploadFile(croppedFile);
+    },
+    [cropSrc, uploadFile],
+  );
+
+  const handleCropCancel = useCallback(() => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    if (inputRef.current) inputRef.current.value = "";
+  }, [cropSrc]);
 
   const handleRemove = () => {
     onChange("");
@@ -100,7 +133,7 @@ export function ImageUpload({
           "relative overflow-hidden rounded-2xl border-2 border-dashed border-border bg-muted/30 transition-colors hover:border-primary/50",
           isProfile
             ? "aspect-square w-40 mx-auto"
-            : "aspect-[4/1] w-full max-w-2xl",
+            : "aspect-4/1 w-full max-w-2xl",
         )}
       >
         {uploading ? (
@@ -172,6 +205,16 @@ export function ImageUpload({
         >
           Change {isProfile ? "Photo" : "Banner"}
         </button>
+      )}
+
+      {/* Crop Modal */}
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          variant={variant}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
       )}
     </div>
   );
