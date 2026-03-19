@@ -7,9 +7,8 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
-import { requireAuth } from "@/lib/api/auth";
+import { optionalAuth } from "@/lib/api/auth";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
-import { ObjectId } from "mongodb";
 import { env } from "@/lib/env";
 
 const isCloudinaryConfigured = !!(
@@ -39,12 +38,9 @@ export async function POST(req: NextRequest) {
       windowMs: RATE_LIMIT_STRICT_WINDOW_MS,
     });
 
-    const { user } = await requireAuth();
-    if (!user?.id || !ObjectId.isValid(user.id)) {
-      return errorResponse(
-        new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized"),
-      );
-    }
+    // Optional auth: allow uploads during signup (unauthenticated)
+    // Route is still protected by same-origin + rate limiting above
+    await optionalAuth();
 
     const formData = await req.formData();
     const file = formData.get("file") as File;

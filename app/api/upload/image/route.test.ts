@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ObjectId } from "mongodb";
 import { NextRequest } from "next/server";
 
-const { mockRequireAuth, mockRequireSameOrigin, mockEnforceRateLimit, mockEnv } =
+const { mockOptionalAuth, mockRequireSameOrigin, mockEnforceRateLimit, mockEnv } =
   vi.hoisted(() => ({
-    mockRequireAuth: vi.fn(),
+    mockOptionalAuth: vi.fn(),
     mockRequireSameOrigin: vi.fn(),
     mockEnforceRateLimit: vi.fn(),
     mockEnv: {
@@ -18,7 +17,7 @@ const { mockRequireAuth, mockRequireSameOrigin, mockEnforceRateLimit, mockEnv } 
 vi.mock("@/lib/env", () => ({ env: mockEnv }));
 
 vi.mock("@/lib/api/auth", () => ({
-  requireAuth: mockRequireAuth,
+  optionalAuth: mockOptionalAuth,
 }));
 
 vi.mock("@/lib/api/security", () => ({
@@ -65,9 +64,7 @@ describe("POST /api/upload/image", () => {
       resetAt: new Date(),
       retryAfterSeconds: 60,
     });
-    mockRequireAuth.mockResolvedValue({
-      user: { id: new ObjectId().toString(), email: "user@laundryease.test" },
-    });
+    mockOptionalAuth.mockResolvedValue(null);
   });
 
   afterEach(() => {
