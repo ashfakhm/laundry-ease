@@ -349,6 +349,7 @@ export default function ComplaintsPage() {
                                 alt={getProviderDisplayName(complaint.provider)}
                                 width={32}
                                 height={32}
+                                sizes="32px"
                                 className="h-full w-full object-cover"
                               />
                             ) : (

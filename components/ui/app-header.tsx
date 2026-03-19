@@ -19,6 +19,7 @@ export function AppHeader({ showAuth = true }: AppHeaderProps) {
               alt="LaundryEase logo"
               width={32}
               height={32}
+              sizes="32px"
               className="object-cover"
             />
           </div>
@@ -37,7 +38,7 @@ export function AppHeader({ showAuth = true }: AppHeaderProps) {
                 </button>
               </Link>
               <Link href="/choose-role">
-                <button className="h-9 px-4 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.1)] hover:translate-y-[-1px]">
+                <button className="h-9 px-4 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.1)] hover:translate-y-px">
                   Get Started
                 </button>
               </Link>

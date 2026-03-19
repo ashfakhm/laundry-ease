@@ -92,6 +92,7 @@ export function EvidenceUpload({
                 alt="Uploaded evidence image"
                 width={128}
                 height={128}
+                sizes="128px"
                 className="object-cover"
               />
               <button

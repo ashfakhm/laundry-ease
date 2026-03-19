@@ -83,6 +83,7 @@ export function SeekerTopNav() {
                   alt="LaundryEase logo"
                   width={32}
                   height={32}
+                  sizes="32px"
                   className="object-cover"
                 />
               </div>

@@ -609,6 +609,7 @@ export default function ComplaintChat({
             alt="Full size image"
             width={900}
             height={900}
+            sizes="90vw"
             className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
@@ -775,6 +776,7 @@ export default function ComplaintChat({
                                 alt="Complaint evidence image"
                                 width={128}
                                 height={128}
+                                sizes="128px"
                                 className="object-cover w-full h-full"
                               />
                             </button>
@@ -902,6 +904,7 @@ export default function ComplaintChat({
                       alt="Pending attachment preview"
                       width={96}
                       height={96}
+                      sizes="96px"
                       className="w-full aspect-square object-cover"
                     />
                     <button

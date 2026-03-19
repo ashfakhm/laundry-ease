@@ -117,6 +117,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
                 alt="LaundryEase"
                 width={36}
                 height={36}
+                sizes="36px"
                 className="h-full w-full object-contain"
               />
             </div>
@@ -287,6 +288,7 @@ export function AdminMobileNav() {
               alt="LaundryEase"
               width={32}
               height={32}
+              sizes="32px"
               className="h-full w-full object-contain"
             />
           </div>

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import { ObjectId } from "mongodb";
@@ -13,6 +14,17 @@ type Props = {
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://laundryease.in";
+
+/**
+ * Request-level memoized provider fetch.
+ * React.cache deduplicates identical calls within the same request —
+ * both generateMetadata and the page component share this single DB hit.
+ */
+const getCachedProvider = cache(async (id: string) => {
+  if (!ObjectId.isValid(id)) return null;
+  const { db } = await getDb();
+  return db.collection("providers").findOne({ _id: new ObjectId(id) });
+});
 
 /**
  * Generate dynamic metadata for provider profile pages
@@ -33,22 +45,7 @@ export async function generateMetadata(
   }
 
   try {
-    const { db } = await getDb();
-    const provider = await db.collection("providers").findOne(
-      { _id: new ObjectId(id) },
-      {
-        projection: {
-          name: 1,
-          businessName: 1,
-          bio: 1,
-          description: 1,
-          location: 1,
-          services: 1,
-          pricing: 1,
-          profilePicture: 1,
-        },
-      },
-    );
+    const provider = await getCachedProvider(id);
 
     if (!provider) {
       return {
@@ -128,25 +125,8 @@ export async function generateMetadata(
  * Fetch provider data for server component
  */
 async function getProviderData(id: string): Promise<Provider | null> {
-  if (!ObjectId.isValid(id)) {
-    return null;
-  }
-
   try {
-    const { db } = await getDb();
-    const provider = await db.collection("providers").findOne(
-      { _id: new ObjectId(id) },
-      {
-        projection: {
-          passwordHash: 0,
-          emailVerified: 0,
-          phoneVerified: 0,
-          bankDetails: 0,
-          razorpay_fund_account_id: 0,
-          razorpay_contact_id: 0,
-        },
-      },
-    );
+    const provider = await getCachedProvider(id);
 
     if (!provider) {
       return null;
@@ -190,13 +170,16 @@ async function getProviderReviews(id: string): Promise<Review[]> {
 
 export default async function ProviderDetailPage({ params }: Props) {
   const { id } = await params;
-  const provider = await getProviderData(id);
+
+  // Parallel fetch — provider and reviews are independent queries
+  const [provider, reviews] = await Promise.all([
+    getProviderData(id),
+    getProviderReviews(id),
+  ]);
 
   if (!provider) {
     notFound();
   }
-
-  const reviews = await getProviderReviews(id);
 
   // Breadcrumb data for structured data
   const breadcrumbItems = [

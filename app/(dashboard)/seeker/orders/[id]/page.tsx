@@ -285,6 +285,7 @@ export default async function OrderDetailsPage({
                           alt={item.name || "Order item image"}
                           width={64}
                           height={64}
+                          sizes="64px"
                           className="object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
@@ -419,6 +420,7 @@ export default async function OrderDetailsPage({
                       alt={order.provider.businessName || order.provider.name}
                       width={48}
                       height={48}
+                      sizes="48px"
                       className="h-full w-full object-cover"
                     />
                   ) : (

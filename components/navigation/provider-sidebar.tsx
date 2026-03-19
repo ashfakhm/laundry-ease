@@ -151,6 +151,7 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
                 alt="LaundryEase logo"
                 width={36}
                 height={36}
+                sizes="36px"
                 className="object-cover"
               />
             </div>
@@ -303,6 +304,7 @@ export function ProviderMobileNav() {
               src="/laundryease-logo.png"
               alt="LaundryEase"
               fill
+              sizes="32px"
               className="object-cover"
             />
           </div>

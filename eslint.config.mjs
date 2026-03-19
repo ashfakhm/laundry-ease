@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "output/**",
     "build/**",
     "next-env.d.ts",
+    // Third-party agent skills and tooling (minified builds, etc.)
+    ".agents/**",
   ]),
   // Custom rules for production build
   {
