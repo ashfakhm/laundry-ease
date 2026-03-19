@@ -40,7 +40,14 @@ export async function searchProviders(
   const limit = params.limit;
   const maxRadiusKm = userCoords ? params.maxRadiusKm : null;
 
-  const baseFilter: Record<string, unknown> = {};
+  const baseFilter: Record<string, unknown> = {
+    isDeleted: { $ne: true },
+    $or: [
+      { blocked_until: { $exists: false } },
+      { blocked_until: null },
+      { blocked_until: { $lte: new Date() } },
+    ],
+  };
   if (name) {
     baseFilter.name = { $regex: escapeRegex(name), $options: "i" };
   }

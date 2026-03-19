@@ -24,7 +24,7 @@ export async function GET(
 
     const { db } = await getDb();
     const provider = await db.collection("providers").findOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), isDeleted: { $ne: true } },
       {
         projection: {
           // Exclude sensitive data completely
