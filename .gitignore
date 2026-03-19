@@ -61,3 +61,5 @@ docs/MealMatch-final (1).pdf
 .qoder/
 # next-agents-md
 .next-docs/
+.agents/
+skills-lock.json
