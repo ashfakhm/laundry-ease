@@ -4,7 +4,7 @@ import { useEffect, type ChangeEvent } from "react";
 import usePlacesAutocomplete, {
   getGeocode,
   getLatLng,
-} from "use-places-autocomplete";
+} from "@/hooks/use-places-autocomplete-custom";
 import { Loader2, MapPin } from "lucide-react";
 import { reportError } from "@/lib/client-error";
 

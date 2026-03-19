@@ -61,6 +61,7 @@ export function buildCspPolicy(options: CspBuildOptions = {}): string {
       "https://lumberjack.razorpay.com",
       "https://maps.googleapis.com",
       "https://maps.gstatic.com",
+      "https://places.googleapis.com",
       "https://api.cloudinary.com",
       "https://res.cloudinary.com",
     ]),
