@@ -66,15 +66,15 @@ export function useVoiceRecorder({
         });
 
         const data = (await res.json().catch(() => ({}))) as {
-          url?: string;
+          data?: { url?: string };
           error?: string;
         };
 
-        if (!res.ok || !data.url) {
+        if (!res.ok || !data.data?.url) {
           throw new Error(data.error || "Failed to upload voice message");
         }
 
-        onRecorded(data.url);
+        onRecorded(data.data.url);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to upload voice message";

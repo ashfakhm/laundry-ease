@@ -267,6 +267,8 @@ export default function ProviderSignupPage() {
       bankAccountNumber: form.bankAccountNumber,
       bankIFSC: form.bankIFSC,
       upiId: form.upiId,
+      profilePicture: form.profilePicture || undefined,
+      bannerImage: form.bannerImage || undefined,
       coordinates: form.coordinates,
       acceptTerms: acceptedTerms,
     });

@@ -81,7 +81,7 @@ export function ImageUpload({
           throw new Error(data.error?.message || "Upload failed");
         }
 
-        onChange(data.url);
+        onChange(data.data.url);
       } catch (err: unknown) {
         reportError("ImageUploadError", err);
         const message =

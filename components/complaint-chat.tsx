@@ -475,14 +475,14 @@ export default function ComplaintChat({
         });
 
         const data = (await res.json().catch(() => ({}))) as {
-          url?: string;
+          data?: { url?: string };
           error?: string;
         };
-        if (!res.ok || !data.url) {
+        if (!res.ok || !data.data?.url) {
           throw new Error(data.error || "Failed to upload attachment");
         }
 
-        uploadedUrls.push(data.url);
+        uploadedUrls.push(data.data.url);
       }
 
       setPendingAttachments((prev) =>
