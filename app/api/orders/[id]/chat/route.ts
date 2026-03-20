@@ -148,13 +148,19 @@ export async function POST(
       return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"));
     }
 
+    const voiceMessage = parsed.data.voiceMessage ?? "";
+    const voiceDurationMs = voiceMessage
+      ? parsed.data.voiceDurationMs ?? 0
+      : 0;
+
     const chatMsg = {
       order_id: orderId,
       sender_id: user.id,
       sender_role: senderRole,
       message: (parsed.data.message ?? "").trim(),
       attachments: parsed.data.attachments ?? [],
-      voiceMessage: parsed.data.voiceMessage ?? "",
+      voiceMessage,
+      voiceDurationMs,
       createdAt: new Date(),
     };
     const insertResult = await db.collection("order_chats").insertOne(chatMsg);

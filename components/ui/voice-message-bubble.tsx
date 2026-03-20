@@ -7,7 +7,28 @@ import { cn } from "@/lib/utils";
 const ACTIVE_VOICE_MESSAGE_EVENT = "laundryease:voice-message:play";
 const WAVEFORM_BARS = [8, 12, 18, 11, 16, 24, 13, 19, 10, 15, 22, 12, 18, 9];
 
-function formatAudioTime(seconds: number): string {
+export function getFiniteAudioDuration(duration: number): number {
+  return Number.isFinite(duration) && duration > 0 ? duration : 0;
+}
+
+export function getPreferredVoiceMessageDuration({
+  mediaDuration,
+  voiceDurationMs,
+}: {
+  mediaDuration: number;
+  voiceDurationMs?: number;
+}): number {
+  const stableMediaDuration = getFiniteAudioDuration(mediaDuration);
+  if (stableMediaDuration > 0) {
+    return stableMediaDuration;
+  }
+
+  return Number.isFinite(voiceDurationMs) && (voiceDurationMs ?? 0) > 0
+    ? (voiceDurationMs as number) / 1000
+    : 0;
+}
+
+export function formatAudioTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds <= 0) {
     return "0:00";
   }
@@ -18,18 +39,40 @@ function formatAudioTime(seconds: number): string {
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+export function getVoiceMessageTimeLabel({
+  duration,
+  isScrubbing,
+  scrubTime,
+}: {
+  duration: number;
+  isScrubbing: boolean;
+  scrubTime: number;
+}): string {
+  if (isScrubbing) {
+    return formatAudioTime(scrubTime);
+  }
+
+  if (duration <= 0 || !Number.isFinite(duration)) {
+    return "--:--";
+  }
+
+  return formatAudioTime(duration);
 }
 
 type VoiceMessageBubbleProps = {
   src: string;
+  voiceDurationMs?: number;
   isOwnMessage?: boolean;
   className?: string;
 };
 
 export function VoiceMessageBubble({
   src,
+  voiceDurationMs,
   isOwnMessage = false,
   className,
 }: VoiceMessageBubbleProps) {
@@ -37,7 +80,9 @@ export function VoiceMessageBubble({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [mediaDuration, setMediaDuration] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -70,15 +115,25 @@ export function VoiceMessageBubble({
     };
   }, [audioId]);
 
-  const progress = duration > 0 ? clamp(currentTime / duration, 0, 1) : 0;
-  const progressPercent = progress * 100;
-  const displayedTime = isPlaying ? currentTime : duration || currentTime;
+  const duration = getPreferredVoiceMessageDuration({
+    mediaDuration,
+    voiceDurationMs,
+  });
+  const displayedProgressTime = isScrubbing ? scrubTime : currentTime;
+  const displayedProgress =
+    duration > 0 ? clamp(displayedProgressTime / duration, 0, 1) : 0;
+  const progressPercent = displayedProgress * 100;
   const progressIndicatorLeft =
     progressPercent <= 0
       ? "0.35rem"
       : progressPercent >= 100
         ? "calc(100% - 0.35rem)"
         : `${progressPercent}%`;
+  const canSeek = duration > 0;
+
+  function syncDurationFromAudio(audio: HTMLAudioElement) {
+    setMediaDuration(getFiniteAudioDuration(audio.duration));
+  }
 
   async function togglePlayback() {
     const audio = audioRef.current;
@@ -102,16 +157,16 @@ export function VoiceMessageBubble({
     }
   }
 
-  function seekToPosition(event: React.MouseEvent<HTMLButtonElement>) {
+  function handleSliderChange(nextValue: number) {
     const audio = audioRef.current;
     if (!audio || duration <= 0) {
       return;
     }
 
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const fraction = clamp((event.clientX - bounds.left) / bounds.width, 0, 1);
-    audio.currentTime = fraction * duration;
-    setCurrentTime(audio.currentTime);
+    const nextTime = clamp(nextValue, 0, duration);
+    audio.currentTime = nextTime;
+    setCurrentTime(nextTime);
+    setScrubTime(nextTime);
   }
 
   return (
@@ -128,12 +183,18 @@ export function VoiceMessageBubble({
         ref={audioRef}
         preload="metadata"
         src={src}
-        className="hidden"
+        className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
         onLoadedMetadata={(event) => {
-          const nextDuration = Number.isFinite(event.currentTarget.duration)
-            ? event.currentTarget.duration
-            : 0;
-          setDuration(nextDuration);
+          syncDurationFromAudio(event.currentTarget);
+        }}
+        onLoadedData={(event) => {
+          syncDurationFromAudio(event.currentTarget);
+        }}
+        onDurationChange={(event) => {
+          syncDurationFromAudio(event.currentTarget);
+        }}
+        onCanPlay={(event) => {
+          syncDurationFromAudio(event.currentTarget);
         }}
         onTimeUpdate={(event) => {
           setCurrentTime(event.currentTarget.currentTime);
@@ -143,6 +204,8 @@ export function VoiceMessageBubble({
         onEnded={(event) => {
           event.currentTarget.currentTime = 0;
           setCurrentTime(0);
+          setIsScrubbing(false);
+          setScrubTime(0);
           setIsPlaying(false);
         }}
       />
@@ -150,9 +213,12 @@ export function VoiceMessageBubble({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => {
+          onClick={(event) => {
+            event.stopPropagation();
             void togglePlayback();
           }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
           className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
             isOwnMessage
@@ -168,11 +234,12 @@ export function VoiceMessageBubble({
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={seekToPosition}
+        <div
           className="relative flex min-w-0 flex-1 items-center"
-          aria-label="Seek voice message"
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
         >
           <div
             className={cn(
@@ -200,7 +267,7 @@ export function VoiceMessageBubble({
           <div className="relative flex h-10 w-full items-center gap-[3px] px-1.5">
             {WAVEFORM_BARS.map((height, index) => {
               const ratio = (index + 1) / WAVEFORM_BARS.length;
-              const isActive = progress >= ratio;
+              const isActive = displayedProgress >= ratio;
 
               return (
                 <span
@@ -220,15 +287,51 @@ export function VoiceMessageBubble({
               );
             })}
           </div>
-        </button>
+          <input
+            type="range"
+            min={0}
+            max={duration > 0 ? duration : 1}
+            step="0.1"
+            value={clamp(displayedProgressTime, 0, duration > 0 ? duration : 1)}
+            disabled={!canSeek}
+            aria-label="Seek voice message"
+            className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0 disabled:cursor-default"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              setIsScrubbing(true);
+              setScrubTime(displayedProgressTime);
+            }}
+            onPointerUp={(event) => {
+              event.stopPropagation();
+              setIsScrubbing(false);
+            }}
+            onPointerCancel={() => {
+              setIsScrubbing(false);
+            }}
+            onBlur={() => {
+              setIsScrubbing(false);
+            }}
+            onChange={(event) => {
+              event.stopPropagation();
+              const nextValue = Number(event.currentTarget.value);
+              setIsScrubbing(true);
+              setScrubTime(nextValue);
+              handleSliderChange(nextValue);
+            }}
+          />
+        </div>
 
         <span
           className={cn(
-            "w-10 shrink-0 text-right text-[11px] font-semibold tabular-nums",
-            isOwnMessage ? "text-white/80" : "text-muted-foreground",
+            "w-11 shrink-0 text-right text-xs font-semibold tabular-nums",
+            isOwnMessage ? "text-white/85" : "text-foreground/65",
           )}
         >
-          {formatAudioTime(displayedTime)}
+          {getVoiceMessageTimeLabel({
+            duration,
+            isScrubbing,
+            scrubTime,
+          })}
         </span>
       </div>
     </div>

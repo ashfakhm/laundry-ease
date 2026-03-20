@@ -102,6 +102,7 @@ export function applyMessageDeletion<
     content?: string;
     attachments?: string[];
     voiceMessage?: string;
+    voiceDurationMs?: number;
   },
 >(messages: T[], payload: MessageDeletedDto): T[] {
   if (payload.mode === "hard_delete") {
@@ -118,6 +119,7 @@ export function applyMessageDeletion<
       content: "",
       attachments: [],
       voiceMessage: "",
+      voiceDurationMs: 0,
     };
   });
 }

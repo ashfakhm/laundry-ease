@@ -242,12 +242,14 @@ describe("POST /api/orders/[id]/chat", () => {
     });
     const insertedId = new ObjectId();
     const voiceMessage = "data:audio/webm;codecs=opus;base64,AAAA";
+    const voiceDurationMs = 12_000;
     dbMock.orderChatsInsertOne.mockResolvedValue({ insertedId });
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
     const res = await POST(
       makeRequest({
         voiceMessage,
+        voiceDurationMs,
       }),
       { params: Promise.resolve({ id: orderId.toString() }) },
     );
@@ -258,6 +260,7 @@ describe("POST /api/orders/[id]/chat", () => {
         message: "",
         attachments: [],
         voiceMessage,
+        voiceDurationMs,
       }),
     );
   });

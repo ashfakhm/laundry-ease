@@ -130,6 +130,7 @@ export async function DELETE(
           message: "",
           attachments: [],
           voiceMessage: "",
+          voiceDurationMs: 0,
         },
       },
     );

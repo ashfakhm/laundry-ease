@@ -176,6 +176,7 @@ describe("POST /api/complaints/[id]/messages", () => {
     });
     const insertedId = new ObjectId();
     const voiceMessage = "data:audio/webm;codecs=opus;base64,AAAA";
+    const voiceDurationMs = 12_000;
     dbMock.complaintMessagesInsertOne.mockResolvedValue({
       insertedId,
     });
@@ -184,6 +185,7 @@ describe("POST /api/complaints/[id]/messages", () => {
     const res = await POST(
       makeRequest({
         voiceMessage,
+        voiceDurationMs,
       }),
       { params: Promise.resolve({ id: complaintId.toString() }) },
     );
@@ -194,6 +196,7 @@ describe("POST /api/complaints/[id]/messages", () => {
         content: "",
         attachments: [],
         voiceMessage,
+        voiceDurationMs,
         message_type: "VOICE",
       }),
     );

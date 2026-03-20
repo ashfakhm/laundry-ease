@@ -238,6 +238,9 @@ export async function POST(
     // User CANNOT send SYSTEM messages.
 
     const voiceMessage = parsed.data.voiceMessage ?? "";
+    const voiceDurationMs = voiceMessage
+      ? parsed.data.voiceDurationMs ?? 0
+      : 0;
 
     function deriveMessageType(): "TEXT" | "IMAGE" | "VOICE" {
       if (voiceMessage && content.length === 0 && attachments.length === 0)
@@ -255,6 +258,7 @@ export async function POST(
       content,
       attachments,
       voiceMessage,
+      voiceDurationMs,
       createdAt: new Date(),
     };
 

@@ -49,5 +49,6 @@ export type ComplaintMessage = {
   content: string;
   attachments?: string[];
   voiceMessage?: string;
+  voiceDurationMs?: number;
   createdAt: Date;
 };

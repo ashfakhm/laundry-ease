@@ -7,6 +7,7 @@ export type ComplaintMessageDto = {
   content: string;
   attachments: string[];
   voiceMessage: string;
+  voiceDurationMs: number;
   deletedForEveryone: boolean;
   createdAt: string;
 };
@@ -19,6 +20,7 @@ export type OrderChatMessageDto = {
   message: string;
   attachments: string[];
   voiceMessage: string;
+  voiceDurationMs: number;
   deletedForEveryone: boolean;
   createdAt: string;
 };

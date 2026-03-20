@@ -1,19 +1,70 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import fixWebmDuration from "fix-webm-duration";
 import { MAX_VOICE_MESSAGE_DURATION_SEC } from "@/lib/constants";
 
 export type VoiceRecorderStatus = "idle" | "recording" | "uploading";
+export type RecordedVoiceMessage = {
+  url: string;
+  durationMs: number;
+};
 
 interface UseVoiceRecorderOptions {
   /** Cloudinary folder for uploads. */
   folder?: string;
   /** Max recording duration in seconds. */
   maxDurationSec?: number;
-  /** Called with the uploaded URL on success. */
-  onRecorded: (url: string) => void;
+  /** Called with the uploaded voice payload on success. */
+  onRecorded: (voiceMessage: RecordedVoiceMessage) => void;
   /** Called on error. */
   onError?: (message: string) => void;
+}
+
+type FixWebmDurationFn = (
+  blob: Blob,
+  duration: number,
+  options?: { logger?: false | ((message: string) => void) },
+) => Promise<Blob>;
+
+export function getMimeTypeEssence(mimeType: string): string {
+  const [essence = ""] = mimeType.split(";");
+  return essence.trim().toLowerCase();
+}
+
+export async function repairRecordedAudioBlob(
+  blob: Blob,
+  durationMs: number,
+  fixDuration: FixWebmDurationFn = fixWebmDuration,
+): Promise<Blob> {
+  if (getMimeTypeEssence(blob.type) !== "audio/webm" || durationMs <= 0) {
+    return blob;
+  }
+
+  return fixDuration(blob, durationMs, { logger: false });
+}
+
+function getAudioFileExtension(mimeType: string): string {
+  switch (getMimeTypeEssence(mimeType)) {
+    case "audio/mp4":
+      return "mp4";
+    case "audio/mpeg":
+    case "audio/mp3":
+      return "mp3";
+    case "audio/ogg":
+      return "ogg";
+    case "audio/wav":
+    case "audio/x-wav":
+      return "wav";
+    default:
+      return "webm";
+  }
+}
+
+function normalizeRecordedDurationMs(durationMs: number): number {
+  return Number.isFinite(durationMs) && durationMs > 0
+    ? Math.round(durationMs)
+    : 0;
 }
 
 export function useVoiceRecorder({
@@ -53,11 +104,16 @@ export function useVoiceRecorder({
   }, []);
 
   const upload = useCallback(
-    async (blob: Blob) => {
+    async (blob: Blob, durationMs: number) => {
       setStatus("uploading");
       try {
+        const normalizedDurationMs = normalizeRecordedDurationMs(durationMs);
         const formData = new FormData();
-        formData.append("file", blob, `voice-${Date.now()}.webm`);
+        formData.append(
+          "file",
+          blob,
+          `voice-${Date.now()}.${getAudioFileExtension(blob.type)}`,
+        );
         formData.append("folder", folder);
 
         const res = await fetch("/api/upload/audio", {
@@ -74,7 +130,10 @@ export function useVoiceRecorder({
           throw new Error(data.error || "Failed to upload voice message");
         }
 
-        onRecorded(data.data.url);
+        onRecorded({
+          url: data.data.url,
+          durationMs: normalizedDurationMs,
+        });
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to upload voice message";
@@ -115,6 +174,9 @@ export function useVoiceRecorder({
       recorder.onstop = () => {
         stopTimer();
         stopStream();
+        const durationMs = normalizeRecordedDurationMs(
+          Date.now() - startTimeRef.current,
+        );
 
         if (cancelledRef.current) {
           chunksRef.current = [];
@@ -131,7 +193,10 @@ export function useVoiceRecorder({
 
         const blob = new Blob(chunksRef.current, { type: mimeType });
         chunksRef.current = [];
-        void upload(blob);
+        void (async () => {
+          const repairedBlob = await repairRecordedAudioBlob(blob, durationMs);
+          await upload(repairedBlob, durationMs);
+        })();
       };
 
       recorder.start(250); // Collect data every 250ms

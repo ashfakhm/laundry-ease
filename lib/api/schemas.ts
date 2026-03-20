@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { CRON_JOB_NAMES } from "@/lib/constants";
+import {
+  CRON_JOB_NAMES,
+  MAX_VOICE_MESSAGE_DURATION_SEC,
+} from "@/lib/constants";
 
 /**
  * Centralized validation schemas for API requests
@@ -427,12 +430,19 @@ export const sendMagicLinkSchema = z.object({
   email: emailSchema,
 });
 
+const voiceDurationMsSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(MAX_VOICE_MESSAGE_DURATION_SEC * 1000);
+
 // Complaint message schema
 export const complaintMessageSchema = z
   .object({
     content: z.string().trim().max(5000).optional(),
     attachments: z.array(z.string().url()).max(5).optional(),
     voiceMessage: z.string().url().optional(),
+    voiceDurationMs: voiceDurationMsSchema.optional(),
   })
   .refine(
     (data) =>
@@ -451,6 +461,7 @@ export const bookingChatMessageSchema = z
     message: z.string().trim().max(2000).optional(),
     attachments: z.array(z.string().url()).max(5).optional(),
     voiceMessage: z.string().url().optional(),
+    voiceDurationMs: voiceDurationMsSchema.optional(),
   })
   .refine(
     (data) =>

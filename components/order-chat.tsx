@@ -14,11 +14,11 @@ import {
   WifiOff,
   Mic,
   Square,
-  Trash2,
   Ban,
 } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
+import { ChatDeleteMenu } from "@/components/ui/chat-delete-menu";
 import { VoiceMessageBubble } from "@/components/ui/voice-message-bubble";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 import realtimeContracts, {
@@ -34,7 +34,10 @@ import {
   SERVER_EVENTS,
   sortMessages,
 } from "@/lib/realtime/chat-state";
-import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import {
+  type RecordedVoiceMessage,
+  useVoiceRecorder,
+} from "@/hooks/use-voice-recorder";
 
 type ChatMessage = OrderChatMessageDto & {
   sender_role: "seeker" | "provider";
@@ -73,11 +76,12 @@ export default function OrderChat({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // Voice recorder
-  const [pendingVoiceUrl, setPendingVoiceUrl] = useState<string | null>(null);
+  const [pendingVoiceMessage, setPendingVoiceMessage] =
+    useState<RecordedVoiceMessage | null>(null);
   const voiceRecorder = useVoiceRecorder({
     folder: "order-chat-voice",
-    onRecorded: (url) => {
-      setPendingVoiceUrl(url);
+    onRecorded: (voiceMessage) => {
+      setPendingVoiceMessage(voiceMessage);
     },
     onError: (msg) => {
       setVoiceError(msg);
@@ -164,6 +168,7 @@ export default function OrderChat({
     setError(null);
     setPeerTyping(null);
     setPendingAttachments([]);
+    setPendingVoiceMessage(null);
     hasSocketConnectedRef.current = false;
     void fetchMessages();
   }, [orderId]);
@@ -322,9 +327,12 @@ export default function OrderChat({
   }
 
   /* ---- Send message ---- */
-  async function sendMessage(e?: React.FormEvent, voiceUrl?: string) {
+  async function sendMessage(
+    e?: React.FormEvent,
+    voicePayload?: RecordedVoiceMessage,
+  ) {
     e?.preventDefault();
-    const voice = voiceUrl || pendingVoiceUrl;
+    const voice = voicePayload ?? pendingVoiceMessage;
     if (input.trim().length === 0 && pendingAttachments.length === 0 && !voice)
       return;
     setLoading(true);
@@ -345,7 +353,8 @@ export default function OrderChat({
           message: input.trim() || undefined,
           attachments:
             pendingAttachments.length > 0 ? pendingAttachments : undefined,
-          voiceMessage: voice || undefined,
+          voiceMessage: voice?.url || undefined,
+          voiceDurationMs: voice?.durationMs || undefined,
         }),
       });
       if (!res.ok) throw new Error("Failed to send message");
@@ -353,7 +362,7 @@ export default function OrderChat({
       const message = unwrapApiData<ChatMessage>(payload);
       setInput("");
       setPendingAttachments([]);
-      setPendingVoiceUrl(null);
+      setPendingVoiceMessage(null);
       if (message?._id) {
         setMessages((prev) => appendUniqueSortedMessages(prev, message));
       }
@@ -367,11 +376,11 @@ export default function OrderChat({
 
   // Auto-send when voice recording finishes and produces a URL
   useEffect(() => {
-    if (pendingVoiceUrl) {
-      void sendMessage(undefined, pendingVoiceUrl);
+    if (pendingVoiceMessage) {
+      void sendMessage(undefined, pendingVoiceMessage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingVoiceUrl]);
+  }, [pendingVoiceMessage]);
 
   /* ---- Auto-scroll ---- */
   useEffect(() => {
@@ -488,6 +497,7 @@ export default function OrderChat({
                     <div className={msg.message ? "mt-2" : ""}>
                       <VoiceMessageBubble
                         src={msg.voiceMessage}
+                        voiceDurationMs={msg.voiceDurationMs}
                         isOwnMessage={msg.sender_role === selfRole}
                       />
                     </div>
@@ -700,37 +710,18 @@ export default function OrderChat({
 
       {/* Delete context menu */}
       {deleteMenuMsg && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={closeDeleteMenu} />
-          <div
-            className="fixed z-50 bg-card border border-border rounded-xl shadow-xl py-1 min-w-48 animate-in fade-in zoom-in-95 duration-150"
-            style={{
-              left: Math.min(deleteMenuPos.x, window.innerWidth - 200),
-              top: Math.min(deleteMenuPos.y, window.innerHeight - 120),
-            }}
-          >
-            <button
-              type="button"
-              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-muted transition-colors disabled:opacity-50"
-              onClick={() => handleDelete("for_me")}
-              disabled={deleting}
-            >
-              <Trash2 className="w-4 h-4 text-muted-foreground" />
-              Delete for me
-            </button>
-            {canDeleteForEveryone(deleteMenuMsg) && (
-              <button
-                type="button"
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-destructive/10 text-destructive transition-colors disabled:opacity-50"
-                onClick={() => handleDelete("for_everyone")}
-                disabled={deleting}
-              >
-                <Ban className="w-4 h-4" />
-                Delete for everyone
-              </button>
-            )}
-          </div>
-        </>
+        <ChatDeleteMenu
+          x={deleteMenuPos.x}
+          y={deleteMenuPos.y}
+          deleting={deleting}
+          onClose={closeDeleteMenu}
+          onDeleteForMe={() => void handleDelete("for_me")}
+          onDeleteForEveryone={
+            canDeleteForEveryone(deleteMenuMsg)
+              ? () => void handleDelete("for_everyone")
+              : undefined
+          }
+        />
       )}
     </div>
   );

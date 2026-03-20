@@ -199,6 +199,7 @@ export async function DELETE(
           content: "",
           attachments: [],
           voiceMessage: "",
+          voiceDurationMs: 0,
         },
       },
     );

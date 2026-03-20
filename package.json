@@ -29,6 +29,7 @@
     "date-fns": "^4.1.0",
     "dd-trace": "^5.91.0",
     "decimal.js": "^10.6.0",
+    "fix-webm-duration": "^1.0.6",
     "framer-motion": "^12.38.0",
     "hot-shots": "^14.2.0",
     "jose": "^6.2.2",
