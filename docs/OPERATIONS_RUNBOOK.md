@@ -601,6 +601,7 @@ Before shipping production-impacting changes:
      e2e/booking-lifecycle-journey.spec.ts \
      e2e/booking-negative-journeys.spec.ts
    ```
+   The runner will reuse a local server only if `/api/e2e/runtime` confirms smoke-safe fake-payments mode. If not, it will start the managed Playwright server instead. A reachable but unsafe `E2E_BASE_URL` is treated as a configuration error and the run stops immediately.
 4. Verify CI `Quality Gates` workflow passes on the PR
 5. For payment/payout changes: run `Real Gateway Smoke` workflow manually
 

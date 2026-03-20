@@ -234,6 +234,8 @@ Legacy aliases still accepted during transition: `GOOGLE_ID`, `GOOGLE_SECRET`, `
 - **Cron jobs**: Vercel crons run only when deployed. On localhost, set `DEMO_MODE=1`, log in as admin, and use **Local Demo Tools** on `/admin` to manually trigger each cron (auto-reject, no-show, payouts, email outbox, etc.).
 - **Razorpay webhooks**: Razorpay cannot POST to localhost. For full payment flow testing (payment.captured, refund.created), use [ngrok](https://ngrok.com) or [localtunnel](https://localtunnel.github.io/www/) to expose your local server, then set the webhook URL in Razorpay Dashboard.
 - **E2E_FAKE_PAYMENTS**: Set to `1` to bypass real Razorpay for order creation, refunds, and payouts. Useful for E2E tests and local demos without Razorpay credentials. Disabled in production.
+- **Smoke E2E server reuse**: `npm run test:e2e` now probes `/api/e2e/runtime` before reusing any local server. Reuse is allowed only when that server reports `safeForSmokeReuse=true`, which currently requires fake payments to be enabled. Otherwise the runner starts its own managed Playwright server with known-good E2E env.
+- **Explicit `E2E_BASE_URL`**: If `E2E_BASE_URL` points to a reachable server that does not pass the runtime probe, the smoke runner exits early with a clear error instead of running against a non-deterministic payment environment.
 
 ### Troubleshooting
 
