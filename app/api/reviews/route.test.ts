@@ -475,5 +475,42 @@ describe("POST /api/reviews", () => {
         }),
       );
     });
+
+    it("creates review using order_id", async () => {
+      const dbMock = makeDbMock();
+      dbMock.orderFindOne.mockResolvedValue({
+        _id: new ObjectId(ORDER_ID),
+        booking_id: new ObjectId(BOOKING_ID),
+        seeker_id: new ObjectId(SEEKER_ID),
+        provider_id: new ObjectId(PROVIDER_ID),
+      });
+      dbMock.reviewFindOne.mockResolvedValue(null);
+      dbMock.seekerFindOne.mockResolvedValue({ name: "Test Seeker" });
+      dbMock.reviewInsertOne.mockResolvedValue({
+        acknowledged: true,
+        insertedId: new ObjectId(),
+      });
+      dbMock.providerUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await POST(
+        makeRequest({
+          order_id: ORDER_ID,
+          rating: 4,
+          comment: "Great service!",
+        }) as never,
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(dbMock.reviewInsertOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rating: 4,
+          comment: "Great service!",
+          seeker_name: "Test Seeker",
+        }),
+      );
+    });
   });
 });

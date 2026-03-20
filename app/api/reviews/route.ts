@@ -10,12 +10,18 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireSameOrigin } from "@/lib/api/security";
 
-const createReviewSchema = z.object({
-  booking_id: z.string().min(1),
-  provider_id: z.string().min(1).optional(),
-  rating: z.number().min(1).max(5),
-  comment: z.string().optional(),
-});
+const createReviewSchema = z
+  .object({
+    booking_id: z.string().min(1).optional(),
+    order_id: z.string().min(1).optional(),
+    provider_id: z.string().min(1).optional(),
+    rating: z.number().min(1).max(5),
+    comment: z.string().optional(),
+  })
+  .refine((data) => data.booking_id || data.order_id, {
+    message: "Either booking_id or order_id must be provided",
+    path: ["order_id"],
+  });
 
 // POST /api/reviews — accepts booking_id, looks up order internally
 export async function POST(req: NextRequest) {
@@ -35,20 +41,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { booking_id, provider_id, rating: ratingNum, comment } = parsed.data;
-    if (!ObjectId.isValid(booking_id)) {
+    const { booking_id, order_id, provider_id, rating: ratingNum, comment } = parsed.data;
+    if (booking_id && !ObjectId.isValid(booking_id)) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid booking ID");
+    }
+    if (order_id && !ObjectId.isValid(order_id)) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid order ID");
     }
     if (!ObjectId.isValid(user.id)) {
       throw new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized");
     }
     const { db } = await getDb();
 
-    // Look up the order by booking_id and seeker_id
-    const order = await db.collection("orders").findOne({
-      booking_id: new ObjectId(booking_id),
+    // Look up the order by order_id/booking_id and seeker_id
+    const query: Record<string, unknown> = {
       seeker_id: new ObjectId(user.id),
-    });
+    };
+
+    if (order_id) {
+      query._id = new ObjectId(order_id);
+    } else if (booking_id) {
+      query.booking_id = new ObjectId(booking_id);
+    }
+
+    const order = await db.collection("orders").findOne(query);
 
     if (!order) {
       throw new AppError(
