@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     viewTransition: true,
+    turbopackFileSystemCacheForDev: true,
+    turbopackFileSystemCacheForBuild: true,
     lockDistDir: process.env.E2E_DISABLE_DEV_LOCK === "1" ? false : undefined,
   },
   images: {
