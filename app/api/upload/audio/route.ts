@@ -1,5 +1,8 @@
 import { NextRequest } from "next/server";
-import { RATE_LIMIT_STRICT_WINDOW_MS, MAX_VOICE_MESSAGE_BYTES } from "@/lib/constants";
+import {
+  RATE_LIMIT_STRICT_WINDOW_MS,
+  MAX_VOICE_MESSAGE_BYTES,
+} from "@/lib/constants";
 import { successResponse, errorResponse } from "@/lib/api/response";
 import cloudinary from "cloudinary";
 import { logger } from "@/lib/logger";
@@ -26,13 +29,20 @@ if (isCloudinaryConfigured) {
   });
 }
 
-const VALID_AUDIO_TYPES = [
+const VALID_AUDIO_TYPES = new Set([
   "audio/webm",
   "audio/mp4",
   "audio/mpeg",
+  "audio/mp3",
   "audio/ogg",
   "audio/wav",
-];
+  "audio/x-wav",
+]);
+
+function normalizeMimeTypeEssence(mimeType: string): string {
+  const [essence = ""] = mimeType.split(";");
+  return essence.trim().toLowerCase();
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,11 +66,14 @@ export async function POST(req: NextRequest) {
       return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "No file provided"));
     }
     if (!/^[a-zA-Z0-9/_-]{1,80}$/.test(folder)) {
-      return errorResponse(new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid folder name"));
+      return errorResponse(
+        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Invalid folder name"),
+      );
     }
 
     // Validate audio MIME type
-    if (!VALID_AUDIO_TYPES.includes(file.type)) {
+    const normalizedFileType = normalizeMimeTypeEssence(file.type);
+    if (!VALID_AUDIO_TYPES.has(normalizedFileType)) {
       return errorResponse(
         new AppError(
           ErrorCode.VALIDATION_ERROR,
@@ -73,7 +86,11 @@ export async function POST(req: NextRequest) {
     // Validate file size
     if (file.size > MAX_VOICE_MESSAGE_BYTES) {
       return errorResponse(
-        new AppError(ErrorCode.VALIDATION_ERROR, 400, "Voice message too large. Maximum size is 2MB."),
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Voice message too large. Maximum size is 2MB.",
+        ),
       );
     }
 
@@ -107,7 +124,11 @@ export async function POST(req: NextRequest) {
       audioUrl = `data:${file.type};base64,${base64}`;
     } else {
       return errorResponse(
-        new AppError(ErrorCode.INTERNAL_ERROR, 503, "Audio upload service is unavailable. Please try again later."),
+        new AppError(
+          ErrorCode.INTERNAL_ERROR,
+          503,
+          "Audio upload service is unavailable. Please try again later.",
+        ),
       );
     }
 
@@ -118,6 +139,8 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error("UPLOAD", "Audio upload error", error);
-    return errorResponse(new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to upload audio"));
+    return errorResponse(
+      new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to upload audio"),
+    );
   }
 }

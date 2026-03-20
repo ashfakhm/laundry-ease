@@ -165,6 +165,40 @@ describe("POST /api/complaints/[id]/messages", () => {
     );
   });
 
+  it("accepts voice-only data URL message and stores VOICE type", async () => {
+    const dbMock = makeDbMock();
+    dbMock.complaintsFindOne.mockResolvedValue({
+      _id: complaintId,
+      seeker_id: seekerId,
+      provider_id: providerId,
+      provider_access_granted: true,
+      status: "in_review",
+    });
+    const insertedId = new ObjectId();
+    const voiceMessage = "data:audio/webm;codecs=opus;base64,AAAA";
+    dbMock.complaintMessagesInsertOne.mockResolvedValue({
+      insertedId,
+    });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+    const res = await POST(
+      makeRequest({
+        voiceMessage,
+      }),
+      { params: Promise.resolve({ id: complaintId.toString() }) },
+    );
+
+    expect(res.status).toBe(201);
+    expect(dbMock.complaintMessagesInsertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: "",
+        attachments: [],
+        voiceMessage,
+        message_type: "VOICE",
+      }),
+    );
+  });
+
   it("rejects message with no content and no attachments", async () => {
     const res = await POST(
       makeRequest({ content: "   ", attachments: [] }),

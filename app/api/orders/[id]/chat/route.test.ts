@@ -232,4 +232,33 @@ describe("POST /api/orders/[id]/chat", () => {
       }),
     );
   });
+
+  it("accepts voice-only data URL message", async () => {
+    const dbMock = makeDbMock();
+    dbMock.ordersFindOne.mockResolvedValue({
+      _id: orderId,
+      seeker_id: seekerId,
+      provider_id: providerId,
+    });
+    const insertedId = new ObjectId();
+    const voiceMessage = "data:audio/webm;codecs=opus;base64,AAAA";
+    dbMock.orderChatsInsertOne.mockResolvedValue({ insertedId });
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+    const res = await POST(
+      makeRequest({
+        voiceMessage,
+      }),
+      { params: Promise.resolve({ id: orderId.toString() }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(dbMock.orderChatsInsertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "",
+        attachments: [],
+        voiceMessage,
+      }),
+    );
+  });
 });
