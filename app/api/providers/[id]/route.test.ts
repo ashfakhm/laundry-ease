@@ -84,11 +84,15 @@ describe("GET /api/providers/[id]", () => {
     expect(res.status).toBe(200);
     expect(body.data.name).toBe("Ash Laundry");
     expect(dbMock.findOne).toHaveBeenCalledWith(
-      { _id: providerId },
+      { _id: providerId, isDeleted: { $ne: true } },
       expect.objectContaining({
         projection: expect.objectContaining({
           bankDetails: 0,
           razorpay_fund_account_id: 0,
+          emailVerified: 0,
+          passwordHash: 0,
+          phoneVerified: 0,
+          razorpay_contact_id: 0,
         }),
       }),
     );
