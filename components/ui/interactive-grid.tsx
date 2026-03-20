@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/ui/theme-provider";
 
 interface Particle {
   x: number;
@@ -14,7 +14,7 @@ interface Particle {
 export const InteractiveGridPattern = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -59,7 +59,7 @@ export const InteractiveGridPattern = () => {
 
     const draw = () => {
       // Determine colors based on theme
-      const isDark = theme === "dark";
+      const isDark = resolvedTheme === "dark";
       const particleColor = isDark
         ? "rgba(45, 212, 191, 0.5)"
         : "rgba(13, 148, 136, 0.5)"; // Teal based
@@ -147,7 +147,7 @@ export const InteractiveGridPattern = () => {
       container.removeEventListener("mouseleave", handleMouseLeave);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [theme]);
+  }, [resolvedTheme]);
 
   return (
     <div

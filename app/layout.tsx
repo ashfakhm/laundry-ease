@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { SocketProvider } from "@/components/providers/socket-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { GoogleMapsProvider } from "@/components/providers/google-maps-provider";
 import JsonLd from "@/components/seo/json-ld";
+import { DEFAULT_THEME, getThemeInitScript, THEME_STORAGE_KEY } from "@/lib/theme";
 
 import { InteractiveGridPattern } from "@/components/ui/interactive-grid";
 
@@ -154,10 +156,22 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={DEFAULT_THEME === "dark" ? "dark" : undefined}
+      suppressHydrationWarning
+    >
       <body
         className={`min-h-screen w-full antialiased ${inter.variable} overflow-x-hidden selection:bg-primary/20 selection:text-primary`}
       >
+        <Script id="theme-init" strategy="beforeInteractive">
+          {getThemeInitScript({
+            attribute: "class",
+            defaultTheme: DEFAULT_THEME,
+            enableSystem: false,
+            storageKey: THEME_STORAGE_KEY,
+          })}
+        </Script>
         <SessionProvider>
           <SocketProvider>
             <GoogleMapsProvider>

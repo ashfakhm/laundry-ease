@@ -1,21 +1,15 @@
 "use client";
 
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
+import { useTheme } from "@/components/ui/theme-provider";
+
+const subscribe = () => () => {};
 
 export function ThemeToggle() {
   const { setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribe, () => true, () => false);
 
-  // Hydration-safe mounting check - this is the recommended pattern from next-themes
-  // See: https://github.com/pacocoursey/next-themes#avoid-hydration-mismatch
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Required for hydration safety
-    setMounted(true);
-  }, []);
-
-  // Return a placeholder during SSR to avoid hydration mismatch
   if (!mounted) {
     return (
       <button
