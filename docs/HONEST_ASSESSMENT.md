@@ -34,14 +34,14 @@ This is a **well-engineered, production-grade codebase** with comprehensive test
 
 ## 2. Ground-Truth Results (Executed, Not Assumed)
 
-Every check below was executed and verified on 2026-03-05:
+Every check below was executed and verified on 2026-03-20:
 
 | Check                                    | Command                                                                                          | Result                                                                                                                                                                                     | Status |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
 | TypeScript (standard)                    | `npx tsc --noEmit`                                                                               | 0 errors                                                                                                                                                                                   | ✅     |
 | TypeScript (strict unused)               | `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`                                         | 0 errors                                                                                                                                                                                   | ✅     |
 | ESLint                                   | `npx eslint . --max-warnings=0`                                                                  | 0 errors, 0 warnings                                                                                                                                                                       | ✅     |
-| Vitest                                   | `npx vitest run`                                                                                 | **591 tests across 111 files** — full test suite passes²                                                                                                                                   | ✅     |
+| Vitest                                   | `npx vitest run`                                                                                 | **616 tests across 116 files** — full test suite passes²                                                                                                                                   | ✅     |
 | Production build                         | `npm run build`                                                                                  | Passes cleanly, all routes compiled                                                                                                                                                        | ✅     |
 | Placeholder scan (`TODO/FIXME/HACK/XXX`) | grep                                                                                             | None in application code¹                                                                                                                                                                  | ✅     |
 | `@ts-ignore` / `@ts-nocheck`             | grep                                                                                             | 0 instances                                                                                                                                                                                | ✅     |
@@ -59,7 +59,7 @@ Every check below was executed and verified on 2026-03-05:
 
 ¹ grep hits `placeholder="XXXXXX"` in HTML inputs (OTP fields) — these are UI placeholders, not code TODOs.
 
-² Vitest passes in CI and normal terminal runs. In sandboxed environments (e.g. Cursor sandbox) that restrict process spawning, `lib/db.test.ts` and `app/api/admin/refund/route.integration.test.ts` can fail due to MongoDB memory-server child process exit. Run tests outside sandbox or in CI for full pass. **Current test count: 591 tests in 111 files** (verified by live execution). All debug console.log statements have been cleaned up.
+² Vitest passes in CI and normal terminal runs. In sandboxed environments (e.g. Cursor sandbox) that restrict process spawning, `lib/db.test.ts` and `app/api/admin/refund/route.integration.test.ts` can fail due to MongoDB memory-server child process exit. Run tests outside sandbox or in CI for full pass. **Current test count: 616 tests in 116 files** (verified by live execution). All debug console.log statements have been cleaned up.
 
 ### Additional Rev 11 Verification (retained)
 
@@ -423,13 +423,13 @@ The backend, business logic, testing, and operational infrastructure are genuine
 
 | Category                               | Count                                                                                                                                                                          |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| API route files (`route.ts`)           | 84 (including `[...nextauth]/route.ts`)                                                                                                                                        |
-| API test files                         | 84 (includes lifecycle + integration tests)                                                                                                                                    |
+| API route files (`route.ts`)           | 89 (including `[...nextauth]/route.ts`)                                                                                                                                        |
+| API test files                         | 89 (includes lifecycle + integration tests)                                                                                                                                    |
 | Lib module files (non-test, incl. .js) | 73                                                                                                                                                                             |
-| Lib test files                         | 23 (+4: socket-auth.test.ts, emitter.test.ts, chat-state.test.ts, already-counted cancellation-policy.test.ts update)                                                          |
-| Total test files                       | **110**                                                                                                                                                                        |
-| Component files (`.tsx`)               | 38 (+1 `order-chat.tsx`, +1 `socket-provider.tsx`, −1 `chat-interface.tsx` deleted)                                                                                            |
-| Type definition files                  | 8                                                                                                                                                                              |
+| Lib test files                         | 27 (includes domain unit tests)                                                                                                                                                 |
+| Total test files                       | **116**                                                                                                                                                                        |
+| Component files (`.tsx`)               | 44 (+1 `ImageCropModal`)                                                                                                                                                       |
+| Type definition files                  | 9                                                                                                                                                                              |
 | Cron modules                           | 2 (called by 10 cron API routes)                                                                                                                                               |
 | Hook modules                           | 1                                                                                                                                                                              |
 | App page/layout/error/loading files    | 56                                                                                                                                                                             |
