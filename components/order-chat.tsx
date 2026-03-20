@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
+import { VoiceMessageBubble } from "@/components/ui/voice-message-bubble";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 import realtimeContracts, {
   type OrderChatMessageDto,
@@ -485,11 +486,9 @@ export default function OrderChat({
                   )}
                   {msg.voiceMessage && (
                     <div className={msg.message ? "mt-2" : ""}>
-                      <audio
-                        controls
-                        preload="metadata"
-                        className="w-full max-w-60 h-8"
+                      <VoiceMessageBubble
                         src={msg.voiceMessage}
+                        isOwnMessage={msg.sender_role === selfRole}
                       />
                     </div>
                   )}

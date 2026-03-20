@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/components/providers/socket-provider";
+import { VoiceMessageBubble } from "@/components/ui/voice-message-bubble";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
 import realtimeContracts, {
@@ -749,14 +750,14 @@ export default function ComplaintChat({
                     <span className="italic">{msg.content}</span>
                   ) : (
                     <>
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      {msg.content && (
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      )}
                       {msg.voiceMessage && (
                         <div className={msg.content ? "mt-2" : ""}>
-                          <audio
-                            controls
-                            preload="metadata"
-                            className="w-full max-w-60 h-8"
+                          <VoiceMessageBubble
                             src={msg.voiceMessage}
+                            isOwnMessage={isSelfMessage}
                           />
                         </div>
                       )}
