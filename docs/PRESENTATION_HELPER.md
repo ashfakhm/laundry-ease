@@ -88,7 +88,7 @@
 
 | Layer              | Technology                    | Why                                                                                      |
 | ------------------ | ----------------------------- | ---------------------------------------------------------------------------------------- |
-| **Framework**      | Next.js 16.1.6 (App Router)   | Full-stack, SSR, API routes                                                              |
+| **Framework**      | Next.js 16.2.0 (App Router)   | Full-stack, SSR, API routes                                                              |
 | **Frontend**       | React 19.2.4, TypeScript 5    | Type safety, modern features                                                             |
 | **Styling**        | Tailwind CSS 4, shadcn/ui     | Fast development, same look everywhere                                                   |
 | **Animations**     | Framer Motion                 | Smooth, fast animations                                                                  |
@@ -1877,8 +1877,8 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 
 Current quality snapshot:
 
-- `110` test files
-- `588` tests passing (100% core route coverage)
+- `116` test files
+- `616` tests passing (100% core route coverage)
 - `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
