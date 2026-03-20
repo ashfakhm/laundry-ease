@@ -100,7 +100,7 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 
 | Layer               | Technology                          | Purpose                                                    |
 | ------------------- | ----------------------------------- | ---------------------------------------------------------- |
-| **Framework**       | Next.js 16.1.6 (App Router)         | Full-stack React framework for pages and API routes        |
+| **Framework**       | Next.js 16.2.0 (App Router)         | Full-stack React framework for pages and API routes        |
 | **Frontend**        | React 19.2.4 + TypeScript 5         | Type-safe modern UI with React Compiler                    |
 | **Styling**         | Tailwind CSS 4 + shadcn/ui (CLI v4) | Utility-first CSS + accessible components                  |
 | **Animations**      | Framer Motion                       | Smooth page and element animations                         |
@@ -624,7 +624,7 @@ All user-facing confirmation flows use custom in-app dialogs — no native brows
 **Quality Snapshot (current):**
 
 - **Lighthouse Scores**: 100 SEO, 94 Accessibility, 92 Best Practices, 89 Performance. Achieved exceptional accessibility and a perfect SEO score.
-- Current unit test suite passes in CI and local verification — **591 tests across 111 files**
+- Current unit test suite passes in CI and local verification — **616 tests across 116 files**
 - `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - All quality gates passing: `typecheck`, `lint`, `test`, `build`, `test:e2e`
 - TypeScript: zero errors, zero `as any`, zero `@ts-ignore` / `@ts-nocheck`, only 2 `eslint-disable` comments (both in CommonJS files)
@@ -751,7 +751,8 @@ laundry-ease/
 │   │   ├── google-maps-provider.tsx # Maps context provider
 │   │   ├── invoice-form.tsx      # Invoice creation form
 │   │   ├── provider-booking-list.tsx # Booking list for providers
-│   │   └── session-provider.tsx  # NextAuth session wrapper
+│   │   ├── session-provider.tsx  # NextAuth session wrapper
+│   │   └── socket-provider.tsx   # Socket.IO connection provider
 │   ├── seeker/                   # Seeker-specific components
 │   │   ├── delivery-otp-form.tsx # OTP confirmation form
 │   │   └── invoice-review-form.tsx # Invoice approval/rejection
@@ -760,11 +761,14 @@ laundry-ease/
 │   │   └── json-ld.tsx           # 5 JSON-LD schemas (SoftwareApplication, LocalBusiness, Service, Organization, FAQPage)
 │   ├── ui/                       # shadcn/ui + custom components
 │   │   ├── app-header.tsx        # Application header bar
+│   │   ├── chat-delete-menu.tsx  # Menu for message deletion (Socket.IO)
 │   │   ├── confirm-dialog.tsx    # Custom confirmation modal + useConfirmDialog hook (replaces window.confirm)
 │   │   ├── error-boundary.tsx    # React error boundary
 │   │   ├── evidence-upload.tsx   # Complaint evidence upload
+│   │   ├── feature-card.tsx      # Landing page feature feature showcases
 │   │   ├── global-footer.tsx     # Site footer
 │   │   ├── go-back-button.tsx    # Navigation back button
+│   │   ├── image-crop-modal.tsx  # Modal for cropping profile photos
 │   │   ├── image-upload.tsx      # Image upload component
 │   │   ├── interactive-grid.tsx  # Animated grid background
 │   │   ├── location-autocomplete.tsx # Google Places autocomplete
@@ -776,7 +780,9 @@ laundry-ease/
 │   │   ├── text-generate-effect.tsx # Text animation
 │   │   ├── theme-provider.tsx    # Dark/light theme context
 │   │   ├── theme-toggle.tsx      # Theme toggle button
-│   │   └── toast.tsx             # Toast notifications
+│   │   ├── toast.tsx             # Toast notifications
+│   │   ├── voice-message-bubble.tsx # Voice message playback bubble
+│   │   └── workflow-step.tsx     # Landing page workflow visualizations
 │   ├── order-chat.tsx            # Real-time order chat (Socket.IO)
 │   ├── complaint-chat.tsx        # 3-way complaint chat (Socket.IO)
 │   └── landing-page-client.tsx   # Landing page client component
