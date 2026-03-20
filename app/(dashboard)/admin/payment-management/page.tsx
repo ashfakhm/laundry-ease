@@ -135,7 +135,7 @@ export default function AdminPaymentManagementPage() {
     switch (status) {
       case "held":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
             <Clock className="h-3 w-3" />
             In Escrow
           </span>
@@ -143,20 +143,20 @@ export default function AdminPaymentManagementPage() {
       case "released":
       case "paid":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
             <CheckCircle2 className="h-3 w-3" />
             {status === "released" ? "Released" : "Paid"}
           </span>
         );
       case "refunded":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200">
             Refunded
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200">
             {status}
           </span>
         );
@@ -214,8 +214,8 @@ export default function AdminPaymentManagementPage() {
           <div className="relative overflow-hidden rounded-2xl border bg-card/50 p-6 shadow-sm backdrop-blur-md">
             <div className="absolute top-0 right-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
             <div className="relative">
-              <div className="flex items-center gap-2 text-emerald-600 mb-4">
-                <div className="p-2 bg-emerald-100/50 rounded-lg">
+              <div className="mb-4 flex items-center gap-3 text-emerald-700 dark:text-emerald-300">
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-200/80 bg-emerald-100 text-emerald-700 shadow-sm dark:border-emerald-800/60 dark:bg-emerald-500/15 dark:text-emerald-300">
                   <DollarSign className="h-5 w-5" />
                 </div>
                 <p className="text-sm font-semibold tracking-wide uppercase">
@@ -237,8 +237,8 @@ export default function AdminPaymentManagementPage() {
           <div className="relative overflow-hidden rounded-2xl border bg-card/50 p-6 shadow-sm backdrop-blur-md">
             <div className="absolute top-0 right-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-amber-500/10 blur-2xl" />
             <div className="relative">
-              <div className="flex items-center gap-2 text-amber-600 mb-4">
-                <div className="p-2 bg-amber-100/50 rounded-lg">
+              <div className="mb-4 flex items-center gap-3 text-amber-700 dark:text-amber-300">
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-amber-200/80 bg-amber-100 text-amber-700 shadow-sm dark:border-amber-800/60 dark:bg-amber-500/15 dark:text-amber-300">
                   <Clock className="h-5 w-5" />
                 </div>
                 <p className="text-sm font-semibold tracking-wide uppercase">
@@ -259,8 +259,8 @@ export default function AdminPaymentManagementPage() {
           <div className="relative overflow-hidden rounded-2xl border bg-card/50 p-6 shadow-sm backdrop-blur-md">
             <div className="absolute top-0 right-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-blue-500/10 blur-2xl" />
             <div className="relative">
-              <div className="flex items-center gap-2 text-blue-600 mb-4">
-                <div className="p-2 bg-blue-100/50 rounded-lg">
+              <div className="mb-4 flex items-center gap-3 text-blue-700 dark:text-blue-300">
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-blue-200/80 bg-blue-100 text-blue-700 shadow-sm dark:border-blue-800/60 dark:bg-blue-500/15 dark:text-blue-300">
                   <TrendingUp className="h-5 w-5" />
                 </div>
                 <p className="text-sm font-semibold tracking-wide uppercase">
@@ -331,7 +331,7 @@ export default function AdminPaymentManagementPage() {
                 <div className="flex-1 grid grid-cols-2 gap-4">
                   {payment.seeker && (
                     <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                         {payment.seeker.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="overflow-hidden">
@@ -346,7 +346,7 @@ export default function AdminPaymentManagementPage() {
                   )}
                   {payment.provider && (
                     <div className="flex items-center gap-2">
-                      <div className="relative h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold overflow-hidden shrink-0">
+                      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-purple-100 text-xs font-bold text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                         {payment.provider.profilePicture ? (
                           <Image
                             src={payment.provider.profilePicture}
@@ -385,10 +385,10 @@ export default function AdminPaymentManagementPage() {
                   {payment.escrow_release_at &&
                     payment.payment_status === "held" && (
                       <div className="hidden lg:block text-right">
-                        <p className="text-[10px] uppercase tracking-wider text-amber-600 font-semibold">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-300">
                           Auto-Release In
                         </p>
-                        <p className="text-xs font-medium text-amber-700">
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-200">
                           {/* Simple time logic here or keep it static/formatted */}
                           {new Date(
                             payment.escrow_release_at,
@@ -417,7 +417,7 @@ export default function AdminPaymentManagementPage() {
                     payment.payment_status === "paid") && (
                     <>
                       <button
-                        className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                        className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                         title="Refund"
                         onClick={() => openActionModal(payment._id, "refund")}
                       >
@@ -438,7 +438,7 @@ export default function AdminPaymentManagementPage() {
                         </svg>
                       </button>
                       <button
-                        className="p-2 rounded-lg hover:bg-amber-50 text-amber-600 transition-colors"
+                        className="rounded-lg p-2 text-amber-600 transition-colors hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
                         title="Penalty"
                         onClick={() => openActionModal(payment._id, "penalty")}
                       >
@@ -470,7 +470,7 @@ export default function AdminPaymentManagementPage() {
         {/* Refund/Penalty Modal */}
         {action.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-xl">
               <h2 className="text-lg font-bold mb-2">
                 {action.type === "refund" ? "Process Refund" : "Apply Penalty"}
               </h2>
