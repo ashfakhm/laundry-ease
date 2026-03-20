@@ -4,7 +4,7 @@
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.1.6, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, secure password reset with session invalidation, provider capacity management, and user ban enforcement. The current test suite passes with **591 tests across 111 unit test files** and 6 Playwright E2E specs, with only 2 justified `eslint-disable` comments in CommonJS files.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.2.0, React 19.2.4, TypeScript 5, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, secure password reset with session invalidation, provider capacity management, and user ban enforcement. The current test suite passes with **616 tests across 116 unit test files** and 6 Playwright E2E specs, with only 2 justified `eslint-disable` comments in CommonJS files.
 
 ```mermaid
 graph LR
@@ -43,7 +43,7 @@ graph LR
 
 | Technology               | Version               | Purpose                                           |
 | ------------------------ | --------------------- | ------------------------------------------------- |
-| Next.js                  | 16.1.6                | Full-stack framework (App Router, Server Actions) |
+| Next.js                  | 16.2.0                | Full-stack framework (App Router, Server Actions) |
 | MongoDB                  | 7.1.0 (native driver) | Document database with geospatial + transactions  |
 | Auth.js (`next-auth`)    | 5.0.0-beta.30         | Authentication (Google OAuth + credentials)       |
 | Razorpay                 | 2.9.6                 | Payment capture, escrow, refunds                  |
@@ -74,7 +74,7 @@ graph LR
 | Playwright            | 1.58.2  | Browser E2E testing         |
 | mongodb-memory-server | 11.0.1  | In-memory MongoDB for tests |
 | ESLint                | 9       | Code linting                |
-| eslint-config-next    | 16.1.6  | Next.js-specific lint rules |
+| eslint-config-next    | 16.2.0  | Next.js-specific lint rules |
 
 ### Infrastructure & CI
 
@@ -92,634 +92,484 @@ graph LR
 ### Directory Structure
 
 ```text
-laundry-ease/
-
-.
+=== app ===
 ├── app
-│   ├── (auth)
-│   │   ├── verify-email
-│   │   │   └── page.tsx
-│   │   └── verify-phone
-│   │       └── page.tsx
-│   ├── (dashboard)
-│   │   ├── admin
-│   │   │   ├── complaints
-│   │   │   │   ├── [id]
-│   │   │   │   │   └── page.tsx
-│   │   │   │   └── page.tsx
-│   │   │   ├── error.tsx
-│   │   │   ├── layout.tsx
-│   │   │   ├── loading.tsx
-│   │   │   ├── page.tsx
-│   │   │   ├── payment-management
-│   │   │   │   └── page.tsx
-│   │   │   └── user-management
-│   │   │       └── page.tsx
-│   │   ├── provider
-│   │   │   ├── bookings
-│   │   │   │   ├── [id]
-│   │   │   │   │   └── invoice
-│   │   │   │   │       └── page.tsx
-│   │   │   │   └── page.tsx
-│   │   │   ├── disputes
-│   │   │   │   ├── [id]
-│   │   │   │   │   └── page.tsx
-│   │   │   │   └── page.tsx
-│   │   │   ├── error.tsx
-│   │   │   ├── invoice-generation
-│   │   │   │   ├── [id]
-│   │   │   │   │   └── print
-│   │   │   │   │       └── page.tsx
-│   │   │   │   └── page.tsx
-│   │   │   ├── layout.tsx
-│   │   │   ├── loading.tsx
-│   │   │   ├── manage-booking
-│   │   │   │   ├── booking-card.tsx
-│   │   │   │   ├── booking-list.tsx
-│   │   │   │   ├── booking-status-badge.tsx
-│   │   │   │   ├── loading.tsx
-│   │   │   │   └── page.tsx
-│   │   │   ├── messages
-│   │   │   │   └── page.tsx
-│   │   │   ├── order-status
-│   │   │   │   └── page.tsx
-│   │   │   ├── page.tsx
-│   │   │   ├── profile
-│   │   │   │   ├── edit
-│   │   │   │   │   ├── page.tsx
-│   │   │   │   │   └── profile-sections.tsx
-│   │   │   │   └── page.tsx
-│   │   │   └── reviews-manage
-│   │   │       └── page.tsx
-│   │   └── seeker
-│   │       ├── bookings
-│   │       │   ├── [id]
-│   │       │   │   └── invoice-review
-│   │       │   │       └── page.tsx
-│   │       │   ├── page.tsx
-│   │       │   ├── seeker-booking-card.tsx
-│   │       │   └── seeker-booking-list.tsx
-│   │       ├── disputes
-│   │       │   ├── [id]
-│   │       │   │   └── page.tsx
-│   │       │   └── page.tsx
-│   │       ├── error.tsx
-│   │       ├── invoices
-│   │       │   └── page.tsx
-│   │       ├── layout.tsx
-│   │       ├── loading.tsx
-│   │       ├── orders
-│   │       │   └── [id]
-│   │       │       ├── confirm-delivery
-│   │       │       │   └── page.tsx
-│   │       │       └── page.tsx
-│   │       ├── page.tsx
-│   │       ├── profile
-│   │       │   └── page.tsx
-│   │       ├── provider
-│   │       │   └── [id]
-│   │       │       ├── page.tsx
-│   │       │       └── provider-detail-client.tsx
-│   │       └── view-orders
-│   │           └── page.tsx
+│   ├── robots.ts
+│   ├── favicon.ico
+│   ├── unauthorized.tsx
+│   ├── forbidden.tsx
+│   ├── sitemap.ts
+│   ├── layout.tsx
+│   ├── loading.tsx
+│   ├── page.tsx
+│   ├── globals.css
+│   ├── global-error.tsx
+│   ├── not-found.tsx
 │   ├── (root)
-│   │   ├── error.tsx
 │   │   ├── layout.tsx
-│   │   └── terms
-│   │       ├── provider
-│   │       │   └── page.tsx
-│   │       └── seeker
-│   │           └── page.tsx
+│   │   ├── error.tsx
+│   │   ├── terms
+│   │   │   ├── provider
+│   │   │   │   ├── page.tsx
+│   │   │   ├── seeker
+│   │   │   │   ├── page.tsx
+│   ├── auth
+│   │   ├── page.tsx
+│   ├── signup
+│   │   ├── provider
+│   │   │   ├── page.tsx
+│   │   ├── seeker
+│   │   │   ├── page.tsx
+│   ├── complete-signup
+│   │   ├── provider
+│   │   │   ├── page.tsx
+│   │   ├── seeker
+│   │   │   ├── page.tsx
+│   ├── banned
+│   │   ├── page.tsx
 │   ├── actions
 │   │   ├── booking-actions.ts
+│   │   ├── profile-actions.ts
 │   │   ├── order-actions.ts
-│   │   └── profile-actions.ts
 │   ├── api
-│   │   ├── admin
-│   │   │   ├── complaints
-│   │   │   │   ├── [id]
-│   │   │   │   │   ├── accept
-│   │   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   ├── access
-│   │   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   ├── add-provider
-│   │   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   ├── resolve
-│   │   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── dashboard-stats
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── demo
-│   │   │   │   └── cron
-│   │   │   │       ├── route.test.ts
-│   │   │   │       └── route.ts
-│   │   │   ├── orders
-│   │   │   │   └── [id]
-│   │   │   │       └── extend-complaint
-│   │   │   │           ├── route.test.ts
-│   │   │   │           └── route.ts
-│   │   │   ├── payments
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── refund
-│   │   │   │   ├── route.integration.test.ts
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── system-alerts
-│   │   │   │   └── [id]
-│   │   │   │       └── acknowledge
-│   │   │   │           ├── route.test.ts
-│   │   │   │           └── route.ts
-│   │   │   └── users
-│   │   │       ├── [id]
-│   │   │       │   ├── ban
-│   │   │       │   │   ├── route.test.ts
-│   │   │       │   │   └── route.ts
-│   │   │       │   ├── route.test.ts
-│   │   │       │   └── route.ts
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── auth
-│   │   │   ├── [...nextauth]
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── send-magic-link
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   └── verify-email
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── bookings
-│   │   │   ├── [id]
-│   │   │   │   ├── accept
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── arrive
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── cancel
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── dispute
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── invoice
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── pay-invoice
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── pay
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── reject
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── reschedule
-│   │   │   │   │   └── request
-│   │   │   │   │       ├── route.test.ts
-│   │   │   │   │       └── route.ts
+│   │   ├── payments
+│   │   │   ├── create-order
 │   │   │   │   ├── route.test.ts
 │   │   │   │   ├── route.ts
-│   │   │   │   └── schedule
-│   │   │   │       ├── route.test.ts
-│   │   │   │       └── route.ts
-│   │   │   ├── payment
-│   │   │   │   ├── init
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── verify
-│   │   │   │       ├── route.test.ts
-│   │   │   │       └── route.ts
-│   │   │   ├── provider
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── route.test.ts
-│   │   │   ├── route.ts
-│   │   │   └── seeker
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
 │   │   ├── complaints
-│   │   │   ├── [id]
-│   │   │   │   ├── messages
-│   │   │   │   │   ├── [messageId]
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── lifecycle.test.ts
-│   │   │   ├── route.test.ts
-│   │   │   └── route.ts
-│   │   ├── cron
-│   │   │   ├── audit-integrity
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── auto-reject-bookings
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── monitor-abuse
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── monitor-operational-health
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── no-show
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── notify-system-alerts
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── process-email-outbox
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── process-payouts
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── reconciliation
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   └── webhook-cleanup
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── escrow
-│   │   │   └── release
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── forgot-password
-│   │   │   ├── route.test.ts
-│   │   │   └── route.ts
-│   │   ├── invoices
-│   │   │   └── [id]
-│   │   │       ├── review
-│   │   │       │   ├── route.test.ts
-│   │   │       │   └── route.ts
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── orders
-│   │   │   ├── [id]
-│   │   │   │   ├── cancel
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── chat
-│   │   │   │   │   ├── [messageId]
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── confirm-delivery
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── otp
-│   │   │   │   │   ├── resend
-│   │   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   └── verify
-│   │   │   │   │       ├── route.test.ts
-│   │   │   │   │       └── route.ts
-│   │   │   │   ├── pay
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── payment
-│   │   │   │   │   ├── init
-│   │   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   ├── route.ts
-│   │   │   │   │   └── verify
-│   │   │   │   │       ├── route.test.ts
-│   │   │   │   │       └── route.ts
-│   │   │   │   ├── schedule-delivery
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── status
-│   │   │   │       ├── route.test.ts
-│   │   │   │       └── route.ts
-│   │   │   ├── provider
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
 │   │   │   ├── route.test.ts
 │   │   │   ├── route.ts
-│   │   │   └── seeker
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
+│   │   │   ├── lifecycle.test.ts
+│   │   │   ├── [id]
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── bookings
+│   │   │   ├── route.test.ts
+│   │   │   ├── route.ts
+│   │   │   ├── payment
+│   │   │   ├── provider
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── [id]
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── seeker
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── invoices
+│   │   │   ├── [id]
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── security
+│   │   │   ├── csp-report
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── auth
+│   │   │   ├── send-magic-link
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── verify-email
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── [...nextauth]
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
 │   │   ├── otp
+│   │   │   ├── verify
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
 │   │   │   ├── request
 │   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   └── verify
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── payments
-│   │   │   └── create-order
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── profile
-│   │   │   ├── provider
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   └── seeker
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── provider
-│   │   │   ├── chats
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   └── dashboard-stats
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
-│   │   ├── providers
-│   │   │   ├── [id]
-│   │   │   │   ├── reviews
-│   │   │   │   │   ├── route.test.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── bank-details
-│   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── route.test.ts
-│   │   │   └── route.ts
-│   │   ├── reset-password
-│   │   │   ├── route.test.ts
-│   │   │   └── route.ts
-│   │   ├── reviews
-│   │   │   ├── route.test.ts
-│   │   │   └── route.ts
-│   │   ├── security
-│   │   │   └── csp-report
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
+│   │   │   │   ├── route.ts
 │   │   ├── signup
 │   │   │   ├── provider
 │   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
-│   │   │   └── seeker
-│   │   │       ├── route.test.ts
-│   │   │       └── route.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── seeker
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── providers
+│   │   │   ├── route.test.ts
+│   │   │   ├── route.ts
+│   │   │   ├── bank-details
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── [id]
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── admin
+│   │   │   ├── demo
+│   │   │   ├── payments
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── complaints
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── system-alerts
+│   │   │   ├── users
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── dashboard-stats
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── orders
+│   │   │   ├── refund
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.integration.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── provider
+│   │   │   ├── chats
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── dashboard-stats
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── profile
+│   │   │   ├── provider
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── seeker
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── forgot-password
+│   │   │   ├── route.test.ts
+│   │   │   ├── route.ts
+│   │   ├── escrow
+│   │   │   ├── release
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── reset-password
+│   │   │   ├── route.test.ts
+│   │   │   ├── route.ts
+│   │   ├── orders
+│   │   │   ├── route.test.ts
+│   │   │   ├── route.ts
+│   │   │   ├── provider
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── [id]
+│   │   │   ├── seeker
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── webhooks
+│   │   │   ├── razorpay
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── e2e
+│   │   │   ├── runtime
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
 │   │   ├── upload
-│   │   │   ├── audio
-│   │   │   │   └── route.ts
+│   │   │   ├── route.test.ts
+│   │   │   ├── route.ts
 │   │   │   ├── image
 │   │   │   │   ├── route.test.ts
-│   │   │   │   └── route.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── audio
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── cron
+│   │   │   ├── no-show
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── reconciliation
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── monitor-abuse
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── auto-reject-bookings
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── notify-system-alerts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── audit-integrity
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── webhook-cleanup
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── process-email-outbox
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── process-payouts
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   │   ├── monitor-operational-health
+│   │   │   │   ├── route.test.ts
+│   │   │   │   ├── route.ts
+│   │   ├── reviews
 │   │   │   ├── route.test.ts
-│   │   │   └── route.ts
-│   │   └── webhooks
-│   │       └── razorpay
-│   │           ├── route.test.ts
-│   │           └── route.ts
-│   ├── auth
-│   │   └── page.tsx
-│   ├── banned
-│   │   └── page.tsx
-│   ├── choose-role
-│   │   └── page.tsx
-│   ├── complete-signup
-│   │   ├── provider
-│   │   │   └── page.tsx
-│   │   └── seeker
-│   │       └── page.tsx
-│   ├── favicon.ico
-│   ├── forbidden.tsx
-│   ├── global-error.tsx
-│   ├── globals.css
-│   ├── layout.tsx
-│   ├── loading.tsx
-│   ├── not-found.tsx
-│   ├── page.tsx
+│   │   │   ├── route.ts
 │   ├── reset-password
-│   │   └── page.tsx
-│   ├── robots.ts
-│   ├── signup
+│   │   ├── page.tsx
+│   ├── (auth)
+│   │   ├── verify-email
+│   │   │   ├── page.tsx
+│   │   ├── verify-phone
+│   │   │   ├── page.tsx
+│   ├── choose-role
+│   │   ├── page.tsx
+│   ├── (dashboard)
+│   │   ├── admin
+│   │   │   ├── layout.tsx
+│   │   │   ├── error.tsx
+│   │   │   ├── loading.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── complaints
+│   │   │   │   ├── page.tsx
+│   │   │   ├── payment-management
+│   │   │   │   ├── page.tsx
+│   │   │   ├── user-management
+│   │   │   │   ├── page.tsx
 │   │   ├── provider
-│   │   │   └── page.tsx
-│   │   └── seeker
-│   │       └── page.tsx
-│   ├── sitemap.ts
-│   └── unauthorized.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── error.tsx
+│   │   │   ├── loading.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── messages
+│   │   │   │   ├── page.tsx
+│   │   │   ├── manage-booking
+│   │   │   │   ├── booking-list.tsx
+│   │   │   │   ├── booking-card.tsx
+│   │   │   │   ├── loading.tsx
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── booking-status-badge.tsx
+│   │   │   ├── reviews-manage
+│   │   │   │   ├── page.tsx
+│   │   │   ├── bookings
+│   │   │   │   ├── page.tsx
+│   │   │   ├── order-status
+│   │   │   │   ├── page.tsx
+│   │   │   ├── invoice-generation
+│   │   │   │   ├── page.tsx
+│   │   │   ├── disputes
+│   │   │   │   ├── page.tsx
+│   │   │   ├── profile
+│   │   │   │   ├── page.tsx
+│   │   ├── seeker
+│   │   │   ├── layout.tsx
+│   │   │   ├── error.tsx
+│   │   │   ├── loading.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── bookings
+│   │   │   │   ├── seeker-booking-list.tsx
+│   │   │   │   ├── seeker-booking-card.tsx
+│   │   │   │   ├── page.tsx
+│   │   │   ├── invoices
+│   │   │   │   ├── page.tsx
+│   │   │   ├── view-orders
+│   │   │   │   ├── page.tsx
+│   │   │   ├── disputes
+│   │   │   │   ├── page.tsx
+│   │   │   ├── provider
+│   │   │   ├── profile
+│   │   │   │   ├── page.tsx
+│   │   │   ├── orders
+
+
+=== components ===
 ├── components
 │   ├── complaint-chat.tsx
-│   ├── landing-page-client.tsx
-│   ├── navigation
-│   │   ├── admin-sidebar.tsx
-│   │   ├── provider-sidebar.tsx
-│   │   └── seeker-topnav.tsx
 │   ├── order-chat.tsx
-│   ├── orders
-│   │   ├── live-status-refresh.tsx
-│   │   ├── order-actions.tsx
-│   │   ├── payment-button.tsx
-│   │   └── post-delivery-actions.tsx
+│   ├── landing-page-client.tsx
+│   ├── ui
+│   │   ├── theme-provider.tsx
+│   │   ├── image-upload.tsx
+│   │   ├── confirm-dialog.tsx
+│   │   ├── settlement-summary-modal.tsx
+│   │   ├── error-boundary.tsx
+│   │   ├── interactive-grid.tsx
+│   │   ├── spotlight-card.tsx
+│   │   ├── chat-delete-menu.tsx
+│   │   ├── voice-message-bubble.tsx
+│   │   ├── evidence-upload.tsx
+│   │   ├── voice-message-bubble.test.ts
+│   │   ├── text-generate-effect.tsx
+│   │   ├── password-input.tsx
+│   │   ├── feature-card.tsx
+│   │   ├── go-back-button.tsx
+│   │   ├── workflow-step.tsx
+│   │   ├── app-header.tsx
+│   │   ├── global-footer.tsx
+│   │   ├── image-crop-modal.tsx
+│   │   ├── toast.tsx
+│   │   ├── theme-toggle.tsx
+│   │   ├── select.tsx
+│   │   ├── skeleton.tsx
+│   │   ├── location-autocomplete.tsx
+│   ├── providers
+│   │   ├── invoice-form.tsx
+│   │   ├── socket-provider.tsx
+│   │   ├── google-maps-provider.tsx
+│   │   ├── session-provider.tsx
+│   │   ├── provider-booking-list.tsx
 │   ├── provider
 │   │   ├── provider-header.tsx
-│   │   └── reviews-list.tsx
-│   ├── providers
-│   │   ├── google-maps-provider.tsx
-│   │   ├── invoice-form.tsx
-│   │   ├── provider-booking-list.tsx
-│   │   ├── session-provider.tsx
-│   │   └── socket-provider.tsx
-│   ├── seeker
-│   │   ├── delivery-otp-form.tsx
-│   │   └── invoice-review-form.tsx
+│   │   ├── reviews-list.tsx
+│   ├── navigation
+│   │   ├── provider-sidebar.tsx
+│   │   ├── admin-sidebar.tsx
+│   │   ├── seeker-topnav.tsx
+│   ├── orders
+│   │   ├── post-delivery-actions.tsx
+│   │   ├── payment-button.tsx
+│   │   ├── live-status-refresh.tsx
+│   │   ├── order-actions.tsx
 │   ├── seo
 │   │   ├── breadcrumb-json-ld.tsx
-│   │   └── json-ld.tsx
-│   └── ui
-│       ├── app-header.tsx
-│       ├── confirm-dialog.tsx
-│       ├── error-boundary.tsx
-│       ├── evidence-upload.tsx
-│       ├── global-footer.tsx
-│       ├── go-back-button.tsx
-│       ├── image-upload.tsx
-│       ├── interactive-grid.tsx
-│       ├── location-autocomplete.tsx
-│       ├── password-input.tsx
-│       ├── select.tsx
-│       ├── settlement-summary-modal.tsx
-│       ├── skeleton.tsx
-│       ├── spotlight-card.tsx
-│       ├── text-generate-effect.tsx
-│       ├── theme-provider.tsx
-│       ├── theme-toggle.tsx
-│       └── toast.tsx
-├── cron
-│   ├── auto-reject-bookings.ts
-│   └── no-show-check.ts
-├── docs
-│   ├── CHAPTERS_1_2_3.md
-│   ├── CHAPTERS_4_5_6_7.md
-│   ├── CODEBASE_UNDERSTANDING.md
-│   ├── HONEST_ASSESSMENT.md
-│   ├── ML_AI_INTEGRATION.md
-│   ├── OPERATIONS_RUNBOOK.md
-│   ├── PRD.md
-│   ├── PRESENTATION_HELPER.md
-│   └── PRODUCTION_READINESS_REVIEW.md
-├── e2e
-│   ├── booking-lifecycle-journey.spec.ts
-│   ├── booking-negative-journeys.spec.ts
-│   ├── complaint-chat-journey.spec.ts
-│   ├── invoice-download.spec.ts
-│   ├── settlement-chain-journey.spec.ts
-│   ├── smoke-role-journeys.spec.ts
-│   └── support
-│       ├── auth.ts
-│       └── smoke-seed.ts
+│   │   ├── json-ld.tsx
+│   ├── seeker
+│   │   ├── delivery-otp-form.tsx
+│   │   ├── invoice-review-form.tsx
+
+
+=== hooks ===
 ├── hooks
+│   ├── use-voice-recorder.ts
 │   ├── use-booking-actions.ts
 │   ├── use-live-data.ts
-│   └── use-voice-recorder.ts
+│   ├── use-voice-recorder.test.ts
+│   ├── use-places-autocomplete-custom.ts
+
+
+=== lib ===
 ├── lib
-│   ├── api
-│   │   ├── auth.test.ts
-│   │   ├── auth.ts
-│   │   ├── cron-auth.ts
-│   │   ├── errors.ts
-│   │   ├── response.ts
-│   │   ├── schemas.contract.test.ts
-│   │   ├── schemas.ts
-│   │   ├── security.test.ts
-│   │   └── security.ts
-│   ├── audit.ts
-│   ├── audit
-│   │   ├── integrity.test.ts
-│   │   └── integrity.ts
-│   ├── auth
-│   │   ├── password-policy.ts
-│   │   └── request-token.js
-│   ├── bookings
-│   │   ├── arrive-handler.ts
-│   │   ├── cancellation-policy.test.ts
-│   │   ├── cancellation-policy.ts
-│   │   └── mark-arrived.ts
-│   ├── client-api.ts
-│   ├── client-error.ts
+│   ├── otp-code-email.ts
+│   ├── local-cron.js
+│   ├── cron-tracking.ts
+│   ├── password-changed-email.ts
 │   ├── cloudinary.ts
+│   ├── crop-image.ts
+│   ├── db.test.ts
+│   ├── db-indexes.test.ts
+│   ├── geocoding.ts
+│   ├── utils.ts
+│   ├── email-outbox.test.ts
+│   ├── distance.ts
+│   ├── db-indexes.ts
+│   ├── logger.ts
+│   ├── telemetry.ts
+│   ├── constants.ts
+│   ├── mongodb.ts
+│   ├── client-api.ts
+│   ├── payouts.ts
+│   ├── otp.ts
+│   ├── magic-link-email.ts
+│   ├── client-error.ts
+│   ├── delivery-otp-email.ts
+│   ├── theme.ts
+│   ├── email-transporter.ts
+│   ├── env.ts
+│   ├── audit.ts
+│   ├── env.normalize.test.ts
+│   ├── password-reset-email.ts
+│   ├── razorpay.ts
+│   ├── email-outbox.ts
+│   ├── demo
+│   │   ├── cron-dispatch.ts
 │   ├── complaints
 │   │   ├── access.test.ts
-│   │   └── access.ts
-│   ├── constants.ts
-│   ├── cron-tracking.ts
-│   ├── data
-│   │   └── bookings.ts
-│   ├── db-indexes.test.ts
-│   ├── db-indexes.ts
-│   ├── db.test.ts
+│   │   ├── access.ts
+│   ├── bookings
+│   │   ├── cancellation-policy.test.ts
+│   │   ├── cancellation-policy.ts
+│   │   ├── arrive-handler.ts
+│   │   ├── mark-arrived.ts
+│   ├── security
+│   │   ├── origin.ts
+│   │   ├── csp.test.ts
+│   │   ├── origin.test.ts
+│   │   ├── csp.ts
+│   ├── auth
+│   │   ├── request-token.js
+│   │   ├── password-policy.ts
+│   ├── utils
+│   │   ├── monetary.ts
+│   │   ├── delivery-charge.ts
+│   ├── realtime
+│   │   ├── emitter.ts
+│   │   ├── socket-auth.test.ts
+│   │   ├── chat-state.test.ts
+│   │   ├── contracts.d.ts
+│   │   ├── chat-state.ts
+│   │   ├── emitter.test.ts
+│   │   ├── contracts.js
+│   │   ├── socket-auth.js
+│   ├── audit
+│   │   ├── integrity.ts
+│   │   ├── integrity.test.ts
 │   ├── db
-│   │   ├── bookings.ts
 │   │   ├── complaints.ts
 │   │   ├── escrow.ts
-│   │   ├── index.ts
 │   │   ├── orders.ts
+│   │   ├── bookings.ts
 │   │   ├── transaction.ts
-│   │   └── users.ts
-│   ├── delivery-otp-email.ts
-│   ├── demo
-│   │   └── cron-dispatch.ts
-│   ├── distance.ts
-│   ├── email-outbox.test.ts
-│   ├── email-outbox.ts
-│   ├── email-transporter.ts
-│   ├── env.normalize.test.ts
-│   ├── env.ts
-│   ├── geocoding.ts
-│   ├── local-cron.js
-│   ├── logger.ts
-│   ├── magic-link-email.ts
-│   ├── mongodb.ts
+│   │   ├── users.ts
+│   │   ├── index.ts
+│   ├── api
+│   │   ├── security.test.ts
+│   │   ├── schemas.contract.test.ts
+│   │   ├── auth.test.ts
+│   │   ├── errors.ts
+│   │   ├── schemas.ts
+│   │   ├── response.ts
+│   │   ├── cron-auth.ts
+│   │   ├── security.ts
+│   │   ├── auth.ts
 │   ├── ops
-│   │   ├── ack-sla.test.ts
-│   │   ├── ack-sla.ts
 │   │   ├── alert-channels.ts
+│   │   ├── alerts-analytics.test.ts
+│   │   ├── owner-routing.ts
+│   │   ├── ack-sla.test.ts
+│   │   ├── alerts-analytics.ts
+│   │   ├── health.ts
+│   │   ├── alert-lifecycle.ts
+│   │   ├── ack-sla.ts
 │   │   ├── alert-delivery.test.ts
 │   │   ├── alert-delivery.ts
-│   │   ├── alert-lifecycle.ts
-│   │   ├── alerts-analytics.test.ts
-│   │   ├── alerts-analytics.ts
-│   │   ├── health.test.ts
-│   │   ├── health.ts
 │   │   ├── owner-routing.test.ts
-│   │   └── owner-routing.ts
+│   │   ├── health.test.ts
 │   ├── orders
-│   │   ├── confirm-delivery-core.ts
 │   │   ├── deadline-compensation.test.ts
 │   │   ├── deadline-compensation.ts
 │   │   ├── status-machine.test.ts
-│   │   └── status-machine.ts
-│   ├── otp-code-email.ts
-│   ├── otp.ts
-│   ├── password-changed-email.ts
-│   ├── password-reset-email.ts
-│   ├── payouts.ts
+│   │   ├── status-machine.ts
+│   │   ├── confirm-delivery-core.ts
+│   ├── webhooks
+│   │   ├── razorpay-handlers.ts
+│   ├── e2e
+│   │   ├── runtime.ts
+│   ├── data
+│   │   ├── bookings.ts
 │   ├── payouts
+│   │   ├── amounts.ts
 │   │   ├── amounts.test.ts
-│   │   └── amounts.ts
-│   ├── razorpay.ts
-│   ├── realtime
-│   │   ├── chat-state.test.ts
-│   │   ├── chat-state.ts
-│   │   ├── contracts.d.ts
-│   │   ├── contracts.js
-│   │   ├── emitter.test.ts
-│   │   ├── emitter.ts
-│   │   ├── socket-auth.js
-│   │   └── socket-auth.test.ts
-│   ├── security
-│   │   ├── csp.test.ts
-│   │   ├── csp.ts
-│   │   ├── origin.test.ts
-│   │   └── origin.ts
 │   ├── services
-│   │   ├── admin-stats.ts
-│   │   ├── complaint-resolution.ts
+│   │   ├── system-alerts.ts
+│   │   ├── refund-lock.ts
+│   │   ├── provider-password.ts
 │   │   ├── invoice-finalization.ts
 │   │   ├── provider-bank-sync.ts
-│   │   ├── provider-password.ts
+│   │   ├── admin-stats.ts
 │   │   ├── provider-search.ts
-│   │   ├── refund-lock.ts
-│   │   └── system-alerts.ts
-│   ├── telemetry.ts
-│   ├── utils.ts
-│   ├── utils
-│   │   ├── delivery-charge.ts
-│   │   └── monetary.ts
-│   └── webhooks
-│       └── razorpay-handlers.ts
-├── scripts
-│   ├── audit-branch-protection.mjs
-│   ├── check-doc-sync.mjs
-│   ├── run-playwright.mjs
-│   └── verify-gates.mjs
-└── types
-    ├── bookings.ts
-    ├── complaints.ts
-    ├── css.d.ts
-    ├── enums.ts
-    ├── next-auth.d.ts
-    ├── orders.ts
-    ├── razorpay.d.ts
-    ├── reviews.ts
-    └── users.ts
+│   │   ├── complaint-resolution.ts
 
-├── auth.ts                       # NextAuth v5 configuration and callbacks
-├── instrumentation.ts             # Node/Edge runtime initialization and diagnostics
-├── proxy.ts                       # Reverse proxy for local webhook simulation (Razorpay)
-├── server.js                     # Custom Node.js server: attaches Socket.IO to Next.js HTTP server
-├── scripts/                      # CI/CD scripts (4 files)
-├── types/                        # TypeScript definitions (8 files)
-├── e2e/                          # Playwright E2E tests (5 specs + support/)
-├── docs/                         # Documentation (8 files)
-└── public/                       # Static assets (5 files)
+
+=== types ===
+├── types
+│   ├── complaints.ts
+│   ├── next-auth.d.ts
+│   ├── razorpay.d.ts
+│   ├── orders.ts
+│   ├── bookings.ts
+│   ├── css.d.ts
+│   ├── users.ts
+│   ├── reviews.ts
+│   ├── enums.ts
+
+
 ```
 
 ### Seeker Booking UI
@@ -866,6 +716,12 @@ flowchart TD
 
 - New OAuth users → `/choose-role` → role selection → `/complete-signup/{seeker|provider}` → profile completion (including T&C acceptance)
 - New credential users → `/signup/{seeker|provider}` → OTP verification (email + phone) + T&C acceptance → account creation
+
+### Image Cropping & Profile Management
+
+To ensure profile images are formatted properly without distortion:
+- **`ImageCropModal`**: Integrates `react-easy-crop` inside dashboards.
+- Seeker and Provider dashboards automatically trigger this modal upon file picker selection, allowing users to zoom, pan, and crop before Base64 upload to Cloudinary.
 
 ### Session Management
 
