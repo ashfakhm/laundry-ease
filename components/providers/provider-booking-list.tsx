@@ -12,6 +12,7 @@ export function ProviderBookingList({
   const router = useRouter();
 
   const pendingBookings = bookings.filter((b) => b.status === "requested");
+  const rescheduleBookings = bookings.filter((b) => b.status === "reschedule_requested");
   const activeBookings = bookings.filter((b) =>
     ["accepted", "pickup_proposed", "confirmed"].includes(b.status)
   );
@@ -29,6 +30,24 @@ export function ProviderBookingList({
           </h2>
           <div className="grid gap-4">
             {pendingBookings.map((booking) => (
+              <BookingCard
+                key={booking._id.toString()}
+                booking={booking}
+                onRefresh={router.refresh}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Reschedule Requests */}
+      {rescheduleBookings.length > 0 && (
+        <section>
+          <h2 className="text-xl font-bold text-amber-600 mb-4 flex items-center gap-2">
+            Reschedule Requests ({rescheduleBookings.length})
+          </h2>
+          <div className="grid gap-4">
+            {rescheduleBookings.map((booking) => (
               <BookingCard
                 key={booking._id.toString()}
                 booking={booking}

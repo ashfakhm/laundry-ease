@@ -34,6 +34,11 @@ const TABS: { id: FilterType; label: string; description: string }[] = [
     label: "Proposed",
     description: "Waiting for seeker",
   },
+  {
+    id: "reschedule_requested",
+    label: "Reschedule",
+    description: "Seeker requested new time",
+  },
   { id: "confirmed", label: "Confirmed", description: "Ready for pickup" },
   { id: "completed", label: "Completed", description: "Past bookings" },
   { id: "all", label: "All", description: "View everything" },
