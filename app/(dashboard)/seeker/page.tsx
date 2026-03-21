@@ -91,11 +91,11 @@ export default function SeekerDashboardPage() {
           if (response.ok) {
             const payload = await response.json();
             const data = unwrapApiData<{
-              address?: { city?: string };
+              address?: { line1?: string; city?: string };
               coordinates?: { lat?: number; lng?: number };
             }>(payload);
-            if (data.address?.city) {
-              const location = data.address.city;
+            const location = data.address?.line1 || data.address?.city;
+            if (location) {
               setSeekerLocation(location);
               setSearchLocation(location); // Auto-populate
             }
