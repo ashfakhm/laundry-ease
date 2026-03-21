@@ -8,7 +8,7 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const res = await createOrderPayment(req, ctx);
+  const res = await createOrderPayment(req, { params: ctx.params });
   if (!res.ok) {
     return res;
   }

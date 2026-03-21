@@ -8,7 +8,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  return createOrderPayment(req, ctx);
+  return createOrderPayment(req, { params: ctx.params });
 }
 
 // Legacy alias for /api/orders/[id]/payment verification
@@ -16,5 +16,5 @@ export async function PUT(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  return verifyOrderPayment(req, ctx);
+  return verifyOrderPayment(req, { params: ctx.params });
 }

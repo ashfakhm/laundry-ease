@@ -25,7 +25,7 @@ export async function POST(
     body: JSON.stringify(normalizedPayload),
   });
 
-  const res = await verifyOrderPayment(forwardedReq, ctx);
+  const res = await verifyOrderPayment(forwardedReq, { params: ctx.params });
   if (!res.ok) {
     return res;
   }
