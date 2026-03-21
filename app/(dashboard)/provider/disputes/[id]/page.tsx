@@ -18,7 +18,7 @@ export default function ProviderDisputeDetailPage({ params }: { params: Promise<
       try {
         const res = await fetch(`/api/complaints/${id}`);
         if (!res.ok) {
-           if (res.status === 403) throw new Error("Access Denied");
+           if (res.status === 403 || res.status === 404) throw new Error("Access Denied");
            throw new Error("Failed to load dispute");
         }
         const payload = await res.json();

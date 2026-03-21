@@ -170,9 +170,9 @@ describe("POST /api/bookings/[id]/invoice", () => {
         params: Promise.resolve({ id: BOOKING_ID }),
       });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
       const data = await res.json();
-      expect(data.message).toBe("Unauthorized");
+      expect(data.message).toBe("Booking not found");
     });
   });
 

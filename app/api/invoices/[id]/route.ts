@@ -220,7 +220,7 @@ export async function GET(
           { orderId: id, userId: user.id },
         );
         return errorResponse(
-          new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+          new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
         );
       }
       const orderBookingId = order.booking_id
@@ -253,7 +253,7 @@ export async function GET(
         { bookingId: id, userId: user.id },
       );
       return errorResponse(
-        new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+        new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
       );
     }
     let invoice: InvoiceData | null = booking?.invoice ?? null;
@@ -297,7 +297,7 @@ export async function GET(
           { orderId: order._id, userId: user.id },
         );
         return errorResponse(
-          new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+          new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
         );
       }
     }
@@ -778,7 +778,7 @@ export async function POST(
 
     if (String(booking.provider_id) !== user.id) {
       return errorResponse(
-        new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+        new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
       );
     }
 

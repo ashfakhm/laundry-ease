@@ -162,7 +162,10 @@ async function getProviderReviews(id: string): Promise<Review[]> {
     return reviews.map((review) => ({
       ...review,
       _id: review._id.toString(),
-    })) as Review[];
+      order_id: review.order_id?.toString(),
+      seeker_id: review.seeker_id?.toString(),
+      provider_id: review.provider_id?.toString(),
+    })) as unknown as Review[];
   } catch {
     return [];
   }

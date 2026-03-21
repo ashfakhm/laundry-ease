@@ -420,7 +420,7 @@ describe("POST /api/bookings/[id]/schedule", () => {
         params: Promise.resolve({ id: bookingId.toString() }),
       });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
 
     it("returns 404 when booking not found", async () => {
@@ -464,7 +464,7 @@ describe("POST /api/bookings/[id]/schedule", () => {
         params: Promise.resolve({ id: bookingId.toString() }),
       });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
   });
 
@@ -635,7 +635,7 @@ describe("POST /api/bookings/[id]/schedule", () => {
         params: Promise.resolve({ id: bookingId.toString() }),
       });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
 
     it("returns 403 when a provider tries to confirm a slot", async () => {
@@ -663,7 +663,7 @@ describe("POST /api/bookings/[id]/schedule", () => {
         params: Promise.resolve({ id: bookingId.toString() }),
       });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
   });
 

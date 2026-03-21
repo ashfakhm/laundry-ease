@@ -173,9 +173,7 @@ export async function PATCH(
         if (error.message.startsWith("UNAUTHORIZED:")) {
           return errorResponse(
             new AppError(
-              ErrorCode.FORBIDDEN,
-              403,
-              "You are not authorized to accept this booking",
+              ErrorCode.NOT_FOUND, 404, "Provider not found",
             ),
           );
         }

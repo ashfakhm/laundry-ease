@@ -36,7 +36,7 @@ export async function POST(
     }
 
     if (booking.seeker_id.toString() !== user.id) {
-      throw new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized");
+      throw new AppError(ErrorCode.BOOKING_NOT_FOUND, 404, "Booking not found");
     }
 
     if (booking.status !== "requested") {

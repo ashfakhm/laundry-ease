@@ -117,9 +117,7 @@ export async function DELETE(
     if (message.message_type === "SYSTEM") {
       return errorResponse(
         new AppError(
-          ErrorCode.FORBIDDEN,
-          403,
-          "System messages cannot be deleted",
+          ErrorCode.NOT_FOUND, 404, "Complaint not found",
         ),
       );
     }
@@ -129,9 +127,7 @@ export async function DELETE(
       if (user.role !== "admin") {
         return errorResponse(
           new AppError(
-            ErrorCode.FORBIDDEN,
-            403,
-            "Only admins can hard-delete messages",
+            ErrorCode.NOT_FOUND, 404, "Complaint not found",
           ),
         );
       }
@@ -161,9 +157,7 @@ export async function DELETE(
     if (!isAdmin && !isSender) {
       return errorResponse(
         new AppError(
-          ErrorCode.FORBIDDEN,
-          403,
-          "Only the sender can delete for everyone",
+          ErrorCode.NOT_FOUND, 404, "Complaint not found",
         ),
       );
     }
@@ -173,9 +167,7 @@ export async function DELETE(
       if (messageAge > DELETE_FOR_EVERYONE_WINDOW_MS) {
         return errorResponse(
           new AppError(
-            ErrorCode.FORBIDDEN,
-            403,
-            "Delete for everyone window has expired",
+            ErrorCode.NOT_FOUND, 404, "Complaint not found",
           ),
         );
       }

@@ -73,7 +73,7 @@ describe("POST /api/orders/[id]/cancel", () => {
     const res = await POST(makeReq(), {
       params: Promise.resolve({ id: orderId.toString() }),
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("returns 400 when order has been paid", async () => {

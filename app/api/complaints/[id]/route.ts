@@ -52,7 +52,7 @@ export async function GET(
 
     if (!access.allowed) {
       return errorResponse(
-        new AppError(ErrorCode.FORBIDDEN, 403, "Access Denied"),
+        new AppError(ErrorCode.NOT_FOUND, 404, "Complaint not found"),
       );
     }
 

@@ -40,7 +40,7 @@ export async function DELETE(
 
     // Only seeker can delete their own booking
     if (booking.seeker_id.toString() !== session.user.id) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     // Validation: Can only delete if Cancelled or Rejected

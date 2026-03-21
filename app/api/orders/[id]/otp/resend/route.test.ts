@@ -114,7 +114,7 @@ describe("POST /api/orders/[id]/otp/resend", () => {
       makeOrder({ provider_id: new ObjectId() }),
     );
     const res = await POST(makeReq(), makeParams());
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("returns 409 when order is not out_for_delivery", async () => {

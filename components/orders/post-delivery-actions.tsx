@@ -11,7 +11,6 @@ interface PostDeliveryActionsProps {
   deliveredAt?: string | Date;
   isDelivered: boolean;
   hasReviewed?: boolean;
-  processStatus?: string;
 }
 
 export function PostDeliveryActions({
@@ -21,41 +20,23 @@ export function PostDeliveryActions({
   deliveredAt,
   isDelivered,
   hasReviewed,
-  processStatus,
 }: PostDeliveryActionsProps) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [complaintOpen, setComplaintOpen] = useState(false);
 
-  const isActive = [
-    "invoiced",
-    "processing",
-    "washing",
-    "ironing",
-    "ready",
-    "out_for_delivery",
-  ].includes(processStatus || "");
-
-  if (!isDelivered && !isActive) return null;
+  if (!isDelivered) return null;
 
   // Check 24h complaint window (only if delivered)
-  let canComplain = false;
-  let diffHours = 0;
-
-  if (isDelivered) {
-    const deliveredDate = deliveredAt ? new Date(deliveredAt) : new Date();
-    const diffMs = new Date().getTime() - deliveredDate.getTime();
-    diffHours = diffMs / (1000 * 60 * 60);
-    canComplain = diffHours <= 24;
-  } else if (isActive) {
-    canComplain = true;
-  }
-
+  const deliveredDate = deliveredAt ? new Date(deliveredAt) : new Date();
+  const diffMs = new Date().getTime() - deliveredDate.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const canComplain = diffHours <= 24;
 
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
         {/* Review Button */}
-        {isDelivered && (!hasReviewed ? (
+        {!hasReviewed ? (
           <button
             onClick={() => setReviewOpen(true)}
             className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-primary/10 text-primary hover:bg-primary/20 transition-all border border-primary/20 font-bold"
@@ -68,18 +49,16 @@ export function PostDeliveryActions({
               <Star className="w-5 h-4" />
               Review Submitted
            </div>
-        ))}
+        )}
 
-        {/* Complaint Button - Valid for 24h post-delivery or during active order */}
+        {/* Complaint Button - Valid for 24h post-delivery */}
         {canComplain && (
           <button
             onClick={() => setComplaintOpen(true)}
-            className={`flex items-center justify-center gap-2 p-4 rounded-2xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all border border-destructive/20 font-bold ${
-              !isDelivered ? "sm:col-span-2" : ""
-            }`}
+            className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all border border-destructive/20 font-bold"
           >
             <AlertTriangle className="w-5 h-5" />
-            Raise Complaint {isDelivered ? `(${Math.max(0, 24 - Math.floor(diffHours))}h left)` : ""}
+            Raise Complaint ({Math.max(0, 24 - Math.floor(diffHours))}h left)
           </button>
         )}
       </div>
