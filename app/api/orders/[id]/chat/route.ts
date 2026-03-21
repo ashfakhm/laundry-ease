@@ -53,7 +53,7 @@ export async function GET(
     const isProvider = user.id === order.provider_id?.toString();
     const isAdmin = user.role === "admin";
     if (!isSeeker && !isProvider && !isAdmin) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"));
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     const messages = await db
@@ -145,7 +145,7 @@ export async function POST(
     if (user.id === order.seeker_id?.toString()) senderRole = "seeker";
     if (user.id === order.provider_id?.toString()) senderRole = "provider";
     if (!senderRole) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"));
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     const voiceMessage = parsed.data.voiceMessage ?? "";

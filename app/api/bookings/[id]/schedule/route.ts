@@ -67,15 +67,13 @@ export async function POST(
       if (user.role !== Role.SEEKER) {
         return errorResponse(
           new AppError(
-            ErrorCode.FORBIDDEN,
-            403,
-            "Only seekers can confirm pickup slots",
+            ErrorCode.NOT_FOUND, 404, "Booking not found",
           ),
         );
       }
       if (booking.seeker_id.toString() !== user.id) {
         return errorResponse(
-          new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+          new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
         );
       }
       if (booking.status !== "pickup_proposed") {
@@ -125,9 +123,7 @@ export async function POST(
     if (user.role !== Role.PROVIDER) {
       return errorResponse(
         new AppError(
-          ErrorCode.FORBIDDEN,
-          403,
-          "Only providers can propose pickup slots",
+          ErrorCode.NOT_FOUND, 404, "Booking not found",
         ),
       );
     }
@@ -140,7 +136,7 @@ export async function POST(
     // Verify booking belongs to this provider
     if (booking.provider_id.toString() !== user.id) {
       return errorResponse(
-        new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+        new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
       );
     }
     if (

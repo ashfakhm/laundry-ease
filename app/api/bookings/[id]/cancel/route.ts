@@ -81,7 +81,7 @@ export async function POST(
     if (isProvider) {
       if (booking.provider_id.toString() !== user.id) {
         return errorResponse(
-          new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+          new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
         );
       }
 
@@ -106,7 +106,7 @@ export async function POST(
     } else {
       if (booking.seeker_id.toString() !== user.id) {
         return errorResponse(
-          new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"),
+          new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"),
         );
       }
       cancelledBy = "seeker";

@@ -157,8 +157,8 @@ describe("POST /api/invoices/[id]", () => {
     });
     const data = await res.json();
 
-    expect(res.status).toBe(403);
-    expect(data.error.message).toBe("Unauthorized");
+    expect(res.status).toBe(404);
+    expect(data.error.message).toBe("Booking not found");
   });
 
   it("persists invoice with provider ObjectId from authenticated session", async () => {

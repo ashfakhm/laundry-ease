@@ -54,7 +54,7 @@ export async function POST(
     if (user.id === booking.seeker_id.toString()) role = "seeker";
     if (user.id === booking.provider_id.toString()) role = "provider";
     if (!role) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"));
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found"));
     }
 
     const dispute = {

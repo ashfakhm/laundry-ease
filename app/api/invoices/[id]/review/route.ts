@@ -79,9 +79,7 @@ export async function POST(
     if (booking.seeker_id.toString() !== user.id) {
       return errorResponse(
         new AppError(
-          ErrorCode.FORBIDDEN,
-          403,
-          "Unauthorized access to this booking",
+          ErrorCode.NOT_FOUND, 404, "Booking not found",
         ),
       );
     }

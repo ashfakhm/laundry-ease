@@ -69,7 +69,7 @@ export async function POST(
     }
 
     if (booking.seeker_id.toString() !== user.id) {
-      return fail("Unauthorized", 403);
+      return fail("Booking not found", 404);
     }
 
     if (booking.status !== "invoice_created" || !booking.invoice) {
@@ -176,7 +176,7 @@ export async function PUT(
     }
 
     if (booking.seeker_id.toString() !== user.id) {
-      return fail("Unauthorized", 403);
+      return fail("Booking not found", 404);
     }
 
     // Idempotency: if booking already converted, return existing order.

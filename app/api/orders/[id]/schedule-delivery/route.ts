@@ -58,10 +58,10 @@ export async function POST(
 
     if (action === "propose") {
       if (user.role !== Role.PROVIDER) {
-        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Only providers can propose delivery"));
+        return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
       }
       if (order.provider_id.toString() !== user.id) {
-        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
+        return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
       }
 
       if (!dateTime)
@@ -97,10 +97,10 @@ export async function POST(
       return successResponse({ message: "Delivery proposed" });
     } else if (action === "confirm") {
       if (user.role !== Role.SEEKER) {
-        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Only seekers can confirm delivery slots"));
+        return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
       }
       if (order.seeker_id.toString() !== user.id) {
-        return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
+        return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
       }
       if ((order.process_status || "invoiced") !== "ready") {
         return errorResponse(new AppError(ErrorCode.CONFLICT, 409, "Delivery slot can only be confirmed while order is ready for dispatch"));

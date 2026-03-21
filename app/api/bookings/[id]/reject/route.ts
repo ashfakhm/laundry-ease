@@ -52,7 +52,7 @@ export async function PATCH(
     }
 
     if (booking.provider_id.toString() !== provider._id.toString()) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "You are not authorized to reject this booking"));
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"));
     }
 
     if (booking.status !== "requested") {

@@ -69,7 +69,7 @@ export async function POST(
       !provider ||
       booking.provider_id.toString() !== provider._id.toString()
     ) {
-      throw new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized");
+      throw new AppError(ErrorCode.NOT_FOUND, 404, "Booking not found");
     }
     if (booking.status !== "confirmed") {
       throw new AppError(

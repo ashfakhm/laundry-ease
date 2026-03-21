@@ -49,7 +49,7 @@ export async function POST(
     }
 
     if (order.provider_id.toString() !== user.id) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Unauthorized"));
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     if ((order.process_status || "invoiced") === "delivered") {

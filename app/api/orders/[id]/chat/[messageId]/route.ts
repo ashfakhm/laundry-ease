@@ -72,7 +72,7 @@ export async function DELETE(
     const isSeeker = user.id === order.seeker_id?.toString();
     const isProvider = user.id === order.provider_id?.toString();
     if (!isSeeker && !isProvider) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "Forbidden"));
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     // Fetch the message
@@ -102,9 +102,7 @@ export async function DELETE(
     ) {
       return errorResponse(
         new AppError(
-          ErrorCode.FORBIDDEN,
-          403,
-          "Only the sender can delete for everyone",
+          ErrorCode.NOT_FOUND, 404, "Order not found",
         ),
       );
     }
@@ -114,9 +112,7 @@ export async function DELETE(
     if (messageAge > DELETE_FOR_EVERYONE_WINDOW_MS) {
       return errorResponse(
         new AppError(
-          ErrorCode.FORBIDDEN,
-          403,
-          "Delete for everyone window has expired",
+          ErrorCode.NOT_FOUND, 404, "Order not found",
         ),
       );
     }

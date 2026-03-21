@@ -36,7 +36,7 @@ export async function POST(
     }
 
     if (order.seeker_id.toString() !== user.id) {
-      return errorResponse(new AppError(ErrorCode.FORBIDDEN, 403, "You are not authorized to cancel this order"));
+      return errorResponse(new AppError(ErrorCode.NOT_FOUND, 404, "Order not found"));
     }
 
     if (order.payment_status !== "unpaid") {

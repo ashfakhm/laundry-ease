@@ -86,7 +86,7 @@ describe("GET /api/complaints/[id]", () => {
     const res = await GET(makeReq(), {
       params: Promise.resolve({ id: complaintId.toString() }),
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("returns complaint details on success", async () => {

@@ -144,7 +144,7 @@ describe("POST /api/orders/[id]/otp/verify", () => {
       makeOrder({ provider_id: new ObjectId() }),
     );
     const res = await POST(makeReq(), makeParams());
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("returns 200 idempotent when already delivered", async () => {

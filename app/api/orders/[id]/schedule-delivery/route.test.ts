@@ -132,7 +132,7 @@ describe("POST /api/orders/[id]/schedule-delivery", () => {
       },
     );
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("returns 403 when non-seeker attempts confirm", async () => {
@@ -166,7 +166,7 @@ describe("POST /api/orders/[id]/schedule-delivery", () => {
       },
     );
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("returns 200 for valid provider propose on owned order", async () => {
