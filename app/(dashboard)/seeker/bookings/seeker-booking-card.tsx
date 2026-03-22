@@ -618,19 +618,30 @@ function SeekerBookingCardComponent({
                     </p>
                   )}
 
+                  {booking.invoice.delivery_charge !== undefined && booking.invoice.delivery_charge > 0 && (
+                    <div className="flex justify-between items-center py-1 text-amber-600 dark:text-amber-400 text-xs font-semibold">
+                      <span>Delivery Charge</span>
+                      <span className="font-mono">
+                        +₹{booking.invoice.delivery_charge}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="mt-4 pt-3 border-t border-dashed border-border flex justify-between items-center">
                     <span className="font-bold text-muted-foreground uppercase text-xs tracking-wider">
                       Total Due
                     </span>
                     <span className="font-heading font-black text-2xl text-primary">
                       ₹
-                      {booking.invoice.items.reduce(
-                        (
-                          acc: number,
-                          item: { quantity: number; unitPrice: number },
-                        ) => acc + item.quantity * item.unitPrice,
-                        0,
-                      )}
+                      {booking.invoice.total !== undefined
+                        ? booking.invoice.total
+                        : booking.invoice.items.reduce(
+                            (
+                              acc: number,
+                              item: { quantity: number; unitPrice: number },
+                            ) => acc + item.quantity * item.unitPrice,
+                            0,
+                          ) - (booking.invoice.discount ?? 0)}
                     </span>
                   </div>
                 </div>

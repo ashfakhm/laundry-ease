@@ -7,6 +7,8 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireProvider } from "@/lib/api/auth";
 import { successResponse, errorResponse } from "@/lib/api/response";
+import { computeDeliveryCharge } from "@/lib/utils/delivery-charge";
+
 
 // POST: Provider creates invoice for a confirmed booking
 export async function POST(
@@ -88,11 +90,22 @@ export async function POST(
     const cleanSubtotal =
       subtotal !== undefined ? subtotal : calculatedSubtotal;
     const cleanDiscount = discount || 0;
-    // Recalculate total if missing - ensure it's never negative
+
+    // Calculate delivery charge based on distance
+    const { distanceKm: delivery_distance_km, charge: delivery_charge } =
+      computeDeliveryCharge(
+        booking.seeker_coordinates,
+        provider?.coordinates,
+        provider?.free_radius_km,
+        provider?.per_km_rate,
+      );
+
+    // Recalculate total if missing - ensure it's never negative (adding delivery charge)
     const cleanTotal =
       total !== undefined
         ? Math.max(0, total)
-        : Math.max(0, cleanSubtotal - cleanDiscount);
+        : Math.max(0, cleanSubtotal - cleanDiscount) + delivery_charge;
+
 
     // Invoice structure - validated by Zod schema
     const invoice = {
@@ -106,6 +119,8 @@ export async function POST(
       photos: photos || [],
       discount: cleanDiscount,
       subtotal: cleanSubtotal,
+      delivery_charge,
+      delivery_distance_km,
       total: cleanTotal,
       createdAt: new Date(),
     };

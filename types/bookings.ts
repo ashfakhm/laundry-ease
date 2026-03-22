@@ -24,6 +24,8 @@ export interface InvoiceData {
   photos?: string[];
   subtotal?: number;
   discount?: number;
+  delivery_charge?: number;
+  delivery_distance_km?: number;
   total?: number;
   createdAt: Date | string;
 }

@@ -16,6 +16,7 @@ import {
   Package,
   Eye,
   Loader2,
+  IndianRupee,
 } from "lucide-react";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { reportError } from "@/lib/client-error";
@@ -30,6 +31,8 @@ type Provider = {
   services: string[];
   pricing: number;
   radius_km?: number;
+  free_radius_km?: number;
+  per_km_rate?: number;
   bio?: string;
   description?: string;
   businessName?: string;
@@ -168,7 +171,7 @@ export default function ProviderProfilePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-8 pt-8 border-t border-border/50">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-border/50">
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">Joined</p>
                   <p className="text-sm font-semibold flex items-center gap-2">
@@ -188,6 +191,20 @@ export default function ProviderProfilePage() {
                   <p className="text-sm font-semibold flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-primary" />
                     {provider.radius_km || 10} km
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Free Delivery</p>
+                  <p className="text-sm font-semibold flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="w-4 h-4" />
+                    {provider.free_radius_km || 5} km
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Delivery Rate</p>
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <IndianRupee className="w-4 h-4 text-primary" />
+                    ₹{provider.per_km_rate || 10}/km
                   </p>
                 </div>
               </div>

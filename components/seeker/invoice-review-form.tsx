@@ -22,6 +22,7 @@ type Invoice = {
   items: InvoiceItem[];
   subtotal?: number;
   discount?: number;
+  delivery_charge?: number;
   total?: number;
   notes?: string;
 };
@@ -262,6 +263,13 @@ export default function InvoiceReviewForm({
             <span>- ₹{invoice.discount}</span>
           </div>
         ) : null}
+        {invoice.delivery_charge !== undefined && invoice.delivery_charge > 0 ? (
+          <div className="flex justify-between items-center text-sm text-amber-600 dark:text-amber-400">
+            <span>Delivery Charge</span>
+            <span className="font-medium">+ ₹{invoice.delivery_charge}</span>
+          </div>
+        ) : null}
+
         <div className="pt-3 border-t border-border flex justify-between items-center">
           <span className="font-heading font-bold text-lg">Total to Pay</span>
           <span className="font-heading font-black text-2xl text-primary">
