@@ -142,6 +142,47 @@ describe("provider profile route", () => {
       expect(json.data.name).toBe("New Name");
     });
 
+    it("persists bio, services, radius, and delivery rate updates", async () => {
+      const dbMock = makeDbMock();
+      const updatedProvider = {
+        _id: new ObjectId(PROVIDER_ID),
+        bio: "Updated bio",
+        services: ["Wash", "Fold"],
+        radius_km: 12,
+        per_km_rate: 18,
+      };
+
+      dbMock.findOne.mockResolvedValue(updatedProvider);
+      dbMock.findOneAndUpdate.mockResolvedValue({ value: updatedProvider });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await PATCH(
+        makeRequest("PATCH", {
+          bio: "Updated bio",
+          services: ["Wash", "Fold"],
+          radius_km: 12,
+          per_km_rate: 18,
+        }),
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(dbMock.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: expect.any(ObjectId) },
+        {
+          $set: expect.objectContaining({
+            bio: "Updated bio",
+            services: ["Wash", "Fold"],
+            radius_km: 12,
+            per_km_rate: 18,
+            updatedAt: expect.any(Date),
+          }),
+        },
+        expect.any(Object),
+      );
+    });
+
     it("returns 400 for invalid data", async () => {
       const res = await PATCH(
         makeRequest("PATCH", {

@@ -53,7 +53,9 @@ export default function ProviderProfilePage() {
   useEffect(() => {
     async function fetchProviderProfile() {
       try {
-        const response = await fetch("/api/profile/provider");
+        const response = await fetch("/api/profile/provider", {
+          cache: "no-store",
+        });
         if (response.ok) {
           const payload = await response.json();
           const data = unwrapApiData<Provider>(payload);

@@ -1,13 +1,14 @@
 "use client";
 
 import {
+  Controller,
   UseFormReturn,
   useFieldArray,
-  type FieldErrors,
+  type FieldPath,
 } from "react-hook-form";
 import { type ProviderProfileValues } from "./page";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, type HTMLInputTypeAttribute, type InputHTMLAttributes } from "react";
 import {
   Briefcase,
   MapPin,
@@ -21,6 +22,8 @@ import {
   Check,
   Eye,
   EyeOff,
+  Loader2,
+  Save,
 } from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
@@ -28,9 +31,153 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import { cn } from "@/lib/utils";
 import { LAUNDRY_SERVICES } from "@/lib/constants";
 
-type FormProps = { form: UseFormReturn<ProviderProfileValues> };
+type FormProps = { 
+  form: UseFormReturn<ProviderProfileValues>;
+  isSaving?: boolean;
+};
 
-export function BusinessInfoSection({ form }: FormProps) {
+type ControlledFieldProps<TName extends FieldPath<ProviderProfileValues>> = {
+  form: UseFormReturn<ProviderProfileValues>;
+  name: TName;
+  className: string;
+  placeholder?: string;
+};
+
+type ControlledTextInputProps<TName extends FieldPath<ProviderProfileValues>> =
+  ControlledFieldProps<TName> & {
+    type?: HTMLInputTypeAttribute;
+    autoComplete?: string;
+    inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"];
+    maxLength?: number;
+    transformValue?: (value: string) => string;
+  };
+
+function ControlledTextInput<TName extends FieldPath<ProviderProfileValues>>({
+  form,
+  name,
+  className,
+  placeholder,
+  type = "text",
+  autoComplete,
+  inputMode,
+  maxLength,
+  transformValue,
+}: ControlledTextInputProps<TName>) {
+  return (
+    <Controller
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <input
+          ref={field.ref}
+          name={field.name}
+          type={type}
+          value={typeof field.value === "string" ? field.value : ""}
+          onBlur={field.onBlur}
+          onChange={(event) => {
+            const nextValue = transformValue
+              ? transformValue(event.target.value)
+              : event.target.value;
+            field.onChange(nextValue);
+          }}
+          className={className}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          inputMode={inputMode}
+          maxLength={maxLength}
+        />
+      )}
+    />
+  );
+}
+
+type ControlledNumberInputProps<TName extends FieldPath<ProviderProfileValues>> =
+  ControlledFieldProps<TName> & {
+    min?: number;
+    max?: number;
+    step?: number;
+  };
+
+function ControlledNumberInput<TName extends FieldPath<ProviderProfileValues>>({
+  form,
+  name,
+  className,
+  placeholder,
+  min,
+  max,
+  step,
+}: ControlledNumberInputProps<TName>) {
+  return (
+    <Controller
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <input
+          ref={field.ref}
+          name={field.name}
+          type="number"
+          value={typeof field.value === "number" ? field.value : ""}
+          onBlur={field.onBlur}
+          onChange={(event) => {
+            const { value } = event.target;
+            field.onChange(value === "" ? undefined : Number(value));
+          }}
+          className={className}
+          placeholder={placeholder}
+          min={min}
+          max={max}
+          step={step}
+        />
+      )}
+    />
+  );
+}
+
+function ControlledTextarea<TName extends FieldPath<ProviderProfileValues>>({
+  form,
+  name,
+  className,
+  placeholder,
+}: ControlledFieldProps<TName>) {
+  return (
+    <Controller
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <textarea
+          ref={field.ref}
+          name={field.name}
+          value={typeof field.value === "string" ? field.value : ""}
+          onBlur={field.onBlur}
+          onChange={(event) => field.onChange(event.target.value)}
+          className={className}
+          placeholder={placeholder}
+        />
+      )}
+    />
+  );
+}
+
+function SectionSaveButton({ isSaving }: { isSaving?: boolean }) {
+  return (
+    <div className="mt-8 flex justify-end">
+      <button
+        type="submit"
+        disabled={isSaving}
+        className="h-10 px-6 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+      >
+        {isSaving ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Save className="h-4 w-4" />
+        )}
+        Save Changes
+      </button>
+    </div>
+  );
+}
+
+export function BusinessInfoSection({ form, isSaving }: FormProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -50,12 +197,13 @@ export function BusinessInfoSection({ form }: FormProps) {
               <label className="text-sm font-medium text-muted-foreground">
                 Your Name
               </label>
-              <input
-                {...form.register("name")}
+              <ControlledTextInput
+                form={form}
+                name="name"
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                autoComplete="name"
               />
-              {form.formState.errors.name &&
-                typeof form.formState.errors.name?.message === "string" && (
+              {typeof form.formState.errors.name?.message === "string" && (
                   <p className="text-xs text-destructive">
                     {form.formState.errors.name.message}
                   </p>
@@ -65,20 +213,25 @@ export function BusinessInfoSection({ form }: FormProps) {
               <label className="text-sm font-medium text-muted-foreground">
                 Business Name
               </label>
-              <input
-                {...form.register("businessName")}
+              <ControlledTextInput
+                form={form}
+                name="businessName"
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="e.g. Sparkle Laundry"
+                autoComplete="organization"
               />
             </div>
             <div className="space-y-2 col-span-2">
               <label className="text-sm font-medium text-muted-foreground">
                 Mobile Number
               </label>
-              <input
-                {...form.register("phone")}
+              <ControlledTextInput
+                form={form}
+                name="phone"
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="e.g. +91 9876543210"
+                autoComplete="tel"
+                inputMode="tel"
               />
             </div>
           </div>
@@ -88,20 +241,25 @@ export function BusinessInfoSection({ form }: FormProps) {
             </label>
             <div className="relative">
               <MapPin className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-              <LocationAutocomplete
-                value={form.watch("location")}
-                onChange={(address, coords) => {
-                  form.setValue("location", address, { shouldValidate: true });
-                  if (coords)
-                    form.setValue("coordinates", coords, {
-                      shouldValidate: true,
-                    });
-                }}
-                placeholder="City, Area"
+              <Controller
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <LocationAutocomplete
+                    value={field.value ?? ""}
+                    onChange={(address, coords) => {
+                      field.onChange(address);
+                      form.setValue("coordinates", coords, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }}
+                    placeholder="City, Area"
+                  />
+                )}
               />
             </div>
-            {form.formState.errors.location &&
-              typeof form.formState.errors.location?.message === "string" && (
+            {typeof form.formState.errors.location?.message === "string" && (
                 <p className="text-xs text-destructive">
                   {form.formState.errors.location.message}
                 </p>
@@ -111,8 +269,9 @@ export function BusinessInfoSection({ form }: FormProps) {
             <label className="text-sm font-medium text-muted-foreground">
               Short Bio
             </label>
-            <input
-              {...form.register("bio")}
+            <ControlledTextInput
+              form={form}
+              name="bio"
               className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="Expert laundry services..."
             />
@@ -121,8 +280,9 @@ export function BusinessInfoSection({ form }: FormProps) {
             <label className="text-sm font-medium text-muted-foreground">
               Detailed Description
             </label>
-            <textarea
-              {...form.register("description")}
+            <ControlledTextarea
+              form={form}
+              name="description"
               className="w-full min-h-25 rounded-lg border border-input bg-background p-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="Describe your services, equipment, and expertise..."
             />
@@ -132,30 +292,30 @@ export function BusinessInfoSection({ form }: FormProps) {
               Profile Images
             </h3>
             <div className="grid md:grid-cols-2 gap-6">
-              <ImageUpload
-                label="Profile Picture"
-                value={
-                  (form.watch("profilePicture") as unknown as string) || ""
-                }
-                onChange={(val) =>
-                  form.setValue("profilePicture", val, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  })
-                }
-                variant="profile"
+              <Controller
+                control={form.control}
+                name="profilePicture"
+                render={({ field }) => (
+                  <ImageUpload
+                    label="Profile Picture"
+                    value={typeof field.value === "string" ? field.value : ""}
+                    onChange={(val) => field.onChange(val)}
+                    variant="profile"
+                  />
+                )}
               />
               <div className="md:col-span-2">
-                <ImageUpload
-                  label="Banner Image"
-                  value={(form.watch("bannerImage") as unknown as string) || ""}
-                  onChange={(val) =>
-                    form.setValue("bannerImage", val, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                  variant="banner"
+                <Controller
+                  control={form.control}
+                  name="bannerImage"
+                  render={({ field }) => (
+                    <ImageUpload
+                      label="Banner Image"
+                      value={typeof field.value === "string" ? field.value : ""}
+                      onChange={(val) => field.onChange(val)}
+                      variant="banner"
+                    />
+                  )}
                 />
               </div>
             </div>
@@ -164,29 +324,13 @@ export function BusinessInfoSection({ form }: FormProps) {
             </p>
           </div>
         </div>
+        <SectionSaveButton isSaving={isSaving} />
       </SpotlightCard>
     </motion.div>
   );
 }
 
-export function ServicesOfferedSection({ form }: FormProps) {
-  const selectedServices = form.watch("services");
-  const toggleService = (service: string) => {
-    const current = form.getValues("services") || [];
-    if (current.includes(service)) {
-      form.setValue(
-        "services",
-        current.filter((s: string) => s !== service),
-        { shouldValidate: true, shouldDirty: true },
-      );
-    } else {
-      form.setValue("services", [...current, service], {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    }
-  };
-
+export function ServicesOfferedSection({ form, isSaving }: FormProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -203,48 +347,71 @@ export function ServicesOfferedSection({ form }: FormProps) {
         <p className="text-sm text-muted-foreground mb-4">
           Select the services you provide to customers.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {LAUNDRY_SERVICES.map((service) => {
-            const isSelected = selectedServices?.includes(service);
+        <Controller
+          control={form.control}
+          name="services"
+          render={({ field, fieldState }) => {
+            const selectedServices = field.value ?? [];
+
+            const toggleService = (service: string) => {
+              const nextServices = selectedServices.includes(service)
+                ? selectedServices.filter((selected) => selected !== service)
+                : [...selectedServices, service];
+
+              field.onChange(nextServices);
+            };
+
             return (
-              <div
-                key={service}
-                onClick={() => toggleService(service)}
-                className={cn(
-                  "cursor-pointer flex items-center justify-between p-3 rounded-xl border transition-all",
-                  isSelected
-                    ? "bg-primary/5 border-primary shadow-sm"
-                    : "bg-muted/20 border-border hover:border-primary/50",
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {LAUNDRY_SERVICES.map((service) => {
+                    const isSelected = selectedServices.includes(service);
+                    return (
+                      <button
+                        key={service}
+                        type="button"
+                        onClick={() => toggleService(service)}
+                        className={cn(
+                          "cursor-pointer flex items-center justify-between p-3 rounded-xl border transition-all text-left",
+                          isSelected
+                            ? "bg-primary/5 border-primary shadow-sm"
+                            : "bg-muted/20 border-border hover:border-primary/50",
+                        )}
+                        aria-pressed={isSelected}
+                      >
+                        <span
+                          className={cn(
+                            "text-sm font-medium",
+                            isSelected ? "text-primary" : "text-muted-foreground",
+                          )}
+                        >
+                          {service}
+                        </span>
+                        {isSelected && (
+                          <div className="h-5 w-5 bg-primary rounded-full flex items-center justify-center">
+                            <Check className="h-3 w-3 text-primary-foreground" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {fieldState.error?.message && (
+                  <p className="text-xs text-destructive mt-2">
+                    {fieldState.error.message}
+                  </p>
                 )}
-              >
-                <span
-                  className={cn(
-                    "text-sm font-medium",
-                    isSelected ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  {service}
-                </span>
-                {isSelected && (
-                  <div className="h-5 w-5 bg-primary rounded-full flex items-center justify-center">
-                    <Check className="h-3 w-3 text-primary-foreground" />
-                  </div>
-                )}
-              </div>
+              </>
             );
-          })}
-        </div>
-        {form.formState.errors.services && (
-          <p className="text-xs text-destructive mt-2">
-            {form.formState.errors.services.message as string}
-          </p>
-        )}
+          }}
+        />
+        <SectionSaveButton isSaving={isSaving} />
       </SpotlightCard>
     </motion.div>
   );
 }
 
-export function ServiceSettingsSection({ form }: FormProps) {
+export function ServiceSettingsSection({ form, isSaving }: FormProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -264,14 +431,13 @@ export function ServiceSettingsSection({ form }: FormProps) {
               <label className="text-sm font-medium text-muted-foreground">
                 Max Radius (km)
               </label>
-              <input
-                type="number"
-                {...form.register("radius_km", { valueAsNumber: true })}
+              <ControlledNumberInput
+                form={form}
+                name="radius_km"
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                min={1}
               />
-              {form.formState.errors.radius_km &&
-                typeof form.formState.errors.radius_km?.message ===
-                  "string" && (
+              {typeof form.formState.errors.radius_km?.message === "string" && (
                   <p className="text-xs text-destructive">
                     {form.formState.errors.radius_km.message}
                   </p>
@@ -281,10 +447,11 @@ export function ServiceSettingsSection({ form }: FormProps) {
               <label className="text-sm font-medium text-muted-foreground">
                 Free Radius (km)
               </label>
-              <input
-                type="number"
-                {...form.register("free_radius_km", { valueAsNumber: true })}
+              <ControlledNumberInput
+                form={form}
+                name="free_radius_km"
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                min={0}
               />
             </div>
           </div>
@@ -292,14 +459,13 @@ export function ServiceSettingsSection({ form }: FormProps) {
             <label className="text-sm font-medium text-muted-foreground">
               Max Concurrent Bookings (Capacity)
             </label>
-            <input
-              type="number"
-              {...form.register("capacity", { valueAsNumber: true })}
+            <ControlledNumberInput
+              form={form}
+              name="capacity"
               className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               min={1}
             />
-            {form.formState.errors.capacity &&
-              typeof form.formState.errors.capacity?.message === "string" && (
+            {typeof form.formState.errors.capacity?.message === "string" && (
                 <p className="text-xs text-destructive">
                   {form.formState.errors.capacity.message}
                 </p>
@@ -309,10 +475,11 @@ export function ServiceSettingsSection({ form }: FormProps) {
             <label className="text-sm font-medium text-muted-foreground">
               Extra Delivery Charge (₹ per km)
             </label>
-            <input
-              type="number"
-              {...form.register("per_km_rate", { valueAsNumber: true })}
+            <ControlledNumberInput
+              form={form}
+              name="per_km_rate"
               className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              min={0}
             />
           </div>
           <div className="p-4 bg-muted/30 rounded-xl border border-border/50">
@@ -324,20 +491,22 @@ export function ServiceSettingsSection({ form }: FormProps) {
               <label className="text-sm font-medium text-muted-foreground">
                 Booking Price (₹)
               </label>
-              <input
-                type="number"
-                {...form.register("pricing", { valueAsNumber: true })}
+              <ControlledNumberInput
+                form={form}
+                name="pricing"
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                min={0}
               />
             </div>
           </div>
         </div>
+        <SectionSaveButton isSaving={isSaving} />
       </SpotlightCard>
     </motion.div>
   );
 }
 
-export function FixedPriceListSection({ form }: FormProps) {
+export function FixedPriceListSection({ form, isSaving }: FormProps) {
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items",
@@ -385,50 +554,67 @@ export function FixedPriceListSection({ form }: FormProps) {
                   className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border group hover:border-primary/50 transition-colors"
                 >
                   <div className="flex-1 space-y-2">
-                    <input
-                      {...form.register(`items.${index}.name`)}
-                      placeholder="Item Name (e.g. Shirt)"
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                    <Controller
+                      control={form.control}
+                      name={`items.${index}.name`}
+                      render={({ field, fieldState }) => (
+                        <>
+                          <input
+                            ref={field.ref}
+                            name={field.name}
+                            value={field.value ?? ""}
+                            onBlur={field.onBlur}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                            placeholder="Item Name (e.g. Shirt)"
+                            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                          />
+                          {fieldState.error?.message && (
+                            <p className="text-xs text-destructive">
+                              {fieldState.error.message}
+                            </p>
+                          )}
+                        </>
+                      )}
                     />
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
                         ₹
                       </span>
-                      <input
-                        type="number"
-                        {...form.register(`items.${index}.price`, {
-                          valueAsNumber: true,
-                        })}
-                        placeholder="Price"
-                        className="w-full h-9 pl-6 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                      <Controller
+                        control={form.control}
+                        name={`items.${index}.price`}
+                        render={({ field, fieldState }) => (
+                          <>
+                            <input
+                              ref={field.ref}
+                              name={field.name}
+                              type="number"
+                              value={
+                                typeof field.value === "number"
+                                  ? field.value
+                                  : ""
+                              }
+                              onBlur={field.onBlur}
+                              onChange={(event) => {
+                                const { value } = event.target;
+                                field.onChange(
+                                  value === "" ? undefined : Number(value),
+                                );
+                              }}
+                              placeholder="Price"
+                              className="w-full h-9 pl-6 rounded-md border border-input bg-background px-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                            />
+                            {fieldState.error?.message && (
+                              <p className="text-xs text-destructive mt-2">
+                                {fieldState.error.message}
+                              </p>
+                            )}
+                          </>
+                        )}
                       />
                     </div>
-                    {(
-                      form.formState.errors
-                        .items as FieldErrors<ProviderProfileValues>["items"]
-                    )?.[index]?.name && (
-                      <p className="text-xs text-destructive">
-                        {
-                          (
-                            form.formState.errors
-                              .items as FieldErrors<ProviderProfileValues>["items"]
-                          )?.[index]?.name?.message
-                        }
-                      </p>
-                    )}
-                    {(
-                      form.formState.errors
-                        .items as FieldErrors<ProviderProfileValues>["items"]
-                    )?.[index]?.price && (
-                      <p className="text-xs text-destructive">
-                        {
-                          (
-                            form.formState.errors
-                              .items as FieldErrors<ProviderProfileValues>["items"]
-                          )?.[index]?.price?.message
-                        }
-                      </p>
-                    )}
                   </div>
                   <button
                     type="button"
@@ -442,12 +628,13 @@ export function FixedPriceListSection({ form }: FormProps) {
             </div>
           )}
         </div>
+        <SectionSaveButton isSaving={isSaving} />
       </SpotlightCard>
     </motion.div>
   );
 }
 
-export function BankDetailsSection({ form }: FormProps) {
+export function BankDetailsSection({ form, isSaving }: FormProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -468,54 +655,60 @@ export function BankDetailsSection({ form }: FormProps) {
             <label className="text-sm font-medium text-muted-foreground">
               Account Holder Name
             </label>
-            <input
-              {...form.register("bankAccountHolder")}
+            <ControlledTextInput
+              form={form}
+              name="bankAccountHolder"
               className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="As per bank records"
+              autoComplete="name"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">
               Account Number
             </label>
-            <input
-              {...form.register("bankAccountNumber")}
+            <ControlledTextInput
+              form={form}
+              name="bankAccountNumber"
               className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="Bank account number"
+              inputMode="numeric"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">
               IFSC Code
             </label>
-            <input
-              {...form.register("bankIFSC")}
+            <ControlledTextInput
+              form={form}
+              name="bankIFSC"
               className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="e.g. HDFC0001234"
               maxLength={11}
-              onChange={(e) => {
-                e.target.value = e.target.value.toUpperCase();
-                form.setValue("bankIFSC", e.target.value);
-              }}
+              autoComplete="off"
+              transformValue={(value) => value.toUpperCase()}
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">
               UPI ID (Optional)
             </label>
-            <input
-              {...form.register("upiId")}
+            <ControlledTextInput
+              form={form}
+              name="upiId"
               className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="yourname@upi"
+              autoComplete="off"
             />
           </div>
         </div>
+        <SectionSaveButton isSaving={isSaving} />
       </SpotlightCard>
     </motion.div>
   );
 }
 
-export function SecuritySection({ form }: FormProps) {
+export function SecuritySection({ form, isSaving }: FormProps) {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -539,11 +732,13 @@ export function SecuritySection({ form }: FormProps) {
               Current Password
             </label>
             <div className="relative">
-              <input
+              <ControlledTextInput
+                form={form}
+                name="currentPassword"
                 type={showCurrentPassword ? "text" : "password"}
-                {...form.register("currentPassword")}
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="Enter current password"
+                autoComplete="current-password"
               />
               <button
                 type="button"
@@ -571,11 +766,13 @@ export function SecuritySection({ form }: FormProps) {
               New Password
             </label>
             <div className="relative">
-              <input
+              <ControlledTextInput
+                form={form}
+                name="newPassword"
                 type={showNewPassword ? "text" : "password"}
-                {...form.register("newPassword")}
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="Min 8 chars"
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -603,11 +800,13 @@ export function SecuritySection({ form }: FormProps) {
               Confirm New Password
             </label>
             <div className="relative">
-              <input
+              <ControlledTextInput
+                form={form}
+                name="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
-                {...form.register("confirmPassword")}
                 className="w-full h-11 rounded-lg border border-input bg-background px-4 pr-10 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="Confirm new password"
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -634,6 +833,7 @@ export function SecuritySection({ form }: FormProps) {
         <p className="text-xs text-muted-foreground mt-4">
           Leave fields blank if you do not wish to change your password.
         </p>
+        <SectionSaveButton isSaving={isSaving} />
       </SpotlightCard>
     </motion.div>
   );

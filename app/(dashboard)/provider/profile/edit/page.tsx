@@ -13,7 +13,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Save, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { unwrapApiData } from "@/lib/client-api";
 import {
@@ -44,14 +44,17 @@ const providerProfileSchema = z
       }),
     ),
     // Bank Details
-    bankAccountHolder: z.string().min(2, "Account holder name is required"),
-    bankAccountNumber: z.string().min(6, "Account number is required"),
-    bankIFSC: z.string().refine((val) => {
-      return (
-        /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(val) || 
-        (val.includes("*") && val.length >= 8)
-      );
-    }, "Invalid IFSC code"),
+    bankAccountHolder: z.union([z.string().min(2, "Account holder name is required"), z.literal("")]).optional(),
+    bankAccountNumber: z.union([z.string().min(6, "Account number is required"), z.literal("")]).optional(),
+    bankIFSC: z.union([
+      z.string().refine((val) => {
+        return (
+          /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(val) || 
+          (val.includes("*") && val.length >= 8)
+        );
+      }, "Invalid IFSC code"),
+      z.literal("")
+    ]).optional(),
     upiId: z.string().optional(),
     // Images
     profilePicture: z.string().optional(),
@@ -135,9 +138,13 @@ export default function ProviderEditProfilePage() {
   });
 
   useEffect(() => {
+    form.register("coordinates");
+  }, [form]);
+
+  useEffect(() => {
     async function loadProfile() {
       try {
-        const res = await fetch("/api/profile/provider");
+        const res = await fetch("/api/profile/provider", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load profile");
         const payload = await res.json();
         const data = unwrapApiData<{
@@ -230,6 +237,12 @@ export default function ProviderEditProfilePage() {
         delete payload.confirmPassword;
       }
 
+      // Cleanup empty bank details so they don't fail backend validation if unedited
+      if (payload.bankAccountHolder === "") delete payload.bankAccountHolder;
+      if (payload.bankAccountNumber === "") delete payload.bankAccountNumber;
+      if (payload.bankIFSC === "") delete payload.bankIFSC;
+      if (payload.upiId === "") delete payload.upiId;
+
       const res = await fetch("/api/profile/provider", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -289,34 +302,22 @@ export default function ProviderEditProfilePage() {
         }
       })} className="space-y-8">
         <div className="grid md:grid-cols-2 gap-8">
-          <BusinessInfoSection form={form} />
-          <ServicesOfferedSection form={form} />
-          <ServiceSettingsSection form={form} />
-          <FixedPriceListSection form={form} />
+          <BusinessInfoSection form={form} isSaving={isSaving} />
+          <ServicesOfferedSection form={form} isSaving={isSaving} />
+          <ServiceSettingsSection form={form} isSaving={isSaving} />
+          <FixedPriceListSection form={form} isSaving={isSaving} />
         </div>
 
-        <BankDetailsSection form={form} />
-        <SecuritySection form={form} />
+        <BankDetailsSection form={form} isSaving={isSaving} />
+        <SecuritySection form={form} isSaving={isSaving} />
 
-        <div className="flex justify-end gap-4 pt-4 pb-20">
+        <div className="flex justify-end pt-4 pb-20">
           <button
             type="button"
             onClick={() => router.back()}
             className="h-12 px-8 text-foreground/70 font-semibold hover:text-foreground transition-colors"
           >
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="h-12 px-8 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(45,212,191,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Save className="h-5 w-5" />
-            )}
-            Save Changes
           </button>
         </div>
       </form>
