@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@plugin "tailwind-scrollbar" {
+  nocompatible: true;
+  preferredStrategy: "pseudoelements";
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -156,7 +161,7 @@
   }
   
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
   
   /* Modern Touch-Friendly Inputs */
