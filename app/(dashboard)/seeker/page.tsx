@@ -16,6 +16,7 @@ import Image from "next/image";
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { useToast } from "@/components/ui/toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProviderCardSkeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -286,19 +287,20 @@ export default function SeekerDashboardPage() {
 
             {/* Service Filter */}
             <div className="relative group">
-              <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <select
-                value={selectedService}
-                onChange={(e) => setSelectedService(e.target.value)}
-                className="w-full h-11 appearance-none rounded-xl border border-input bg-background pl-10 pr-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
-              >
-                <option value="">All Services</option>
-                {popularServices.map((service) => (
-                  <option key={service} value={service}>
-                    {service}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedService || "all"} onValueChange={(val) => setSelectedService(val === "all" ? "" : val)}>
+                <SelectTrigger className="w-full h-11 rounded-xl border border-input bg-background pl-10 pr-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer">
+                  <SelectValue placeholder="All Services" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Services</SelectItem>
+                  {popularServices.map((service) => (
+                    <SelectItem key={service} value={service}>
+                      {service}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
             </div>
             {/* Deadline Input */}
             <div className="relative group">
