@@ -163,4 +163,22 @@
   input, button, select, textarea {
     @apply font-sans;
   }
+
+  /* Autofill styling overrides for WebKit/Firefox */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus, 
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--background) inset !important;
+    -webkit-text-fill-color: var(--foreground) !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  input:autofill,
+  input:-moz-autofill {
+    box-shadow: 0 0 0 1000px var(--background) inset !important;
+    -webkit-text-fill-color: var(--foreground) !important;
+    background-color: transparent !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
 }
