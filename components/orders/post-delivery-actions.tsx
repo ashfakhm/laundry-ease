@@ -11,6 +11,7 @@ interface PostDeliveryActionsProps {
   deliveredAt?: string | Date;
   isDelivered: boolean;
   hasReviewed?: boolean;
+  hasComplaint?: boolean;
 }
 
 export function PostDeliveryActions({
@@ -20,6 +21,7 @@ export function PostDeliveryActions({
   deliveredAt,
   isDelivered,
   hasReviewed,
+  hasComplaint,
 }: PostDeliveryActionsProps) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [complaintOpen, setComplaintOpen] = useState(false);
@@ -52,7 +54,7 @@ export function PostDeliveryActions({
         )}
 
         {/* Complaint Button - Valid for 24h post-delivery */}
-        {canComplain && (
+        {canComplain && !hasComplaint && (
           <button
             onClick={() => setComplaintOpen(true)}
             className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all border border-destructive/20 font-bold"
@@ -60,6 +62,12 @@ export function PostDeliveryActions({
             <AlertTriangle className="w-5 h-5" />
             Raise Complaint ({Math.max(0, 24 - Math.floor(diffHours))}h left)
           </button>
+        )}
+        {canComplain && hasComplaint && (
+          <div className="flex items-center justify-center gap-2 p-4 rounded-2xl bg-muted text-muted-foreground border border-border font-bold cursor-default opacity-70">
+            <AlertTriangle className="w-5 h-4" />
+            Complaint Submitted
+          </div>
         )}
       </div>
 

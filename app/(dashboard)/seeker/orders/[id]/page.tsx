@@ -78,6 +78,11 @@ export default async function OrderDetailsPage({
     .findOne({ order_id: new ObjectId(id) });
   const hasReviewed = !!existingReview;
 
+  const existingComplaint = await db
+    .collection("complaints")
+    .findOne({ order_id: new ObjectId(id) });
+  const hasComplaint = !!existingComplaint;
+
   if (order.seeker_id.toString() !== seekerId) {
     redirect("/seeker");
   }
@@ -322,6 +327,7 @@ export default async function OrderDetailsPage({
                 deliveredAt={order.otp_confirmed_at}
                 isDelivered={isDelivered}
                 hasReviewed={hasReviewed}
+                hasComplaint={hasComplaint}
               />
 
             </div>
