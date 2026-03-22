@@ -21,8 +21,8 @@ export function LandingPageClient() {
               <Image
                 src="/laundryease-logo.png"
                 alt="LaundryEase logo"
-                width={32}
-                height={32}
+                fill
+                sizes="32px"
                 className="object-cover"
                 priority
               />
@@ -271,13 +271,15 @@ export function LandingPageClient() {
             href="/"
             className="flex items-center gap-3 hover:opacity-80 transition-opacity"
           >
-            <Image
-              src="/laundryease-logo.png"
-              alt="LaundryEase"
-              width={28}
-              height={28}
-              className="rounded-md"
-            />
+            <div className="relative w-7 h-7 rounded-md overflow-hidden">
+              <Image
+                src="/laundryease-logo.png"
+                alt="LaundryEase"
+                fill
+                sizes="28px"
+                className="object-cover"
+              />
+            </div>
             <span className="font-heading font-semibold text-base">
               LaundryEase
             </span>

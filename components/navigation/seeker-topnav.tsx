@@ -81,8 +81,7 @@ export function SeekerTopNav() {
                 <Image
                   src="/laundryease-logo.png"
                   alt="LaundryEase logo"
-                  width={32}
-                  height={32}
+                  fill
                   sizes="32px"
                   className="object-cover"
                 />

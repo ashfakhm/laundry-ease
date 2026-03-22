@@ -149,8 +149,7 @@ export function ProviderSidebar({ className }: ProviderSidebarProps) {
               <Image
                 src="/laundryease-logo.png"
                 alt="LaundryEase logo"
-                width={36}
-                height={36}
+                fill
                 sizes="36px"
                 className="object-cover"
               />

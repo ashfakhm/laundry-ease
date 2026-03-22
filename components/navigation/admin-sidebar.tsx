@@ -115,10 +115,9 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
               <Image
                 src="/laundryease-logo.png"
                 alt="LaundryEase"
-                width={36}
-                height={36}
+                fill
                 sizes="36px"
-                className="h-full w-full object-contain"
+                className="object-contain"
               />
             </div>
             <div className="flex flex-col">
@@ -286,10 +285,9 @@ export function AdminMobileNav() {
             <Image
               src="/laundryease-logo.png"
               alt="LaundryEase"
-              width={32}
-              height={32}
+              fill
               sizes="32px"
-              className="h-full w-full object-contain"
+              className="object-contain"
             />
           </div>
           <span className="font-bold text-foreground tracking-tight">
