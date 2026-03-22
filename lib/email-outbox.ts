@@ -14,10 +14,6 @@ import {
   type PasswordChangedEmailPayload,
 } from "@/lib/password-changed-email";
 import {
-  sendMagicLinkEmailNow,
-  type MagicLinkEmailPayload,
-} from "@/lib/magic-link-email";
-import {
   sendOtpCodeEmailNow,
   type OtpCodeEmailPayload,
 } from "@/lib/otp-code-email";
@@ -26,14 +22,12 @@ export type EmailOutboxKind =
   | "delivery_otp"
   | "password_reset"
   | "password_changed"
-  | "magic_link"
   | "otp_email";
 
 type EmailOutboxPayloadMap = {
   delivery_otp: DeliveryOtpEmailPayload;
   password_reset: PasswordResetEmailPayload;
   password_changed: PasswordChangedEmailPayload;
-  magic_link: MagicLinkEmailPayload;
   otp_email: OtpCodeEmailPayload;
 };
 
@@ -68,11 +62,6 @@ type PasswordChangedOutboxJob = EmailOutboxJobBase & {
   payload: PasswordChangedEmailPayload;
 };
 
-type MagicLinkOutboxJob = EmailOutboxJobBase & {
-  kind: "magic_link";
-  payload: MagicLinkEmailPayload;
-};
-
 type OtpEmailOutboxJob = EmailOutboxJobBase & {
   kind: "otp_email";
   payload: OtpCodeEmailPayload;
@@ -82,7 +71,6 @@ type EmailOutboxJob =
   | DeliveryOtpOutboxJob
   | PasswordResetOutboxJob
   | PasswordChangedOutboxJob
-  | MagicLinkOutboxJob
   | OtpEmailOutboxJob;
 
 export type EnqueueEmailOutboxInput<
@@ -143,11 +131,6 @@ async function dispatchEmailJob(job: EmailOutboxJob) {
     return;
   }
 
-  if (job.kind === "magic_link") {
-    await sendMagicLinkEmailNow(job.payload);
-    return;
-  }
-
   if (job.kind === "otp_email") {
     await sendOtpCodeEmailNow(job.payload);
     return;
@@ -193,12 +176,6 @@ export async function enqueueEmailOutboxJob<K extends EmailOutboxKind>(
       ...baseFields,
       kind: "password_changed",
       payload: input.payload as PasswordChangedEmailPayload,
-    };
-  } else if (input.kind === "magic_link") {
-    doc = {
-      ...baseFields,
-      kind: "magic_link",
-      payload: input.payload as MagicLinkEmailPayload,
     };
   } else {
     doc = {
