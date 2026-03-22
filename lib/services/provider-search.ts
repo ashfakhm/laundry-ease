@@ -40,16 +40,28 @@ export async function searchProviders(
   const limit = params.limit;
   const maxRadiusKm = userCoords ? params.maxRadiusKm : null;
 
+  const andArray: Array<Record<string, unknown>> = [
+    {
+      $or: [
+        { blocked_until: { $exists: false } },
+        { blocked_until: null },
+        { blocked_until: { $lte: new Date() } },
+      ],
+    },
+  ];
+
   const baseFilter: Record<string, unknown> = {
     isDeleted: { $ne: true },
-    $or: [
-      { blocked_until: { $exists: false } },
-      { blocked_until: null },
-      { blocked_until: { $lte: new Date() } },
-    ],
+    $and: andArray,
   };
+
   if (name) {
-    baseFilter.name = { $regex: escapeRegex(name), $options: "i" };
+    andArray.push({
+      $or: [
+        { name: { $regex: escapeRegex(name), $options: "i" } },
+        { businessName: { $regex: escapeRegex(name), $options: "i" } },
+      ],
+    });
   }
   if (service) {
     baseFilter.services = { $regex: escapeRegex(service), $options: "i" };
