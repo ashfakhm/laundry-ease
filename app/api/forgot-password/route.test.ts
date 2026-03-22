@@ -177,4 +177,35 @@ describe("POST /api/forgot-password", () => {
       }),
     });
   });
+
+  it("stores token and sends email for account without passwordHash", async () => {
+    const dbMock = makeDbMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    mockGetUserByEmail.mockResolvedValue({
+      _id: new ObjectId(),
+      email: "user@laundryease.test",
+      role: "seeker",
+      // passwordHash is missing
+    });
+    dbMock.tokensInsertOne.mockResolvedValue({ acknowledged: true });
+
+    const res = await POST(
+      makeRequest({
+        email: "user@laundryease.test",
+      }) as never,
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.data.message).toContain("If an account exists");
+    expect(dbMock.tokensInsertOne).toHaveBeenCalledOnce();
+    expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledOnce();
+    expect(mockEnqueueEmailOutboxJob).toHaveBeenCalledWith({
+      kind: "password_reset",
+      payload: expect.objectContaining({
+        to: "user@laundryease.test",
+      }),
+    });
+  });
 });
+

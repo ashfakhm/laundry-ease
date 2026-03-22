@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     // Timing attack mitigation: always perform the same amount of hashing
     // operations whether the user exists or not, so response times are indistinguishable.
-    if (!user?._id || !user.passwordHash) {
+    if (!user?._id) {
       return successResponse({ message: GENERIC_RESPONSE.message });
     }
 
