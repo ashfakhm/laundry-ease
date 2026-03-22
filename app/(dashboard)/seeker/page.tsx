@@ -14,6 +14,7 @@ import {
 import Image from "next/image";
 
 import { LocationAutocomplete } from "@/components/ui/location-autocomplete";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { useToast } from "@/components/ui/toast";
 import { ProviderCardSkeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
@@ -61,8 +62,12 @@ export default function SeekerDashboardPage() {
 
   const minDeadlineValue = (() => {
     const d = new Date();
-    d.setHours(d.getHours() + 2);
-    return d.toISOString().slice(0, 16);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   })();
 
   useEffect(() => {
@@ -297,12 +302,11 @@ export default function SeekerDashboardPage() {
             </div>
             {/* Deadline Input */}
             <div className="relative group">
-              <input
-                type="datetime-local"
+              <DateTimePicker
                 value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
+                onChange={setDeadline}
                 min={minDeadlineValue}
-                className="w-full h-11 rounded-xl border border-input bg-background px-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
+                placeholder="Select Deadline"
               />
             </div>
           </div>

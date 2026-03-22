@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/components/ui/toast";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/client-error";
@@ -77,8 +78,12 @@ export default function ProviderDetailClient({
 
   const minDeadlineValue = (() => {
     const d = new Date();
-    d.setHours(d.getHours() + 2);
-    return d.toISOString().slice(0, 16);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   })();
 
   useEffect(() => {
@@ -534,12 +539,11 @@ export default function ProviderDetailClient({
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
                   Required Deadline
                 </label>
-                <input
-                  type="datetime-local"
+                <DateTimePicker
                   value={deadline}
+                  onChange={setDeadline}
                   min={minDeadlineValue}
-                  onChange={(e) => setDeadline(e.target.value)}
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  placeholder="Select Deadline"
                 />
               </div>
 
