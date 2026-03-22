@@ -23,6 +23,7 @@ interface DateTimePickerProps {
   value?: string; // Expects "YYYY-MM-DDTHH:mm" format or ""
   onChange: (value: string) => void;
   min?: string; // "YYYY-MM-DDTHH:mm"
+  max?: string; // "YYYY-MM-DDTHH:mm"
   placeholder?: string;
   className?: string;
 }
@@ -31,6 +32,7 @@ export function DateTimePicker({
   value = "",
   onChange,
   min = "",
+  max = "",
   placeholder = "Select Date & Time",
   className,
 }: DateTimePickerProps) {
@@ -98,6 +100,14 @@ export function DateTimePicker({
       setSelectedAmPm(format(minD, "a") as "AM" | "PM");
     }
 
+    const maxD = max ? new Date(max) : null;
+    if (maxD && finalDate > maxD) {
+      finalDate = maxD;
+      setSelectedHour(format(maxD, "hh"));
+      setSelectedMinute(format(maxD, "mm"));
+      setSelectedAmPm(format(maxD, "a") as "AM" | "PM");
+    }
+
     const year = finalDate.getFullYear();
     const month = String(finalDate.getMonth() + 1).padStart(2, '0');
     const day = String(finalDate.getDate()).padStart(2, '0');
@@ -158,30 +168,66 @@ export function DateTimePicker({
 
   const minDate = min ? new Date(min) : null;
   const isTodaySelected = selectedDate && minDate && startOfDay(selectedDate).getTime() === startOfDay(minDate).getTime();
+  const maxDate = max ? new Date(max) : null;
+  const isTodaySelectedMax = selectedDate && maxDate && startOfDay(selectedDate).getTime() === startOfDay(maxDate).getTime();
 
   const isHourDisabled = (h: string) => {
-    if (!isTodaySelected || !minDate) return false;
     let h24 = parseInt(h);
     if (selectedAmPm === "PM" && h24 < 12) h24 += 12;
     if (selectedAmPm === "AM" && h24 === 12) h24 = 0;
-    return h24 < minDate.getHours();
+
+    let tooEarly = false;
+    let tooLate = false;
+
+    if (isTodaySelected && minDate) {
+       tooEarly = h24 < minDate.getHours();
+    }
+    
+    if (isTodaySelectedMax && maxDate) {
+       tooLate = h24 > maxDate.getHours();
+    }
+
+    return tooEarly || tooLate;
   };
 
   const isMinuteDisabled = (m: string) => {
-    if (!isTodaySelected || !minDate) return false;
     let h24 = parseInt(selectedHour);
     if (selectedAmPm === "PM" && h24 < 12) h24 += 12;
     if (selectedAmPm === "AM" && h24 === 12) h24 = 0;
-    if (h24 === minDate.getHours()) {
-      return parseInt(m) < minDate.getMinutes();
+
+    let tooEarly = false;
+    let tooLate = false;
+
+    if (isTodaySelected && minDate) {
+      if (h24 === minDate.getHours()) {
+        tooEarly = parseInt(m) < minDate.getMinutes();
+      } else if (h24 < minDate.getHours()) {
+        tooEarly = true;
+      }
     }
-    return h24 < minDate.getHours();
+
+    if (isTodaySelectedMax && maxDate) {
+      if (h24 === maxDate.getHours()) {
+        tooLate = parseInt(m) > maxDate.getMinutes();
+      } else if (h24 > maxDate.getHours()) {
+        tooLate = true;
+      }
+    }
+
+    return tooEarly || tooLate;
   };
 
   const isAmPmDisabled = (ampm: string) => {
-    if (!isTodaySelected || !minDate) return false;
-    if (ampm === "AM" && minDate.getHours() >= 12) return true;
-    return false;
+    let tooEarly = false;
+    let tooLate = false;
+
+    if (isTodaySelected && minDate) {
+      if (ampm === "AM" && minDate.getHours() >= 12) tooEarly = true;
+    }
+    if (isTodaySelectedMax && maxDate) {
+      if (ampm === "PM" && maxDate.getHours() < 12) tooLate = true;
+    }
+    return tooEarly || tooLate;
   };
 
   return (
@@ -255,7 +301,10 @@ export function DateTimePicker({
                   const isSelected = selectedDate && isSameDay(day, selectedDate);
                   const isToday = isSameDay(day, new Date());
                   const minDate = min ? new Date(min) : null;
-                  const isDisabled = !isCurrentMonth || (minDate ? startOfDay(day) < startOfDay(minDate) : false);
+                  const maxDate = max ? new Date(max) : null;
+                  const isDisabled = !isCurrentMonth || 
+                    (minDate ? startOfDay(day) < startOfDay(minDate) : false) ||
+                    (maxDate ? startOfDay(day) > startOfDay(maxDate) : false);
 
                   return (
                     <button

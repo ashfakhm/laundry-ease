@@ -1,6 +1,8 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
+import { format, addHours, subHours, max as maxDateFns } from "date-fns";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import {
   ConfirmDialog,
   useConfirmDialog,
@@ -47,6 +49,24 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
       "reschedule_requested",
       "confirmed",
     ].includes(booking.status);
+
+  // Time logic bounds: max(current time, booking time + 2 hours) for minimum 
+  // and deadline - 2 hours for maximum.
+  const timeBounds = useMemo(() => {
+    const bookingTimePlus2 = addHours(new Date(booking.createdAt), 2);
+    // User cannot pick past current practical time 
+    // Use `maxDateFns` over `max` to prevent reserved words clashing
+    const minD = maxDateFns([new Date(), bookingTimePlus2]); 
+    const minString = format(minD, "yyyy-MM-dd'T'HH:mm");
+
+    let maxString = undefined;
+    if (booking.deadline) {
+      const maxD = subHours(new Date(booking.deadline), 2);
+      maxString = format(maxD, "yyyy-MM-dd'T'HH:mm");
+    }
+
+    return { min: minString, max: maxString };
+  }, [booking.createdAt, booking.deadline]);
 
   return (
     <>
@@ -188,11 +208,12 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
                 </span>
               </div>
               <div className="flex flex-col gap-2">
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                <DateTimePicker
                   value={slotDate}
-                  onChange={(e) => setSlotDate(e.target.value)}
+                  onChange={setSlotDate}
+                  min={timeBounds.min}
+                  max={timeBounds.max}
+                  className="w-full rounded-xl border-input bg-background shadow-none focus:ring-blue-500/20 focus:border-blue-500"
                 />
                 <button
                   onClick={handleProposeSlot}
@@ -236,11 +257,12 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
                 </span>
               </div>
               <div className="flex flex-col gap-2">
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                <DateTimePicker
                   value={slotDate}
-                  onChange={(e) => setSlotDate(e.target.value)}
+                  onChange={setSlotDate}
+                  min={timeBounds.min}
+                  max={timeBounds.max}
+                  className="w-full rounded-xl border-input bg-background shadow-none focus:ring-amber-500/20 focus:border-amber-500"
                 />
                 <button
                   onClick={handleProposeSlot}
