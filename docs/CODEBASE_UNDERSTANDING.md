@@ -681,7 +681,7 @@ Fields: order_id, seeker_id, provider_id, seeker_name, rating (1-5), comment
 
 1. **Google OAuth**: NextAuth Google provider → callback → session creation
 2. **Email/Password**: Signup with OTP verification → bcrypt password hash → NextAuth credentials provider
-3. **Magic Link**: Email-based passwordless login via token
+
 4. **Session**: JWT token stored in cookie, 7-day max age
 5. **User Ban Verification**: `signIn` callback checks `blocked_until`; if active, sign-in is denied and user is redirected with ban details.
 
@@ -690,7 +690,7 @@ flowchart TD
     Start([User Visits /auth]) --> Choice{Auth Method?}
     Choice -->|Google OAuth| G1[NextAuth Google Provider]
     Choice -->|Email or Password| C1[Enter Credentials]
-    Choice -->|Magic Link| M1[Enter Email]
+
 
     G1 --> G2[Google Callback]
     G2 --> G3{Existing User?}
@@ -1131,7 +1131,7 @@ Valid transitions are enforced by `isValidTransition()`. The `delivered` state c
 | `/api/profile`                              | GET/PATCH | User profile                                               |
 | `/api/otp`                                  | POST      | Send/verify OTP                                            |
 | `/api/auth/[...nextauth]`                   | \*        | NextAuth handler                                           |
-| `/api/auth/send-magic-link`                 | POST      | Magic link email                                           |
+
 | `/api/auth/verify-email`                    | POST      | Email verification                                         |
 | `/api/signup/seeker`                        | POST      | Seeker registration                                        |
 | `/api/signup/provider`                      | POST      | Provider registration                                      |
@@ -1423,7 +1423,7 @@ Client-side: Razorpay checkout script (`RAZORPAY_CHECKOUT_SCRIPT_URL`) loaded dy
 
 - SMTP email transport
 - Used by email outbox dispatch functions
-- Templates for: delivery OTP, password reset, password changed notification, magic link, OTP code
+- Templates for: delivery OTP, password reset, password changed notification, OTP code
 
 ### Email Outbox System (`lib/email-outbox.ts`)
 
@@ -1875,7 +1875,7 @@ Allowed:
 - Alert delivery + escalation with email/webhook/PagerDuty fan-out
 - Alert acknowledgement with SLA tracking and owner routing
 - Alert analytics dashboard (7-day trend, burn-rate, MTTR)
-- Email outbox with retry/backoff (delivery OTP, password reset, password changed, magic link, email OTP) — 5 email types
+- Email outbox with retry/backoff (delivery OTP, password reset, password changed, email OTP) — 4 email types
 - **Real-time Socket.IO chat** — custom Node.js server (`server.js`) attaches Socket.IO to the Next.js HTTP server; `SocketProvider` keeps one authenticated connection per session; **order chat** and **complaint chat** rooms use signed login token checks and per-socket rate limiting (20 joins/min); both support voice notes (recorded via `use-voice-recorder.ts` hook with `MediaRecorder` API, uploaded to Cloudinary) and photos; order chat supports `for_me` and `for_everyone` message deletion, while complaint chat additionally supports `admin_hard_delete`; deletion events propagated in real-time via `emitOrderMessageDeleted()` / `emitComplaintMessageDeleted()` and handled client-side by `applyMessageDeletion()` / `removeMessageLocally()` in `chat-state.ts`
 - **Demo cron dispatcher** (`lib/demo/cron-dispatch.ts`) — `DEMO_MODE=1` enables in-process cron invocation for local testing without external scheduler
 - MongoDB-backed rate limiting on sensitive endpoints (3 tiers)

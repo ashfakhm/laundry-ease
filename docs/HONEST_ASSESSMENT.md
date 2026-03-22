@@ -548,8 +548,8 @@ The backend, business logic, testing, and operational infrastructure are genuine
 **Auth** (4 routes):
 
 - `auth/[...nextauth]/route.ts` — NextAuth handler
-- `auth/send-magic-link/route.ts` — magic link email
-- `auth/verify-email/route.ts` — email verification
+
+
 - `otp/request/route.ts` + `otp/verify/route.ts` — OTP flow
 
 **Bookings** (15 routes):

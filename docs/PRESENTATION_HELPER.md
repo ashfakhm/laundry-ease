@@ -1,6 +1,6 @@
-# LaundryEase — Presentation Q&A Helper (Rev 17)
+# LaundryEase — Presentation Q&A Helper (Rev 18)
 
-> **Purpose**: This document helps you answer any question your HODs and teachers may ask about your project. Read it fully before your mock presentation.
+> **Purpose**: This document helps you answer any question your HODs and teachers may ask about your project. Read it fully before your mock presentation. (Updated: 2026-03-22)
 
 ---
 
@@ -10,6 +10,7 @@
 2. [Technology Stack Questions](#2-technology-stack-questions)
 3. [Architecture & Design Questions](#3-architecture--design-questions)
    - [3B. Code Location Questions](#3b-code-location-questions-where-is-x-written)
+   - [3C. Directory Layout Overview](#3c-directory-layout-overview)
 4. [Database Questions](#4-database-questions)
 5. [Authentication & Security Questions](#5-authentication--security-questions)
 6. [Payment & Escrow Questions](#6-payment--escrow-questions)
@@ -88,7 +89,7 @@
 
 | Layer              | Technology                    | Why                                                                                      |
 | ------------------ | ----------------------------- | ---------------------------------------------------------------------------------------- |
-| **Framework**      | Next.js 16.2.0 (App Router)   | Full-stack, SSR, API routes                                                              |
+| **Framework**      | Next.js 16.2.1 (App Router)   | Full-stack, SSR, API routes                                                              |
 | **Frontend**       | React 19.2.4, TypeScript 5    | Type safety, modern features                                                             |
 | **Styling**        | Tailwind CSS 4, shadcn/ui     | Fast development, same look everywhere                                                   |
 | **Animations**     | Framer Motion                 | Smooth, fast animations                                                                  |
@@ -277,12 +278,22 @@ const clientOptions: MongoClientOptions = {
   socketTimeoutMS: 45000,
 };
 
-export async function getDb() {
+function getMongoClientPromise(): Promise<MongoClient> {
   if (!globalThis.__laundryEaseMongoClientPromise) {
     const client = new MongoClient(env.MONGODB_URI, clientOptions);
-    globalThis.__laundryEaseMongoClientPromise = client.connect();
+    globalThis.__laundryEaseMongoClientPromise = client.connect().catch(
+      (err) => {
+        // diagnostic logging logs context triggers here
+        globalThis.__laundryEaseMongoClientPromise = undefined;
+        throw err;
+      }
+    );
   }
-  const client = await globalThis.__laundryEaseMongoClientPromise;
+  return globalThis.__laundryEaseMongoClientPromise;
+}
+
+export async function getDb() {
+  const client = await getMongoClientPromise();
   const db = client.db(env.MONGODB_DB);
 
   if (!globalThis.__laundryEaseMongoIndexInitPromise) {
@@ -313,7 +324,7 @@ Key production features:
 | Location   | What It Contains                                  | Example                        |
 | ---------- | ------------------------------------------------- | ------------------------------ |
 | `app/api/` | API routes (HTTP endpoints)                       | `app/api/bookings/route.ts`    |
-| `lib/`     | Business logic, database operations, integrations | `lib/db.ts`, `lib/razorpay.ts` |
+| `lib/`     | Business logic, database operations, integrations | `lib/db/`, `lib/razorpay.ts`  |
 
 **API Routes** (`app/api/`) - Handle HTTP requests:
 
@@ -334,7 +345,7 @@ app/api/
 
 ```text
 lib/
-├── db.ts           → Database CRUD operations
+├── db/             → Database operations (bookings, complaints)
 ├── razorpay.ts     → Payment integration
 ├── audit.ts        → Logging changes
 ├── otp.ts          → OTP generation/verification
@@ -545,6 +556,23 @@ throw Errors.validation("Bad input"); // 400
 | **JWT session invalidation**          | `app/api/auth/[...nextauth]/route.ts` (jwt callback)         |
 | **BaseUser type (passwordChangedAt)** | `types/users.ts`                                             |
 
+### 3C. Directory Layout Overview
+
+**Q: Can you explain the folder structure/layout?**
+
+**Answer**: The project follows a modular structure where layers of responsibility are separated:
+
+```text
+laundry-ease/
+├── app/                  # Website screens (Login, Signup, User views) and API links
+├── components/           # Reusable items (Buttons, Input bars, Row holders)
+├── hooks/                # Fetching shorties (Loading states, Refresh triggers)
+├── lib/                  # Processing Logic (Pricing rules, Queries, Safety checks)
+├── types/                # Strict rules describing what data models look like
+├── cron/                 # Background routines running automatically (Payout triggers)
+└── e2e/                  # Robot suite that tests items like we do in a browser
+```
+
 ---
 
 ## 4. Database Questions
@@ -572,6 +600,7 @@ throw Errors.validation("Bad input"); // 400
 | `otp_codes`             | OTP verification codes (TTL auto-expired)           |
 | `password_reset_tokens` | Password reset tokens (TTL auto-expired)            |
 | `api_rate_limits`       | Rate limit counters (TTL auto-expired)              |
+| `complaint_messages`    | Chat history logs submitted within disputes         |
 
 ### Q: How do you handle database connections?
 
@@ -751,19 +780,16 @@ Key design points:
 
 ### Q: How does authentication work?
 
-**Answer**: Auth.js v5 (`next-auth` beta) gives three ways to sign in:
+**Answer**: Auth.js v5 (`next-auth` beta) gives two ways to sign in:
 
 1. **Google OAuth**: Sign in with Google accounts
 2. **Credentials**: Email/password with bcrypt password hashing
-3. **Magic Link**: Email-based passwordless login via JWT token (24-hour expiry)
 
 ```mermaid
 flowchart TD
     Start([User Visits /auth]) --> Choice{Auth Method?}
     Choice -->|Google OAuth| G1[NextAuth Google Provider]
     Choice -->|Email/Password| C1[Enter Credentials]
-    Choice -->|Magic Link| M1[Enter Email]
-
     G1 --> G2{Existing User?}
     G2 -->|Yes| Dashboard[Role Dashboard]
     G2 -->|No| ChooseRole[/choose-role → /complete-signup]
@@ -772,9 +798,6 @@ flowchart TD
     C1 --> C2{Valid?}
     C2 -->|Yes| Dashboard
     C2 -->|No| C3[Error Message]
-
-    M1 --> M2[JWT Token Email → Verify]
-    M2 --> Dashboard
 
     style Dashboard fill:#059669,color:#fff
     style C3 fill:#ef4444,color:#fff
@@ -849,6 +872,9 @@ flowchart TD
     V --> W[All existing sessions invalidated ≤5 min]
 
     style G fill:#f59e0b,color:#fff
+
+---
+
     style U fill:#10b981,color:#fff
     style W fill:#ef4444,color:#fff
 ```
@@ -918,6 +944,7 @@ For providers, the password verification logic is extracted into `lib/services/p
 | **CSP hardening**    | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint |
 | **Timing Attacks**   | `crypto.timingSafeEqual()` for checking signatures                      |
 | **Fake Webhooks**    | HMAC signature check                                                    |
+| **IDOR (Data Guessing)** | Returns 404 (Not Found) for items that belong to someone else, so guessing IDs reveals nothing. |
 | **Wrong Access**     | Role checks on every protected route                                    |
 | **User Enumeration** | Forgot-password returns generic response regardless of email existence  |
 | **Token Theft**      | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL      |
@@ -1295,24 +1322,25 @@ Seeker outside radius → NOT shown in results
 ```typescript
 // lib/distance.ts
 export function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
+  coord1: { lat: number; lng: number } | undefined,
+  coord2: { lat: number; lng: number } | undefined,
 ): number {
+  if (!coord1 || !coord2) return 0;
+
   const R = 6371; // Earth's radius in km
-  const dLat = toRadians(lat2 - lat1);
-  const dLon = toRadians(lon2 - lon1);
+  const dLat = deg2rad(coord2.lat - coord1.lat);
+  const dLon = deg2rad(coord2.lng - coord1.lng);
 
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
+    Math.cos(deg2rad(coord1.lat)) *
+      Math.cos(deg2rad(coord2.lat)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distance in km
+  const d = R * c; // Distance in km
+  return Number(d.toFixed(2));
 }
 
 // Usage for delivery charges
@@ -1561,15 +1589,21 @@ app/api/
 ├── bookings/       # Booking operations (create, chat, status)
 ├── complaints/     # Dispute resolution logic
 ├── cron/           # Scheduled jobs (payouts, auto-reject)
+├── e2e/            # Endpoint assistants for end-to-end tests
 ├── escrow/         # Manual escrow actions
+├── forgot-password/# Trigger reset email
 ├── invoices/       # Invoice generation and management
 ├── orders/         # Order lifecycle and payment status
 ├── otp/            # SMS OTP generation/verification
 ├── payments/       # Razorpay integration
 ├── profile/        # User profile management
+├── provider/       # Provider-specific operations/dashboards
 ├── providers/      # Provider search and listing
+├── reset-password/ # Complete password reset
 ├── reviews/        # Rating and review submission
 ├── security/       # Security checks (CSP violations)
+├── signup/         # Account registration (seeker/provider)
+├── upload/         # Media upload controllers
 └── webhooks/       # Razorpay payment events
 ```
 
@@ -1794,6 +1828,16 @@ Benefits: Less screen redraws, built-in checking, works with TypeScript.
 - **Page-level**: `loading.tsx` files (shows loading while page loads)
 - **Part-level**: `useState` with skeleton loaders
 - **Button-level**: Disabled button with spinner icon
+
+### Q: How do you handle Timezones / Timing discrepancies?
+
+**Answer**: 
+All deadlines, timings, and deadline limits are pinned to **Indian Standard Time (IST)** so they stay accurate for people in India.
+
+1. **Server side**: The database saves times in a generic global format (UTC), but our calculation translates it directly into Indian time bounds accurately for scheduling.
+2. **Date Picker Inputs**: Blocks users from picking times that have already passed in India, even if their own laptop has a wrong clock setting.
+
+This makes sure booking limits and free-cancellation windows tick accurately and fairly for everyone.
 
 ---
 
@@ -2033,6 +2077,7 @@ $unset: { "pickupSlot.confirmedAt": "" }
 | **Idempotency**      | Same action gives same result, even if done many times                      |
 | **Geospatial**       | Data based on map coordinates                                               |
 | **Haversine**        | Math formula to find distance between two map points                        |
+
 
 ---
 

@@ -101,7 +101,7 @@ All users (Seeker and Provider) must complete a verified registration:
 
 - **Email/Password**: Signup with OTP verification → bcrypt password hash → NextAuth credentials provider
 - **Google OAuth**: NextAuth Google provider → callback → role selection → profile completion
-- **Magic Link**: Email-based passwordless login via JWT token (24-hour expiry)
+
 
 **Password Policy:**
 
@@ -301,7 +301,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
   Sensitive API endpoints (admin actions, signup, password reset, cron) must enforce per-IP or per-actor rate limits to prevent abuse.
 
 - **Email outbox with retry**
-  Transactional emails (OTP, password reset, delivery OTP, magic link) must be queued through an outbox pattern with configurable retry, exponential backoff, and dead-letter tracking.
+  Transactional emails (OTP, password reset, delivery OTP) must be queued through an outbox pattern with configurable retry, exponential backoff, and dead-letter tracking.
 
 - **Operational health monitoring**
   The system must detect and alert on: overdue held orders (past escrow release window), payout failure spikes, and overdue complaint response deadlines.
@@ -340,7 +340,7 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
   Every cron job run must be tracked in `cron_runs` collection with start time, duration, status, and result for operational auditing.
 
 - **Email delivery reliability**
-  Transactional emails must be queued through an outbox pattern with retry/backoff. Five email types supported: delivery OTP, password reset, password changed notification, magic link, and email OTP. Inline dispatch attempted on enqueue with cron fallback.
+  Transactional emails must be queued through an outbox pattern with retry/backoff. Five email types supported: delivery OTP, password reset, password changed notification, and email OTP. Inline dispatch attempted on enqueue with cron fallback.
 
 - **Real-time chat**
   Order chat and complaint chat must deliver messages in real time without requiring page refresh. The system must use a persistent Socket.IO connection hosted with the main Next.js server. Every connection must use a signed login token. Room access must be checked against MongoDB so only the right people can join. Per-socket rate limiting must prevent too many room-join requests.

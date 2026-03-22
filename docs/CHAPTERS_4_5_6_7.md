@@ -39,7 +39,7 @@ The LaundryEase system is divided into the following independent modules. Each m
 | **Complaint Module**          | Complaint filing, admin triage, 3-party chat, evidence upload, resolution with settlement                                                                                                  | `app/api/complaints/`, `lib/complaints/`, `types/complaints.ts`                                                                        |
 | **Review Module**             | Post-delivery star ratings, comment submission, provider rating aggregation                                                                                                                | `app/api/reviews/`, `types/reviews.ts`                                                                                                 |
 | **Admin Module**              | User management, payment oversight, complaint resolution, operational alerts                                                                                                               | `app/(dashboard)/admin/`, `app/api/admin/`                                                                                             |
-| **Notification Module**       | Email outbox with retry logic, SMS OTP via Twilio, magic link delivery                                                                                                                     | `lib/email-outbox.ts`, `lib/email-transporter.ts`, `lib/magic-link-email.ts`                                                           |
+| **Notification Module**       | Email outbox with retry logic, SMS OTP via Twilio                                                                                                                     | `lib/email-outbox.ts`, `lib/email-transporter.ts`                                                           |
 | **Cron Module**               | Scheduled background tasks — stale booking auto-rejection, no-show detection, email queue processing                                                                                       | `cron/`, `lib/cron-tracking.ts`                                                                                                        |
 | **Security Module**           | Rate limiting, CSP headers, origin validation, CSRF protection, password policy enforcement                                                                                                | `lib/security/`, `lib/auth/password-policy.ts`                                                                                         |
 | **Audit Module**              | Transaction logging, cross-entity anomaly detection, audit trail with TTL cleanup                                                                                                          | `lib/audit.ts`, `lib/audit/`                                                                                                           |
@@ -1760,7 +1760,7 @@ LaundryEase uses **NextAuth v5 (Auth.js beta, v5.0.0-beta.30)** for authenticati
 
 2. **Google OAuth** — Users can sign in with their Google account. The system creates or links their account automatically.
 
-3. **Magic Link** — Users can request a one-time login link sent to their email, which authenticates them without a password.
+
 
 **Session management:**
 
@@ -1776,7 +1776,7 @@ The system checks if a user is currently banned during the `signIn` callback. If
 **Verification flow:**
 
 1. User registers with email and phone number.
-2. System sends a verification email (magic link or OTP).
+2. System sends a verification email (OTP).
 3. User clicks the link or enters the OTP to verify their email.
 4. System sends an SMS OTP to their phone via Twilio.
 5. User enters the phone OTP to verify their phone number.

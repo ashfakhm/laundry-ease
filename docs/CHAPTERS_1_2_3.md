@@ -156,7 +156,7 @@ The development of LaundryEase follows an **iterative, component-driven methodol
 
 **In Scope:**
 
-- User registration and authentication with email and phone verification (magic links, OTP).
+- User registration and authentication with email and phone verification (OTP).
 - Location-based provider discovery using Google Maps geocoding and MongoDB location search.
 - Complete booking lifecycle: request, accept/reject, pickup scheduling, reschedule, cancellation with fee policies (including seeker-initiated cancellation at `invoice_created` stage with mandatory booking fee forfeiture).
 - Invoice generation with itemized breakdowns, item photos, and discounts, with delivery charges computed during invoice payment and stored on the resulting order.
@@ -264,7 +264,7 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 
 #### 3.4.1 Functional Requirements
 
-- **User Registration and Authentication:** Multi-step registration with email and phone OTP verification, Google OAuth support, password policy enforcement (minimum 8 characters, 1 uppercase, 1 number, 1 special character), and explicit acceptance of Terms and Conditions. Magic link email authentication as an alternative login method.
+- **User Registration and Authentication:** Multi-step registration with email and phone OTP verification, Google OAuth support, password policy enforcement (minimum 8 characters, 1 uppercase, 1 number, 1 special character), and explicit acceptance of Terms and Conditions. 
 - **Role-Based Access Control:** Three distinct roles (seeker, provider, admin) with role-specific dashboards, API authorization, and data visibility rules.
 - **Location-Based Provider Discovery:** Geospatial search using customer coordinates to find providers within their defined service radius. Results include provider ratings, reviews, and service details.
 - **Booking Management:** Full booking lifecycle with states (requested, accepted, rejected, pickup_proposed, reschedule_requested, confirmed, invoice_created, completed, cancelled). Booking fee payment (₹50) gates provider acceptance.
@@ -376,7 +376,7 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 | **Payment Gateway**     | Razorpay + RazorpayX              | Payment capture, escrow holds, signature verification, and automated provider payouts                                   |
 | **Maps & Geocoding**    | Google Maps APIs                  | Places Autocomplete, Geocoding, Maps JavaScript API for location-based discovery                                        |
 | **SMS Service**         | Twilio                            | Phone OTP delivery for verification and delivery confirmation                                                           |
-| **Email Service**       | Nodemailer                        | Transactional emails (OTP, magic links, password reset, delivery codes) via outbox queue                                |
+| **Email Service**       | Nodemailer                        | Transactional emails (OTP, password reset, delivery codes) via outbox queue                                |
 | **Image CDN**           | Cloudinary                        | Upload, transform, and serve images for invoices, profiles, and complaint evidence                                      |
 | **Schema Validation**   | Zod 4                             | Runtime type validation for API inputs and data integrity                                                               |
 | **Form Management**     | React Hook Form                   | Performant, declarative form state handling                                                                             |
