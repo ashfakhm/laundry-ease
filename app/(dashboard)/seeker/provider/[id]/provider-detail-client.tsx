@@ -14,7 +14,9 @@ import {
   Loader2,
   ShieldCheck,
   Package,
+  User,
 } from "lucide-react";
+import Image from "next/image";
 import { useToast } from "@/components/ui/toast";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -267,6 +269,13 @@ export default function ProviderDetailClient({
                       <h1 className="font-heading text-3xl font-bold">
                         {provider.businessName || provider.name}
                       </h1>
+                      {provider.businessName &&
+                        provider.name &&
+                        provider.businessName !== provider.name && (
+                          <p className="text-sm font-medium text-muted-foreground mt-1">
+                            By {provider.name}
+                          </p>
+                        )}
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                         <MapPin className="w-4 h-4" />
                         {provider.location}
@@ -460,13 +469,31 @@ export default function ProviderDetailClient({
               transition={{ delay: 0.2 }}
               className="sticky top-6 rounded-3xl border border-border bg-card p-6 shadow-xl shadow-black/5"
             >
-              <div className="text-center mb-6">
-                <h3 className="font-heading text-xl font-bold">
-                  Book Provider
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Secure your slot now
-                </p>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="h-12 w-12 rounded-full overflow-hidden border-2 border-border bg-muted shrink-0 shadow-sm">
+                  {provider.profilePicture ? (
+                    <Image
+                      src={provider.profilePicture}
+                      alt={provider.businessName || provider.name}
+                      width={48}
+                      height={48}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                      {(provider.businessName || provider.name)?.charAt(0) ||
+                        "P"}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 text-left">
+                  <h3 className="font-heading text-xl font-bold">
+                    Book Provider
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Secure your slot now
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-4 mb-6">
@@ -487,6 +514,12 @@ export default function ProviderDetailClient({
               </div>
 
               <div className="space-y-3 mb-8">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <User className="w-4 h-4" />
+                  <span className="font-medium text-foreground">
+                    {provider.name}
+                  </span>
+                </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <Phone className="w-4 h-4" />
                   <span className="font-medium text-foreground">
