@@ -25,7 +25,7 @@
 14. [Quick Technical Terms Glossary](#14-quick-technical-terms-glossary)
 15. [Operational Monitoring & Reliability Questions](#15-operational-monitoring--reliability-questions)
 16. [Known Gaps vs PRD](#known-gaps-vs-prd-be-honest)
-17. [Key Features Implemented](#key-features-implemented-full-system--2026-03-04)
+17. [Key Features Implemented](#key-features-implemented)
 
 ---
 
@@ -157,7 +157,7 @@
 
 **Answer**: LaundryEase uses a **layered setup**:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    Client (Browser)                      │
 ├─────────────────────────────────────────────────────────┤
@@ -224,7 +224,7 @@ We use explicit **architectural safeguards** to prevent serverless execution fai
 
 **Answer**: Next.js App Router uses file-based routing with special rules:
 
-```
+```text
 app/
 ├── (auth)/              # Route group (URL: /verify-email, /verify-phone)
 ├── (dashboard)/         # Route group (URL: /admin, /provider, /seeker)
@@ -322,9 +322,9 @@ Key production features:
 **Answer**: Backend code is in **two places**:
 
 | Location   | What It Contains                                  | Example                        |
-| ---------- | ------------------------------------------------- | ------------------------------ |
+|------------|---------------------------------------------------|--------------------------------|
 | `app/api/` | API routes (HTTP endpoints)                       | `app/api/bookings/route.ts`    |
-| `lib/`     | Business logic, database operations, integrations | `lib/db/`, `lib/razorpay.ts`  |
+| `lib/`     | Business logic, database operations, integrations | `lib/db/`, `lib/razorpay.ts`   |
 
 **API Routes** (`app/api/`) - Handle HTTP requests:
 
@@ -787,18 +787,16 @@ Key design points:
 
 ```mermaid
 flowchart TD
-    Start([User Visits /auth]) --> Choice{Auth Method?}
-    Choice -->|Google OAuth| G1[NextAuth Google Provider]
-    Choice -->|Email/Password| C1[Enter Credentials]
-    G1 --> G2{Existing User?}
-    G2 -->|Yes| Dashboard[Role Dashboard]
-    G2 -->|No| ChooseRole[/choose-role → /complete-signup]
+    Start(["User Visits /auth"]) --> Choice{"Auth Method?"}
+    Choice -->|Google OAuth| G1["NextAuth Google Provider"]
+    Choice -->|Email/Password| C1["Enter Credentials"]
+    G1 --> G2{"Existing User?"}
+    G2 -->|Yes| Dashboard["Role Dashboard"]
+    G2 -->|No| ChooseRole["/choose-role → /complete-signup"]
     ChooseRole --> Dashboard
-
-    C1 --> C2{Valid?}
+    C1 --> C2{"Valid?"}
     C2 -->|Yes| Dashboard
-    C2 -->|No| C3[Error Message]
-
+    C2 -->|No| C3["Error Message"]
     style Dashboard fill:#059669,color:#fff
     style C3 fill:#ef4444,color:#fff
 ```
@@ -848,33 +846,29 @@ const isValid = await bcrypt.compare(password, user.passwordHash);
 
 ```mermaid
 flowchart TD
-    A[User clicks Forgot Password] --> B[Enter email on /auth page]
-    B --> C[POST /api/forgot-password]
-    C --> D{Rate limit OK?}
-    D -->|No| E[429 Too Many Requests]
-    D -->|Yes| F{User exists with password?}
-    F -->|No| G[Return generic success — anti-enumeration]
-    F -->|Yes| H[Generate randomBytes 32 token]
-    H --> I[Store SHA-256 hash in DB — raw token NEVER stored]
-    I --> J[Enqueue password_reset email via outbox]
-    J --> K[Branded HTML email with reset link]
-    K --> L[User clicks link → /reset-password?token=xxx]
-    L --> M[Enter new password + confirm]
-    M --> N[POST /api/reset-password]
-    N --> O{Token valid & unexpired?}
-    O -->|No| P[Error: Invalid or expired]
-    O -->|Yes| Q[bcrypt hash new password]
-    Q --> R[Update user: passwordHash + passwordChangedAt]
-    R --> S[Invalidate ALL active reset tokens]
-    S --> T[Enqueue password_changed notification email]
-    T --> U[Success → redirect to /auth]
-    R --> V[JWT callback detects passwordChangedAt > iat]
-    V --> W[All existing sessions invalidated ≤5 min]
-
+    A["User clicks Forgot Password"] --> B["Enter email on /auth page"]
+    B --> C["POST /api/forgot-password"]
+    C --> D{"Rate limit OK?"}
+    D -->|No| E["429 Too Many Requests"]
+    D -->|Yes| F{"User exists with password?"}
+    F -->|No| G["Return generic success — anti-enumeration"]
+    F -->|Yes| H["Generate randomBytes 32 token"]
+    H --> I["Store SHA-256 hash in DB — raw token NEVER stored"]
+    I --> J["Enqueue password_reset email via outbox"]
+    J --> K["Branded HTML email with reset link"]
+    K --> L["User clicks link → /reset-password?token=xxx"]
+    L --> M["Enter new password + confirm"]
+    M --> N["POST /api/reset-password"]
+    N --> O{"Token valid & unexpired?"}
+    O -->|No| P["Error: Invalid or expired"]
+    O -->|Yes| Q["bcrypt hash new password"]
+    Q --> R["Update user: passwordHash + passwordChangedAt"]
+    R --> S["Invalidate ALL active reset tokens"]
+    S --> T["Enqueue password_changed notification email"]
+    T --> U["Success → redirect to /auth"]
+    R --> V["JWT callback detects passwordChangedAt > iat"]
+    V --> W["All existing sessions invalidated ≤5 min"]
     style G fill:#f59e0b,color:#fff
-
----
-
     style U fill:#10b981,color:#fff
     style W fill:#ef4444,color:#fff
 ```
@@ -903,15 +897,13 @@ sequenceDiagram
     participant User
     participant JWT Callback
     participant MongoDB
-
     Note over User: Changes password (reset or profile)
     User->>MongoDB: Set passwordChangedAt = now()
-
     Note over User: 0-5 min later, any request...
     User->>JWT Callback: Request with old JWT
     JWT Callback->>JWT Callback: Check: has 5 min passed since last DB check?
     JWT Callback->>MongoDB: getUserByEmail(token.email)
-    MongoDB-->>JWT Callback: { passwordChangedAt: <after token.iat> }
+    MongoDB-->>JWT Callback: {" passwordChangedAt: <after token.iat> "}
     JWT Callback-->>User: Token invalidated → forced sign-out
     Note over User: Must re-authenticate with new password
 ```
@@ -936,21 +928,21 @@ For providers, the password verification logic is extracted into `lib/services/p
 
 **Answer**:
 
-| Problem              | How We Prevent It                                                       |
-| -------------------- | ----------------------------------------------------------------------- |
-| **SQL Injection**    | Not possible (MongoDB), but we clean all inputs with Zod                |
-| **XSS**              | React escapes output by default                                         |
-| **CSRF-like abuse**  | Same-origin guard (`requireSameOrigin`) on unsafe API methods           |
-| **CSP hardening**    | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint |
-| **Timing Attacks**   | `crypto.timingSafeEqual()` for checking signatures                      |
-| **Fake Webhooks**    | HMAC signature check                                                    |
-| **IDOR (Data Guessing)** | Returns 404 (Not Found) for items that belong to someone else, so guessing IDs reveals nothing. |
-| **Wrong Access**     | Role checks on every protected route                                    |
-| **User Enumeration** | Forgot-password returns generic response regardless of email existence  |
-| **Token Theft**      | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL      |
-| **Stale Sessions**   | JWT re-check every 5 min invalidates tokens after password change       |
-| **Brute Force**      | MongoDB-backed rate limiting (per-IP + per-email/token buckets)         |
-| **Banned Accounts**  | Authentication blocked with reason + expiry feedback                    |
+| Problem                    | How We Prevent It                                                                                 |
+|----------------------------|---------------------------------------------------------------------------------------------------|
+| **SQL Injection**          | Not possible (MongoDB), but we clean all inputs with Zod                                          |
+| **XSS**                    | React escapes output by default                                                                   |
+| **CSRF-like abuse**        | Same-origin guard (`requireSameOrigin`) on unsafe API methods                                     |
+| **CSP hardening**          | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint                           |
+| **Timing Attacks**         | `crypto.timingSafeEqual()` for checking signatures                                                |
+| **Fake Webhooks**          | HMAC signature check                                                                              |
+| **IDOR (Data Guessing)**   | Returns 404 (Not Found) for items that belong to someone else, so guessing IDs reveals nothing.   |
+| **Wrong Access**           | Role checks on every protected route                                                              |
+| **User Enumeration**       | Forgot-password returns generic response regardless of email existence                            |
+| **Token Theft**            | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL                                |
+| **Stale Sessions**         | JWT re-check every 5 min invalidates tokens after password change                                 |
+| **Brute Force**            | MongoDB-backed rate limiting (per-IP + per-email/token buckets)                                   |
+| **Banned Accounts**        | Authentication blocked with reason + expiry feedback                                              |
 
 ### Q: Can administrators ban users and how is that enforced?
 
@@ -998,7 +990,7 @@ if (
 
 **Answer**: The escrow system makes sure payments are safe:
 
-```
+```text
 1. Seeker pays for order
    ↓
 2. Payment is captured and stored as payment_status: "paid"
@@ -1388,7 +1380,7 @@ await db
 
 **Answer**:
 
-```
+```text
 requested → accepted → pickup_proposed → confirmed → invoice_created → completed
     ↓           ↓             ↓               ↓             ↓ ↓
  rejected   cancelled   reschedule_requested  ↩         cancelled  Order created
@@ -1434,7 +1426,7 @@ requested → accepted → pickup_proposed → confirmed → invoice_created →
 
 **Answer**:
 
-```
+```text
 invoiced → processing → washing → ironing → ready → out_for_delivery → delivered
 ```
 
@@ -1499,7 +1491,7 @@ Both checks are inside the same MongoDB session so no concurrent booking can sli
 
 **Answer**:
 
-```
+```text
 Seeker raises complaint (status: "open")
     ↓
 Admin reviews and accepts (status: "accepted", deadline set)
@@ -1536,7 +1528,7 @@ Operational detail from current code:
 
 **Server side** (`server.js`):
 
-```
+```text
 HTTP Server (Node.js)
   ├── Next.js request handler  (all normal pages + API routes)
   └── Socket.IO Server         (WebSocket upgrades on /socket.io)
@@ -1582,7 +1574,7 @@ HTTP Server (Node.js)
 
 **Answer**: Organized by feature:
 
-```
+```text
 app/api/
 ├── admin/          # Admin-only endpoints (complaints, users)
 ├── auth/           # NextAuth handlers
@@ -1831,7 +1823,7 @@ Benefits: Less screen redraws, built-in checking, works with TypeScript.
 
 ### Q: How do you handle Timezones / Timing discrepancies?
 
-**Answer**: 
+**Answer**:
 All deadlines, timings, and deadline limits are pinned to **Indian Standard Time (IST)** so they stay accurate for people in India.
 
 1. **Server side**: The database saves times in a generic global format (UTC), but our calculation translates it directly into Indian time bounds accurately for scheduling.
@@ -1906,6 +1898,29 @@ logger.error("WEBHOOK", "Signature invalid", error, { paymentId });
 ---
 
 ## 11. Testing & Quality Questions
+
+### Q: What is Software Testing and why do we need it?
+
+**Answer**: Testing is the process of checking if the application works correctly and is free from bugs.
+Think of it like checking a car before driving it:
+
+- **Why we do it**: It catches errors early (during typing/building), saves time, and gives confidence that making updates won't break existing features.
+- **In Viva terms**: "It is a verification and validation process ensuring the system meets expectations and behaves predictably for the user."
+
+### Q: What are the different levels/types of testing used in this system?
+
+**Answer**: We use a **3-Tier Testing Strategy** (Testing Pyramid) to ensure total system health:
+
+| Test Level | Tool | What It Checks | Example in LaundryEase |
+| :--- | :--- | :--- | :--- |
+| **1. Unit Tests** | Vitest | Small pieces of code (functions) in isolation | `cancellation-policy.ts` math, format logic |
+| **2. Integration Tests** | Vitest | Multiple modules working together (e.g., API + DB) | `forgot-password API` communicating with DB & email queue |
+| **3. End-to-End (E2E) Tests** | Playwright | Simulates full user flow in a real browser (clicks/inputs) | Booking Lifecycle (Seeker requests → Provider accepts → completion) |
+
+**Plus Automated Checks**:
+
+- **Static testing (TypeScript & ESLint)**: Catches typos while writing code.
+- **CI/CD (GitHub Actions)**: Every time we push code, a robot runs all tests automatically before merging.
 
 ### Q: How do you ensure code quality?
 
@@ -2078,7 +2093,6 @@ $unset: { "pickupSlot.confirmedAt": "" }
 | **Geospatial**       | Data based on map coordinates                                               |
 | **Haversine**        | Math formula to find distance between two map points                        |
 
-
 ---
 
 ## 15. Operational Monitoring & Reliability Questions
@@ -2249,7 +2263,7 @@ Use these points if you are asked about differences between the PRD and what is 
 - **E2E test for Socket.IO chat and cancel-at-invoice**: No Playwright E2E coverage for real-time chat flows or the cancel-at-invoice-stage scenario yet.
 - **DEMO_MODE in .env**: `DEMO_MODE=1` is set in the local `.env` for development — must be removed before any public deployment (demo cron panel bypasses external scheduler auth).
 
-## Key Features Implemented (Full System — 2026-03-15 Rev 15)
+## Key Features Implemented
 
 ### Core Workflow
 
@@ -2399,4 +2413,4 @@ Use these points if you are asked about differences between the PRD and what is 
 11. **Cancel-at-invoice talking point**: "We respect both sides. Even after a provider has collected the items and created an invoice, the seeker can still cancel — they just forfeit the ₹50 booking fee as fair compensation for the provider's physical work. The policy engine, the API, and the UI all enforce this consistently."
 12. **Order chat architecture talking point**: "We migrated chat from the booking level to the order level — this makes more sense because chat is most useful after payment, during active order processing. The OrderChat component uses the same Socket.IO infrastructure as complaint chat: contracts define events, socket-auth verifies room access against MongoDB, and the emitter pushes messages from API routes to connected clients."
 
-**Good luck with your presentation! 🚀**
+Good luck with your presentation! 🚀
