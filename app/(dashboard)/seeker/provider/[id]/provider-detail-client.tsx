@@ -73,11 +73,7 @@ export default function ProviderDetailClient({
   const [seekerCoordinates, setSeekerCoordinates] = useState<
     { lat: number; lng: number } | undefined
   >(undefined);
-  const [deadline, setDeadline] = useState(() => {
-    const d = new Date();
-    d.setHours(d.getHours() + 24);
-    return d.toISOString().slice(0, 16);
-  });
+  const [deadline, setDeadline] = useState("");
 
   const minDeadlineValue = (() => {
     const d = new Date();
