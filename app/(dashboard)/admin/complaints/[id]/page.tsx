@@ -42,6 +42,7 @@ interface ComplaintData {
     total_amount: number;
     distributable_amount: number;
     platform_commission: number;
+    delivery_charge?: number;
     default_provider_payout: number;
   } | null;
 }
@@ -337,6 +338,9 @@ export default function AdminComplaintDetailPage({
   const platformCommission = round2(
     Number(complaint.settlement_window?.platform_commission || 0),
   );
+  const deliveryCharge = round2(
+    Number(complaint.settlement_window?.delivery_charge || 0),
+  );
   const clampedSeekerRefund =
     distributableAmount <= 0
       ? 0
@@ -511,12 +515,19 @@ export default function AdminComplaintDetailPage({
                 <>
                   <div className="w-full rounded-xl border border-border/70 bg-muted/20 p-4 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold">
+                      <p className="text-sm font-semibold flex items-center gap-2">
                         Settlement split (post-commission)
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        Commission retained: {formatInr(platformCommission)}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">
+                          Commission retained: {formatInr(platformCommission)}
+                        </p>
+                        {deliveryCharge > 0 && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Distributable amount includes Delivery Charge: {formatInr(deliveryCharge)}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid gap-2 text-sm sm:grid-cols-2">

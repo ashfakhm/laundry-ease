@@ -83,7 +83,7 @@ export default async function OrderDetailsPage({
   }
 
   // Derived Values
-  const totalAmount = (order.total_price || 0) + (order.delivery_charge || 0);
+  const totalAmount = order.total_price || 0;
 
   // Status Logic
   const isCancelled = !!order.cancellation_status;

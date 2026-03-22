@@ -57,7 +57,7 @@ export default function InvoiceReviewForm({
             (sum, item) => sum + item.unitPrice * item.quantity,
             0,
           ) - (invoice.discount ?? 0),
-        );
+        ) + (invoice.delivery_charge ?? 0);
 
   async function handleDecision(approved: boolean, reason?: string) {
     setLoading(true);

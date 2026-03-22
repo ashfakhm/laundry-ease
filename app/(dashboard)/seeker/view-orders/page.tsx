@@ -426,7 +426,7 @@ export default function ViewOrdersPage() {
                           <p className="text-3xl font-heading font-black text-foreground mt-1">
                             ₹
                             {Math.round(
-                              order.total_price + order.delivery_charge,
+                              order.total_price,
                             )}
                           </p>
                           <p className="text-xs text-emerald-600 font-bold mt-1 flex lg:justify-end items-center gap-1">
@@ -450,7 +450,7 @@ export default function ViewOrdersPage() {
                               <PaymentButton
                                 orderId={order._id}
                                 amount={
-                                  order.total_price + order.delivery_charge
+                                  order.total_price
                                 }
                                 className="w-full"
                               />

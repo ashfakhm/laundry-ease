@@ -177,14 +177,14 @@ export default function AdminPaymentManagementPage() {
     .filter(
       (p) => p.payment_status === "released" || p.payment_status === "paid",
     )
-    .reduce((acc, curr) => acc + curr.total_price + curr.delivery_charge, 0);
+    .reduce((acc, curr) => acc + curr.total_price, 0);
   const settledTransactions = payments.filter(
     (p) => p.payment_status === "released" || p.payment_status === "paid",
   ).length;
 
   const escrowAmount = payments
     .filter((p) => p.payment_status === "held")
-    .reduce((acc, curr) => acc + curr.total_price + curr.delivery_charge, 0);
+    .reduce((acc, curr) => acc + curr.total_price, 0);
 
   if (loading) {
     return (
@@ -310,7 +310,7 @@ export default function AdminPaymentManagementPage() {
               <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-2">
                 {/* ID & Status */}
-                <div className="flex-1 space-y-2 min-w-[200px]">
+                <div className="flex-1 space-y-2 min-w-50">
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-xs font-semibold text-muted-foreground bg-muted/50 px-2 py-1 rounded">
                       #
@@ -402,10 +402,7 @@ export default function AdminPaymentManagementPage() {
                       Amount
                     </p>
                     <p className="text-xl font-bold text-emerald-600 tabular-nums">
-                      ₹
-                      {(
-                        payment.total_price + payment.delivery_charge
-                      ).toLocaleString()}
+                      ₹{payment.total_price.toLocaleString()}
                     </p>
                   </div>
                 </div>

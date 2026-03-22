@@ -75,6 +75,7 @@ export async function GET(
           total_price: 1,
           provider_payout_amount: 1,
           platform_commission: 1,
+          delivery_charge: 1,
           deadline: 1,
           otp_confirmed_at: 1,
           escrow_started_at: 1,
@@ -86,6 +87,7 @@ export async function GET(
       total_amount: number;
       distributable_amount: number;
       platform_commission: number;
+      delivery_charge: number;
       default_provider_payout: number;
     } | null = null;
 
@@ -100,6 +102,7 @@ export async function GET(
         total_amount: Number(order.total_price || 0),
         distributable_amount: payoutAmounts.providerPayoutAmountPaise / 100,
         platform_commission: payoutAmounts.platformCommissionPaise / 100,
+        delivery_charge: Number(order.delivery_charge || 0),
         default_provider_payout: payoutAmounts.providerPayoutAmountPaise / 100,
       };
     }

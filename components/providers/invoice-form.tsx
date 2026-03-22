@@ -15,9 +15,10 @@ export interface InvoiceItem {
 
 interface InvoiceFormProps {
   bookingId: string;
+  deliveryCharge?: number;
 }
 
-export function InvoiceForm({ bookingId }: InvoiceFormProps) {
+export function InvoiceForm({ bookingId, deliveryCharge = 0 }: InvoiceFormProps) {
   const router = useRouter();
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [discount, setDiscount] = useState<number>(0);
@@ -441,12 +442,23 @@ export function InvoiceForm({ bookingId }: InvoiceFormProps) {
             </div>
           </div>
           <div>
-            <p className="text-sm text-primary-foreground/70 mb-1">
+            <div className="flex justify-between items-center text-sm text-primary-foreground/70 mb-1">
+              <span>Items Total (excl. delivery)</span>
+              <span>₹{total}</span>
+            </div>
+            {deliveryCharge > 0 && (
+              <div className="flex justify-between items-center text-sm text-primary-foreground/70 mb-1">
+                <span>Delivery Charge</span>
+                <span>₹{deliveryCharge}</span>
+              </div>
+            )}
+            <div className="border-t border-primary-foreground/20 my-2"></div>
+            <p className="text-sm text-primary-foreground/90 font-medium mb-1">
               Total Estimated Amount
             </p>
             <p className="text-4xl font-heading font-black text-primary-foreground tracking-tight">
               <span className="text-2xl align-top opacity-50 mr-1">₹</span>
-              {total}
+              {total + deliveryCharge}
             </p>
           </div>
           <button

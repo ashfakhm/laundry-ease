@@ -228,7 +228,7 @@ export default function InvoiceGenerationPage() {
                           <div className="mt-0.5 flex items-center gap-1">
                             <IndianRupee className="h-4 w-4 text-emerald-600" />
                             <span className="text-lg font-bold text-emerald-600">
-                        {order.total_price + (order.delivery_charge || 0)}
+                        {order.total_price}
                             </span>
                           </div>
                         </div>

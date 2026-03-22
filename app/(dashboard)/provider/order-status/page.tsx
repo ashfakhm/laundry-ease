@@ -761,7 +761,7 @@ export default function OrderStatusPage() {
                         Total Amount
                       </p>
                       <p className="text-2xl font-bold text-emerald-600">
-                        ₹{order.total_price + order.delivery_charge}
+                        ₹{order.total_price}
                       </p>
                     </div>
                     <div className="rounded-xl border bg-background px-4 py-2">

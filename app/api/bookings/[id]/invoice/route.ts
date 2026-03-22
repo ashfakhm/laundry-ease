@@ -100,13 +100,9 @@ export async function POST(
         provider?.per_km_rate,
       );
 
-    // Recalculate total if missing - ensure it's never negative (adding delivery charge)
-    const cleanTotal =
-      total !== undefined
-        ? Math.max(0, total)
-        : Math.max(0, cleanSubtotal - cleanDiscount) + delivery_charge;
-
-
+    // Recalculate total if missing - ensure it's never negative (adding delivery charge at the end)
+    const baseTotal = total !== undefined ? Math.max(0, total) : Math.max(0, cleanSubtotal - cleanDiscount);
+    const cleanTotal = baseTotal + delivery_charge;
     // Invoice structure - validated by Zod schema
     const invoice = {
       items: items.map((it) => ({

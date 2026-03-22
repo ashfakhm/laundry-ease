@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 import { InvoiceForm } from "@/components/providers/invoice-form";
 import OrderChat from "@/components/order-chat";
 import { requireProvider } from "@/lib/api/auth";
+import { computeDeliveryCharge } from "@/lib/utils/delivery-charge";
 
 export default async function CreateInvoicePage({
   params,
@@ -53,6 +54,13 @@ export default async function CreateInvoicePage({
 
   const orderId = order?._id?.toString() ?? null;
 
+  const { charge: deliveryCharge } = computeDeliveryCharge(
+    booking.seeker_coordinates,
+    provider.coordinates,
+    provider.free_radius_km,
+    provider.per_km_rate,
+  );
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <header className="mb-8">
@@ -70,7 +78,7 @@ export default async function CreateInvoicePage({
         )}
       </header>
       <div className="bg-card border border-border rounded-2xl p-6 mb-8">
-        <InvoiceForm bookingId={id} />
+        <InvoiceForm bookingId={id} deliveryCharge={deliveryCharge} />
         <p className="text-sm text-muted-foreground mt-2">Booking ID: {id}</p>
       </div>
       <div className="mt-8">

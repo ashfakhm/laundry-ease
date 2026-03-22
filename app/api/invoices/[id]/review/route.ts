@@ -126,6 +126,7 @@ export async function POST(
           notes?: string;
           subtotal?: number;
           discount?: number;
+          delivery_charge?: number;
           total?: number;
         }
       | undefined;
@@ -175,7 +176,7 @@ export async function POST(
       items: orderItems,
       subtotal,
       discount,
-      delivery_charge: 0,
+      delivery_charge: invoice.delivery_charge || 0,
       total_price: total,
       platform_commission,
       provider_payout_amount,
