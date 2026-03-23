@@ -178,6 +178,22 @@
 └─────────────────────────────────────────────────────────┘
 ```
 
+---
+
+## 3. Data Fetching & State
+
+### Q: How is data fetched and managed in the app?
+
+**Answer**: We use a hybrid strategy of server-side and client-side fetching:
+
+1. **Client-side (SWR)**: `useSWR` for real-time lists and dashboard stats. Features: auto-refresh on focus, background revalidation, and instant UI updates via `mutate()`.
+2. **Server-side (Next.js)**: Server Components fetch static data at request time for maximum performance. Uses `fetch(url, { cache: 'no-store' })` where freshness is required.
+3. **API Mutations**: Standard `fetch` calls in event handlers (like "Accept Booking" or "Pay Now") for one-off actions and state transitions.
+4. **Direct DB**: Backend API routes use the native `mongodb` driver directly for high-performance transactions without ORM overhead.
+5. **Real-time (Socket.IO)**: Bi-directional event push for chat messages and complaint updates, bypassing polling entirely.
+
+---
+
 ### Q: What design patterns did you use?
 
 **Answer**:
@@ -281,13 +297,13 @@ const clientOptions: MongoClientOptions = {
 function getMongoClientPromise(): Promise<MongoClient> {
   if (!globalThis.__laundryEaseMongoClientPromise) {
     const client = new MongoClient(env.MONGODB_URI, clientOptions);
-    globalThis.__laundryEaseMongoClientPromise = client.connect().catch(
-      (err) => {
+    globalThis.__laundryEaseMongoClientPromise = client
+      .connect()
+      .catch((err) => {
         // diagnostic logging logs context triggers here
         globalThis.__laundryEaseMongoClientPromise = undefined;
         throw err;
-      }
-    );
+      });
   }
   return globalThis.__laundryEaseMongoClientPromise;
 }
@@ -321,10 +337,10 @@ Key production features:
 
 **Answer**: Backend code is in **two places**:
 
-| Location   | What It Contains                                  | Example                        |
-|------------|---------------------------------------------------|--------------------------------|
-| `app/api/` | API routes (HTTP endpoints)                       | `app/api/bookings/route.ts`    |
-| `lib/`     | Business logic, database operations, integrations | `lib/db/`, `lib/razorpay.ts`   |
+| Location   | What It Contains                                  | Example                      |
+| ---------- | ------------------------------------------------- | ---------------------------- |
+| `app/api/` | API routes (HTTP endpoints)                       | `app/api/bookings/route.ts`  |
+| `lib/`     | Business logic, database operations, integrations | `lib/db/`, `lib/razorpay.ts` |
 
 **API Routes** (`app/api/`) - Handle HTTP requests:
 
@@ -928,21 +944,21 @@ For providers, the password verification logic is extracted into `lib/services/p
 
 **Answer**:
 
-| Problem                    | How We Prevent It                                                                                 |
-|----------------------------|---------------------------------------------------------------------------------------------------|
-| **SQL Injection**          | Not possible (MongoDB), but we clean all inputs with Zod                                          |
-| **XSS**                    | React escapes output by default                                                                   |
-| **CSRF-like abuse**        | Same-origin guard (`requireSameOrigin`) on unsafe API methods                                     |
-| **CSP hardening**          | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint                           |
-| **Timing Attacks**         | `crypto.timingSafeEqual()` for checking signatures                                                |
-| **Fake Webhooks**          | HMAC signature check                                                                              |
-| **IDOR (Data Guessing)**   | Returns 404 (Not Found) for items that belong to someone else, so guessing IDs reveals nothing.   |
-| **Wrong Access**           | Role checks on every protected route                                                              |
-| **User Enumeration**       | Forgot-password returns generic response regardless of email existence                            |
-| **Token Theft**            | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL                                |
-| **Stale Sessions**         | JWT re-check every 5 min invalidates tokens after password change                                 |
-| **Brute Force**            | MongoDB-backed rate limiting (per-IP + per-email/token buckets)                                   |
-| **Banned Accounts**        | Authentication blocked with reason + expiry feedback                                              |
+| Problem                  | How We Prevent It                                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------------------- |
+| **SQL Injection**        | Not possible (MongoDB), but we clean all inputs with Zod                                        |
+| **XSS**                  | React escapes output by default                                                                 |
+| **CSRF-like abuse**      | Same-origin guard (`requireSameOrigin`) on unsafe API methods                                   |
+| **CSP hardening**        | Report-Only CSP headers + `/api/security/csp-report` telemetry endpoint                         |
+| **Timing Attacks**       | `crypto.timingSafeEqual()` for checking signatures                                              |
+| **Fake Webhooks**        | HMAC signature check                                                                            |
+| **IDOR (Data Guessing)** | Returns 404 (Not Found) for items that belong to someone else, so guessing IDs reveals nothing. |
+| **Wrong Access**         | Role checks on every protected route                                                            |
+| **User Enumeration**     | Forgot-password returns generic response regardless of email existence                          |
+| **Token Theft**          | Reset tokens stored as SHA-256 hash (raw never persisted), 1hr TTL                              |
+| **Stale Sessions**       | JWT re-check every 5 min invalidates tokens after password change                               |
+| **Brute Force**          | MongoDB-backed rate limiting (per-IP + per-email/token buckets)                                 |
+| **Banned Accounts**      | Authentication blocked with reason + expiry feedback                                            |
 
 ### Q: Can administrators ban users and how is that enforced?
 
@@ -1656,18 +1672,18 @@ if (!result.success) {
 
 **The 10 Registered Cron Jobs**:
 
-| Job Name | Frequency | Primary Responsibility |
-| :--- | :--- | :--- |
-| `auto-reject-bookings` | 5 min | Rejects stagnant requests (2h limit) and auto-refunds fees. |
-| `no-show` | 5 min | Cancels confirmed pickups missed by >30m; refunds seeker. |
-| `process-payouts` | 15 min | Releases escrow to providers after the 24h safety window. |
-| `reconciliation` | 30 min | Syncs local states with Razorpay (fixes missed webhooks). |
-| `audit-integrity` | 30 min | Scans for data anomalies (e.g., unpaid orders with payouts). |
-| `process-email-outbox` | 2 min | Retries failed asynchronous emails with exponential backoff. |
-| `notify-system-alerts` | 15 min | Sends incident digests/escalations to on-call owners. |
-| `monitor-ops-health` | 1 hour | Evaluates health signals and raises system alerts for anomalies. |
-| `monitor-abuse` | 24 hours | Flags seekers with excessive cancellation patterns. |
-| `webhook-cleanup` | 24 hours | Purges processed webhook logs older than 30 days. |
+| Job Name               | Frequency | Primary Responsibility                                           |
+| :--------------------- | :-------- | :--------------------------------------------------------------- |
+| `auto-reject-bookings` | 5 min     | Rejects stagnant requests (2h limit) and auto-refunds fees.      |
+| `no-show`              | 5 min     | Cancels confirmed pickups missed by >30m; refunds seeker.        |
+| `process-payouts`      | 15 min    | Releases escrow to providers after the 24h safety window.        |
+| `reconciliation`       | 30 min    | Syncs local states with Razorpay (fixes missed webhooks).        |
+| `audit-integrity`      | 30 min    | Scans for data anomalies (e.g., unpaid orders with payouts).     |
+| `process-email-outbox` | 2 min     | Retries failed asynchronous emails with exponential backoff.     |
+| `notify-system-alerts` | 15 min    | Sends incident digests/escalations to on-call owners.            |
+| `monitor-ops-health`   | 1 hour    | Evaluates health signals and raises system alerts for anomalies. |
+| `monitor-abuse`        | 24 hours  | Flags seekers with excessive cancellation patterns.              |
+| `webhook-cleanup`      | 24 hours  | Purges processed webhook logs older than 30 days.                |
 
 ### Q: What happens if a provider doesn't respond to a booking request?
 
@@ -1918,10 +1934,10 @@ Think of it like checking a car before driving it:
 
 **Answer**: We use a **3-Tier Testing Strategy** (Testing Pyramid) to ensure total system health:
 
-| Test Level | Tool | What It Checks | Example in LaundryEase |
-| :--- | :--- | :--- | :--- |
-| **1. Unit Tests** | Vitest | Small pieces of code (functions) in isolation | `cancellation-policy.ts` math, format logic |
-| **2. Integration Tests** | Vitest | Multiple modules working together (e.g., API + DB) | `forgot-password API` communicating with DB & email queue |
+| Test Level                    | Tool       | What It Checks                                             | Example in LaundryEase                                              |
+| :---------------------------- | :--------- | :--------------------------------------------------------- | :------------------------------------------------------------------ |
+| **1. Unit Tests**             | Vitest     | Small pieces of code (functions) in isolation              | `cancellation-policy.ts` math, format logic                         |
+| **2. Integration Tests**      | Vitest     | Multiple modules working together (e.g., API + DB)         | `forgot-password API` communicating with DB & email queue           |
 | **3. End-to-End (E2E) Tests** | Playwright | Simulates full user flow in a real browser (clicks/inputs) | Booking Lifecycle (Seeker requests → Provider accepts → completion) |
 
 **Plus Automated Checks**:
@@ -1943,9 +1959,9 @@ Think of it like checking a car before driving it:
 
 Current quality snapshot:
 
-- `116` test files
-- `616` tests passing (100% core route coverage)
-- `6` Playwright E2E specs covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
+- `114` test files
+- `607` tests passing (100% core API route coverage)
+- `6` Playwright E2E spec files (12 total test cases) covering role journeys, complaints, settlements, booking lifecycle, negative paths, and invoice download
 - `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and smoke `npm run test:e2e` all passing
 - Zero production type casts, zero `as any`, zero `@ts-ignore`
 - One-shot local verification: `npm run verify:gates`
@@ -2149,7 +2165,7 @@ When a signal breaches its threshold, a `system_alerts` document is created/upda
 - **Burn rate tiers**: `stable` (<1x), `watch` (1-2x), `high` (2-4x), `critical` (>4x)
 - **MTTR**: Mean time to resolve (in hours) for alerts resolved in last 7 days
 
-### Q: How does the email outbox system work? (5 email types)
+### Q: How does the email outbox system work? (4 email types)
 
 **Answer**: Instead of sending emails synchronously in API routes, we use an **outbox pattern**:
 
@@ -2173,7 +2189,6 @@ When a signal breaches its threshold, a `system_alerts` document is created/upda
 | `delivery_otp`     | `lib/delivery-otp-email.ts`     | OTP code for delivery confirmation                             |
 | `password_reset`   | `lib/password-reset-email.ts`   | Branded reset link with 1-hour expiry notice                   |
 | `password_changed` | `lib/password-changed-email.ts` | Security notification after password change (reset or profile) |
-| `magic_link`       | `lib/magic-link-email.ts`       | Passwordless login verification link                           |
 | `otp_email`        | `lib/otp-code-email.ts`         | Email OTP code for signup verification                         |
 
 **Inline dispatch + cron fallback**: When an email is enqueued, the system immediately attempts to send it inline. If that fails (SMTP down, timeout, etc.), the job stays `pending` and the cron worker (`process-email-outbox`, every 2 min) picks it up with exponential backoff.
@@ -2264,10 +2279,8 @@ Use these points if you are asked about differences between the PRD and what is 
 - **Session invalidation delay**: Password change invalidation has ≤5 minute delay (periodic JWT re-check). Instant revocation would require stateful session management.
 - **Team calendar integration**: Alert owner routing uses static pools (`backend_oncall`, `platform_admin_oncall`, `tech_lead`); real on-call scheduling requires external calendar integration.
 - **Reschedule abuse prevention**: No caps or cooldowns on reschedule requests — theoretically either party could loop indefinitely. Policy needed (caps, cooldowns, or admin escalation).
-- **Split-settlement reconciliation**: If one financial leg succeeds and the other fails, admin has `manual_transfer_details` but no automated reconciliation tooling.
-- **Real-time push for order status**: Order status updates (not chat) still rely on polling (SWR). Socket.IO covers chat; order status push via WebSocket/SSE is a future enhancement.
-- **E2E test for password reset**: No Playwright test covering full forgot-password → email outbox → follow link → reset → login flow yet.
-- **E2E test for Socket.IO chat and cancel-at-invoice**: No Playwright E2E coverage for real-time chat flows or the cancel-at-invoice-stage scenario yet.
+- **E2E test for reschedule flows**: No Playwright E2E coverage for the 2-hour boundary or reschedule loop yet.
+- **E2E test for cancel-at-invoice**: No Playwright E2E coverage for the cancel-at-invoice-stage scenario yet.
 - **DEMO_MODE in .env**: `DEMO_MODE=1` is set in the local `.env` for development — must be removed before any public deployment (demo cron panel bypasses external scheduler auth).
 
 ## Key Features Implemented
@@ -2360,7 +2373,7 @@ Use these points if you are asked about differences between the PRD and what is 
 
 ### Email & Communication
 
-- **Email outbox**: 5 email types (delivery_otp, password_reset, password_changed, magic_link, otp_email) queued through claim-lock-dispatch pattern with inline dispatch attempt + cron fallback, exponential backoff (base 30s, max 30min), max 5 attempts, dead-letter tracking
+- **Email outbox**: 4 email types (delivery_otp, password_reset, password_changed, otp_email) queued through claim-lock-dispatch pattern with inline dispatch attempt + cron fallback, exponential backoff (base 30s, max 30min), max 5 attempts, dead-letter tracking
 - **Password reset email**: Branded HTML + plain text template with masked email, 1-hour expiry notice, fallback URL, security warning for unauthorized requests
 - **Password changed email**: Branded HTML security notification with UTC timestamp, sign-in CTA, unauthorized-change warning
 - **Structured logging**: Pino with native secret redaction (password, token, otp, apiKey, secret, etc.), pretty-printing in dev, JSON in production
@@ -2414,7 +2427,7 @@ Use these points if you are asked about differences between the PRD and what is 
 5. **Talk tech depth**: "Next.js 16 with React Compiler, MongoDB native driver with 30+ indexes, Socket.IO hosted with Next.js for live order and complaint chat, decimal.js for exact money calculations, 10 cron jobs, alert escalation with clear response targets, safe database writes, SHA-256 token hashing for password resets, and automatic session invalidation after password change"
 6. **Mention production quality**: "Current unit test suite passes, 6 E2E specs, only 2 eslint-disable comments, structured logging with secret redaction, distributed locks, safe retry handling for payment callbacks, zero native browser dialogs, anti-enumeration on password reset"
 7. **Handle the 'what's missing' question honestly**: Use the Known Gaps section above — shows maturity, not weakness
-8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-minute OTP validity, 1-hour reset token validity, 5-minute session re-check, 15-minute critical response target, 30+ DB indexes, 10 cron jobs, 5 email types, and only 2 eslint-disable comments
+8. **Key numbers to remember**: ₹50 booking fee, 5% commission, 2h free-cancel window, 2h free-cancel window, 24h escrow hold, 24h complaint window, 200m geofence, 10-minute OTP validity, 1-hour reset token validity, 5-minute session re-check, 15-minute critical response target, 30+ DB indexes, 10 cron jobs, 4 email types, and only 2 eslint-disable comments
 9. **Password security talking point**: "We never store raw reset tokens — only SHA-256 hashes. Even if the database is compromised, the tokens are useless. And when a password changes, all existing sessions are invalidated within 5 minutes automatically."
 10. **Real-time talking point**: "Order chat and complaint chat are powered by Socket.IO running on the same server as Next.js. Every connection is JWT-authenticated and room access is verified against MongoDB — seekers can only join rooms for their own orders. Messages are pushed in real time with no polling."
 11. **Cancel-at-invoice talking point**: "We respect both sides. Even after a provider has collected the items and created an invoice, the seeker can still cancel — they just forfeit the ₹50 booking fee as fair compensation for the provider's physical work. The policy engine, the API, and the UI all enforce this consistently."
