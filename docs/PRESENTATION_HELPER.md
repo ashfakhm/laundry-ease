@@ -1511,7 +1511,14 @@ Note: The 24-hour complaint window is enforced in `POST /api/complaints` using d
 
 - Provider payout card: name, UPI ID, bank account/IFSC, email
 - Seeker refund card: name, payment method, VPA/bank/wallet/card details
-- **Manual transfer warning** banner if Razorpay auto-transfer failed (shown in amber)
+
+### Dynamic Dispute Navigation
+
+The platform ensures that active disputes are highly visible to both seekers and providers through dynamic navigation bar updates:
+
+- **Seeker TopBar**: The `SeekerTopNav` component polls the `/api/complaints` endpoint every 30 seconds. If any active complaints are found, a new **"Disputes (N)"** tab is dynamically injected into the top navigation bar.
+- **Provider Sidebar**: Similarly, the `ProviderSidebar` polls for active complaints and splices a **"Disputes"** menu item into the sidebar. This item includes a high-visibility badge showing the total count of active disputes, ensuring providers are immediately aware of pending mediation.
+- **Real-time Awareness**: These updates happen without page refreshes, ensuring that users are alerted to new complaints or status updates while they are active on other parts of the dashboard.
 - Auto vs Manual badge on each party card
 
 Operational detail from current code:
