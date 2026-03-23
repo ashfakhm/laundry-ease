@@ -375,7 +375,7 @@ export async function fetchSettlementPartyDetails(
     );
     if (provider) {
       details.provider = {
-        name: provider.businessName || provider.name || "Provider",
+        name: provider.businessName || provider.name || "",
         email: provider.email,
         phone: provider.phone,
         upiId: provider.bankDetails?.upiId || null,
@@ -408,7 +408,7 @@ export async function fetchSettlementPartyDetails(
 
     if (seeker) {
       details.seeker = {
-        name: seeker.name || "Seeker",
+        name: seeker.name || "",
         email: paymentDetails?.email || seeker.email,
         phone: paymentDetails?.contact || seeker.phone,
         paymentMethod: paymentDetails?.method || null,
@@ -457,7 +457,7 @@ export async function fetchManualTransferDetails(
     );
     if (provider) {
       details.provider = {
-        name: provider.businessName || provider.name || "Provider",
+        name: provider.businessName || provider.name || "",
         email: provider.email,
         phone: provider.phone,
         upiId: provider.bankDetails?.upiId || null,
@@ -485,7 +485,7 @@ export async function fetchManualTransferDetails(
 
     if (seeker) {
       details.seeker = {
-        name: seeker.name || "Seeker",
+        name: seeker.name || "",
         email: paymentDetails?.email || seeker.email,
         phone: paymentDetails?.contact || seeker.phone,
         paymentMethod: paymentDetails?.method || null,

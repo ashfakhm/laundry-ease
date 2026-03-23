@@ -31,10 +31,13 @@ interface ComplaintData {
   createdAt: string;
   response_deadline?: string;
   provider_access_granted?: boolean;
+  seeker_id?: string;
   seeker?: {
+    _id?: string;
     name?: string;
   } | null;
   provider?: {
+    _id?: string;
     name?: string;
     businessName?: string | null;
   } | null;
@@ -55,6 +58,7 @@ type ResolveOutcome =
 
 function getProviderDisplayName(
   provider?: {
+    _id?: string;
     name?: string;
     businessName?: string | null;
   } | null,
@@ -70,7 +74,7 @@ function getProviderDisplayName(
     return `${name} (${businessName})`;
   }
 
-  return name || businessName || "Provider";
+  return name || businessName || (provider?._id ? `Provider (${provider._id.toString().slice(-4)})` : "Provider");
 }
 
 export default function AdminComplaintDetailPage({
@@ -330,7 +334,7 @@ export default function AdminComplaintDetailPage({
   const isResolved =
     complaint.status === "resolved" || complaint.status === "rejected";
   const providerAdded = complaint.provider_access_granted;
-  const seekerLabel = complaint.seeker?.name?.trim() || "Seeker";
+  const seekerLabel = complaint.seeker?.name?.trim() || (complaint.seeker_id ? `Seeker (${complaint.seeker_id.toString().slice(-4)})` : "Seeker");
   const providerLabel = getProviderDisplayName(complaint.provider);
   const distributableAmount = round2(
     Number(complaint.settlement_window?.distributable_amount || 0),
