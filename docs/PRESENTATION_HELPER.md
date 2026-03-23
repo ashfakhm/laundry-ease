@@ -1524,47 +1524,37 @@ Operational detail from current code:
 
 ### Q: How does real-time chat work?
 
-**Answer**: LaundryEase uses **Socket.IO** for live message delivery in **order chat** and **complaint chat**. It supports rich media backed by Cloudinary and a robust deletion model. Here's how it works end-to-end:
+**Answer**: LaundryEase uses **Socket.IO** for live message delivery in **order chat** and **complaint chat**. It is a full-featured communication system that supports rich media, typing indicators, and message management.
 
-**Server side** (`server.js`):
+**Key Features**:
 
-```text
-HTTP Server (Node.js)
-  ├── Next.js request handler  (all normal pages + API routes)
-  └── Socket.IO Server         (WebSocket upgrades on /socket.io)
-        ├── Auth middleware: getToken() from next-auth/jwt on every connection
-        ├── order:join      → authorizeOrderRoom() → DB check → join room
-        ├── complaint:join  → authorizeComplaintRoom() → DB check + access gate → join room
-        ├── typing:start/stop → relay to room
-        └── disconnect
-```
+1. **Rich Media**: Supports text, **voice messages** (with duration tracking), and **image attachments** (up to 5 per message).
+2. **Media Storage**: Both images and voice notes are uploaded to **Cloudinary** via dedicated API routes (`/api/upload/image`, `/api/upload/voice`).
+3. **Deletion Model**:
+   - **Delete for Me**: Removes the message locally for the user.
+   - **Delete for Everyone**: Marks the message as deleted via a socket broadcast (replacing content with a "deleted" placeholder). Available to senders within 1 hour.
+   - **Admin Hard Delete**: Admins in complaint chats can permanently remove messages without leaving a trace.
+4. **Typing Indicators**: Real-time "Someone is typing..." feedback relayed instantly across the room.
+5. **System Events**: Automated "System" messages for status changes (e.g., when an admin adds a provider to a dispute).
 
-**Client side** (`components/providers/socket-provider.tsx`):
+**Technical Architecture**:
 
-- `SocketProvider` wraps the dashboard layout and creates one Socket.IO connection per authenticated session
-- `useSocket()` hook gives any component access to `{ socket, isConnected, isReconnecting }`
-- When a message is sent via REST API (`POST /api/orders/[id]/chat`), the route handler calls `emitOrderMessageCreated()` from `lib/realtime/emitter.ts` which pushes the `order:message:created` event to the room
+- **Server side** (`server.js`):
+  - HTTP Server (Node.js) attaches a Socket.IO instance.
+  - **Auth middleware**: Verifies NextAuth JWT on every connection.
+  - **Authorization**: `order:join` and `complaint:join` check MongoDB to ensure the user is a participant before allowing them into the room.
+  - **Room Logic**: `order:${orderId}` and `complaint:${complaintId}` isolates conversations.
 
-**Security**:
+- **Client side**:
+  - `SocketProvider`: Manages the single connection.
+  - `useSocket()` hook: Provides the instance and connection status (`isConnected`, `isReconnecting`).
+  - **API Flow**: Messages are saved to MongoDB via REST `POST` first, then the server emits the event to the room via `lib/realtime/emitter.ts`.
 
-- Every socket connection is authenticated via NextAuth JWT — no connection without a valid session
-- Room joins are verified against MongoDB — you can only join a room for an order/complaint you participate in
-- Provider can only join a complaint room after an admin explicitly grants access (`provider_access_granted = true`)
-- Per-socket rate limiting: 20 join events per 60 seconds per connection
+**State Management** (`lib/realtime/chat-state.ts`):
 
-**Events** (defined in `lib/realtime/contracts.js`):
-
-| Direction       | Event                           | Purpose                                                                                                       |
-| --------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Client → Server | `order:join` / `complaint:join` | Enter a chat room                                                                                             |
-| Client → Server | `room:leave`                    | Leave a room                                                                                                  |
-| Client → Server | `typing:start` / `typing:stop`  | Typing indicator                                                                                              |
-| Client → Server | (via REST API)                  | Post a message or delete (`for_me`, `for_everyone`; complaint chat additionally supports `admin_hard_delete`) |
-| Server → Client | `order:message:created`         | New order chat message pushed live                                                                            |
-| Server → Client | `order:message:deleted`         | Order message deletion pushed live                                                                            |
-| Server → Client | `complaint:message:created`     | New complaint chat message pushed live                                                                        |
-| Server → Client | `complaint:message:deleted`     | Complaint message deletion pushed live                                                                        |
-| Server → Client | `complaint:state:updated`       | Complaint status change (e.g., provider added)                                                                |
+- Uses a `Map`-based deduplication strategy to handle eventual consistency (messages arriving via socket vs initial fetch).
+- Automatically sorts messages by `createdAt` and `_id` to ensure same view for all participants.
+- Derives UI states (e.g., "Archived" or "Access Blocked") based on complaint status and roles.
 
 ---
 
@@ -1649,42 +1639,52 @@ if (!result.success) {
 
 ### Q: How do cron jobs work?
 
-**Answer**: Vercel Cron Jobs call API endpoints on a schedule:
+**Answer**: LaundryEase uses **Vercel Cron Jobs** to trigger background operations on a precise schedule. These are essential for platform reliability, automated cleanup, and financial safety.
 
-```json
-// vercel.json
-{
-  "crons": [
-    { "path": "/api/cron/auto-reject-bookings", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/process-payouts", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/notify-system-alerts", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/process-email-outbox", "schedule": "*/2 * * * *" },
-    { "path": "/api/cron/audit-integrity", "schedule": "*/30 * * * *" },
-    { "path": "/api/cron/reconciliation", "schedule": "*/30 * * * *" },
-    { "path": "/api/cron/monitor-operational-health", "schedule": "0 * * * *" },
-    { "path": "/api/cron/monitor-abuse", "schedule": "0 2 * * *" },
-    { "path": "/api/cron/webhook-cleanup", "schedule": "0 1 * * *" }
-  ]
-}
-```
+**Technical Implementation**:
 
-**Security**: Each cron endpoint needs `Authorization: Bearer ${CRON_SECRET}` header.
+- **Triggers**: Defined in `vercel.json` with standard crontab syntax.
+- **Security**: Every cron endpoint is protected by `requireCronSecret(req)`, which verifies a `Bearer` token from the `CRON_SECRET` environment variable.
+- **Monitoring**: Every execution is logged in the `cron_runs` collection (via `lib/cron-tracking.ts`), tracking duration, success/failure, and detailing exactly what was processed.
 
-**Cron Run Tracking**: Every cron execution is recorded in a `cron_runs` collection via `lib/cron-tracking.ts` with job name, start time, duration, status (running/success/error), and result details.
+**The 10 Registered Cron Jobs**:
 
-**Jobs** (10 registered):
+| Job Name | Frequency | Primary Responsibility |
+| :--- | :--- | :--- |
+| `auto-reject-bookings` | 5 min | Rejects stagnant requests (2h limit) and auto-refunds fees. |
+| `no-show` | 5 min | Cancels confirmed pickups missed by >30m; refunds seeker. |
+| `process-payouts` | 15 min | Releases escrow to providers after the 24h safety window. |
+| `reconciliation` | 30 min | Syncs local states with Razorpay (fixes missed webhooks). |
+| `audit-integrity` | 30 min | Scans for data anomalies (e.g., unpaid orders with payouts). |
+| `process-email-outbox` | 2 min | Retries failed asynchronous emails with exponential backoff. |
+| `notify-system-alerts` | 15 min | Sends incident digests/escalations to on-call owners. |
+| `monitor-ops-health` | 1 hour | Evaluates health signals and raises system alerts for anomalies. |
+| `monitor-abuse` | 24 hours | Flags seekers with excessive cancellation patterns. |
+| `webhook-cleanup` | 24 hours | Purges processed webhook logs older than 30 days. |
 
-- `auto-reject-bookings`: Cancel pending requests after timeout (every 5 min)
-- `no-show`: Handle when provider doesn't show up (every 5 min)
-- `process-payouts`: Run unified escrow release + payout orchestration (every 15 min)
-- `notify-system-alerts`: Send alert digests via email/webhook with dedup and escalation (every 15 min)
-- `process-email-outbox`: Process queued emails with retry/backoff (every 2 min)
-- `audit-integrity`: Verify data consistency between orders/payments/bookings (every 30 min)
-- `reconciliation`: Reconcile Razorpay records against internal state (every 30 min)
-- `monitor-operational-health`: Detect overdue payouts, failure spikes, overdue complaints (hourly)
-- `monitor-abuse`: Find suspicious cancellation patterns (daily at 2 AM)
-- `webhook-cleanup`: Purge processed webhook events older than 30 days (daily at 1 AM)
+### Q: What happens if a provider doesn't respond to a booking request?
+
+**Answer**: The system enforces a **2-hour response window**. If a provider doesn't accept a request within 2 hours:
+
+1. The `auto-reject-bookings` cron identifies it as "stale".
+2. The booking status is flipped to `rejected` with the reason: _"Provider did not respond in 2 hours."_
+3. **Automatic Refund**: If the seeker had already paid the booking fee, the system immediately initiates a refund via Razorpay and updates `bookingFeeStatus` to `refunded`.
+
+### Q: What if a provider confirms the pickup but never shows up?
+
+**Answer**: This is handled by the **No-Show Detection** system (`cron/no-show-check.ts`):
+
+- If a booking is `confirmed` and the pickup slot time passses by **30 minutes** without an Order being created (meaning the provider hasn't arrived to invoice the items).
+- The system auto-rejects the booking, flags it as a "No-Show", and **automatically refunds** the booking fee to the seeker.
+
+### Q: Are there any other "automatic" safety features?
+
+**Answer**: Yes, the platform is designed for "autonomous reliability":
+
+1. **Atomic Capacity Check**: MongoDB transactions ensure a provider's capacity (active bookings + active orders) is never exceeded during creation or acceptance.
+2. **Seeker Penalties**: If a seeker cancels an order _before_ payment, the system automatically **blocks them for 30 days** (`blocked_until`) or until they pay the outstanding cancellation fee.
+3. **Eventual Consistency**: The `reconciliation` job acts as a backup "source of truth", catching any payments or payouts that might have missed a real-time webhook due to network issues.
+4. **Self-Healing Email**: The `email_outbox` ensures that critical notifications (like OTPs or password resets) are eventually delivered even if the primary email service experiences downtime, using a reliable retry-with-backoff queue.
 
 ---
 
