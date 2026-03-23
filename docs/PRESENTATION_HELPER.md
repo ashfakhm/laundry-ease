@@ -1940,6 +1940,40 @@ Think of it like checking a car before driving it:
 | **2. Integration Tests**      | Vitest     | Multiple modules working together (e.g., API + DB)         | `forgot-password API` communicating with DB & email queue           |
 | **3. End-to-End (E2E) Tests** | Playwright | Simulates full user flow in a real browser (clicks/inputs) | Booking Lifecycle (Seeker requests → Provider accepts → completion) |
 
+### Q: Can you give concrete examples of unit and integration tests in your code?
+
+**Answer**: Yes, here are specific examples from the codebase:
+
+1. **Unit Test (Pure Logic)**: `lib/payouts/amounts.test.ts`
+   - **What it tests**: The `derivePayoutAmounts` function.
+   - **How**: It uses `Decimal.js` to verify platform commission and provider payout math without any database or network. It handles edge cases like discounts, zero subtotals, and negative inputs.
+   - **Viva Point**: "This proves our financial math is 100% accurate before it ever touches a real payment."
+
+2. **Unit Test (Mocked Middleware)**: `lib/api/auth.test.ts`
+   - **What it tests**: Authentication middleware like `requireProvider()` and `requireAuth()`.
+   - **How**: It uses `vi.mock` to simulate `next-auth` sessions and database lookups. This allows us to test if our security guards work correctly without needing a real user database.
+
+3. **Integration Test (Database Transactions)**: `lib/db.test.ts`
+   - **What it tests**: Atomic database operations like `createBooking` with capacity checks.
+   - **How**: It uses `mongodb-memory-server` (a real in-memory MongoDB) to verify that transactions correctly roll back if a provider's capacity is exceeded during a race condition.
+
+4. **System Integration (End-to-End)**: `e2e/booking-lifecycle-journey.spec.ts`
+   - **What it tests**: The full flow from Seeker Request to Provider Acceptance and Arrival.
+   - **How**: Playwright (a robot) opens a browser, logs in as a Seeker, creates a booking, then logs in as a Provider to accept it. It verifies that the UI updates and the data is correctly saved in the real staging database.
+
+5. **Unit Test (State Machine)**: `lib/orders/status-machine.test.ts`
+   - **What it tests**: The finite state machine that governs order status transitions (e.g., `invoiced` → `washing` → `ready`).
+   - **How**: It checks all possible valid transitions and ensures that invalid jumps (like `invoiced` → `ready` without `washing`) are strictly blocked.
+   - **Viva Point**: "This ensures our business logic is deterministic, preventing data corruption or incorrect status updates."
+
+6. **Integration Test (Real-time Authorization)**: `lib/realtime/socket-auth.test.ts`
+   - **What it tests**: Role-based access control for real-time chat rooms.
+   - **How**: It verifies that seekers can only join rooms for their own orders, and providers can only join complaint rooms if the Admin has granted them access. Access is denied for unrelated users.
+
+7. **Integration Test (Negative E2E)**: `e2e/booking-negative-journeys.spec.ts`
+   - **What it tests**: "Unhappy paths" such as a provider rejecting a booking or a seeker cancelling after the 2-hour free window.
+   - **How**: Playwright simulates a rejected booking to ensure the seeker's ₹50 fee is correctly refunded and the provider's capacity is restored.
+
 **Plus Automated Checks**:
 
 - **Static testing (TypeScript & ESLint)**: Catches typos while writing code.
