@@ -1,6 +1,20 @@
 import { ObjectId } from "mongodb";
 import { Role } from "./enums";
 
+export interface ProviderLeavePeriod {
+  _id?: ObjectId | string;
+  startDate: string; // YYYY-MM-DD in Asia/Kolkata
+  endDate: string; // YYYY-MM-DD in Asia/Kolkata
+  createdAt: Date | string;
+}
+
+export interface ProviderAvailabilitySummary {
+  isCurrentlyOnLeave: boolean;
+  activeLeaveEndDate?: string;
+  isUnavailableForRequestedDeadline?: boolean;
+  nextAvailableDate?: string;
+}
+
 export interface BaseUser {
   _id?: ObjectId;
   email: string;
@@ -62,6 +76,7 @@ export interface Provider extends BaseUser {
   rating?: number;
   ratingTotal?: number;
   reviewCount?: number;
+  leavePeriods?: ProviderLeavePeriod[];
 }
 
 export type Admin = BaseUser;
@@ -88,4 +103,5 @@ export interface ProviderSearchResult {
   services?: string[];
   profilePicture?: string;
   bannerImage?: string;
+  availability?: ProviderAvailabilitySummary;
 }

@@ -16,6 +16,9 @@ const phoneSchema = z
   .string()
   .regex(/^\+?[1-9]\d{9,14}$/, "Invalid phone number");
 const emailSchema = z.email("Invalid email address");
+const dateKeySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format");
 
 // Booking schemas
 export const createBookingSchema = z.object({
@@ -274,6 +277,11 @@ export const createReviewSchema = z.object({
 export const bookingScheduleSchema = z.object({
   dateTime: z.string().datetime("Invalid date/time format"),
   action: z.enum(["propose", "confirm"]).optional(),
+});
+
+export const providerLeaveSchema = z.object({
+  startDate: dateKeySchema,
+  endDate: dateKeySchema,
 });
 
 export const bookingArrivedSchema = z.object({
