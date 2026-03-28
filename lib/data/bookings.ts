@@ -3,6 +3,11 @@ import { PopulatedBooking, PopulatedSeekerBooking } from "@/types/bookings";
 import { Db, ObjectId } from "mongodb";
 import { requireProvider, requireSeeker } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
+import { buildProviderAvailabilitySummary } from "@/lib/services/provider-availability";
+import type {
+  ProviderAvailabilitySummary,
+  ProviderLeavePeriod,
+} from "@/types/users";
 
 /**
  * Safely convert a value to an ISO date string.
@@ -74,6 +79,26 @@ interface ProviderAggregateDoc {
   businessName?: string;
   profilePicture?: string;
   bannerImage?: string;
+  leavePeriods?: Array<{
+    _id?: { toString(): string } | string;
+    startDate: string;
+    endDate: string;
+    createdAt: Date | string;
+  }>;
+}
+
+function serialiseProviderLeavePeriods(
+  leavePeriods?: ProviderAggregateDoc["leavePeriods"],
+): ProviderLeavePeriod[] | undefined {
+  return leavePeriods?.map((leavePeriod) => ({
+    _id:
+      typeof leavePeriod._id === "string"
+        ? leavePeriod._id
+        : leavePeriod._id?.toString(),
+    startDate: leavePeriod.startDate,
+    endDate: leavePeriod.endDate,
+    createdAt: leavePeriod.createdAt,
+  }));
 }
 
 interface SeekerBookingAggregateDoc {
@@ -106,6 +131,11 @@ function serialiseSeekerBookingDocument(
   booking: SeekerBookingAggregateDoc,
 ): PopulatedSeekerBooking {
   const provider = booking.providerDetails;
+  const providerAvailability: ProviderAvailabilitySummary | undefined = provider
+    ? buildProviderAvailabilitySummary({
+        leavePeriods: serialiseProviderLeavePeriods(provider.leavePeriods),
+      })
+    : undefined;
 
   const {
     providerDetails: _providerDetails,
@@ -185,6 +215,7 @@ function serialiseSeekerBookingDocument(
       businessName: provider?.businessName,
       profilePicture: provider?.profilePicture,
       bannerImage: provider?.bannerImage,
+      availability: providerAvailability,
     },
   } as PopulatedSeekerBooking;
 }

@@ -102,4 +102,48 @@ describe("GET /api/orders/seeker", () => {
     expect(body.data[0].provider?.name).toBe("Ash Laundry");
     expect(dbMock.aggregate).toHaveBeenCalled();
   });
+
+  it("adds provider availability and strips raw leave periods from seeker orders", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-06-15T06:00:00+05:30"));
+
+    try {
+      const seekerId = new ObjectId();
+      const providerId = new ObjectId();
+      const orderId = new ObjectId();
+
+      mockRequireSeeker.mockResolvedValue({ user: { id: seekerId.toString() } });
+      const dbMock = buildDbMock({
+        seeker: { _id: seekerId, name: "Naseeb" },
+        orders: [{ _id: orderId, seeker_id: seekerId, provider_id: providerId }],
+        provider: {
+          _id: providerId,
+          name: "Ash Laundry",
+          leavePeriods: [
+            {
+              _id: "leave-1",
+              startDate: "2030-06-15",
+              endDate: "2030-06-16",
+              createdAt: "2030-06-01T00:00:00.000Z",
+            },
+          ],
+        },
+      });
+      mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+      const res = await GET();
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.data[0].provider.availability).toEqual({
+        isCurrentlyOnLeave: true,
+        activeLeaveEndDate: "2030-06-16",
+        isUnavailableForRequestedDeadline: false,
+        nextAvailableDate: "2030-06-17",
+      });
+      expect(body.data[0].provider.leavePeriods).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

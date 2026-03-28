@@ -70,11 +70,19 @@ describe("GET /api/providers/[id]", () => {
       _id: providerId,
       name: "Ash Laundry",
       businessName: "Ash Laundry Services",
+      leavePeriods: [
+        {
+          _id: "leave-1",
+          startDate: "2030-06-15",
+          endDate: "2030-06-16",
+          createdAt: "2030-06-01T00:00:00.000Z",
+        },
+      ],
     });
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
     const req = new NextRequest(
-      `https://laundryease.test/api/providers/${providerId.toString()}`,
+      `https://laundryease.test/api/providers/${providerId.toString()}?deadline=2030-06-15T10:00`,
     );
     const res = await GET(req, {
       params: Promise.resolve({ id: providerId.toString() }),
@@ -83,6 +91,12 @@ describe("GET /api/providers/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body.data.name).toBe("Ash Laundry");
+    expect(body.data.leavePeriods).toBeUndefined();
+    expect(body.data.availability).toMatchObject({
+      isCurrentlyOnLeave: false,
+      isUnavailableForRequestedDeadline: true,
+      nextAvailableDate: "2030-06-17",
+    });
     expect(dbMock.findOne).toHaveBeenCalledWith(
       { _id: providerId, isDeleted: { $ne: true } },
       expect.objectContaining({

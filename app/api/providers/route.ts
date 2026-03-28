@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     const lngParam = searchParams.get("lng");
     const name = searchParams.get("name");
     const service = searchParams.get("service");
+    const deadline = searchParams.get("deadline");
     const rawLimit = Number(searchParams.get("limit") || "50");
     const limit = Number.isFinite(rawLimit)
       ? Math.max(1, Math.min(Math.floor(rawLimit), 100))
@@ -51,6 +52,22 @@ export async function GET(req: NextRequest) {
           "Invalid radius. Must be a positive number.",
         ),
       );
+    }
+
+    if (deadline) {
+      const parsedDeadline = new Date(deadline);
+      const isPlainLocalDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(
+        deadline,
+      );
+      if (!isPlainLocalDateTime && Number.isNaN(parsedDeadline.getTime())) {
+        return errorResponse(
+          new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            400,
+            "Invalid deadline format.",
+          ),
+        );
+      }
     }
 
     let userCoords: { lat: number; lng: number } | null = null;
@@ -94,6 +111,7 @@ export async function GET(req: NextRequest) {
       maxRadiusKm,
       name,
       service,
+      requestedDeadline: deadline,
       limit,
       debug,
     });

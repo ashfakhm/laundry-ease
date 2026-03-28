@@ -146,4 +146,39 @@ describe("GET /api/providers", () => {
     expect(data.data.providers[0].distance_km).toBeCloseTo(1.2, 4);
     expect(data.data.providers[1].distanceFromSeeker).toBeCloseTo(2.5, 4);
   });
+
+  it("keeps leave-blocked providers visible and annotates availability for the requested deadline", async () => {
+    const { providersCollection, findToArray } = createProvidersCollectionMock();
+    mockDbWithProvidersCollection(providersCollection);
+
+    findToArray.mockResolvedValue([
+      {
+        _id: "provider-1",
+        name: "Provider One",
+        leavePeriods: [
+          {
+            _id: "leave-1",
+            startDate: "2030-06-15",
+            endDate: "2030-06-16",
+            createdAt: "2030-06-01T00:00:00.000Z",
+          },
+        ],
+      },
+    ]);
+
+    const req = new NextRequest(
+      "https://laundryease.test/api/providers?deadline=2030-06-15T10:00&limit=10",
+    );
+
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.data.providers).toHaveLength(1);
+    expect(data.data.providers[0].availability).toMatchObject({
+      isCurrentlyOnLeave: false,
+      isUnavailableForRequestedDeadline: true,
+      nextAvailableDate: "2030-06-17",
+    });
+  });
 });

@@ -5,10 +5,12 @@ import { ObjectId } from "mongodb";
 import { requireSeeker } from "@/lib/api/auth";
 import { successResponse, withErrorHandling } from "@/lib/api/response";
 import { createBookingSchema } from "@/lib/api/schemas";
-import { Errors } from "@/lib/api/errors";
+import { AppError, ErrorCode, Errors } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { calculateDistance } from "@/lib/distance";
 import { geocodeLocationText } from "@/lib/geocoding";
+import { buildProviderAvailabilitySummary } from "@/lib/services/provider-availability";
+import type { Provider } from "@/types/users";
 
 type Coordinates = { lat: number; lng: number };
 
@@ -94,11 +96,27 @@ export const POST = withErrorHandling(async (req: Request) => {
 
   const { db } = await getDb();
   const provider = await db
-    .collection("providers")
+    .collection<Provider>("providers")
     .findOne({ _id: providerOid });
 
   if (!provider) {
     throw Errors.notFound("Provider");
+  }
+
+  const availability = buildProviderAvailabilitySummary(provider, {
+    requestedDeadline: parsedDeadline,
+  });
+  if (availability.isUnavailableForRequestedDeadline) {
+    throw new AppError(
+      ErrorCode.CONFLICT,
+      409,
+      availability.nextAvailableDate
+        ? `Provider is on leave for the selected deadline. Next available date: ${availability.nextAvailableDate}.`
+        : "Provider is on leave for the selected deadline. Please choose another provider or a different deadline.",
+      {
+        nextAvailableDate: availability.nextAvailableDate,
+      },
+    );
   }
 
   if (!hasValidCoordinates(provider.coordinates)) {

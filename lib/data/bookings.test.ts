@@ -102,4 +102,67 @@ describe("getSeekerBookings", () => {
       ]),
     );
   });
+
+  it("adds provider availability to seeker bookings without exposing raw leave periods", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-06-15T06:00:00+05:30"));
+
+    try {
+      const aggregate = vi.fn().mockReturnValue({
+        toArray: vi.fn().mockResolvedValue([
+          {
+            _id: new ObjectId(),
+            seeker_id: seekerId,
+            provider_id: new ObjectId(),
+            status: "requested",
+            providerDetails: {
+              _id: new ObjectId(),
+              name: "CleanCo",
+              leavePeriods: [
+                {
+                  _id: new ObjectId(),
+                  startDate: "2030-06-15",
+                  endDate: "2030-06-16",
+                  createdAt: new Date("2030-06-01T00:00:00.000Z"),
+                },
+              ],
+            },
+            createdAt: new Date("2030-06-15T10:00:00.000Z"),
+          },
+        ]),
+      });
+
+      mockGetDb.mockResolvedValue({
+        db: {
+          collection: vi.fn((name: string) => {
+            if (name === "bookings") {
+              return { aggregate };
+            }
+            if (name === "seekers") {
+              return {
+                findOne: vi.fn().mockResolvedValue({
+                  _id: seekerId,
+                  name: "Naseeb",
+                }),
+              };
+            }
+            throw new Error(`Unexpected collection: ${name}`);
+          }),
+        },
+      });
+
+      const result = await getSeekerBookings();
+
+      expect(result.success).toBe(true);
+      expect(result.data?.[0]?.provider.availability).toEqual({
+        isCurrentlyOnLeave: true,
+        activeLeaveEndDate: "2030-06-16",
+        isUnavailableForRequestedDeadline: false,
+        nextAvailableDate: "2030-06-17",
+      });
+      expect(result.data?.[0]?.provider).not.toHaveProperty("leavePeriods");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

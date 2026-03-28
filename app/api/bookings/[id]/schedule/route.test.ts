@@ -200,6 +200,67 @@ describe("POST /api/bookings/[id]/schedule", () => {
       expect(updateOne).toHaveBeenCalledOnce();
     });
 
+    it("returns 409 when the proposed pickup day falls inside provider leave", async () => {
+      const bookingId = new ObjectId();
+      const providerId = new ObjectId();
+      const bookingFindOne = vi.fn().mockResolvedValue({
+        _id: bookingId,
+        provider_id: providerId,
+        status: "accepted",
+        deadline: "2030-06-20T10:00:00.000Z",
+      });
+      const providerFindOne = vi.fn().mockResolvedValue({
+        _id: providerId,
+        leavePeriods: [
+          {
+            _id: "leave-1",
+            startDate: "2030-06-15",
+            endDate: "2030-06-16",
+            createdAt: "2030-06-01T00:00:00.000Z",
+          },
+        ],
+      });
+      const bookingsUpdateOne = vi.fn();
+
+      mockRequireAuth.mockResolvedValue({
+        user: { id: providerId.toString(), role: Role.PROVIDER },
+      });
+      mockGetDb.mockResolvedValue({
+        db: {
+          collection: vi.fn((name: string) => {
+            if (name === "bookings") {
+              return {
+                findOne: bookingFindOne,
+                updateOne: bookingsUpdateOne,
+              };
+            }
+            if (name === "providers") {
+              return {
+                findOne: providerFindOne,
+              };
+            }
+            throw new Error(`Unexpected collection ${name}`);
+          }),
+        },
+      });
+
+      const res = await POST(
+        makeProviderReq(bookingId.toString(), {
+          action: "propose",
+          dateTime: "2030-06-15T10:00:00.000Z",
+        }),
+        {
+          params: Promise.resolve({ id: bookingId.toString() }),
+        },
+      );
+      const body = await res.json();
+
+      expect(res.status).toBe(409);
+      expect(body.error.message).toContain("You are on leave for that day");
+      expect(body.error.details.nextAvailableDate).toBe("2030-06-17");
+      expect(bookingsUpdateOne).not.toHaveBeenCalled();
+    });
+
     it("sets status to pickup_proposed and includes updatedAt in the write", async () => {
       const bookingId = new ObjectId();
       const providerId = new ObjectId();

@@ -95,11 +95,23 @@ describe("provider profile route", () => {
 
   describe("GET", () => {
     it("returns provider profile successfully", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2030-06-15T06:00:00+05:30"));
+
+      try {
       const dbMock = makeDbMock();
       const providerProfile = {
         _id: new ObjectId(PROVIDER_ID),
         name: "Laundry Service",
         email: "provider@example.com",
+        leavePeriods: [
+          {
+            _id: "leave-1",
+            startDate: "2030-06-15",
+            endDate: "2030-06-16",
+            createdAt: "2030-06-01T00:00:00.000Z",
+          },
+        ],
       };
       dbMock.findOne.mockResolvedValue(providerProfile);
       mockGetDb.mockResolvedValue({ db: dbMock.db });
@@ -110,6 +122,15 @@ describe("provider profile route", () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       expect(json.data.name).toBe("Laundry Service");
+      expect(json.data.availability).toEqual({
+        isCurrentlyOnLeave: true,
+        activeLeaveEndDate: "2030-06-16",
+        isUnavailableForRequestedDeadline: false,
+        nextAvailableDate: "2030-06-17",
+      });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
@@ -140,6 +161,10 @@ describe("provider profile route", () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       expect(json.data.name).toBe("New Name");
+      expect(json.data.availability).toEqual({
+        isCurrentlyOnLeave: false,
+        isUnavailableForRequestedDeadline: false,
+      });
     });
 
     it("persists bio, services, radius, and delivery rate updates", async () => {

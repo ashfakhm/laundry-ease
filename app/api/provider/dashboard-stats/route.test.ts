@@ -44,42 +44,67 @@ describe("GET /api/provider/dashboard-stats", () => {
   it("returns calculated dashboard stats", async () => {
     const providerId = new ObjectId();
     mockRequireProvider.mockResolvedValue({ user: { id: providerId.toString() } });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-06-15T06:00:00+05:30"));
 
-    const revenueToArray = vi.fn().mockResolvedValue([{ totalRevenue: 768 }]);
-    const ordersAggregate = vi.fn().mockReturnValue({ toArray: revenueToArray });
-    const ordersCountDocuments = vi.fn().mockResolvedValue(4);
-    const bookingsCountDocuments = vi.fn().mockResolvedValue(3);
+    try {
+      const providerFindOne = vi.fn().mockResolvedValue({
+        _id: providerId,
+        leavePeriods: [
+          {
+            _id: "leave-1",
+            startDate: "2030-06-15",
+            endDate: "2030-06-17",
+            createdAt: "2030-06-01T00:00:00.000Z",
+          },
+        ],
+      });
+      const revenueToArray = vi.fn().mockResolvedValue([{ totalRevenue: 768 }]);
+      const ordersAggregate = vi.fn().mockReturnValue({ toArray: revenueToArray });
+      const ordersCountDocuments = vi.fn().mockResolvedValue(4);
+      const bookingsCountDocuments = vi.fn().mockResolvedValue(3);
 
-    const db = {
-      collection: vi.fn((name: string) => {
-        if (name === "orders") {
-          return {
-            aggregate: ordersAggregate,
-            countDocuments: ordersCountDocuments,
-          };
-        }
-        if (name === "bookings") {
-          return {
-            countDocuments: bookingsCountDocuments,
-          };
-        }
-        throw new Error(`Unexpected collection: ${name}`);
-      }),
-    };
+      const db = {
+        collection: vi.fn((name: string) => {
+          if (name === "providers") {
+            return {
+              findOne: providerFindOne,
+            };
+          }
+          if (name === "orders") {
+            return {
+              aggregate: ordersAggregate,
+              countDocuments: ordersCountDocuments,
+            };
+          }
+          if (name === "bookings") {
+            return {
+              countDocuments: bookingsCountDocuments,
+            };
+          }
+          throw new Error(`Unexpected collection: ${name}`);
+        }),
+      };
 
-    mockGetDb.mockResolvedValue({ db });
+      mockGetDb.mockResolvedValue({ db });
 
-    const res = await GET();
-    const body = await res.json();
+      const res = await GET();
+      const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(body.data).toEqual({
-      revenue: 768,
-      deliveriesDue: 4,
-      pendingPickups: 3,
-      activeProcessing: 4,
-    });
-    expect(ordersAggregate).toHaveBeenCalledOnce();
-    expect(bookingsCountDocuments).toHaveBeenCalledOnce();
+      expect(res.status).toBe(200);
+      expect(body.data).toEqual({
+        revenue: 768,
+        deliveriesDue: 4,
+        pendingPickups: 3,
+        activeProcessing: 4,
+        isCurrentlyOnLeave: true,
+        activeLeaveEndDate: "2030-06-17",
+      });
+      expect(providerFindOne).toHaveBeenCalledOnce();
+      expect(ordersAggregate).toHaveBeenCalledOnce();
+      expect(bookingsCountDocuments).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

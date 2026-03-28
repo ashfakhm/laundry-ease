@@ -11,6 +11,7 @@ import { successResponse, errorResponse } from "@/lib/api/response";
 import { requireSameOrigin } from "@/lib/api/security";
 import { syncBankDetailsOrFail } from "@/lib/services/provider-bank-sync";
 import { verifyAndHashPassword } from "@/lib/services/provider-password";
+import { buildProviderAvailabilitySummary } from "@/lib/services/provider-availability";
 
 /**
  * GET /api/profile/provider
@@ -25,7 +26,7 @@ export async function GET() {
 
     const { db } = await getDb();
     const providerId = new ObjectId(user.id);
-    const provider = await db.collection("providers").findOne(
+    const provider = await db.collection<Provider>("providers").findOne(
       { _id: providerId },
       {
         projection: {
@@ -51,6 +52,7 @@ export async function GET() {
       bankDetails: provider.bankDetails
         ? maskBankDetails(provider.bankDetails)
         : undefined,
+      availability: buildProviderAvailabilitySummary(provider),
     };
 
     return successResponse(safeProvider);
@@ -193,7 +195,7 @@ export async function PATCH(req: Request) {
     updateFields.updatedAt = new Date();
 
     const result = await db
-      .collection("providers")
+      .collection<Provider>("providers")
       .findOneAndUpdate(
         { _id: providerId },
         { $set: updateFields },
@@ -244,6 +246,7 @@ export async function PATCH(req: Request) {
             },
           )
         : undefined,
+      availability: buildProviderAvailabilitySummary(updated as Provider),
     } as unknown;
 
     return successResponse(safeUpdated);

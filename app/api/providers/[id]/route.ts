@@ -4,13 +4,15 @@ import { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
+import { buildProviderPublicAvailability } from "@/lib/services/provider-availability";
+import type { Provider } from "@/types/users";
 
 /**
  * GET /api/providers/:id
  * Fetch a single provider by ID (public endpoint for seeker browsing)
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -23,7 +25,7 @@ export async function GET(
     }
 
     const { db } = await getDb();
-    const provider = await db.collection("providers").findOne(
+    const provider = await db.collection<Provider>("providers").findOne(
       { _id: new ObjectId(id), isDeleted: { $ne: true } },
       {
         projection: {
@@ -44,7 +46,13 @@ export async function GET(
       );
     }
 
-    return successResponse(provider, 200);
+    return successResponse(
+      buildProviderPublicAvailability(
+        provider,
+        req.nextUrl.searchParams.get("deadline"),
+      ),
+      200,
+    );
   } catch (error) {
     logger.error("PROVIDER", "Error fetching provider", error, {
       providerId: id,

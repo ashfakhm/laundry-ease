@@ -4,6 +4,8 @@ import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireProvider } from "@/lib/api/auth";
 import { errorResponse, successResponse } from "@/lib/api/response";
+import { buildProviderAvailabilitySummary } from "@/lib/services/provider-availability";
+import type { Provider } from "@/types/users";
 
 export async function GET() {
   try {
@@ -16,6 +18,15 @@ export async function GET() {
 
     const { db } = await getDb();
     const providerId = new ObjectId(user.id);
+    const provider = await db
+      .collection<Provider>("providers")
+      .findOne({ _id: providerId }, { projection: { leavePeriods: 1 } });
+
+    if (!provider) {
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found"),
+      );
+    }
 
     // 1. Calculate Total Revenue (only paid/released orders)
     const revenueStats = await db
@@ -55,12 +66,15 @@ export async function GET() {
       provider_id: providerId,
       process_status: { $in: ["washing", "ironing", "processing"] },
     });
+    const availability = buildProviderAvailabilitySummary(provider);
 
     return successResponse({
       revenue: totalRevenue,
       deliveriesDue: deliveriesDue,
       pendingPickups: pendingPickups, // Representing "Actionable Inbound"
       activeProcessing: processingOrders,
+      isCurrentlyOnLeave: availability.isCurrentlyOnLeave,
+      activeLeaveEndDate: availability.activeLeaveEndDate,
     });
   } catch (error) {
     if (error instanceof AppError) {

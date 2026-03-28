@@ -8,6 +8,7 @@
 import { Collection } from "mongodb";
 import { calculateDistance } from "@/lib/distance";
 import { logger } from "@/lib/logger";
+import { buildProviderPublicAvailability } from "@/lib/services/provider-availability";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -28,6 +29,7 @@ export type ProviderSearchParams = {
   maxRadiusKm: number | null;
   name: string | null;
   service: string | null;
+  requestedDeadline?: string | null;
   limit: number;
   debug?: boolean;
 };
@@ -36,7 +38,7 @@ export async function searchProviders(
   collection: Collection,
   params: ProviderSearchParams,
 ): Promise<{ providers: Array<Record<string, unknown>>; total: number }> {
-  const { userCoords, name, service, debug } = params;
+  const { userCoords, name, service, debug, requestedDeadline } = params;
   const limit = params.limit;
   const maxRadiusKm = userCoords ? params.maxRadiusKm : null;
 
@@ -223,5 +225,10 @@ export async function searchProviders(
     });
   }
 
-  return { providers, total: providers.length };
+  return {
+    providers: providers.map((provider) =>
+      buildProviderPublicAvailability(provider, requestedDeadline),
+    ),
+    total: providers.length,
+  };
 }

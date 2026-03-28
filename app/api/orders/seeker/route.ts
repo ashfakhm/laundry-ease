@@ -4,6 +4,8 @@ import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireSeeker } from "@/lib/api/auth";
+import { buildProviderAvailabilitySummary } from "@/lib/services/provider-availability";
+import type { ProviderLeavePeriod } from "@/types/users";
 
 /**
  * GET /api/orders/seeker
@@ -44,6 +46,7 @@ export async function GET() {
                   email: 1,
                   profilePicture: 1,
                   bannerImage: 1,
+                  leavePeriods: 1,
                 },
               },
             ],
@@ -59,7 +62,32 @@ export async function GET() {
       ])
       .toArray();
 
-    return successResponse(enrichedOrders, 200);
+    const serializedOrders = enrichedOrders.map((order) => {
+      const provider = order.provider as
+        | {
+            leavePeriods?: unknown[];
+          }
+        | null
+        | undefined;
+
+      if (!provider) {
+        return order;
+      }
+
+      const { leavePeriods: _leavePeriods, ...providerRest } = provider;
+
+      return {
+        ...order,
+        provider: {
+          ...providerRest,
+          availability: buildProviderAvailabilitySummary({
+            leavePeriods: provider.leavePeriods as ProviderLeavePeriod[] | undefined,
+          }),
+        },
+      };
+    });
+
+    return successResponse(serializedOrders, 200);
   } catch (error) {
     if (error instanceof AppError) {
       return errorResponse(error);

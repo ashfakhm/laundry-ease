@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import type { ProviderAvailabilitySummary } from "./users";
 
 export type BookingStatus =
   | "requested"
@@ -112,6 +113,7 @@ export interface ProviderDetails {
   businessName?: string;
   profilePicture?: string;
   bannerImage?: string;
+  availability?: ProviderAvailabilitySummary;
 }
 
 // Booking populated with Provider details (for Seeker view)

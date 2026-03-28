@@ -192,4 +192,47 @@ describe("POST /api/bookings", () => {
     expect(body.error.message).toContain("Provider serves within 10 km");
     expect(mockCreateBooking).not.toHaveBeenCalled();
   });
+
+  it("returns 409 when the selected deadline falls inside provider leave", async () => {
+    const seekerId = new ObjectId();
+    const providerId = new ObjectId();
+
+    mockRequireSeeker.mockResolvedValue({
+      user: { id: seekerId.toString() },
+    });
+
+    mockDb(
+      {
+        _id: providerId,
+        coordinates: { lat: 12.9716, lng: 77.5946 },
+        radius_km: 10,
+        pricing: 149,
+        leavePeriods: [
+          {
+            _id: "leave-1",
+            startDate: "2030-06-15",
+            endDate: "2030-06-16",
+            createdAt: "2030-06-01T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        _id: seekerId,
+        coordinates: { lat: 12.9352, lng: 77.6245 },
+      },
+    );
+
+    const res = await POST(
+      makeRequest({
+        provider_id: providerId.toString(),
+        deadline: "2030-06-15T10:00:00.000Z",
+      }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(body.error.message).toContain("Provider is on leave for the selected deadline");
+    expect(body.error.details.nextAvailableDate).toBe("2030-06-17");
+    expect(mockCreateBooking).not.toHaveBeenCalled();
+  });
 });

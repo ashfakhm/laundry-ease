@@ -8,6 +8,8 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { enforceRateLimit, requireSameOrigin } from "@/lib/api/security";
 import { requireAuth } from "@/lib/api/auth";
 import { Role } from "@/types/enums";
+import { buildProviderAvailabilitySummary } from "@/lib/services/provider-availability";
+import type { Provider } from "@/types/users";
 
 export async function POST(
   req: Request,
@@ -174,6 +176,28 @@ export async function POST(
         ),
       );
     }
+
+    const provider = await db
+      .collection<Provider>("providers")
+      .findOne({ _id: new ObjectId(user.id) }, { projection: { leavePeriods: 1 } });
+    const availability = buildProviderAvailabilitySummary(provider ?? {}, {
+      requestedDeadline: slotTime,
+    });
+    if (availability.isUnavailableForRequestedDeadline) {
+      return errorResponse(
+        new AppError(
+          ErrorCode.CONFLICT,
+          409,
+          availability.nextAvailableDate
+            ? `You are on leave for that day. Next available date: ${availability.nextAvailableDate}.`
+            : "You are on leave for that day. Please choose another pickup date.",
+          {
+            nextAvailableDate: availability.nextAvailableDate,
+          },
+        ),
+      );
+    }
+
     // Update booking with proposed pickup time — include provider_id and status
     // in the query to make the write atomic with the status check above.
     const proposeResult = await db.collection("bookings").updateOne(
