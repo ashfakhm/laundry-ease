@@ -21,6 +21,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiArray } from "@/lib/client-api";
+import { formatDateKey } from "@/lib/date-key";
+import type { ProviderAvailabilitySummary } from "@/types/users";
 
 type OrderItem = {
   name: string;
@@ -51,6 +53,7 @@ type Order = {
     email?: string;
     profilePicture?: string;
     bannerImage?: string;
+    availability?: ProviderAvailabilitySummary;
   } | null;
 };
 
@@ -385,6 +388,14 @@ export default function ViewOrdersPage() {
                                 View Profile{" "}
                                 <ChevronRight className="w-2.5 h-2.5" />
                               </Link>
+                              {order.provider?.availability?.isCurrentlyOnLeave && (
+                                <p className="mt-2 text-[11px] font-medium text-amber-700">
+                                  Currently on leave
+                                  {order.provider.availability.activeLeaveEndDate
+                                    ? ` until ${formatDateKey(order.provider.availability.activeLeaveEndDate)}`
+                                    : ""}.
+                                </p>
+                              )}
                             </div>
                           </div>
 

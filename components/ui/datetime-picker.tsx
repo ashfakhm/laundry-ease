@@ -20,12 +20,28 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { cn } from "@/lib/utils";
 
 interface DateTimePickerProps {
-  value?: string; // Expects "YYYY-MM-DDTHH:mm" format or ""
+  value?: string; // Expects "YYYY-MM-DDTHH:mm" or "YYYY-MM-DD" based on mode
   onChange: (value: string) => void;
-  min?: string; // "YYYY-MM-DDTHH:mm"
-  max?: string; // "YYYY-MM-DDTHH:mm"
+  min?: string;
+  max?: string;
   placeholder?: string;
   className?: string;
+  mode?: "datetime" | "date";
+}
+
+function parsePickerValue(
+  value: string,
+  mode: "datetime" | "date",
+): Date | null {
+  if (!value) return null;
+
+  if (mode === "date" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 export function DateTimePicker({
@@ -35,18 +51,14 @@ export function DateTimePicker({
   max = "",
   placeholder = "Select Date & Time",
   className,
+  mode = "datetime",
 }: DateTimePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
   // Parse current value or use safe defaults
   const parsedValue = React.useMemo(() => {
-    if (!value) return null;
-    try {
-      return new Date(value);
-    } catch {
-      return null;
-    }
-  }, [value]);
+    return parsePickerValue(value, mode);
+  }, [mode, value]);
 
   const [currentMonth, setCurrentMonth] = React.useState(
     parsedValue || new Date()
@@ -67,6 +79,23 @@ export function DateTimePicker({
     parsedValue ? (format(parsedValue, "a") as "AM" | "PM") : "PM"
   );
 
+  React.useEffect(() => {
+    setSelectedDate(parsedValue);
+
+    if (parsedValue) {
+      setCurrentMonth(parsedValue);
+      setSelectedHour(format(parsedValue, "hh"));
+      setSelectedMinute(format(parsedValue, "mm"));
+      setSelectedAmPm(format(parsedValue, "a") as "AM" | "PM");
+      return;
+    }
+
+    setCurrentMonth(new Date());
+    setSelectedHour("12");
+    setSelectedMinute("00");
+    setSelectedAmPm("PM");
+  }, [parsedValue]);
+
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
 
@@ -76,9 +105,19 @@ export function DateTimePicker({
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  const commitChange = (date: Date | null, h: string, m: string, ampm: "AM" | "PM") => {
+  const commitChange = (
+    date: Date | null,
+    h: string,
+    m: string,
+    ampm: "AM" | "PM",
+  ) => {
     if (!date) {
       onChange("");
+      return;
+    }
+
+    if (mode === "date") {
+      onChange(format(date, "yyyy-MM-dd"));
       return;
     }
 
@@ -120,6 +159,9 @@ export function DateTimePicker({
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     commitChange(date, selectedHour, selectedMinute, selectedAmPm);
+    if (mode === "date") {
+      setIsOpen(false);
+    }
   };
 
   const handleTimeSelect = (type: "h" | "m" | "am", val: string) => {
@@ -146,6 +188,12 @@ export function DateTimePicker({
   const handleToday = () => {
     const now = new Date();
     setSelectedDate(now);
+    if (mode === "date") {
+      onChange(format(now, "yyyy-MM-dd"));
+      setCurrentMonth(now);
+      setIsOpen(false);
+      return;
+    }
     setSelectedHour(format(now, "hh"));
     setSelectedMinute(format(now, "mm"));
     setSelectedAmPm(format(now, "a") as "AM" | "PM");
@@ -166,9 +214,9 @@ export function DateTimePicker({
   const hours = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
   const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")); // Increments of 5
 
-  const minDate = min ? new Date(min) : null;
+  const minDate = min ? parsePickerValue(min, mode) : null;
   const isTodaySelected = selectedDate && minDate && startOfDay(selectedDate).getTime() === startOfDay(minDate).getTime();
-  const maxDate = max ? new Date(max) : null;
+  const maxDate = max ? parsePickerValue(max, mode) : null;
   const isTodaySelectedMax = selectedDate && maxDate && startOfDay(selectedDate).getTime() === startOfDay(maxDate).getTime();
 
   const isHourDisabled = (h: string) => {
@@ -246,7 +294,10 @@ export function DateTimePicker({
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             <span>
               {selectedDate
-                ? format(new Date(value), "dd/MM/yyyy, hh:mm a")
+                ? format(
+                    parsedValue ?? new Date(),
+                    mode === "date" ? "dd/MM/yyyy" : "dd/MM/yyyy, hh:mm a",
+                  )
                 : placeholder}
             </span>
           </div>
@@ -258,9 +309,12 @@ export function DateTimePicker({
         <PopoverPrimitive.Content
           align="start"
           sideOffset={8}
-          className="z-50 rounded-2xl border border-border bg-popover/95 text-popover-foreground shadow-xl backdrop-blur-md animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 overflow-hidden w-105"
+          className={cn(
+            "z-50 rounded-2xl border border-border bg-popover/95 text-popover-foreground shadow-xl backdrop-blur-md animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 overflow-hidden",
+            mode === "date" ? "w-[22rem]" : "w-105",
+          )}
         >
-          <div className="flex divide-x divide-border">
+          <div className={cn("flex", mode !== "date" && "divide-x divide-border")}>
             {/* Calendar Section */}
             <div className="p-4 flex-1">
               <div className="flex items-center justify-between mb-4">
@@ -327,81 +381,79 @@ export function DateTimePicker({
               </div>
             </div>
 
-            {/* Time Tracking Section */}
-            <div className="w-35 flex flex-col p-4 bg-muted/20">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
-                <Clock className="h-3.5 w-3.5" />
-                Time
-              </div>
-
-              <div className="flex-1 flex gap-2 h-50 overflow-hidden">
-                {/* Hour Column */}
-                <div className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar scroll-smooth">
-                  {hours.map((h) => {
-                    const isDisabled = isHourDisabled(h);
-                    return (
-                      <button
-                        key={h}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => handleTimeSelect("h", h)}
-                        className={cn(
-                          "h-8 rounded-lg flex items-center justify-center text-xs font-medium shrink-0 hover:bg-muted transition-colors",
-                          selectedHour === h && "bg-primary text-primary-foreground font-bold hover:bg-primary/90",
-                          isDisabled && "opacity-40 cursor-not-allowed pointer-events-none hover:bg-transparent"
-                        )}
-                      >
-                        {h}
-                      </button>
-                    );
-                  })}
+            {mode !== "date" && (
+              <div className="w-35 flex flex-col p-4 bg-muted/20">
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
+                  <Clock className="h-3.5 w-3.5" />
+                  Time
                 </div>
 
-                {/* Minute Column */}
-                <div className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar scroll-smooth">
-                  {minutes.map((m) => {
-                    const isDisabled = isMinuteDisabled(m);
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => handleTimeSelect("m", m)}
-                        className={cn(
-                          "h-8 rounded-lg flex items-center justify-center text-xs font-medium shrink-0 hover:bg-muted transition-colors",
-                          selectedMinute === m && "bg-primary text-primary-foreground font-bold hover:bg-primary/90",
-                          isDisabled && "opacity-40 cursor-not-allowed pointer-events-none hover:bg-transparent"
-                        )}
-                      >
-                        {m}
-                      </button>
-                    );
-                  })}
-                </div>
+                <div className="flex-1 flex gap-2 h-50 overflow-hidden">
+                  <div className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar scroll-smooth">
+                    {hours.map((h) => {
+                      const isDisabled = isHourDisabled(h);
+                      return (
+                        <button
+                          key={h}
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => handleTimeSelect("h", h)}
+                          className={cn(
+                            "h-8 rounded-lg flex items-center justify-center text-xs font-medium shrink-0 hover:bg-muted transition-colors",
+                            selectedHour === h && "bg-primary text-primary-foreground font-bold hover:bg-primary/90",
+                            isDisabled && "opacity-40 cursor-not-allowed pointer-events-none hover:bg-transparent"
+                          )}
+                        >
+                          {h}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                {/* AM/PM */}
-                <div className="flex flex-col gap-1 h-fit">
-                  {["AM", "PM"].map((am) => {
-                    const isDisabled = isAmPmDisabled(am);
-                    return (
-                      <button
-                        key={am}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => handleTimeSelect("am", am)}
-                        className={cn(
-                          "h-8 px-2 rounded-lg flex items-center justify-center text-xs font-bold hover:bg-muted transition-colors",
-                          selectedAmPm === am && "bg-primary text-primary-foreground hover:bg-primary/90",
-                          isDisabled && "opacity-40 cursor-not-allowed pointer-events-none hover:bg-transparent"
-                        )}
-                      >
-                        {am}
-                      </button>
-                    );
-                  })}
+                  <div className="flex-1 flex flex-col gap-1 overflow-y-auto no-scrollbar scroll-smooth">
+                    {minutes.map((m) => {
+                      const isDisabled = isMinuteDisabled(m);
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => handleTimeSelect("m", m)}
+                          className={cn(
+                            "h-8 rounded-lg flex items-center justify-center text-xs font-medium shrink-0 hover:bg-muted transition-colors",
+                            selectedMinute === m && "bg-primary text-primary-foreground font-bold hover:bg-primary/90",
+                            isDisabled && "opacity-40 cursor-not-allowed pointer-events-none hover:bg-transparent"
+                          )}
+                        >
+                          {m}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex flex-col gap-1 h-fit">
+                    {["AM", "PM"].map((am) => {
+                      const isDisabled = isAmPmDisabled(am);
+                      return (
+                        <button
+                          key={am}
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => handleTimeSelect("am", am)}
+                          className={cn(
+                            "h-8 px-2 rounded-lg flex items-center justify-center text-xs font-bold hover:bg-muted transition-colors",
+                            selectedAmPm === am && "bg-primary text-primary-foreground hover:bg-primary/90",
+                            isDisabled && "opacity-40 cursor-not-allowed pointer-events-none hover:bg-transparent"
+                          )}
+                        >
+                          {am}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Action Bar */}

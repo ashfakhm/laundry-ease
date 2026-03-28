@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
+import { formatDateKey } from "@/lib/date-key";
 
 export default function ProviderDashboardPage() {
   const { data: session, status } = useSession();
@@ -15,6 +16,8 @@ export default function ProviderDashboardPage() {
     deliveriesDue: 0,
     pendingPickups: 0,
     activeProcessing: 0,
+    isCurrentlyOnLeave: false,
+    activeLeaveEndDate: undefined as string | undefined,
   });
 
   useEffect(() => {
@@ -31,6 +34,11 @@ export default function ProviderDashboardPage() {
             deliveriesDue: Number(data?.deliveriesDue ?? 0),
             pendingPickups: Number(data?.pendingPickups ?? 0),
             activeProcessing: Number(data?.activeProcessing ?? 0),
+            isCurrentlyOnLeave: Boolean(data?.isCurrentlyOnLeave),
+            activeLeaveEndDate:
+              typeof data?.activeLeaveEndDate === "string"
+                ? data.activeLeaveEndDate
+                : undefined,
           });
         }
       } catch (error) {
@@ -99,10 +107,26 @@ export default function ProviderDashboardPage() {
           </div>
           <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary ring-1 ring-primary/20">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              <span
+                className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  stats.isCurrentlyOnLeave
+                    ? "bg-amber-500"
+                    : "animate-ping bg-primary"
+                }`}
+              ></span>
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  stats.isCurrentlyOnLeave ? "bg-amber-500" : "bg-primary"
+                }`}
+              ></span>
             </span>
-            Live · Shop Open
+            {stats.isCurrentlyOnLeave
+              ? `On Leave${
+                  stats.activeLeaveEndDate
+                    ? ` · Until ${formatDateKey(stats.activeLeaveEndDate)}`
+                    : ""
+                }`
+              : "Live · Shop Open"}
           </div>
         </header>
 

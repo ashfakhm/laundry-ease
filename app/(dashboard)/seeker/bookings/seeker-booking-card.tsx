@@ -25,6 +25,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { reportError } from "@/lib/client-error";
+import { formatDateKey } from "@/lib/date-key";
 import { SEEKER_FREE_CANCEL_WINDOW_MS } from "@/lib/constants";
 
 interface SeekerBookingCardProps {
@@ -375,6 +376,16 @@ function SeekerBookingCardComponent({
                 </div>
               )}
             </div>
+
+            {booking.provider.availability?.isCurrentlyOnLeave && (
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-800">
+                Provider is currently on leave
+                {booking.provider.availability.activeLeaveEndDate
+                  ? ` until ${formatDateKey(booking.provider.availability.activeLeaveEndDate)}.`
+                  : "."}{" "}
+                Your existing booking remains active.
+              </div>
+            )}
           </div>
 
           {/* Provider Contact */}

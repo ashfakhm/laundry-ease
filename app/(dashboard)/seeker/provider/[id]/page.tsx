@@ -8,6 +8,8 @@ import ProviderDetailClient, {
   Review,
 } from "./provider-detail-client";
 import BreadcrumbJsonLd from "@/components/seo/breadcrumb-json-ld";
+import { buildProviderPublicAvailability } from "@/lib/services/provider-availability";
+import type { Provider as ProviderRecord } from "@/types/users";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -23,7 +25,9 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://laundryease.in";
 const getCachedProvider = cache(async (id: string) => {
   if (!ObjectId.isValid(id)) return null;
   const { db } = await getDb();
-  return db.collection("providers").findOne({ _id: new ObjectId(id) });
+  return db
+    .collection<ProviderRecord>("providers")
+    .findOne({ _id: new ObjectId(id) });
 });
 
 /**
@@ -55,7 +59,9 @@ export async function generateMetadata(
       };
     }
 
-    const displayName = provider.businessName || provider.name;
+    const displayName =
+      provider.businessName || provider.name || "Laundry Provider";
+    const location = provider.location || "LaundryEase";
     const description =
       provider.bio ||
       provider.description ||
@@ -63,12 +69,12 @@ export async function generateMetadata(
     const services = provider.services?.join(", ") || "Laundry, Dry Cleaning";
 
     return {
-      title: `${displayName} - Laundry Service Provider | ${provider.location}`,
+      title: `${displayName} - Laundry Service Provider | ${location}`,
       description: `${description}. Services: ${services}. Starting at ₹${provider.pricing || 0}. Book now with escrow protection.`,
       keywords: [
         "laundry service",
         "dry cleaning",
-        provider.location,
+        location,
         "doorstep pickup",
         "wash and fold",
         "ironing service",
@@ -133,10 +139,34 @@ async function getProviderData(id: string): Promise<Provider | null> {
     }
 
     // Convert ObjectId to string for serialization
-    return {
+    const publicProvider = buildProviderPublicAvailability({
       ...provider,
       _id: provider._id.toString(),
-    } as Provider;
+    } as Omit<ProviderRecord, "_id"> & { _id: string });
+
+    return {
+      _id: publicProvider._id,
+      name: publicProvider.name || publicProvider.businessName || "Provider",
+      email: publicProvider.email,
+      phone: publicProvider.phone || "",
+      location: publicProvider.location || "",
+      services: publicProvider.services ?? [],
+      pricing: publicProvider.pricing ?? 0,
+      radius_km: publicProvider.radius_km,
+      free_radius_km: publicProvider.free_radius_km,
+      per_km_rate: publicProvider.per_km_rate,
+      bio: publicProvider.bio ?? undefined,
+      description: publicProvider.description ?? undefined,
+      businessName: publicProvider.businessName ?? undefined,
+      pricingRates: publicProvider.pricingRates ?? undefined,
+      createdAt:
+        publicProvider.createdAt instanceof Date
+          ? publicProvider.createdAt.toISOString()
+          : publicProvider.createdAt,
+      profilePicture: publicProvider.profilePicture ?? undefined,
+      bannerImage: publicProvider.bannerImage ?? undefined,
+      availability: publicProvider.availability,
+    };
   } catch {
     return null;
   }

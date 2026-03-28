@@ -57,7 +57,10 @@ const navigation: NavGroup[] = [
   },
   {
     title: "Business",
-    items: [{ label: "Reviews", href: "/provider/reviews-manage", icon: Star }],
+    items: [
+      { label: "Availability", href: "/provider/availability", icon: Calendar },
+      { label: "Reviews", href: "/provider/reviews-manage", icon: Star },
+    ],
   },
   {
     title: "Account",

@@ -21,6 +21,8 @@ import { PostDeliveryActions } from "@/components/orders/post-delivery-actions";
 import { LiveStatusRefresh } from "@/components/orders/live-status-refresh";
 import { cn } from "@/lib/utils";
 import { requireSeeker } from "@/lib/api/auth";
+import { buildProviderAvailabilitySummary } from "@/lib/services/provider-availability";
+import { formatDateKey } from "@/lib/date-key";
 
 export default async function OrderDetailsPage({
   params,
@@ -71,6 +73,17 @@ export default async function OrderDetailsPage({
 
   if (!order) {
     redirect("/seeker");
+  }
+
+  if (order.provider) {
+    const providerAvailability = buildProviderAvailabilitySummary({
+      leavePeriods: order.provider.leavePeriods,
+    });
+    order.provider = {
+      ...order.provider,
+      availability: providerAvailability,
+    };
+    delete order.provider.leavePeriods;
   }
 
   const existingReview = await db
@@ -447,6 +460,15 @@ export default async function OrderDetailsPage({
               </div>
 
               <div className="space-y-3">
+                {order.provider.availability?.isCurrentlyOnLeave && (
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-800">
+                    Provider is currently on leave
+                    {order.provider.availability.activeLeaveEndDate
+                      ? ` until ${formatDateKey(order.provider.availability.activeLeaveEndDate)}`
+                      : "."}{" "}
+                    Your active order is still being tracked here.
+                  </div>
+                )}
                 <a
                   href={`tel:${order.provider.phone}`}
                   className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer group"

@@ -22,6 +22,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
+import { formatDateKey } from "@/lib/date-key";
+import type { ProviderAvailabilitySummary } from "@/types/users";
 
 type Provider = {
   _id: string;
@@ -38,6 +40,7 @@ type Provider = {
   bannerImage?: string;
   rating?: number;
   reviewCount?: number;
+  availability?: ProviderAvailabilitySummary;
 };
 
 export default function SeekerDashboardPage() {
@@ -179,6 +182,17 @@ export default function SeekerDashboardPage() {
 
   async function handleBookProvider(providerId: string) {
     if (bookingInProgress) return;
+    const provider = providers.find((entry) => entry._id === providerId);
+    if (provider?.availability?.isUnavailableForRequestedDeadline) {
+      toast({
+        title: "Provider unavailable for that deadline",
+        description: provider.availability.nextAvailableDate
+          ? `Next available date: ${formatDateKey(provider.availability.nextAvailableDate)}`
+          : "Choose another provider or adjust the deadline.",
+        type: "warning",
+      });
+      return;
+    }
     if (!deadline) {
       toast({
         title: "Deadline required",
@@ -414,6 +428,17 @@ export default function SeekerDashboardPage() {
                                 provider.name ||
                                 "Provider"}
                             </h3>
+                            {(provider.availability?.isCurrentlyOnLeave ||
+                              provider.availability?.isUnavailableForRequestedDeadline) && (
+                              <div className="mt-2">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-500/20">
+                                  On Leave
+                                  {provider.availability?.activeLeaveEndDate
+                                    ? ` · Until ${formatDateKey(provider.availability.activeLeaveEndDate)}`
+                                    : ""}
+                                </span>
+                              </div>
+                            )}
                             <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
                               <MapPin className="w-3.5 h-3.5 shrink-0" />
                               <span className="truncate">
@@ -470,6 +495,15 @@ export default function SeekerDashboardPage() {
                           </div>
                         </div>
                       </div>
+
+                      {provider.availability?.isUnavailableForRequestedDeadline && (
+                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs font-medium text-amber-800">
+                          Unavailable for the selected deadline.
+                          {provider.availability.nextAvailableDate
+                            ? ` Next available: ${formatDateKey(provider.availability.nextAvailableDate)}.`
+                            : ""}
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}
@@ -488,11 +522,16 @@ export default function SeekerDashboardPage() {
                           e.stopPropagation();
                           handleBookProvider(provider._id);
                         }}
-                        disabled={bookingInProgress === provider._id}
+                        disabled={
+                          bookingInProgress === provider._id ||
+                          provider.availability?.isUnavailableForRequestedDeadline
+                        }
                         className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-primary/30 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                       >
                         {bookingInProgress === provider._id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : provider.availability?.isUnavailableForRequestedDeadline ? (
+                          "On Leave"
                         ) : (
                           <>
                             Book Now <ArrowRight className="w-4 h-4" />

@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { reportError } from "@/lib/client-error";
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { unwrapApiArray, unwrapApiData } from "@/lib/client-api";
+import { formatDateKey } from "@/lib/date-key";
+import type { ProviderAvailabilitySummary } from "@/types/users";
 
 export type Provider = {
   _id: string;
@@ -44,6 +46,7 @@ export type Provider = {
   createdAt?: string;
   profilePicture?: string;
   bannerImage?: string;
+  availability?: ProviderAvailabilitySummary;
 };
 
 export type Review = {
@@ -135,6 +138,41 @@ export default function ProviderDetailClient({
   }, [providerId, initialProvider]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function refreshProviderAvailability() {
+      try {
+        const response = await fetch(
+          deadline
+            ? `/api/providers/${providerId}?deadline=${encodeURIComponent(deadline)}`
+            : `/api/providers/${providerId}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        const data = unwrapApiData<Provider>(payload);
+        if (!cancelled) {
+          setProvider(data);
+        }
+      } catch (error) {
+        reportError("ProviderAvailabilityRefreshError", error);
+      }
+    }
+
+    if (!deadline && initialProvider) {
+      setProvider(initialProvider);
+      return;
+    }
+
+    refreshProviderAvailability();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deadline, initialProvider, providerId]);
+
+  useEffect(() => {
     if (!("geolocation" in navigator)) return;
     navigator.geolocation.getCurrentPosition((position) => {
       setSeekerCoordinates({
@@ -146,6 +184,16 @@ export default function ProviderDetailClient({
 
   async function handleBookProvider() {
     if (booking) return;
+    if (provider?.availability?.isUnavailableForRequestedDeadline) {
+      toast({
+        title: "Provider unavailable for that deadline",
+        description: provider.availability.nextAvailableDate
+          ? `Next available date: ${formatDateKey(provider.availability.nextAvailableDate)}`
+          : "Please choose another deadline.",
+        type: "warning",
+      });
+      return;
+    }
     if (!deadline) {
       toast({
         title: "Deadline required",
@@ -272,6 +320,17 @@ export default function ProviderDetailClient({
                       <h1 className="font-heading text-3xl font-bold">
                         {provider.businessName || provider.name}
                       </h1>
+                      {(provider.availability?.isCurrentlyOnLeave ||
+                        provider.availability?.isUnavailableForRequestedDeadline) && (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-500/20">
+                            On Leave
+                            {provider.availability?.activeLeaveEndDate
+                              ? ` · Until ${formatDateKey(provider.availability.activeLeaveEndDate)}`
+                              : ""}
+                          </span>
+                        </div>
+                      )}
                       {provider.businessName &&
                         provider.name &&
                         provider.businessName !== provider.name && (
@@ -576,13 +635,31 @@ export default function ProviderDetailClient({
                 />
               </div>
 
+              {(provider.availability?.isCurrentlyOnLeave ||
+                provider.availability?.isUnavailableForRequestedDeadline) && (
+                <div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-800">
+                  <p className="font-semibold">
+                    {provider.availability?.isUnavailableForRequestedDeadline
+                      ? "This provider is unavailable for the selected deadline."
+                      : "This provider is currently on leave."}
+                  </p>
+                  {provider.availability?.nextAvailableDate && (
+                    <p className="mt-1 text-xs font-medium text-amber-700">
+                      Next available date: {formatDateKey(provider.availability.nextAvailableDate)}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={handleBookProvider}
-                disabled={booking}
+                disabled={booking || provider.availability?.isUnavailableForRequestedDeadline}
                 className="w-full h-12 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
               >
                 {booking ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
+                ) : provider.availability?.isUnavailableForRequestedDeadline ? (
+                  "Unavailable for Selected Deadline"
                 ) : (
                   "Request Booking"
                 )}
