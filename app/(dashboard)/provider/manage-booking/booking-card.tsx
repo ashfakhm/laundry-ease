@@ -1,12 +1,8 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { format, addHours, subHours, max as maxDateFns } from "date-fns";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
-import {
-  ConfirmDialog,
-  useConfirmDialog,
-} from "@/components/ui/confirm-dialog";
 import { PopulatedBooking } from "@/types/bookings";
 import { BookingStatusBadge } from "./booking-status-badge";
 import {
@@ -23,6 +19,7 @@ import {
 import { useBookingActions } from "@/hooks/use-booking-actions";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { ProviderCancelBookingModal } from "./provider-cancel-booking-modal";
 
 interface BookingCardProps {
   booking: PopulatedBooking;
@@ -30,6 +27,7 @@ interface BookingCardProps {
 }
 
 function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const {
     isPending: loading,
     slotDate,
@@ -40,7 +38,6 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
     handleRequestReschedule,
     handleCancelBooking,
   } = useBookingActions(booking._id.toString(), onRefresh);
-  const { showConfirm, dialogProps } = useConfirmDialog();
   const canProviderCancel =
     !booking.arrivedAt &&
     [
@@ -70,7 +67,14 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
 
   return (
     <>
-      <ConfirmDialog {...dialogProps} />
+      <ProviderCancelBookingModal
+        open={isCancelModalOpen}
+        loading={loading}
+        onClose={() => setIsCancelModalOpen(false)}
+        onSubmit={(reason) =>
+          handleCancelBooking(reason, () => setIsCancelModalOpen(false))
+        }
+      />
       <motion.article
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -334,19 +338,7 @@ function BookingCardComponent({ booking, onRefresh }: BookingCardProps) {
           {canProviderCancel && (
             <div className="mt-3">
               <button
-                onClick={() =>
-                  handleCancelBooking((onConfirmed) =>
-                    showConfirm({
-                      title: "Cancel Booking",
-                      message:
-                        "Cancel this booking? If a booking fee was paid, it will be refunded to the seeker.",
-                      confirmText: "Yes, Cancel",
-                      cancelText: "Keep Booking",
-                      variant: "danger",
-                      onConfirm: onConfirmed,
-                    }),
-                  )
-                }
+                onClick={() => setIsCancelModalOpen(true)}
                 disabled={loading}
                 className="w-full h-10 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-bold hover:bg-red-100 transition-colors disabled:opacity-50"
               >

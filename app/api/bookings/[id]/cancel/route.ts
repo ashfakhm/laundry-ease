@@ -64,13 +64,23 @@ export async function POST(
       });
     }
 
+    const isProvider = user.role === Role.PROVIDER;
     const body = await req.json().catch(() => null);
     const cancellationReason =
       typeof body?.reason === "string" && body.reason.trim().length > 0
         ? body.reason.trim().slice(0, 280)
         : undefined;
 
-    const isProvider = user.role === Role.PROVIDER;
+    if (isProvider && !cancellationReason) {
+      return errorResponse(
+        new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Provider cancellation reason is required",
+        ),
+      );
+    }
+
     const { db } = await getDb();
     const now = new Date();
     const pickupSlotTime = toValidDate(booking.pickupSlot?.dateTime);

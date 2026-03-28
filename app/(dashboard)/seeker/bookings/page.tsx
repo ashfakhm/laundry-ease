@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SeekerBookingsPage() {
-  const result = await getSeekerBookings();
+  const result = await getSeekerBookings({ includeFinalized: true });
 
   if (!result.success || !result.data) {
     return (

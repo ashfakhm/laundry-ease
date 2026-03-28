@@ -33,7 +33,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
   const [filter, setFilter] = useState<FilterType>("all");
 
   const { data: bookings, refresh } = useLiveData<PopulatedSeekerBooking>({
-    url: "/api/bookings/seeker",
+    url: "/api/bookings/seeker?includeFinalized=1",
     initialData: initialBookings,
     activeIntervalMs: 8_000,
     idleIntervalMs: 30_000,
@@ -62,6 +62,7 @@ export function SeekerBookingList({ initialBookings }: SeekerBookingListProps) {
     { id: "pickup_proposed", label: "Review" },
     { id: "reschedule_requested", label: "Reschedule" },
     { id: "confirmed", label: "Scheduled" },
+    { id: "cancelled", label: "Cancelled" },
   ];
 
   return (

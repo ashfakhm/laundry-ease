@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/mongodb";
 import { PopulatedBooking, PopulatedSeekerBooking } from "@/types/bookings";
-import { ObjectId } from "mongodb";
+import { Db, ObjectId } from "mongodb";
 import { requireProvider, requireSeeker } from "@/lib/api/auth";
 import { logger } from "@/lib/logger";
 
@@ -59,6 +59,176 @@ function serialiseInvoice(invoice: Record<string, unknown> | null | undefined) {
     ...invoice,
     createdAt: toISOStringOrUndefined(invoice.createdAt as Date | string),
   };
+}
+
+export interface GetSeekerBookingsOptions {
+  includeFinalized?: boolean;
+}
+
+interface ProviderAggregateDoc {
+  _id?: { toString(): string };
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  businessName?: string;
+  profilePicture?: string;
+  bannerImage?: string;
+}
+
+interface SeekerBookingAggregateDoc {
+  [key: string]: unknown;
+  providerDetails?: ProviderAggregateDoc | null;
+  _id: { toString(): string };
+  provider_id: { toString(): string };
+  seeker_id: { toString(): string };
+  status: PopulatedSeekerBooking["status"];
+  order_id?: { toString(): string };
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  deadline?: Date | string;
+  pickupSlot?: Record<string, unknown> | null;
+  reschedule?: Record<string, unknown> | null;
+  invoice?: Record<string, unknown> | null;
+  arrivedAt?: Date | string;
+  cancelledAt?: Date | string;
+  refundProcessedAt?: Date | string;
+  payout_lock_at?: Date | string;
+  payout_failure_at?: Date | string;
+  payout_initiated_at?: Date | string;
+  payout_updated_at?: Date | string;
+  booking_fee_released_at?: Date | string;
+  booking_fee_applied_at?: Date | string;
+  refund_in_progress_at?: Date | string;
+}
+
+function serialiseSeekerBookingDocument(
+  booking: SeekerBookingAggregateDoc,
+): PopulatedSeekerBooking {
+  const provider = booking.providerDetails;
+
+  const {
+    providerDetails: _providerDetails,
+    _id,
+    provider_id: _pid,
+    seeker_id: _sid,
+    status,
+    order_id,
+    createdAt,
+    updatedAt,
+    deadline,
+    pickupSlot,
+    reschedule,
+    invoice,
+    arrivedAt,
+    cancelledAt,
+    refundProcessedAt,
+    payout_lock_at,
+    payout_failure_at,
+    payout_initiated_at,
+    payout_updated_at,
+    booking_fee_released_at,
+    booking_fee_applied_at,
+    refund_in_progress_at,
+    ...rest
+  } = booking;
+
+  return {
+    ...rest,
+    _id: _id.toString(),
+    provider_id: _pid.toString(),
+    seeker_id: _sid.toString(),
+    status,
+    createdAt:
+      toISOStringOrUndefined(createdAt as Date | string) ??
+      new Date().toISOString(),
+    updatedAt: toISOStringOrUndefined(updatedAt as Date | string),
+    order_id: order_id ? order_id.toString() : undefined,
+    deadline: toISOStringOrUndefined(deadline as Date | string),
+    pickupSlot: serialisePickupSlot(
+      pickupSlot as Record<string, unknown> | null | undefined,
+    ),
+    reschedule: serialiseReschedule(
+      reschedule as Record<string, unknown> | null | undefined,
+    ),
+    invoice: serialiseInvoice(invoice as Record<string, unknown> | null | undefined),
+    arrivedAt: toISOStringOrUndefined(arrivedAt as Date | string),
+    cancelledAt: toISOStringOrUndefined(cancelledAt as Date | string),
+    refundProcessedAt: toISOStringOrUndefined(
+      refundProcessedAt as Date | string,
+    ),
+    payout_lock_at: toISOStringOrUndefined(payout_lock_at as Date | string),
+    payout_failure_at: toISOStringOrUndefined(
+      payout_failure_at as Date | string,
+    ),
+    payout_initiated_at: toISOStringOrUndefined(
+      payout_initiated_at as Date | string,
+    ),
+    payout_updated_at: toISOStringOrUndefined(
+      payout_updated_at as Date | string,
+    ),
+    booking_fee_released_at: toISOStringOrUndefined(
+      booking_fee_released_at as Date | string,
+    ),
+    booking_fee_applied_at: toISOStringOrUndefined(
+      booking_fee_applied_at as Date | string,
+    ),
+    refund_in_progress_at: toISOStringOrUndefined(
+      refund_in_progress_at as Date | string,
+    ),
+    provider: {
+      _id: provider?._id?.toString() || "unknown",
+      name: provider?.name || "Unknown Provider",
+      email: provider?.email || "No email",
+      phone: provider?.phone || "No phone",
+      address: provider?.address || "",
+      businessName: provider?.businessName,
+      profilePicture: provider?.profilePicture,
+      bannerImage: provider?.bannerImage,
+    },
+  } as PopulatedSeekerBooking;
+}
+
+export async function fetchSeekerBookingsById(
+  db: Db,
+  seekerId: ObjectId,
+  options: GetSeekerBookingsOptions = {},
+): Promise<PopulatedSeekerBooking[]> {
+  const matchStage: Record<string, unknown> = {
+    seeker_id: seekerId,
+  };
+
+  if (!options.includeFinalized) {
+    matchStage.status = { $nin: ["cancelled", "rejected"] };
+  }
+
+  const bookings = await db
+    .collection("bookings")
+    .aggregate([
+      {
+        $match: matchStage,
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: "providers",
+          localField: "provider_id",
+          foreignField: "_id",
+          as: "providerDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$providerDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+    ])
+    .toArray();
+
+  return bookings.map((booking) =>
+    serialiseSeekerBookingDocument(booking as SeekerBookingAggregateDoc),
+  );
 }
 
 export async function getProviderBookings(): Promise<{
@@ -188,7 +358,9 @@ export async function getProviderBookings(): Promise<{
   }
 }
 
-export async function getSeekerBookings(): Promise<{
+export async function getSeekerBookings(
+  options: GetSeekerBookingsOptions = {},
+): Promise<{
   success: boolean;
   data?: PopulatedSeekerBooking[];
   error?: string;
@@ -208,106 +380,10 @@ export async function getSeekerBookings(): Promise<{
       return { success: false, error: "Seeker not found" };
     }
 
-    // Fetch all bookings for this seeker (exclude cancelled/rejected)
-    const bookings = await db
-      .collection("bookings")
-      .aggregate([
-        {
-          $match: {
-            seeker_id: seekerId,
-            status: { $nin: ["cancelled", "rejected"] },
-          },
-        },
-        { $sort: { createdAt: -1 } },
-        {
-          $lookup: {
-            from: "providers",
-            localField: "provider_id",
-            foreignField: "_id",
-            as: "providerDetails",
-          },
-        },
-        {
-          $unwind: {
-            path: "$providerDetails",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-      ])
-      .toArray();
-
-    const populatedBookings: PopulatedSeekerBooking[] = bookings.map(
-      (booking) => {
-        const provider = booking.providerDetails;
-
-        // Destructure join artifact and raw ObjectId / Date fields; spread
-        // everything else so no booking fields are silently dropped.
-        const {
-          providerDetails: _providerDetails,
-          _id,
-          provider_id: _pid,
-          seeker_id: _sid,
-          status,
-          order_id,
-          createdAt,
-          updatedAt,
-          deadline,
-          pickupSlot,
-          reschedule,
-          invoice,
-          arrivedAt,
-          cancelledAt,
-          refundProcessedAt,
-          payout_lock_at,
-          payout_failure_at,
-          payout_initiated_at,
-          payout_updated_at,
-          booking_fee_released_at,
-          booking_fee_applied_at,
-          refund_in_progress_at,
-          ...rest
-        } = booking;
-
-        return {
-          ...rest,
-          _id: _id.toString(),
-          provider_id: _pid.toString(),
-          seeker_id: _sid.toString(),
-          status,
-          createdAt:
-            toISOStringOrUndefined(createdAt) ?? new Date().toISOString(),
-          updatedAt: toISOStringOrUndefined(updatedAt),
-          order_id: order_id ? order_id.toString() : undefined,
-          deadline: toISOStringOrUndefined(deadline),
-          pickupSlot: serialisePickupSlot(pickupSlot),
-          reschedule: serialiseReschedule(reschedule),
-          invoice: serialiseInvoice(invoice),
-          arrivedAt: toISOStringOrUndefined(arrivedAt),
-          cancelledAt: toISOStringOrUndefined(cancelledAt),
-          refundProcessedAt: toISOStringOrUndefined(refundProcessedAt),
-          payout_lock_at: toISOStringOrUndefined(payout_lock_at),
-          payout_failure_at: toISOStringOrUndefined(payout_failure_at),
-          payout_initiated_at: toISOStringOrUndefined(payout_initiated_at),
-          payout_updated_at: toISOStringOrUndefined(payout_updated_at),
-          booking_fee_released_at: toISOStringOrUndefined(
-            booking_fee_released_at,
-          ),
-          booking_fee_applied_at: toISOStringOrUndefined(
-            booking_fee_applied_at,
-          ),
-          refund_in_progress_at: toISOStringOrUndefined(refund_in_progress_at),
-          provider: {
-            _id: provider?._id?.toString() || "unknown",
-            name: provider?.name || "Unknown Provider",
-            email: provider?.email || "No email",
-            phone: provider?.phone || "No phone",
-            address: provider?.address || "",
-            businessName: provider?.businessName,
-            profilePicture: provider?.profilePicture,
-            bannerImage: provider?.bannerImage,
-          },
-        } as PopulatedSeekerBooking;
-      },
+    const populatedBookings = await fetchSeekerBookingsById(
+      db,
+      seekerId,
+      options,
     );
 
     return { success: true, data: populatedBookings };

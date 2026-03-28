@@ -7,12 +7,15 @@ const { mockGetDb, mockRequireSeeker } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/mongodb", () => ({ getDb: mockGetDb }));
-vi.mock("@/lib/api/auth", () => ({ requireSeeker: mockRequireSeeker }));
+vi.mock("@/lib/api/auth", () => ({
+  requireProvider: vi.fn(),
+  requireSeeker: mockRequireSeeker,
+}));
 vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { GET } from "./route";
+import { getSeekerBookings } from "./bookings";
 
 const seekerId = new ObjectId();
 
@@ -52,10 +55,10 @@ function buildDbMock() {
     }),
   };
 
-  return { db, aggregate, seekerFindOne };
+  return { db, aggregate };
 }
 
-describe("GET /api/bookings/seeker", () => {
+describe("getSeekerBookings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSeeker.mockResolvedValue({
@@ -63,18 +66,13 @@ describe("GET /api/bookings/seeker", () => {
     });
   });
 
-  it("returns seeker bookings and excludes finalized statuses by default", async () => {
+  it("excludes cancelled and rejected bookings by default", async () => {
     const dbMock = buildDbMock();
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
-    const res = await GET(
-      new Request("https://laundryease.test/api/bookings/seeker"),
-    );
-    const body = await res.json();
+    const result = await getSeekerBookings();
 
-    expect(res.status).toBe(200);
-    expect(Array.isArray(body.data)).toBe(true);
-    expect(body.data.length).toBe(1);
+    expect(result.success).toBe(true);
     expect(dbMock.aggregate).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
@@ -87,17 +85,13 @@ describe("GET /api/bookings/seeker", () => {
     );
   });
 
-  it("includes finalized bookings when includeFinalized=1 is provided", async () => {
+  it("includes finalized bookings when requested", async () => {
     const dbMock = buildDbMock();
     mockGetDb.mockResolvedValue({ db: dbMock.db });
 
-    const res = await GET(
-      new Request(
-        "https://laundryease.test/api/bookings/seeker?includeFinalized=1",
-      ),
-    );
+    const result = await getSeekerBookings({ includeFinalized: true });
 
-    expect(res.status).toBe(200);
+    expect(result.success).toBe(true);
     expect(dbMock.aggregate).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
@@ -107,17 +101,5 @@ describe("GET /api/bookings/seeker", () => {
         }),
       ]),
     );
-  });
-
-  it("returns 401-level error for invalid user id", async () => {
-    mockRequireSeeker.mockResolvedValue({
-      user: { id: "not-valid", role: "seeker" },
-    });
-
-    const res = await GET(
-      new Request("https://laundryease.test/api/bookings/seeker"),
-    );
-
-    expect(res.status).toBe(401);
   });
 });

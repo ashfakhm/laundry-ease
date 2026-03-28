@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Trash2,
   FileText,
+  XCircle,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { motion } from "framer-motion";
@@ -69,6 +70,12 @@ function SeekerBookingCardComponent({
       "confirmed",
     ].includes(booking.status) &&
       beforePickupSlot);
+  const providerCancellationReason =
+    booking.status === "cancelled" &&
+    booking.cancelledBy === "provider" &&
+    typeof booking.cancellation_reason === "string"
+      ? booking.cancellation_reason.trim()
+      : "";
 
   /** Human-readable "Xh Ym" or "Xm" remaining string. */
   function formatRemaining(ms: number): string {
@@ -656,6 +663,32 @@ function SeekerBookingCardComponent({
                 </div>
               </motion.div>
             )}
+
+            {providerCancellationReason && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="rounded-2xl border border-red-200 bg-red-50 p-5 dark:border-red-900/40 dark:bg-red-950/20"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300">
+                    <XCircle className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                      Provider cancelled this booking
+                    </p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-red-600/80 dark:text-red-300/80">
+                      Reason shared by provider
+                    </p>
+                    <p className="text-sm leading-relaxed text-red-700/90 dark:text-red-200">
+                      {providerCancellationReason}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* Cancel / Delete Actions */}
             <div className="mt-4 space-y-3">
               {canCancelRequest && (

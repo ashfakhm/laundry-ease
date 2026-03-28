@@ -369,6 +369,40 @@ describe("POST /api/bookings/[id]/cancel", () => {
 
   // ─── Provider: always refunds seeker ─────────────────────────────────────
 
+  it("requires a reason when provider cancels", async () => {
+    mockRequireAuth.mockResolvedValue({
+      user: {
+        id: PROVIDER_ID,
+        role: Role.PROVIDER,
+        email: "provider@test.com",
+      },
+    });
+
+    vi.mocked(getBookingById).mockResolvedValue({
+      _id: new ObjectId(BOOKING_ID),
+      seeker_id: new ObjectId(SEEKER_ID),
+      provider_id: new ObjectId(PROVIDER_ID),
+      status: "accepted",
+      bookingFeeStatus: "paid",
+      razorpay_payment_id: "pay_reason_required",
+      createdAt: CREATED_WITHIN_WINDOW,
+    } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
+
+    const dbMock = makeDbMock();
+    mockGetDb.mockResolvedValue({ db: dbMock.db });
+
+    const res = await POST(makeRequest({}), {
+      params: Promise.resolve({ id: BOOKING_ID }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      message: "Provider cancellation reason is required",
+    });
+    expect(mockRefundRazorpayPayment).not.toHaveBeenCalled();
+    expect(dbMock.bookingUpdateOne).not.toHaveBeenCalled();
+  });
+
   it("refunds seeker booking fee when provider cancels (before arrival)", async () => {
     mockRequireAuth.mockResolvedValue({
       user: {
@@ -396,7 +430,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
     mockRefundRazorpayPayment.mockResolvedValue({ id: "refund_1" });
 
     const res = await POST(
-      makeRequest({ reason: "Cannot fulfil within deadline" }),
+      makeRequest({ reason: "Unable to meet the scheduled pickup time" }),
       {
         params: Promise.resolve({ id: BOOKING_ID }),
       },
@@ -412,6 +446,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
         $set: expect.objectContaining({
           status: "cancelled",
           cancelledBy: "provider",
+          cancellation_reason: "Unable to meet the scheduled pickup time",
           bookingFeeStatus: "refunded",
         }),
       }),
@@ -442,9 +477,12 @@ describe("POST /api/bookings/[id]/cancel", () => {
     mockGetDb.mockResolvedValue({ db: dbMock.db });
     mockRefundRazorpayPayment.mockResolvedValue({ id: "refund_2" });
 
-    const res = await POST(makeRequest({ reason: "Too busy" }), {
-      params: Promise.resolve({ id: BOOKING_ID }),
-    });
+    const res = await POST(
+      makeRequest({ reason: "  Family emergency at the shop  " }),
+      {
+        params: Promise.resolve({ id: BOOKING_ID }),
+      },
+    );
 
     expect(res.status).toBe(200);
     expect(mockRefundRazorpayPayment).toHaveBeenCalled();
@@ -454,6 +492,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
         $set: expect.objectContaining({
           status: "cancelled",
           cancelledBy: "provider",
+          cancellation_reason: "Family emergency at the shop",
           bookingFeeStatus: "refunded",
         }),
       }),
@@ -480,7 +519,7 @@ describe("POST /api/bookings/[id]/cancel", () => {
       arrivedAt: new Date(NOW.getTime() - 15 * 60 * 1000), // arrived 15 min ago
     } as NonNullable<Awaited<ReturnType<typeof getBookingById>>>);
 
-    const res = await POST(makeRequest(), {
+    const res = await POST(makeRequest({ reason: "Emergency" }), {
       params: Promise.resolve({ id: BOOKING_ID }),
     });
     expect(res.status).toBe(409);

@@ -137,14 +137,24 @@ export function useBookingActions(bookingId: string, onRefresh?: () => void) {
     });
   };
 
-  function executeCancelBooking() {
+  function executeCancelBooking(reason: string, onSuccess?: () => void) {
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      toast({
+        title: "Cancellation reason required",
+        description: "Please choose or enter a reason before cancelling.",
+        type: "warning",
+      });
+      return;
+    }
+
     startTransition(async () => {
       try {
         const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            reason: "Provider cancelled booking from dashboard",
+            reason: trimmedReason,
           }),
         });
         const data = await res.json().catch(() => ({}));
@@ -163,6 +173,7 @@ export function useBookingActions(bookingId: string, onRefresh?: () => void) {
           description: data?.message || "Booking cancelled successfully",
           type: "success",
         });
+        onSuccess?.();
         onRefresh?.();
       } catch {
         toast({
@@ -174,21 +185,8 @@ export function useBookingActions(bookingId: string, onRefresh?: () => void) {
     });
   }
 
-  /**
-   * handleCancelBooking now accepts an optional `requestConfirm` callback.
-   * When provided, the caller is responsible for showing a confirmation UI
-   * (e.g. a custom dialog) and calling the passed `onConfirmed` function when
-   * the user approves.  When omitted the action executes immediately (used in
-   * contexts where confirmation is handled upstream).
-   */
-  function handleCancelBooking(
-    requestConfirm?: (onConfirmed: () => void) => void,
-  ) {
-    if (requestConfirm) {
-      requestConfirm(executeCancelBooking);
-    } else {
-      executeCancelBooking();
-    }
+  function handleCancelBooking(reason: string, onSuccess?: () => void) {
+    executeCancelBooking(reason, onSuccess);
   }
 
   return {

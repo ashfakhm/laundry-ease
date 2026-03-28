@@ -1,12 +1,12 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { getDb } from "@/lib/mongodb";
-import { Booking } from "@/types/bookings";
+import { fetchSeekerBookingsById } from "@/lib/data/bookings";
 import { ObjectId } from "mongodb";
 import { logger } from "@/lib/logger";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireSeeker } from "@/lib/api/auth";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { user } = await requireSeeker();
     if (!ObjectId.isValid(user.id)) {
@@ -16,29 +16,20 @@ export async function GET() {
     }
 
     const { db } = await getDb();
+    const seekerId = new ObjectId(user.id);
+    const includeFinalized =
+      new URL(request.url).searchParams.get("includeFinalized") === "1";
 
-    // Aggregation to join provider details
-    const bookings = await db
-      .collection<Booking>("bookings")
-      .aggregate([
-        { $match: { seeker_id: new ObjectId(user.id) } },
-        {
-          $lookup: {
-            from: "providers",
-            localField: "provider_id",
-            foreignField: "_id",
-            as: "provider",
-          },
-        },
-        {
-          $unwind: {
-            path: "$provider",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        { $sort: { createdAt: -1 } },
-      ])
-      .toArray();
+    const seeker = await db.collection("seekers").findOne({ _id: seekerId });
+    if (!seeker) {
+      return errorResponse(
+        new AppError(ErrorCode.NOT_FOUND, 404, "Seeker not found"),
+      );
+    }
+
+    const bookings = await fetchSeekerBookingsById(db, seekerId, {
+      includeFinalized,
+    });
 
     return successResponse(bookings);
   } catch (error) {
