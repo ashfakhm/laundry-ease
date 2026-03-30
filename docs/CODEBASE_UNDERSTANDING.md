@@ -731,9 +731,28 @@ To ensure profile images are formatted properly without distortion:
 - Role resolved from DB if session data incomplete (`isLikelyDbObjectId` check)
 - **Periodic DB re-check** (every 5 minutes via `JWT_DB_RECHECK_INTERVAL_S`) to detect password changes and invalidate stale tokens
 
-### Session Invalidation After Password Change
+### Session Invalidation & Account Soft-Deletion
 
-The JWT callback periodically re-checks the database to enforce session invalidation when a user changes their password (via forgot-password reset or in-app profile change):
+### Account/Profile Soft-Deletion Flow
+
+```mermaid
+flowchart TD
+    A[User requests Account Deletion] --> B{Has active orders/bookings/complaints?}
+    B -- Yes --> C[Reject Deletion Request]
+    B -- No --> D[Prompt for Password Confirmation]
+    D -- Incorrect --> E[Reject Deletion]
+    D -- Correct --> F[Mark user as isDeleted: true]
+    F --> G[Clear sensitive fields, set deletion date]
+    G --> H[Invalidate JWT session within 5 mins]
+    G --> I[Immediately reject existing Socket.IO connections via live DB lookup]
+    I --> J[User effectively logged out and profile hidden]
+    
+    K[User attempts Re-Signup with same Email] --> L{Is old account soft-deleted?}
+    L -- Yes --> M[Reactivate account, clear deletion state]
+    L -- No --> N[Email in use error]
+```
+
+The JWT callback periodically re-checks the database (every 5 mins) to enforce session invalidation when a user changes their password, is banned, or soft-deletes their account. Live DB lookups are also performed during the socket handshake to prevent "zombie" connections from deleted or banned users:
 
 1. Every 5 minutes, the JWT callback queries the user document for `passwordChangedAt`
 2. If `passwordChangedAt` is later than the token's `iat` (issued-at), the token is invalidated
@@ -1461,6 +1480,11 @@ flowchart TD
 ---
 
 ## 12. Security Features
+
+### Account Security & Lifecycle
+- **Self-Service Account Deletion**: Users (Seekers/Providers) can soft-delete their accounts via settings. Requires password confirmation. Blocked if there are active bookings, orders, or unresolved complaints.
+- **Re-signup allowed**: A soft-deleted user can re-register with the same email immediately without encountering "email already exists"; the system seamlessly reactivates the account and clears old profile data.
+- **Session & Socket Annihilation**: Soft-deleting cuts off real-time access via live DB checks during WebSocket connection authorization.
 
 ### Transport Security (`next.config.ts`)
 

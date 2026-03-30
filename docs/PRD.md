@@ -290,12 +290,17 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
   Seeker/provider complaint menus and list pages must show only ongoing complaints (`open`, `accepted`, `in_review`).
   Provider visibility additionally requires admin-granted provider access.
 
-- **Account security**
+- **Account security & lifecycle**
   User registration must enforce:
   - Password confirmation (matching passwords required)
   - Password strength requirements (8+ chars, uppercase, number, special character)
   - Email format validation
   - Real-time client-side validation feedback
+  Account deletion must enforce:
+  - Soft-delete strategy preserving historical data (bookings, orders, complaints) for audit integrity
+  - Blocker checks preventing deletion if active bookings, unsettled orders, or open complaints exist
+  - Password gateway for confirmation
+  - Immediate email address release for seamless re-registration
 
 - **Rate limiting**
   Sensitive API endpoints (admin actions, signup, password reset, cron) must enforce per-IP or per-actor rate limits to prevent abuse.
@@ -345,8 +350,8 @@ Outcome: booking intent is validated and gated; commitment still begins only at 
 - **Real-time chat**
   Order chat and complaint chat must deliver messages in real time without requiring page refresh. The system must use a persistent Socket.IO connection hosted with the main Next.js server. Every connection must use a signed login token. Room access must be checked against MongoDB so only the right people can join. Per-socket rate limiting must prevent too many room-join requests.
 
-- **Session security after credential changes**
-  Password changes (via reset or profile) must write a `passwordChangedAt` timestamp. JWT sessions must be periodically re-validated against this timestamp to ensure stale sessions are invalidated.
+- **Session security & validation**
+  Password changes (via reset or profile) must write a `passwordChangedAt` timestamp. JWT sessions must be periodically re-validated against this timestamp. Soft-deleted accounts must be immediately detected during JWT validation (forcing logout) and during Socket.IO connection handshakes (rejecting zombie connections via mandatory live DB lookup).
 
 ## 6. State Management & Lifecycle
 
@@ -726,6 +731,7 @@ See `README.md` for detailed setup instructions.
 | Provider bank sync | Bank detail changes must sync to Razorpay contact/fund account | Implemented (`lib/services/provider-bank-sync.ts` — creates contact + fund account, masks stored account number) |
 | Delivery charge calculation | Charges must be distance-based with free radius and per-km rate | Implemented (`lib/utils/delivery-charge.ts` — Haversine distance, configurable free radius and per-km rate) |
 | SEO foundations | Platform should have sitemap, robots.txt, and structured data | Implemented (`app/sitemap.ts` — 34 routes, `app/robots.ts` — disallow rules, `components/seo/json-ld.tsx` — 5 schemas: SoftwareApplication/LocalBusiness/Service/Organization/FAQPage, `components/seo/breadcrumb-json-ld.tsx` — BreadcrumbList for provider pages, `app/(dashboard)/seeker/provider/[id]/page.tsx` — dynamic metadata via `generateMetadata()` API) |
+| Account Self-Deletion | Users can soft-delete their accounts via Danger Zone if no active commitments exist; email is instantly freed | Implemented (`lib/services/account-deletion.ts` + profile API DELETE routes + signup email availability checks; live socket and session validation drops deleted users immediately) |
 
 ### Remaining Hardening Opportunities
 
