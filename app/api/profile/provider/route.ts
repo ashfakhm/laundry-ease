@@ -12,7 +12,14 @@ import { requireSameOrigin } from "@/lib/api/security";
 import { syncBankDetailsOrFail } from "@/lib/services/provider-bank-sync";
 import { verifyAndHashPassword } from "@/lib/services/provider-password";
 import { buildProviderAvailabilitySummary } from "@/lib/services/provider-availability";
+import { z } from "zod";
+import { Role } from "@/types/enums";
+import bcrypt from "bcrypt";
+import { checkDeletionBlockers, softDeleteAccount } from "@/lib/services/account-deletion";
 
+const deleteProfileSchema = z.object({
+  currentPassword: z.string().optional(),
+});
 /**
  * GET /api/profile/provider
  * Get the logged-in provider's profile
@@ -252,6 +259,86 @@ export async function PATCH(req: Request) {
     return successResponse(safeUpdated);
   } catch (error) {
     logger.error("PROFILE", "Error updating provider profile", error);
+    return errorResponse(error);
+  }
+}
+
+/**
+ * DELETE /api/profile/provider
+ * Soft delete provider's profile
+ */
+export async function DELETE(req: Request) {
+  try {
+    await requireSameOrigin(req);
+    const { user } = await requireProvider();
+    if (!ObjectId.isValid(user.id)) {
+      throw new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized");
+    }
+
+    const { db } = await getDb();
+    const providerId = new ObjectId(user.id);
+    
+    // Check if the user has a password set
+    const userDoc = await db
+      .collection("providers")
+      .findOne({ _id: providerId }, { projection: { passwordHash: 1 } });
+      
+    if (!userDoc) {
+      throw new AppError(ErrorCode.NOT_FOUND, 404, "Provider not found");
+    }
+
+    // Require password confirmation only if user has a password set
+    if (userDoc.passwordHash) {
+      const json = await req.json().catch(() => ({}));
+      const parsed = deleteProfileSchema.safeParse(json);
+      
+      if (!parsed.success) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid data",
+          parsed.error.flatten().fieldErrors,
+        );
+      }
+      
+      const { currentPassword } = parsed.data;
+      
+      if (!currentPassword) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Current password is required to delete your account",
+        );
+      }
+      
+      const isMatch = await bcrypt.compare(currentPassword, userDoc.passwordHash);
+      if (!isMatch) {
+         throw new AppError(
+          ErrorCode.UNAUTHORIZED,
+          401,
+          "Incorrect current password",
+        );
+      }
+    }
+
+    const blockers = await checkDeletionBlockers(user.id, Role.PROVIDER);
+    if (blockers.length > 0) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        409,
+        "Cannot delete account due to active items",
+        { blockers }
+      );
+    }
+    
+    const success = await softDeleteAccount(user.id, Role.PROVIDER, "self");
+    if (!success) {
+      throw new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to delete account");
+    }
+
+    return successResponse({ message: "Account successfully deleted" });
+  } catch (error) {
+    logger.error("PROFILE", "Error deleting provider profile", error);
     return errorResponse(error);
   }
 }
