@@ -138,6 +138,10 @@ export const authOptions = {
 
         const dbUser = await getUserByEmail(token.email);
 
+        if (!dbUser) {
+          return null; // Force logout (deleted or disabled user)
+        }
+
         if (dbUser?.passwordChangedAt) {
           const changedAtS = Math.floor(
             new Date(dbUser.passwordChangedAt).getTime() / 1000,
