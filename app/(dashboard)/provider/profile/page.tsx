@@ -21,6 +21,7 @@ import {
 import { ProviderHeader } from "@/components/provider/provider-header";
 import { reportError } from "@/lib/client-error";
 import { unwrapApiData } from "@/lib/client-api";
+import { AccountDeletionZone } from "@/components/profile/account-deletion-zone";
 
 type Provider = {
   _id: string;
@@ -296,6 +297,9 @@ export default function ProviderProfilePage() {
               </div>
               <ReviewsList providerId={provider._id} />
             </div>
+
+            {/* 5. Danger Zone */}
+            <AccountDeletionZone apiEndpoint="/api/profile/provider" />
           </div>
 
           {/* Right Column - Contact Info (Static) */}
