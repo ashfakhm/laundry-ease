@@ -23,6 +23,7 @@ import {
   isStrongPassword,
   PASSWORD_POLICY_MESSAGE,
 } from "@/lib/auth/password-policy";
+import { AccountDeletionZone } from "@/components/profile/account-deletion-zone";
 
 const profileSchema = z
   .object({
@@ -490,6 +491,11 @@ export default function SeekerProfilePage() {
           </button>
         </div>
       </form>
+
+      {/* Danger Zone */}
+      <div className="pb-20">
+        <AccountDeletionZone apiEndpoint="/api/profile/seeker" />
+      </div>
     </main>
   );
 }
