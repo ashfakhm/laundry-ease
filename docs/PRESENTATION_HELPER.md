@@ -2380,6 +2380,10 @@ Use these points if you are asked about differences between the PRD and what is 
 
 ### Security & Hardening
 
+#### Q: How does Account Deletion work alongside the Escrow logic?
+**A:** We use a **soft-delete strategy**. If a user or provider deletes their account, we retain their historical data (past bookings, invoices) because the escrow ledger requires unbroken referential integrity. However, we scramble/hide their actual profile. They cannot access the app, and any active Socket.IO connections they have are immediately killed thanks to live DB checks during WebSocket handshakes. If they try to sign up again, the system seamlessly recycles the hidden account and reactivates them without showing a clunky 'Email already exists' error.
+
+
 - **CSP pipeline**: Content-Security-Policy in Report-Only mode with violation capture endpoint; enforce via `CSP_ENFORCE=true`
 - **Security headers**: HSTS (production), X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy
 - **Rate limiting**: MongoDB-backed per-IP with 3 tiers (default 1 min, strict 5 min, auth 15 min) and TTL auto-cleanup
