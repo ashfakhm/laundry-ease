@@ -28,6 +28,8 @@ export interface BaseUser {
   blocked_reason?: string;
   createdAt: Date;
   isDeleted?: boolean;
+  deletedAt?: Date;
+  deletedBy?: "self" | "admin";
 }
 
 export interface Seeker extends BaseUser {
