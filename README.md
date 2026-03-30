@@ -63,6 +63,12 @@ Picture LaundryEase as three linked tracks that move in lockstep: **Location**, 
 - **Reschedule without cancellation (booking-level)**
   Either side can request a pickup reschedule while pickup is still being negotiated. Reschedule creates an explicit booking state (`reschedule_requested`) and routes the booking back into the propose/confirm flow. The seeker dashboard shows who requested the reschedule, the reason, and the previously confirmed slot.
 
+- **Secure account self-deletion**
+  Both Seekers and Providers can securely "soft delete" their accounts via a password-protected Danger Zone. Blockers prevent deletion if active bookings, orders, or complaints exist. Deleted users are immediately disconnected from real-time WebSockets and their JWT sessions are explicitly invalidated to prevent zombie connections.
+
+- **Instant email re-availability**
+  A gracefully soft-deleted account frees up its email address immediately without destroying historical booking/order data. New signups perform an inline, asynchronous availability check that seamlessly authorises re-registration using the exact same email address securely.
+
 - **Custom confirmation dialogs (no native browser dialogs)**
   All user-facing confirmations (cancel booking, ban user, resolve complaint, settlement details) use styled in-app modals (`ConfirmDialog`, `SettlementSummaryModal`, `BanUserDialog`) instead of browser `alert()`/`confirm()`/`prompt()` calls. Keyboard accessible, dark-mode aware, animated with Framer Motion.
 
@@ -343,8 +349,10 @@ LaundryEase uses a **Socket.IO server** co-hosted with Next.js via a custom Node
 | Complaint chat | `complaint:<id>` | Seeker; provider (after admin grants access); admin |
 
 ### Security
+- **Account Soft-Deletion**: Self-service deletion with password confirmation, enforcing real-time Socket.IO session annihilation and clean re-signups.
 
 - **Signed login-token check** on every socket connection — validates the Auth.js session cookie via `getToken()`. Unauthenticated connections are rejected immediately.
+- **Database-verified transport** — The Socket server performs a mandatory `getUserById()` database lookup during connection handshakes to ensure the account hasn't been soft-deleted. Attempting to connect as a deleted user forcefully rejects the socket, eliminating "zombie" connections.
 - **Room authorization** (`lib/realtime/socket-auth.js`) — checks MongoDB to confirm the connecting user is a participant of the requested order/complaint room.
 - **Per-socket rate limiting** — 20 room-join events per 60-second window; excess joins are rejected with `rate_limited`.
 - **Complaint provider access gate** — providers can only join a complaint room after an admin explicitly grants access (`provider_access_granted = true`).
