@@ -7,6 +7,7 @@ import { AppError, ErrorCode } from "@/lib/api/errors";
 import { requireAdminWithDbCheck } from "@/lib/api/auth";
 import { z } from "zod";
 import { requireSameOrigin } from "@/lib/api/security";
+import { softDeleteAccount } from "@/lib/services/account-deletion";
 
 const deleteUserSchema = z.object({
   role: z.enum([Role.SEEKER, Role.PROVIDER]),
@@ -29,15 +30,8 @@ export async function DELETE(
     }
 
     const { role } = parsed.data;
-    const { db } = await getDb();
-    const collection = role === Role.PROVIDER ? "providers" : "seekers";
-    const result = await db
-      .collection(collection)
-      .updateOne(
-        { _id: new ObjectId(id) },
-        { $set: { isDeleted: true, deletedAt: new Date() } }
-      );
-    if (result.matchedCount === 1) {
+    const success = await softDeleteAccount(id, role as Role.SEEKER | Role.PROVIDER, "admin");
+    if (success) {
       return successResponse({
         success: true
       }, 200);
