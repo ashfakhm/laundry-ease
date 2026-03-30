@@ -56,6 +56,7 @@ export default function SeekerSignupPage() {
   // Client-side validation state
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [emailChecking, setEmailChecking] = useState(false);
 
   // Email validation
   const isValidEmail = (email: string) =>
@@ -73,15 +74,33 @@ export default function SeekerSignupPage() {
     form.password === form.confirmPassword && form.confirmPassword.length > 0;
 
   // Validate field on blur
-  function validateField(field: string, value: string) {
+  async function validateField(field: string, value: string) {
     const errors = { ...fieldErrors };
     switch (field) {
       case "email":
         if (value && !isValidEmail(value)) {
           errors.email = "Please enter a valid email address";
+        } else if (value) {
+          setEmailChecking(true);
+          try {
+            const { ok, data } = await postJSON("/api/signup/email-availability", {
+              email: value.toLowerCase(),
+              role: "seeker",
+            });
+            if (ok && !data.available) {
+              errors.email = data.message || "Email is not available";
+            } else {
+              delete errors.email;
+            }
+          } catch {
+            delete errors.email;
+          } finally {
+            setEmailChecking(false);
+          }
         } else {
           delete errors.email;
         }
+        setFieldErrors(errors);
         break;
       case "confirmPassword":
         if (value && value !== form.password) {
@@ -89,9 +108,9 @@ export default function SeekerSignupPage() {
         } else {
           delete errors.confirmPassword;
         }
+        setFieldErrors(errors);
         break;
     }
-    setFieldErrors(errors);
   }
   const [emailOtpSent, setEmailOtpSent] = useState<string | null>(null);
 
@@ -281,19 +300,26 @@ export default function SeekerSignupPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Email</label>
-                    <input
-                      type="email"
-                      className={`flex h-10 w-full rounded-lg border bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 ${
-                        fieldErrors.email
-                          ? "border-destructive"
-                          : "border-input"
-                      }`}
-                      placeholder="Enter Your Email"
-                      value={form.email}
-                      onChange={(e) => set("email", e.target.value)}
-                      onBlur={(e) => validateField("email", e.target.value)}
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type="email"
+                        className={`flex h-10 w-full rounded-lg border bg-background px-3 py-2 pr-10 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 ${
+                          fieldErrors.email
+                            ? "border-destructive"
+                            : "border-input"
+                        }`}
+                        placeholder="Enter Your Email"
+                        value={form.email}
+                        onChange={(e) => set("email", e.target.value)}
+                        onBlur={(e) => validateField("email", e.target.value)}
+                        required
+                      />
+                      {emailChecking && (
+                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                           <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+                         </div>
+                      )}
+                    </div>
                     {fieldErrors.email && (
                       <p className="text-xs text-destructive">
                         {fieldErrors.email}
