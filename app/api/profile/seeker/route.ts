@@ -12,6 +12,13 @@ import {
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { requireSameOrigin } from "@/lib/api/security";
 import { enqueueEmailOutboxJob } from "@/lib/email-outbox";
+import { z } from "zod";
+import { Role } from "@/types/enums";
+import { checkDeletionBlockers, softDeleteAccount } from "@/lib/services/account-deletion";
+
+const deleteProfileSchema = z.object({
+  currentPassword: z.string().optional(),
+});
 
 /**
  * GET /api/profile/seeker
@@ -170,6 +177,86 @@ export async function PUT(req: Request) {
     return successResponse({ message: "Profile updated successfully" });
   } catch (error) {
     logger.error("PROFILE", "Error updating seeker profile", error);
+    return errorResponse(error);
+  }
+}
+
+/**
+ * DELETE /api/profile/seeker
+ * Soft delete seeker's profile
+ */
+export async function DELETE(req: Request) {
+  try {
+    await requireSameOrigin(req);
+    const { user } = await requireSeeker();
+    if (!ObjectId.isValid(user.id)) {
+      throw new AppError(ErrorCode.UNAUTHORIZED, 401, "Unauthorized");
+    }
+
+    const { db } = await getDb();
+    const seekerId = new ObjectId(user.id);
+    
+    // Check if the user has a password set
+    const userDoc = await db
+      .collection("seekers")
+      .findOne({ _id: seekerId }, { projection: { passwordHash: 1 } });
+      
+    if (!userDoc) {
+      throw new AppError(ErrorCode.NOT_FOUND, 404, "Seeker not found");
+    }
+
+    // Require password confirmation only if user has a password set (not strictly OAuth)
+    if (userDoc.passwordHash) {
+      const json = await req.json().catch(() => ({}));
+      const parsed = deleteProfileSchema.safeParse(json);
+      
+      if (!parsed.success) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Invalid data",
+          parsed.error.flatten().fieldErrors,
+        );
+      }
+      
+      const { currentPassword } = parsed.data;
+      
+      if (!currentPassword) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          400,
+          "Current password is required to delete your account",
+        );
+      }
+      
+      const isMatch = await bcrypt.compare(currentPassword, userDoc.passwordHash);
+      if (!isMatch) {
+         throw new AppError(
+          ErrorCode.UNAUTHORIZED,
+          401,
+          "Incorrect current password",
+        );
+      }
+    }
+
+    const blockers = await checkDeletionBlockers(user.id, Role.SEEKER);
+    if (blockers.length > 0) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        409,
+        "Cannot delete account due to active items",
+        { blockers }
+      );
+    }
+    
+    const success = await softDeleteAccount(user.id, Role.SEEKER, "self");
+    if (!success) {
+      throw new AppError(ErrorCode.INTERNAL_ERROR, 500, "Failed to delete account");
+    }
+
+    return successResponse({ message: "Account successfully deleted" });
+  } catch (error) {
+    logger.error("PROFILE", "Error deleting seeker profile", error);
     return errorResponse(error);
   }
 }
