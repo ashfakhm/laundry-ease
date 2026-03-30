@@ -264,6 +264,7 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 
 #### 3.4.1 Functional Requirements
 
+- **Account Soft-Deletion & Recovery**: Users can request self-service account soft-deletion requiring password confirmation, which instantly snuffs out API access and WebSocket connections, yet preserves escrow/history. Re-registering with the same email smoothly reactivates the account structure.
 - **User Registration and Authentication:** Multi-step registration with email and phone OTP verification, Google OAuth support, password policy enforcement (minimum 8 characters, 1 uppercase, 1 number, 1 special character), and explicit acceptance of Terms and Conditions. 
 - **Role-Based Access Control:** Three distinct roles (seeker, provider, admin) with role-specific dashboards, API authorization, and data visibility rules.
 - **Location-Based Provider Discovery:** Geospatial search using customer coordinates to find providers within their defined service radius. Results include provider ratings, reviews, and service details.

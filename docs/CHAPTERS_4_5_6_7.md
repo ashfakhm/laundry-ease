@@ -5541,6 +5541,8 @@ export default logger;
 
 #### 7.5.14 Content Security Policy Builder (`lib/security/csp.ts`)
 
+- **Account Soft-Deletion**: Strict lifecycle management prevents 'zombie' sockets during deletion by querying live database status, and allows seamless re-signup.
+
 The CSP is constructed programmatically using a directive builder pattern. It whitelists only the exact domains needed (Razorpay checkout, Google Maps, Cloudinary) and conditionally injects `upgrade-insecure-requests` only in production to avoid breaking localhost development.
 
 ```typescript
