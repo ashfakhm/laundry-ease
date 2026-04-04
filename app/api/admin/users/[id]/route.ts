@@ -1,6 +1,5 @@
 import { successResponse, errorResponse } from "@/lib/api/response";
 import { NextRequest } from "next/server";
-import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { Role } from "@/types/enums";
 import { AppError, ErrorCode } from "@/lib/api/errors";
@@ -30,7 +29,7 @@ export async function DELETE(
     }
 
     const { role } = parsed.data;
-    const success = await softDeleteAccount(id, role as Role.SEEKER | Role.PROVIDER, "admin");
+    const success = await softDeleteAccount(id, role, "admin");
     if (success) {
       return successResponse({
         success: true

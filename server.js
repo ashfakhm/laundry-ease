@@ -257,7 +257,7 @@ async function bootstrap() {
   /* ---------- Connection handler ---------- */
 
   io.on("connection", (socket) => {
-    const userId = socket.data.user?._id || "unknown";
+    const userId = socket.data.user?.id || "unknown";
 
     /* ---- Order room join ---- */
     socket.on(

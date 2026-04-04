@@ -11,6 +11,24 @@ interface AccountDeletionZoneProps {
   apiEndpoint: string;
 }
 
+interface DeleteAccountResponse {
+  error?: {
+    message?: string;
+    details?: {
+      blockers?: string[];
+    };
+  };
+  message?: string;
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return "Failed to delete account";
+}
+
 export function AccountDeletionZone({ apiEndpoint }: AccountDeletionZoneProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
@@ -25,19 +43,20 @@ export function AccountDeletionZone({ apiEndpoint }: AccountDeletionZoneProps) {
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = (await res.json().catch(() => null)) as DeleteAccountResponse | null;
+        const blockers = err?.error?.details?.blockers;
         // Check for specific blockers
-        if (err.error?.details?.blockers) {
-          throw new Error(`Cannot delete account: ${err.error.details.blockers.join(", ")}`);
+        if (blockers) {
+          throw new Error(`Cannot delete account: ${blockers.join(", ")}`);
         }
-        throw new Error(err.error?.message || err.message || "Failed to delete account");
+        throw new Error(err?.error?.message || err?.message || "Failed to delete account");
       }
 
       toast.success("Account deleted successfully.");
       // The session should be invalidated now, prompt re-login or redirect via refresh
       window.location.href = "/login";
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete account");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
       throw error; // Let ConfirmDialog catch it and handle loading state
     }
   };

@@ -32,16 +32,34 @@ export function ProviderCancelBookingModal({
   onClose,
   onSubmit,
 }: ProviderCancelBookingModalProps) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <ProviderCancelBookingModalContent
+      loading={loading}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    />
+  );
+}
+
+interface ProviderCancelBookingModalContentProps {
+  loading: boolean;
+  onClose: () => void;
+  onSubmit: (reason: string) => void;
+}
+
+function ProviderCancelBookingModalContent({
+  loading,
+  onClose,
+  onSubmit,
+}: ProviderCancelBookingModalContentProps) {
   const [selectedReason, setSelectedReason] = useState("");
   const [customReason, setCustomReason] = useState("");
 
   useEffect(() => {
-    if (!open) {
-      setSelectedReason("");
-      setCustomReason("");
-      return;
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !loading) {
         onClose();
@@ -50,7 +68,7 @@ export function ProviderCancelBookingModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [loading, onClose, open]);
+  }, [loading, onClose]);
 
   const finalReason = useMemo(() => {
     if (selectedReason === "Other") {
@@ -59,10 +77,6 @@ export function ProviderCancelBookingModal({
 
     return selectedReason.trim();
   }, [customReason, selectedReason]);
-
-  if (!open) {
-    return null;
-  }
 
   const isOtherReason = selectedReason === "Other";
   const canSubmit = finalReason.length > 0;

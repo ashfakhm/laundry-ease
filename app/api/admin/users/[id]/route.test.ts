@@ -4,17 +4,26 @@ import { NextRequest } from "next/server";
 import { Role } from "@/types/enums";
 import { AppError, ErrorCode } from "@/lib/api/errors";
 
-const { mockRequireAdminWithDbCheck, mockGetDb } = vi.hoisted(() => ({
+const {
+  mockRequireAdminWithDbCheck,
+  mockRequireSameOrigin,
+  mockSoftDeleteAccount,
+} = vi.hoisted(() => ({
   mockRequireAdminWithDbCheck: vi.fn(),
-  mockGetDb: vi.fn(),
+  mockRequireSameOrigin: vi.fn(),
+  mockSoftDeleteAccount: vi.fn(),
 }));
 
 vi.mock("@/lib/api/auth", () => ({
   requireAdminWithDbCheck: mockRequireAdminWithDbCheck,
 }));
 
-vi.mock("@/lib/mongodb", () => ({
-  getDb: mockGetDb,
+vi.mock("@/lib/api/security", () => ({
+  requireSameOrigin: mockRequireSameOrigin,
+}));
+
+vi.mock("@/lib/services/account-deletion", () => ({
+  softDeleteAccount: mockSoftDeleteAccount,
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -26,16 +35,6 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { DELETE } from "./route";
-
-function makeDbMock() {
-  const updateOne = vi.fn();
-  const db = {
-    collection: vi.fn(() => ({
-      updateOne,
-    })),
-  };
-  return { db, updateOne };
-}
 
 function makeRequest(body: unknown) {
   return new NextRequest("https://laundryease.test/api/admin/users/123", {
@@ -56,7 +55,8 @@ describe("DELETE /api/admin/users/[id]", () => {
         email: "admin@laundryease.test",
       },
     });
-    mockGetDb.mockReset();
+    mockRequireSameOrigin.mockResolvedValue(undefined);
+    mockSoftDeleteAccount.mockReset();
   });
 
   afterEach(() => {
@@ -78,9 +78,7 @@ describe("DELETE /api/admin/users/[id]", () => {
   });
 
   it("returns 404 when user does not exist", async () => {
-    const dbMock = makeDbMock();
-    dbMock.updateOne.mockResolvedValue({ matchedCount: 0 });
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    mockSoftDeleteAccount.mockResolvedValue(false);
 
     const res = await DELETE(makeRequest({ role: Role.PROVIDER }), {
       params: Promise.resolve({ id: new ObjectId().toString() }),
@@ -93,9 +91,7 @@ describe("DELETE /api/admin/users/[id]", () => {
 
   it("returns 200 when delete succeeds", async () => {
     const userId = new ObjectId().toString();
-    const dbMock = makeDbMock();
-    dbMock.updateOne.mockResolvedValue({ matchedCount: 1 });
-    mockGetDb.mockResolvedValue({ db: dbMock.db });
+    mockSoftDeleteAccount.mockResolvedValue(true);
 
     const res = await DELETE(makeRequest({ role: Role.SEEKER }), {
       params: Promise.resolve({ id: userId }),
@@ -104,10 +100,10 @@ describe("DELETE /api/admin/users/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(data.ok).toBe(true);
-    expect(dbMock.db.collection).toHaveBeenCalledWith("seekers");
-    expect(dbMock.updateOne).toHaveBeenCalledWith(
-      { _id: expect.any(ObjectId) },
-      { $set: { isDeleted: true, deletedAt: expect.any(Date) } }
+    expect(mockSoftDeleteAccount).toHaveBeenCalledWith(
+      userId,
+      Role.SEEKER,
+      "admin",
     );
   });
 

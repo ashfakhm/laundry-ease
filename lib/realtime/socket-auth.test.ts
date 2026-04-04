@@ -6,7 +6,30 @@ import {
 } from "./socket-auth";
 
 describe("socket auth helpers", () => {
-  it("uses the token id and role when already canonical", async () => {
+  it("validates canonical token data against the DB", async () => {
+    const user = await resolveRealtimeUserFromToken(
+      {
+        id: "507f1f77bcf86cd799439011",
+        role: "seeker",
+        email: "seeker@laundryease.test",
+      },
+      {
+        findUserByEmail: async () => ({
+          _id: "507f1f77bcf86cd799439011",
+          email: "seeker@laundryease.test",
+          role: "seeker",
+        }),
+      },
+    );
+
+    expect(user).toEqual({
+      id: "507f1f77bcf86cd799439011",
+      role: "seeker",
+      email: "seeker@laundryease.test",
+    });
+  });
+
+  it("returns null when the token user no longer exists", async () => {
     const user = await resolveRealtimeUserFromToken(
       {
         id: "507f1f77bcf86cd799439011",
@@ -18,11 +41,7 @@ describe("socket auth helpers", () => {
       },
     );
 
-    expect(user).toEqual({
-      id: "507f1f77bcf86cd799439011",
-      role: "seeker",
-      email: "seeker@laundryease.test",
-    });
+    expect(user).toBeNull();
   });
 
   it("falls back to DB lookup when token metadata is incomplete", async () => {
