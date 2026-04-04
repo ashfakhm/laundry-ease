@@ -106,8 +106,8 @@ Tradeoff: the flow rejects "fast but fuzzy" transactions. It favors clarity over
 
 | Layer               | Technology                          | Purpose                                                    |
 | ------------------- | ----------------------------------- | ---------------------------------------------------------- |
-| **Framework**       | Next.js 16.2.0 (App Router)         | Full-stack React framework for pages and API routes        |
-| **Frontend**        | React 19.2.4 + TypeScript 5         | Type-safe modern UI with React Compiler                    |
+| **Framework**       | Next.js 16.2.2 (App Router)         | Full-stack React framework for pages and API routes        |
+| **Frontend**        | React 19.2.4 + TypeScript 6.0.2     | Type-safe modern UI with React Compiler                    |
 | **Styling**         | Tailwind CSS 4 + shadcn/ui (CLI v4) | Utility-first CSS + accessible components                  |
 | **Animations**      | Framer Motion                       | Smooth page and element animations                         |
 | **Database**        | MongoDB 7 (native driver)           | Flexible documents + location-based search                 |

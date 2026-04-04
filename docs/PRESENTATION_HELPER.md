@@ -89,8 +89,8 @@
 
 | Layer              | Technology                    | Why                                                                                      |
 | ------------------ | ----------------------------- | ---------------------------------------------------------------------------------------- |
-| **Framework**      | Next.js 16.2.1 (App Router)   | Full-stack, SSR, API routes                                                              |
-| **Frontend**       | React 19.2.4, TypeScript 5    | Type safety, modern features                                                             |
+| **Framework**      | Next.js 16.2.2 (App Router)   | Full-stack, SSR, API routes                                                              |
+| **Frontend**       | React 19.2.4, TypeScript 6.0.2 | Type safety, modern features                                                            |
 | **Styling**        | Tailwind CSS 4, shadcn/ui     | Fast development, same look everywhere                                                   |
 | **Animations**     | Framer Motion                 | Smooth, fast animations                                                                  |
 | **Database**       | MongoDB 7.1 (native driver)   | Flexible data structure, location queries                                                |

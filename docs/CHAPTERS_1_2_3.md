@@ -300,8 +300,8 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 | Component            | Technology                                      |
 | -------------------- | ----------------------------------------------- |
 | **IDE**              | Visual Studio Code                              |
-| **Framework**        | Next.js 16.2.0 (App Router)                     |
-| **Language**         | TypeScript 5                                    |
+| **Framework**        | Next.js 16.2.2 (App Router)                     |
+| **Language**         | TypeScript 6.0.2                                |
 | **Frontend**         | React 19.2.4                                    |
 | **Styling**          | Tailwind CSS 4.2.1 + shadcn/ui                  |
 | **UI Components**    | Radix UI primitives + Lucide React icons        |
@@ -369,8 +369,8 @@ The LaundryEase system provides a comprehensive interface for managing laundry s
 
 | Layer                   | Technology                        | Purpose                                                                                                                 |
 | ----------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **Framework**           | Next.js 16.2.0 (App Router)       | Full-stack React framework with SSR, SSG, and API routes                                                                |
-| **Frontend**            | React 19.2.4 + TypeScript 5       | Type-safe, component-driven user interface                                                                              |
+| **Framework**           | Next.js 16.2.2 (App Router)       | Full-stack React framework with SSR, SSG, and API routes                                                                |
+| **Frontend**            | React 19.2.4 + TypeScript 6.0.2   | Type-safe, component-driven user interface                                                                              |
 | **Styling**             | Tailwind CSS 4 + shadcn/ui        | Utility-first CSS with accessible component library                                                                     |
 | **Database**            | MongoDB 7.1 (native driver)       | Document-based NoSQL database with geospatial query support                                                             |
 | **Authentication**      | NextAuth v5 (Auth.js beta)        | Google OAuth + email/password credentials with JWT sessions                                                             |

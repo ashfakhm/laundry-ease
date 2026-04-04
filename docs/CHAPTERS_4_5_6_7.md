@@ -1285,7 +1285,7 @@ The codebase follows these coding principles:
 
 ### 5.2 Next.js and React Framework
 
-LaundryEase is built on **Next.js 16.2.0** with the **App Router** architecture and **React 19.2.4**.
+LaundryEase is built on **Next.js 16.2.2** with the **App Router** architecture and **React 19.2.4**.
 
 **Why Next.js was chosen:**
 
@@ -1351,7 +1351,7 @@ app/
 
 ### 5.3 TypeScript
 
-The entire LaundryEase codebase is written in **TypeScript 5**, a typed extension of JavaScript that catches errors during development instead of at runtime.
+The entire LaundryEase codebase is written in **TypeScript 6.0.2**, a typed extension of JavaScript that catches errors during development instead of at runtime.
 
 **How TypeScript is used in the project:**
 
