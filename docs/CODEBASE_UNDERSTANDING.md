@@ -1,10 +1,10 @@
 # LaundryEase - Complete Codebase Understanding
 
-**Last Updated:** 2026-04-04 (Rev 18)
+**Last Updated:** 2026-04-17 (Rev 19)
 
 ## Executive Summary
 
-LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.2.2, React 19.2.4, TypeScript 6.0.2, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, secure password reset with session invalidation, provider capacity management, and user ban enforcement. The current test suite passes with **616 tests across 116 unit test files** and 6 Playwright E2E specs, with only 2 justified `eslint-disable` comments in CommonJS files.
+LaundryEase is an escrow-backed laundry marketplace built with Next.js 16.2.4, React 19.2.5, TypeScript 6.0.3, and MongoDB 7.1. It connects seekers with laundry providers through a clear flow: find a provider by area, create a booking, inspect items, create an invoice, pay into escrow, track the order, confirm delivery with OTP, and release payout. The platform includes live chat for orders and complaints, split refund or payout decisions in complaints, system health monitoring, custom in-app confirmation dialogs, secure password reset with session invalidation, provider capacity management, and user ban enforcement. The current test suite passes with **628 tests across 119 test files** and 6 Playwright E2E specs, with only 2 justified `eslint-disable` comments in CommonJS files.
 
 ```mermaid
 graph LR
@@ -27,14 +27,14 @@ graph LR
 
 | Technology              | Version | Purpose                                     |
 | ----------------------- | ------- | ------------------------------------------- |
-| React                   | 19.2.4  | UI framework with React Compiler enabled    |
-| TypeScript              | 6.0.2   | Type safety across entire codebase          |
+| React                   | 19.2.5  | UI framework with React Compiler enabled    |
+| TypeScript              | 6.0.3   | Type safety across entire codebase          |
 | Tailwind CSS            | 4       | Utility-first styling                       |
 | shadcn/ui               | Latest  | Accessible component primitives (Radix UI)  |
 | Framer Motion           | 12.38.0 | Page and element animations                 |
 | React Hook Form         | 7.72.1  | Performant form state management            |
 | SWR                     | 2.4.1   | Client-side data fetching with revalidation |
-| Lucide React            | 1.7.0   | Icon library                                |
+| Lucide React            | 1.8.0   | Icon library                                |
 | next-themes             | 0.4.6   | Dark/light mode theming                     |
 | use-places-autocomplete | 4.0.1   | Google Places address autocomplete          |
 | @react-google-maps/api  | 2.20.8  | Google Maps integration                     |
@@ -43,24 +43,24 @@ graph LR
 
 | Technology               | Version               | Purpose                                           |
 | ------------------------ | --------------------- | ------------------------------------------------- |
-| Next.js                  | 16.2.2                | Full-stack framework (App Router, Server Actions) |
+| Next.js                  | 16.2.4                | Full-stack framework (App Router, Server Actions) |
 | MongoDB                  | 7.1.1 (native driver) | Document database with geospatial + transactions  |
-| Auth.js (`next-auth`)    | 5.0.0-beta.30         | Authentication (Google OAuth + credentials)       |
+| Auth.js (`next-auth`)    | 5.0.0-beta.31         | Authentication (Google OAuth + credentials)       |
 | Razorpay                 | 2.9.6                 | Payment capture, escrow, refunds                  |
 | RazorpayX                | —                     | Provider payouts (contacts + fund accounts)       |
 | Zod                      | 4.3.6                 | Runtime schema validation                         |
 | decimal.js               | 10.6.0                | Precise monetary calculations                     |
 | Pino                     | 10.3.1                | Structured logging with secret redaction          |
-| Nodemailer               | 8.0.4                 | Email delivery (SMTP)                             |
+| Nodemailer               | 8.0.5                 | Email delivery (SMTP)                             |
 | Twilio                   | 5.13.1                | SMS OTP delivery                                  |
 | Cloudinary               | 2.9.0                 | CDN-backed image uploads                          |
 | pdf-lib                  | 1.17.1                | Native PDF invoice generation                     |
 | bcrypt                   | 6.0.0                 | Password hashing                                  |
 | jose                     | 6.2.2                 | JWT operations                                    |
-| dd-trace                 | 5.94.0                | Datadog APM tracing                               |
+| dd-trace                 | 5.97.0                | Datadog APM tracing                               |
 | socket.io                | 4.8.3                 | Real-time WebSocket server                        |
 | socket.io-client         | 4.8.3                 | Real-time WebSocket client                        |
-| hot-shots                | 14.3.0                | DogStatsD metrics                                 |
+| hot-shots                | 14.3.1                | DogStatsD metrics                                 |
 | class-variance-authority | 0.7.1                 | Component variant management                      |
 | date-fns                 | 4.1.0                 | Date manipulation                                 |
 
@@ -68,13 +68,13 @@ graph LR
 
 | Technology            | Version | Purpose                     |
 | --------------------- | ------- | --------------------------- |
-| Vitest                | 4.1.2   | Unit test runner            |
-| shadcn                | 4.1.2   | UI component CLI            |
-| @vitest/coverage-v8   | 4.1.2   | Code coverage               |
+| Vitest                | 4.1.4   | Unit test runner            |
+| shadcn                | 4.3.0   | UI component CLI            |
+| @vitest/coverage-v8   | 4.1.4   | Code coverage               |
 | Playwright            | 1.59.1  | Browser E2E testing         |
 | mongodb-memory-server | 11.0.1  | In-memory MongoDB for tests |
 | ESLint                | 9.39.4  | Code linting                |
-| eslint-config-next    | 16.2.2  | Next.js-specific lint rules |
+| eslint-config-next    | 16.2.4  | Next.js-specific lint rules |
 
 ### Infrastructure & CI
 
