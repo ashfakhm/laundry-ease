@@ -99,7 +99,7 @@ export function ReviewModal({
               Details
             </label>
             <textarea
-              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-25 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               placeholder="How was the service? (Optional)"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
@@ -164,7 +164,6 @@ export function ComplaintModal({
       toast.error("At least one evidence photo is required");
       return;
     }
-
 
     setSubmitting(true);
     try {
@@ -256,7 +255,7 @@ export function ComplaintModal({
               Description
             </label>
             <textarea
-              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-destructive/20 transition-all"
+              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm min-h-25 outline-none focus:ring-2 focus:ring-destructive/20 transition-all"
               placeholder="Please describe the issue in detail..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
